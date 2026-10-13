@@ -15,5 +15,10 @@
   "geographyRecords": 46427,
   "hostedMigration": "PASS",
   "externalDatabaseAccess": "BLOCKED_AFTER_MAINTENANCE",
-  "deployment": "Awaiting CI and manual deploy; see hosted release evidence for final status"
+  "deployment": "LIVE: see execution/geography-live-release.json",
+  "finalBrowserRerun": {
+    "passed": 23,
+    "failed": 0,
+    "evidence": "execution/geography-web-tests.log"
+  }
 }

@@ -1,29 +1,29 @@
 {
-  "measuredAt": "2026-10-13T08:14:24.845Z",
+  "measuredAt": "2026-10-13T08:48:28.160Z",
   "assets": [
     {
-      "name": "AdditionalWorkspace-CADdNOiN.js",
+      "name": "AdditionalWorkspace-pah-AcT8.js",
       "rawBytes": 13924,
-      "gzipBytes": 4151,
+      "gzipBytes": 4152,
       "brotliBytes": 3524
     },
     {
-      "name": "AdminWorkspace-CgELfF4N.js",
-      "rawBytes": 16132,
-      "gzipBytes": 4462,
-      "brotliBytes": 3746
-    },
-    {
-      "name": "index-BDoknHII.js",
-      "rawBytes": 970729,
-      "gzipBytes": 138922,
-      "brotliBytes": 105225
+      "name": "AdminWorkspace-NoLDuCnl.js",
+      "rawBytes": 16142,
+      "gzipBytes": 4464,
+      "brotliBytes": 3748
     },
     {
       "name": "index-CWTtPelB.css",
       "rawBytes": 33281,
       "gzipBytes": 7581,
       "brotliBytes": 6668
+    },
+    {
+      "name": "index-D0f6sII4.js",
+      "rawBytes": 972389,
+      "gzipBytes": 139394,
+      "brotliBytes": 105694
     }
   ]
 }

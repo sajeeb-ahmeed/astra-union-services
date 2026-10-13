@@ -1,0 +1,72 @@
+{
+  "release": "0.3.0",
+  "status": "PASS_LIVE",
+  "commit": "6b949baa7738b038a60ef41c4c30f4a0f5e6acb3",
+  "publicUrl": "https://astra-union-services.onrender.com",
+  "ci": {
+    "url": "https://github.com/sajeeb-ahmeed/astra-union-services/actions/runs/38371905308",
+    "dockerBuild": "PASS",
+    "verification": "PASS",
+    "tests": {
+      "forms": 72,
+      "api": 47,
+      "web": 23,
+      "total": 142,
+      "failed": 0
+    },
+    "npmAuditVulnerabilities": 0
+  },
+  "deployment": {
+    "provider": "Render Free",
+    "serviceId": "srv-db6tvpou01pc73bjkpr0",
+    "deploymentId": "dep-db6v2g6k1f9s73bm31vg",
+    "commit": "6b949baa7738b038a60ef41c4c30f4a0f5e6acb3",
+    "startedAt": "2026-10-13T08:52:16Z",
+    "status": "LIVE",
+    "duration": "1m22s",
+    "observedAt": "2026-10-13T08:54:03.630Z"
+  },
+  "database": {
+    "migration": "010_bangladesh_geography.sql",
+    "records": 46427,
+    "status": "PASS",
+    "existingRecordsPreserved": true,
+    "externalInternetAccess": "BLOCKED"
+  },
+  "scopeLimits": [
+    "Community dataset is not an official current national register.",
+    "41,274 rural ward labels are derived; urban wards and surveyed boundaries are absent.",
+    "Certificates remain DEMO / NOT OFFICIAL; payments remain zero-money sandbox.",
+    "Render Free PostgreSQL expires on 12 November 2026."
+  ],
+  "recordedAt": "2026-10-13T08:56:17.445Z",
+  "liveChecks": {
+    "geography": {
+      "passed": 5,
+      "failed": 0,
+      "finishedAt": "2026-10-13T08:53:55.462Z"
+    },
+    "durability": {
+      "passed": 6,
+      "failed": 0,
+      "finishedAt": "2026-10-13T08:53:53.185Z"
+    },
+    "browser": {
+      "status": "PASS",
+      "evidence": "execution/geography-live-browser-qa.json"
+    }
+  },
+  "evidence": {
+    "ci": "execution/geography-ci-summary.log",
+    "migration": "execution/geography-hosted-migration.json",
+    "network": "execution/hosted-network-qa.json",
+    "geography": "execution/geography-hosted-qa.json",
+    "durability": "execution/hosted-redeploy-qa.json",
+    "browser": "execution/geography-live-browser-qa.json"
+  },
+  "previousGeographyDeployment": {
+    "commit": "f169fef0280a5d0789d50989bda120964663364d",
+    "deploymentId": "dep-db6usd6k1f9s73blg760",
+    "status": "SUPERSEDED_BY_TRANSLATION_COMPLETENESS_PATCH"
+  }
+}

@@ -1,0 +1,22 @@
+{
+  "status": "PASS",
+  "commit": "6b949baa7738b038a60ef41c4c30f4a0f5e6acb3",
+  "checkedAt": "2026-10-13T08:56:17.378Z",
+  "origin": "https://astra-union-services.onrender.com",
+  "assets": [
+    {
+      "path": "/assets/index-D0f6sII4.js",
+      "bytes": 972389,
+      "sha256": "39faf2e3e625a8ddf80f12471fbe85252308222cfb56f4c89e9a7facdcf17346",
+      "cacheControl": "public, max-age=31536000, immutable",
+      "contentEncoding": "gzip"
+    },
+    {
+      "path": "/assets/index-CWTtPelB.css",
+      "bytes": 33281,
+      "sha256": "f562ddc6676b1fbc00c887b59fb0f67c8e6cd47070fcc229225b1332615dfd74",
+      "cacheControl": "public, max-age=31536000, immutable",
+      "contentEncoding": "gzip"
+    }
+  ]
+}

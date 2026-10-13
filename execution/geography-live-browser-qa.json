@@ -1,0 +1,42 @@
+{
+  "status": "PASS",
+  "commit": "6b949baa7738b038a60ef41c4c30f4a0f5e6acb3",
+  "deploymentId": "dep-db6v2g6k1f9s73bm31vg",
+  "baseUrl": "https://astra-union-services.onrender.com",
+  "checkedAt": "2026-10-13T08:56:05.105Z",
+  "checks": {
+    "englishAndBanglaHomepage": true,
+    "registrationCascade": [
+      "ঢাকা",
+      "ঢাকা",
+      "সাভার",
+      "আশুলিয়া ইউনিয়ন",
+      "ওয়ার্ড নং ৩"
+    ],
+    "selectedGeographyRetainedAcrossLanguageChange": true,
+    "draftDisplayNameRetained": true,
+    "languageAfterReload": "bn",
+    "mobileViewport": {
+      "documentWidth": 375,
+      "height": 844,
+      "lang": "bn",
+      "width": 390
+    },
+    "noOverallMobileHorizontalOverflow": true,
+    "explicitPreviewOfficeFallback": true,
+    "ownerSignInAndSignOut": true,
+    "ownerMetricTranslated": "অফিসসমূহ",
+    "tenantNamesUseSelectedLanguage": true,
+    "consoleErrorsAndWarnings": []
+  },
+  "mutationScope": "Existing owner login/logout sessions only; no new citizen, office, application, ledger or certificate records created.",
+  "screenshots": [
+    "geography-live-home-en.png",
+    "geography-live-home-bn.png",
+    "geography-live-register-bn.png",
+    "geography-live-register-mobile.png",
+    "geography-live-owner-bn.png",
+    "geography-render-deployed.png"
+  ],
+  "limits": "Representative public and owner browser inspection; other roles/routes covered by CI and local 51 layout observations. Browser password-manager autofill is independent of application state."
+}

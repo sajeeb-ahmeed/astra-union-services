@@ -8,33 +8,38 @@ Updated 13 October 2026. Astra remains a synthetic DEMO application: certificate
 | --- | --- |
 | Source repository | [sajeeb-ahmeed/astra-union-services](https://github.com/sajeeb-ahmeed/astra-union-services), public with the owner's explicit approval |
 | Deployment branch | `codex/initial-deployment` |
-| Final release CI | [Astra verification run 38364753145](https://github.com/sajeeb-ahmeed/astra-union-services/actions/runs/38364753145): application verification and Docker build both passed |
-| Deployed release commit | `a398af0fe7fb0805d5077f522ebf98a9102dbf43` |
-| Automated CI tests | **129 passed**: 72 form tests, 40 API/security tests, 17 web tests; zero failures |
+| Final release CI | [Astra verification run 38371905308](https://github.com/sajeeb-ahmeed/astra-union-services/actions/runs/38371905308): application verification and Docker build both passed |
+| Deployed release commit | `6b949baa7738b038a60ef41c4c30f4a0f5e6acb3` |
+| Automated CI tests | **142 passed**: 72 form tests, 47 API/security tests, 23 web tests; zero failures |
 | Dependency audit | Zero reported vulnerabilities in the final CI run |
 | Hosted database | Render Free PostgreSQL 17, Singapore; initialized and connection/privilege checks passed |
 | Database expiry | **12 November 2026** according to the provisioned Free database |
 | Web service | Live as `srv-db6tvpou01pc73bjkpr0` |
-| Current deployment | `dep-db6u4dnf3r2c73chvk5g` succeeded, deploying the final release commit above |
+| Current deployment | `dep-db6v2g6k1f9s73bm31vg` succeeded, deploying the final release commit above |
 | Web resources | Singapore, Free instance: 0.1 CPU and 512 MB RAM |
 | Deployment trigger | Public Git repository URL; Auto-Deploy explicitly Off |
 | Public URL | [astra-union-services.onrender.com](https://astra-union-services.onrender.com), live |
 | Health check | `/api/v1/health` returned HTTP 200 with `database: PostgreSQL` and `mode: DEMO_ONLY` |
 | Initial hosted workflow | **15 of 15 groups passed** on commit `72acccd5329e76bd29834eac39835adbab869c5b`, zero failures, at 07:43 UTC on 13 October 2026 |
 | Final release durability | **6 of 6 readback groups passed** after the final deployment, with existing records and PDF bytes unchanged |
-| Browser checks | Desktop/mobile smoke checks and final login/logout credential-clearing regression passed |
+| Browser checks | English/Bangla public UI, registration cascade, retained draft name, language persistence, owner workspace and mobile layout verified |
+| Hosted geography | **5 of 5 groups passed**: source counts/names, parents, all eight division paths, invalid parents, coverage gap and office filters |
 
 The repository and new Astra hosting resources are the deployment scope. Existing unrelated services are outside this scope.
 
-The final CI and Render release metadata are recorded in [hosted CI evidence](../execution/hosted-ci-qa.json).
+Release 0.3 CI, Render and live verification metadata are recorded in [current release evidence](../execution/geography-live-release.json). The [earlier hosted CI evidence](../execution/hosted-ci-qa.json) records the preceding release.
 
 ## Build validation
 
 The first Render Docker build failed because the Dockerfile attempted to copy a nonexistent `apps/api/package.json`. API dependencies are managed by the root workspace package. Commit `72acccd5329e76bd29834eac39835adbab869c5b` removes that invalid copy instruction. Its replacement deployment succeeded and the public API health check passed.
 
-Commit `121a5960e286f430c6e68a356a81e1b2df224534` added a separate Docker build job to GitHub CI, so later CI runs check the container recipe as well as the application tests. The final deployed commit `a398af0fe7fb0805d5077f522ebf98a9102dbf43` passed both jobs and also contains the verified logout credential-clearing correction.
+Commit `121a5960e286f430c6e68a356a81e1b2df224534` added a separate Docker build job to GitHub CI, so later CI runs check the container recipe as well as the application tests. The preceding release `a398af0fe7fb0805d5077f522ebf98a9102dbf43` passed both jobs and contains the logout credential-clearing correction inherited by release 0.3.
 
 ## Database initialization and isolation
+
+Release 0.3 migration `010_bangladesh_geography.sql` imported the supplied **46,427 geography records** on 13 October 2026 through a certificate-verified TLS connection. Before and after counts remained two offices, seven users and one certificate. The restricted application role can read the reference tables but cannot modify them; an unscoped citizen query returned zero rows, and replaying the migration made no changes. See [migration evidence](../execution/geography-hosted-migration.json).
+
+The authorized single-host maintenance rule was removed immediately afterward. At `2026-10-13T08:31:32.454Z`, a new external database connection was blocked while the public application's internal connection remained healthy. See [network evidence](../execution/hosted-network-qa.json) and [private database setting](../execution/geography-database-private.png).
 
 The hosted database was initialized through a certificate-verified external TLS connection. At initialization it contained one unique owner account, zero offices, the 47-service catalog, and eight applied migrations. These are initialization counts, not a permanent expectation after onboarding or QA.
 
@@ -42,7 +47,7 @@ The migration account is neither a PostgreSQL superuser nor a role with `BYPASSR
 
 Migration `009_managed_public_read.sql` supports managed PostgreSQL without removing forced row-level security. It adds SELECT policies for the exact migration owner on only the four tables used by bounded public verification, tracking, notice, and recovery functions. The application role cannot be or inherit that owner. Existing tenant policies remain in place.
 
-An isolated local regression executed these migrations with a non-superuser, non-bypass migration owner. Nine grouped checks passed, including public-function filtering, denied unscoped and cross-tenant reads/writes, denied owner-role assumption, protected wallet updates, and the ledger lock/trigger. See [managed PostgreSQL regression evidence](../execution/managed-postgres-qa.json).
+An isolated local regression executed these migrations with a non-superuser, non-bypass migration owner. Ten grouped checks passed, including public-function filtering, denied unscoped and cross-tenant reads/writes, denied owner-role assumption, protected wallet updates, the ledger lock/trigger, and read-only geography access. See [managed PostgreSQL regression evidence](../execution/managed-postgres-qa.json).
 
 After setup, the new Astra database's external inbound IP allowlist was closed. Render settings showed that all internet traffic was blocked; a fresh external database connection failed while the live application's health check remained HTTP 200 through its internal database connection. See [hosted network evidence](../execution/hosted-network-qa.json). This change applies only to the new Astra database.
 
@@ -104,9 +109,19 @@ The live run completed at `2026-10-13T07:43:01.051Z`; these results establish th
 
 Separate browser inspection passed for the desktop homepage and a 390 by 844 mobile viewport, including catalog search and service details without overall horizontal overflow. Owner sign-in displayed the two QA offices and their 24/0 credit balances, and logout completed. The actual QR URL displayed only public certificate metadata and the DEMO notice. Browser error and warning logs were empty. Evidence: [browser check report](../execution/hosted-browser-qa.json), [desktop homepage](../execution/hosted-home-desktop.png), [mobile homepage](../execution/hosted-home-mobile.png), [mobile service details](../execution/hosted-service-mobile.png), [owner workspace](../execution/hosted-owner-workspace.png), and [public verification](../execution/hosted-public-verification.png).
 
-The initial inspection found a masked password value remaining in React state after logout. The final release clears both sign-in fields on logout. Browser testing performed login and logout without navigation on deployment `dep-db6u4dnf3r2c73chvk5g` and confirmed `emailEmpty=true` and `passwordEmpty=true`, with no warning or error logs. Earlier screenshots document the original smoke inspection; the browser report separately identifies the final regression and its verified commit.
+The initial inspection found a masked password value remaining in React state after logout. The preceding release corrected this and clears both sign-in fields on logout. Browser testing performed login and logout without navigation on deployment `dep-db6u4dnf3r2c73chvk5g` and confirmed `emailEmpty=true` and `passwordEmpty=true`, with no warning or error logs. Those screenshots document the preceding release. A browser password manager may independently refill a login form; the application does not control that user preference.
 
-[The readback runner](../scripts/verify-hosted-readback.ts) then passed all six groups against the final release at `2026-10-13T07:50:00.324Z`. It created only login/logout sessions and did not create additional offices or modify existing domain records. The same application remained issued with five audit transitions, the same certificate persisted, the wallet retained 24 credits and one issuance debit of minus three, and the downloaded PDF retained the identical SHA-256 above. Public verification/tracking remained minimal. See [final release readback evidence](../execution/hosted-redeploy-qa.json).
+[The readback runner](../scripts/verify-hosted-readback.ts) passed all six groups again on release 0.3 at `2026-10-13T08:53:53.185Z`. Only login/logout session state changed. The same application, certificate and five audit transitions persisted; the wallet remained at 24 credits with one issuance debit of minus three; the PDF retained the identical SHA-256 above. Public verification/tracking remained minimal. See [current durability evidence](../execution/hosted-redeploy-qa.json).
+
+## Release 0.3 geography and interface verification
+
+The deployed geography API passed all five [read-only hosted groups](../execution/geography-hosted-qa.json) at `2026-10-13T08:53:55.462Z`. Counts match the supplied 8 divisions, 64 districts, 495 upazilas, 4,586 unions and 41,274 derived wards. All eight divisions and all 64 districts were compared to source names and parents; a complete district/upazila/union/ward route was checked in each division. This is representative hosted route coverage, not an exhaustive request for every row. Missing, wrong-level and unknown parents were rejected, Shaistaganj remained an explicit empty coverage gap, and geography filters did not invent participating offices.
+
+Browser inspection verified the minimal English/Bangla public interface, persisted language after reload, a Dhaka → Dhaka → Savar → Ashulia → Ward 3 cascade, retained selected geography and a draft display name across language changes, and the explicit preview-office fallback. The 390 × 844 registration viewport had no overall horizontal overflow. Owner login, translated navigation and management controls, and sign-out were exercised. Final checks confirmed translated owner metrics and bilingual office names. See [browser evidence](../execution/geography-live-browser-qa.json), [Bangla homepage](../execution/geography-live-home-bn.png), [mobile registration](../execution/geography-live-register-mobile.png) and [deployed Render release](../execution/geography-render-deployed.png).
+
+The final UI patch covers conditional labels, workflow event/order names, fallback labels, translated accessibility prefixes and locale-aware tenant names. It passed the 23-test browser suite locally and the full 142-test CI suite. The deployed entry JavaScript and CSS were also downloaded and matched byte-for-byte against the tested local production build; see [asset verification](../execution/geography-live-assets.json). Source-coverage checks include direct labels, conditional branches and fallback strings. Arbitrary entered data and unknown server diagnostics are not machine-translated; numeric identifiers remain canonical. See [language guide](LANGUAGE_AND_UI.md).
+
+The supplied dataset is community MIT data, not an official current national register; ward labels are derived, and urban wards/boundaries are absent. Legacy QA offices remain explicitly unmapped preview offices. Participating real offices require deliberate enrollment and jurisdiction mapping. See [geography integration](GEOGRAPHY_INTEGRATION.md).
 
 ## Owner handoff
 

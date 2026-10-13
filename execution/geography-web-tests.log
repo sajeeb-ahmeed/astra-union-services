@@ -3,39 +3,39 @@
 > tsx scripts/test-web.ts
 
 
-  VITE v7.3.7  ready in 268 ms
+  VITE v7.3.7  ready in 286 ms
 
   ➜  Local:   http://127.0.0.1:5173/
-2:34:56 PM [vite] http proxy error: /api/v1/health
+2:48:29 PM [vite] http proxy error: /api/v1/health
 Error: connect ECONNREFUSED 127.0.0.1:3001
     at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1706:16)
-2:34:56 PM [vite] http proxy error: /api/v1/health
+2:48:29 PM [vite] http proxy error: /api/v1/health
 Error: connect ECONNREFUSED 127.0.0.1:3001
     at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1706:16)
 Astra DEMO server on http://127.0.0.1:3001; PostgreSQL; official issuance disabled.
-✔ browser: citizen → staff visibility → correction → authorized approval → real PDF/QR → exactly-once debit (5000.1253ms)
-✔ browser: family/trade conditional validation, real private upload, finance settlement and mobile keyboard layout (2400.1948ms)
-✔ browser: staff citizen registration and owner compensating adjustments persist with role boundaries (2431.8188ms)
-✔ expanded browser: public 47-service discovery, retained directory pagination, help, feedback and newsletter persistence (2565.8801ms)
-✔ expanded browser: owner onboarding, staff/service administration, explicit authorization and public notice controls (4324.2941ms)
-✔ expanded browser: synthetic self-registration, new catalog application and secure password change (2853.6574ms)
-✔ expanded browser: trade renewal links a real issued source without charging, and public application tracking remains minimal (3458.302ms)
-✔ FOR-01: actual React renderer renders all 47 captured service entries and all 48 initial form sections (86.1129ms)
-✔ operational labels switch languages and private upload accept rules render from the shared profile (13.9536ms)
-✔ nested family member rows expose local conditional guardian only for a minor (5.1223ms)
-✔ checkboxes use strict boolean semantics: false remains unchecked, true checks the declaration (7.7423ms)
-✔ conditional trade previous-license control is hidden until selected and has an associated label (11.4761ms)
-✔ field errors link bilingual error content to the exact nested input (4.0885ms)
-✔ repeatable group errors are focusable and programmatically linked to their fieldset (1.6061ms)
-✔ disabled application controls include nested add/remove and upload actions (2.4251ms)
-✔ language source: displayed literal translations cover all six public/workspace components (76.1677ms)
-✔ geography source: checksums, strict UTF-8/NFC, unique IDs, typed parents and all derived wards (880.569ms)
-✔ geography browser: mobile cascade uses parent IDs, clears descendants and handles a source coverage gap (1290.5802ms)
-✔ geography browser: failed child lookup exposes retry and a retry retrieves real districts (1116.2917ms)
-✔ geography browser: mobile registration stores selected geography and server-generated reference (1685.5683ms)
-✔ language browser: preference persists across public pages and authenticated workspace (2449.0437ms)
-✔ portal browser: responsive profile, searchable applicant and biodata/holding/witness private PDF copies (3071.804ms)
-✔ portal browser: finance filters actual reports and downloads private CSV/PDF (2733.2484ms)
+✔ browser: citizen → staff visibility → correction → authorized approval → real PDF/QR → exactly-once debit (5020.4504ms)
+✔ browser: family/trade conditional validation, real private upload, finance settlement and mobile keyboard layout (2456.7491ms)
+✔ browser: staff citizen registration and owner compensating adjustments persist with role boundaries (2493.6501ms)
+✔ expanded browser: public 47-service discovery, retained directory pagination, help, feedback and newsletter persistence (2436.9214ms)
+✔ expanded browser: owner onboarding, staff/service administration, explicit authorization and public notice controls (4753.648ms)
+✔ expanded browser: synthetic self-registration, new catalog application and secure password change (2656.8603ms)
+✔ expanded browser: trade renewal links a real issued source without charging, and public application tracking remains minimal (3466.9631ms)
+✔ FOR-01: actual React renderer renders all 47 captured service entries and all 48 initial form sections (83.0028ms)
+✔ operational labels switch languages and private upload accept rules render from the shared profile (13.1265ms)
+✔ nested family member rows expose local conditional guardian only for a minor (4.5446ms)
+✔ checkboxes use strict boolean semantics: false remains unchecked, true checks the declaration (7.8151ms)
+✔ conditional trade previous-license control is hidden until selected and has an associated label (9.9558ms)
+✔ field errors link bilingual error content to the exact nested input (3.9315ms)
+✔ repeatable group errors are focusable and programmatically linked to their fieldset (1.6138ms)
+✔ disabled application controls include nested add/remove and upload actions (2.2739ms)
+✔ language source: displayed literal translations cover all six public/workspace components (69.5868ms)
+✔ geography source: checksums, strict UTF-8/NFC, unique IDs, typed parents and all derived wards (751.3186ms)
+✔ geography browser: mobile cascade uses parent IDs, clears descendants and handles a source coverage gap (1206.3312ms)
+✔ geography browser: failed child lookup exposes retry and a retry retrieves real districts (749.292ms)
+✔ geography browser: mobile registration stores selected geography and server-generated reference (1575.6426ms)
+✔ language browser: preference persists across public pages and authenticated workspace (2016.4181ms)
+✔ portal browser: responsive profile, searchable applicant and biodata/holding/witness private PDF copies (2896.2391ms)
+✔ portal browser: finance filters actual reports and downloads private CSV/PDF (2617.8575ms)
 ℹ tests 23
 ℹ suites 0
 ℹ pass 23
@@ -43,4 +43,4 @@ Astra DEMO server on http://127.0.0.1:3001; PostgreSQL; official issuance disabl
 ℹ cancelled 0
 ℹ skipped 0
 ℹ todo 0
-ℹ duration_ms 39460.7293
+ℹ duration_ms 38131.6735

@@ -1,0 +1,163 @@
+{
+  "baseUrl": "https://astra-union-services.onrender.com",
+  "status": "PASS",
+  "startedAt": "2026-10-13T08:53:50.971Z",
+  "mutationScope": "None: all remote requests are unauthenticated GETs.",
+  "checks": [
+    {
+      "name": "01 Metadata preserves counts and truthful data scope",
+      "status": "PASS",
+      "evidence": {
+        "counts": {
+          "wards": 41274,
+          "unions": 4586,
+          "upazilas": 495,
+          "districts": 64,
+          "divisions": 8
+        },
+        "source": "User supplied Bangladesh Administrative Geography Dataset; derived from bangladesh-geo-data 4.0.9",
+        "license": "MIT",
+        "coverage": "Division → district → upazila → rural union → derived rural ward",
+        "datasetId": "bangladesh-geo-data-4.0.9-rural-2026-07-19",
+        "sourceUrl": "https://github.com/shodorsonnath/bangladesh-geo-data",
+        "fileSha256": {
+          "wards.json": "b83239fa631618404ecdd4a7c34df6507c5a68f1ce91d154ee2ea19138456c8a",
+          "unions.json": "80664b1a45b865d03013b760bd3aabd653e5c71cc33d24e8214192a5a7ae49a5",
+          "upazilas.json": "d88126d4862bcab11915903b58f2d78a644c2d61cb8835fbcb5550165ffeaebd",
+          "districts.json": "8ee180d77ea24161cd9b0fa1ad669f3d554772f2424ad535882fe43097fe3622",
+          "divisions.json": "7cd85edac040eac2d66a692be3c709ee74d35f43eaa1701a62a679e7275c79b8"
+        },
+        "sourceDate": "2026-07-19",
+        "limitations": [
+          "Community dataset identifiers are not official BBS geocodes.",
+          "All 41,274 rural ward records are derived as wards 1–9 per union; individual ward boundaries were not surveyed.",
+          "City corporation and municipality wards are excluded.",
+          "Missing or outdated source records are not invented; this dataset is not an authoritative current national register.",
+          "A geographic location does not imply a participating or government-authorized service office."
+        ],
+        "wardsDerived": true,
+        "upazilasWithoutUnions": [
+          {
+            "code": "upa-388",
+            "nameBn": "শায়েস্তাগঞ্জ",
+            "nameEn": "Shaistaganj"
+          }
+        ],
+        "identifiersAreOfficial": false
+      },
+      "durationMs": 274
+    },
+    {
+      "name": "02 Eight divisions and all 64 districts match supplied bilingual records",
+      "status": "PASS",
+      "evidence": {
+        "divisions": 8,
+        "districts": 64,
+        "namesAndParentsMatchSource": true,
+        "cacheControl": "public, max-age=3600"
+      },
+      "durationMs": 1545
+    },
+    {
+      "name": "03 Full parent-filtered route in each division returns exact source children",
+      "status": "PASS",
+      "evidence": {
+        "paths": [
+          {
+            "divisionCode": "div-01",
+            "districtCode": "dis-01",
+            "upazilaCode": "upa-001",
+            "unionCode": "uni-3283",
+            "wards": 9
+          },
+          {
+            "divisionCode": "div-02",
+            "districtCode": "dis-14",
+            "upazilaCode": "upa-185",
+            "unionCode": "uni-0920",
+            "wards": 9
+          },
+          {
+            "divisionCode": "div-03",
+            "districtCode": "dis-41",
+            "upazilaCode": "upa-210",
+            "unionCode": "uni-1106",
+            "wards": 9
+          },
+          {
+            "divisionCode": "div-04",
+            "districtCode": "dis-31",
+            "upazilaCode": "upa-303",
+            "unionCode": "uni-1945",
+            "wards": 9
+          },
+          {
+            "divisionCode": "div-05",
+            "districtCode": "dis-25",
+            "upazilaCode": "upa-354",
+            "unionCode": "uni-2393",
+            "wards": 9
+          },
+          {
+            "divisionCode": "div-06",
+            "districtCode": "dis-57",
+            "upazilaCode": "upa-380",
+            "unionCode": "uni-2608",
+            "wards": 9
+          },
+          {
+            "divisionCode": "div-07",
+            "districtCode": "dis-49",
+            "upazilaCode": "upa-406",
+            "unionCode": "uni-3692",
+            "wards": 9
+          },
+          {
+            "divisionCode": "div-08",
+            "districtCode": "dis-61",
+            "upazilaCode": "upa-477",
+            "unionCode": "uni-4387",
+            "wards": 9
+          }
+        ],
+        "sampledDivisionCoverage": "8/8",
+        "scope": "Representative complete paths, not exhaustive validation of every hosted row."
+      },
+      "durationMs": 1960
+    },
+    {
+      "name": "04 Missing, wrong-level and unknown parents are rejected; coverage gap remains empty",
+      "status": "PASS",
+      "evidence": {
+        "missingParent": 400,
+        "wrongLevelParent": 404,
+        "nonexistentParent": 404,
+        "shaistaganjUnionCount": 0
+      },
+      "durationMs": 547
+    },
+    {
+      "name": "05 Directory code filter does not invent a participating office for a geography record",
+      "status": "PASS",
+      "evidence": {
+        "filters": [
+          {
+            "divisionCode": "div-01",
+            "matchingOfficesOnPage": 0,
+            "total": 0
+          },
+          {
+            "divisionCode": "div-06",
+            "matchingOfficesOnPage": 0,
+            "total": 0
+          }
+        ],
+        "explicitOfficeEnrollmentRequired": true
+      },
+      "durationMs": 159
+    }
+  ],
+  "finishedAt": "2026-10-13T08:53:55.462Z",
+  "passed": 5,
+  "failed": 0
+}
