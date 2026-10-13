@@ -33,6 +33,7 @@ test("language source: displayed literal translations cover all six public/works
     if (ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node)) return [node.text];
     if (ts.isConditionalExpression(node)) return [...displayLiterals(node.whenTrue), ...displayLiterals(node.whenFalse)];
     if (ts.isArrayLiteralExpression(node)) return node.elements.flatMap(displayLiterals);
+    if (ts.isBinaryExpression(node) && [ts.SyntaxKind.BarBarToken, ts.SyntaxKind.QuestionQuestionToken].includes(node.operatorToken.kind)) return [...displayLiterals(node.left), ...displayLiterals(node.right)];
     return [];
   }
   for (const filename of ["main", "AdditionalWorkspace", "DynamicForm", "PublicPortal", "AdminWorkspace", "GeographyFields"]) {
@@ -57,6 +58,10 @@ test("language source: displayed literal translations cover all six public/works
     visit(file);
   }
   assert.ok(checked > 300, "Expected display text across all six components.");
+  // API event/order identifiers are rendered as labels, but must remain canonical in requests.
+  for (const value of ["create", "edit", "submit", "review", "request_correction", "resubmit", "approve", "reject", "cancel", "issue", "revoke", "renew", "topup", "subscription"]) {
+    if (!/[\u0980-\u09ff]/.test(dictionaries.bn[value] ?? "")) missing.push(`Missing Bengali workflow label: ${value}`);
+  }
   assert.deepEqual(missing, []);
 });
 

@@ -385,7 +385,7 @@ export function AdminWorkspace() {
                           </td>
                           <td>
                             <select
-                              aria-label={t(`Role for ${u.email}`)}
+                              aria-label={`${t("Role for")} ${u.email}`}
                               value={u.role}
                               disabled={u.role === "citizen" || busy}
                               onChange={(e) =>
@@ -512,7 +512,7 @@ export function AdminWorkspace() {
                               }}
                             >
                               <input
-                                aria-label={t(`Credit cost for service ${no}`)}
+                                aria-label={`${t("Credit cost for service")} ${no}`}
                                 type="number"
                                 name="creditCost"
                                 min={1}

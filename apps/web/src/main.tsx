@@ -489,16 +489,11 @@ function App() {
         </a>
         <p className="office">
           {tx(
-            session.tenant?.nameBn ||
-              session.tenant?.name_bn ||
-              session.tenant?.name ||
-              "Platform owner",
+            recordName(session.tenant) || "Platform owner",
           )}
           <small>
             {tx(
-              session.tenant?.nameEn ||
-                session.tenant?.name_en ||
-                "Independent SaaS platform",
+              session.tenant ? "Office workspace" : "Independent SaaS platform",
             )}
           </small>
         </p>
@@ -1692,9 +1687,7 @@ function App() {
                   <div className="tenant-card" key={officeTenant.id}>
                     <h3>
                       {tx(
-                        officeTenant.nameEn ||
-                          officeTenant.name_en ||
-                          officeTenant.name,
+                        recordName(officeTenant),
                       )}
                     </h3>
                     <p>
