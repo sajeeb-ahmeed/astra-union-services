@@ -27,6 +27,13 @@ import { generatePdf, DEMO_TEMPLATE_VERSION } from "./pdf.js";
 import { publicManagementRouter, managementRouter } from "./management.js";
 import { publicToolsRouter, protectedToolsRouter } from "./portal-tools.js";
 import { httpHardening } from "./http-hardening.js";
+import {
+  geographyRouter,
+  geographyInput,
+  geographyValues,
+  validateGeography,
+  validateOfficeJurisdiction,
+} from "./geography.js";
 export type Auth = {
   userId: string;
   email: string;
@@ -300,6 +307,7 @@ app.post(
 );
 app.use(express.json({ limit: "3mb" }));
 app.use("/api/v1", publicManagementRouter);
+app.use("/api/v1", geographyRouter);
 app.use("/api/v1", publicToolsRouter);
 app.get(
   "/api/v1/health",
@@ -548,11 +556,28 @@ app.post(
           ),
         addressBn: z.string().min(4).max(500),
         addressEn: z.string().min(4).max(500),
-        syntheticReference: z.string().regex(/^DEMO-[A-Za-z0-9-]{3,50}$/),
+        syntheticReference: z
+          .string()
+          .regex(/^DEMO-[A-Za-z0-9-]{3,50}$/)
+          .optional(),
+        geography: geographyInput.optional(),
       })
       .strict()
       .parse(req.body);
     const item = await transaction(tenant(req), async (db) => {
+      const office = (
+        await db.query("SELECT * FROM tenants WHERE id=$1", [a.tenantId])
+      ).rows[0];
+      if (office.division_code && !data.geography)
+        fail(
+          400,
+          "GEOGRAPHY_REQUIRED",
+          "Select an address hierarchy for this participating office.",
+        );
+      if (data.geography) {
+        await validateGeography(db, data.geography, "citizen");
+        validateOfficeJurisdiction(office, data.geography);
+      }
       if (
         a.role === "citizen" &&
         (await db.query("SELECT 1 FROM citizens WHERE user_id=$1", [a.userId]))
@@ -561,7 +586,7 @@ app.post(
         fail(409, "PROFILE_EXISTS", "This demo account already has a profile.");
       const r = (
         await db.query(
-          "INSERT INTO citizens(tenant_id,user_id,full_name_bn,full_name_en,date_of_birth,address_bn,address_en,synthetic_reference) VALUES($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *",
+          "INSERT INTO citizens(tenant_id,user_id,full_name_bn,full_name_en,date_of_birth,address_bn,address_en,synthetic_reference,division_code,district_code,upazila_code,union_code,ward_code) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) RETURNING *",
           [
             a.tenantId,
             a.role === "citizen" ? a.userId : null,
@@ -570,7 +595,8 @@ app.post(
             data.dateOfBirth,
             data.addressBn,
             data.addressEn,
-            data.syntheticReference,
+            data.syntheticReference ?? `DEMO-${randomUUID()}`,
+            ...geographyValues(data.geography),
           ],
         )
       ).rows[0];

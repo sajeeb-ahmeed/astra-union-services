@@ -1,0 +1,33 @@
+{
+  "startedAt": "2026-10-13T08:30:40.724Z",
+  "database": "astra_uvug",
+  "migration": "010_bangladesh_geography.sql",
+  "tls": "verify-full",
+  "status": "PASS",
+  "migrationRole": {
+    "current_user": "astra_admin",
+    "rolsuper": false,
+    "rolbypassrls": false
+  },
+  "before": {
+    "offices": 2,
+    "users": 7,
+    "certificates": 1
+  },
+  "after": {
+    "offices": 2,
+    "users": 7,
+    "certificates": 1
+  },
+  "dataset": {
+    "wards": 41274,
+    "unions": 4586,
+    "upazilas": 495,
+    "districts": 64,
+    "divisions": 8
+  },
+  "runtimeReadOnly": true,
+  "unscopedCitizenCount": 0,
+  "idempotentReplay": true,
+  "completedAt": "2026-10-13T08:31:06.493Z"
+}

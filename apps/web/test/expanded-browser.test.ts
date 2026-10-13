@@ -24,7 +24,7 @@ async function login(page: Page, email: string, password = "Demo-Phase1!") {
   await page.goto(`${origin}/login`);
   await page.getByLabel("Email", { exact: true }).fill(email);
   await page.getByLabel("Password", { exact: true }).fill(password);
-  await page.getByRole("button", { name: "Sign in", exact: true }).click();
+  await page.locator(".login-form").getByRole("button", { name: "Sign in", exact: true }).click();
   await page.getByRole("button", { name: "Sign out", exact: true }).waitFor();
 }
 async function nav(page: Page, name: RegExp) {
@@ -39,21 +39,13 @@ async function request(
   method = "GET",
   data?: unknown,
 ) {
-  return page.evaluate(
-    async ({ route, method, data }) => {
-      const session = await (await fetch("/api/v1/auth/me")).json();
-      const response = await fetch(`/api/v1${route}`, {
-        method,
-        headers: {
-          "Content-Type": "application/json",
-          "X-CSRF-Token": session.csrfToken,
-        },
-        body: data === undefined ? undefined : JSON.stringify(data),
-      });
-      return { status: response.status, data: await response.json() };
-    },
-    { route, method, data },
-  );
+  const session = await (await page.request.get(`${origin}/api/v1/auth/me`)).json();
+  const response = await page.request.fetch(`${origin}/api/v1${route}`, {
+    method,
+    headers: { "Content-Type": "application/json", "X-CSRF-Token": session.csrfToken },
+    ...(data === undefined ? {} : { data }),
+  });
+  return { status: response.status(), data: await response.json() };
 }
 test(
   "expanded browser: public 47-service discovery, retained directory pagination, help, feedback and newsletter persistence",
@@ -69,7 +61,7 @@ test(
     try {
       await page.goto(origin);
       await page
-        .getByRole("heading", { name: /ঘরে বসেই নাগরিক সেবা/ })
+        .getByRole("heading", { name: /Citizen services from home/ })
         .waitFor();
       fs.mkdirSync("execution/screenshots", { recursive: true });
       await page.screenshot({
@@ -78,21 +70,21 @@ test(
       });
       await page
         .getByRole("navigation", { name: "Public navigation" })
-        .getByRole("button", { name: /নাগরিক সেবা/ })
+        .getByRole("button", { name: "Services", exact: true })
         .click();
       assert.equal(await page.locator(".public-service").count(), 47);
       await page
-        .getByLabel("সেবা খুঁজুন / Search public services", { exact: true })
+        .getByLabel("Search public services", { exact: true })
         .fill("Family certificate");
       assert.equal(await page.locator(".public-service").count(), 1);
       await page.locator(".public-service").click();
       await page.getByRole("region", { name: "Service information" }).waitFor();
       await page
         .getByRole("navigation", { name: "Public navigation" })
-        .getByRole("button", { name: /সহায়িকা/ })
+        .getByRole("button", { name: "Help", exact: true })
         .click();
       await page
-        .getByText("কীভাবে আবেদন করব? / How do I apply?", { exact: true })
+        .getByText("How do I apply?", { exact: true })
         .click();
       await page
         .getByLabel("Your name", { exact: true })
@@ -117,7 +109,7 @@ test(
         .waitFor();
       await page.goto(origin);
       await page
-        .getByLabel("সেবার আপডেটের জন্য নিবন্ধন / Update preferences")
+        .getByLabel("Update preferences", { exact: true })
         .fill(`browser-${Date.now()}@example.test`);
       const subscription = page.waitForResponse(
         (r) =>
@@ -143,9 +135,7 @@ test(
           slug: `directory-${Date.now()}-${i}`,
           nameBn: `নমুনা অফিস ${i}`,
           nameEn: `${marker} ${i}`,
-          division: "Demo Division",
-          district: "Demo District",
-          upazila: "Demo Upazila",
+          geography: { divisionCode: "div-02", districtCode: "dis-19", upazilaCode: "upa-089", unionCode: "uni-0001" },
           officeType: "UNION",
           adminEmail: `${marker.toLowerCase()}-${i}@example.test`,
           adminName: "Synthetic Directory Administrator",
@@ -156,7 +146,8 @@ test(
       await ownerContext.close();
       await page.goto(`${origin}/offices`);
       await page.getByLabel("Office name", { exact: true }).fill(marker);
-      await page.getByLabel("Division", { exact: true }).fill("Demo Division");
+      await page.locator('#directory-geo-division option[value="div-02"]').waitFor({ state: "attached" });
+      await page.locator("#directory-geo-division").selectOption("div-02");
       await page
         .getByLabel("Offices per page", { exact: true })
         .selectOption("2");
@@ -175,8 +166,8 @@ test(
         .waitFor();
       assert.equal(await page.locator(".office-card").count(), 1);
       assert.equal(
-        new URL(page.url()).searchParams.get("division"),
-        "Demo Division",
+        new URL(page.url()).searchParams.get("divisionCode"),
+        "div-02",
       );
       assert.equal(new URL(page.url()).searchParams.get("q"), marker);
       await page.reload();
@@ -199,7 +190,7 @@ test(
       await page.setViewportSize({ width: 390, height: 844 });
       await page.goto(origin);
       await page
-        .getByRole("heading", { name: /ঘরে বসেই নাগরিক সেবা/ })
+        .getByRole("heading", { name: /Citizen services from home/ })
         .waitFor();
       assert.equal(
         await page.evaluate(
@@ -239,16 +230,17 @@ test(
         "Unique office slug": `browser-office-${unique}`,
         "Office name (Bangla)": "নমুনা ব্রাউজার পরিষদ",
         "Office name (English)": `Browser Office ${unique}`,
-        Division: "Demo Division",
-        District: "Demo District",
-        Upazila: "Demo Upazila",
         "Administrator email": adminEmail,
         "Administrator display name": "Browser Administrator",
         "Administrator initial password": password,
       }))
         await page.getByLabel(label, { exact: true }).fill(value);
+      for (const [level, code] of [["division", "div-02"], ["district", "dis-19"], ["upazila", "upa-089"], ["union", "uni-0001"]]) {
+        await page.locator(`#owner-geo-${level} option[value="${code}"]`).waitFor({ state: "attached" });
+        await page.locator(`#owner-geo-${level}`).selectOption(code);
+      }
       await page
-        .getByRole("button", { name: "Create demo office", exact: true })
+        .getByRole("button", { name: "Create office", exact: true })
         .click();
       await page
         .getByText("Office and initial administrator created.", { exact: true })
@@ -261,12 +253,16 @@ test(
         .getByLabel("Staff display name", { exact: true })
         .fill("Browser Approver");
       await page.getByLabel("Initial password", { exact: true }).fill(password);
+      await page.getByRole("group", { name: "Language / ভাষা" }).getByRole("button", { name: "বাংলা", exact: true }).click();
+      await page.locator('select[name="role"]').selectOption("approver");
+      const staffCreated = page.waitForResponse(r => r.url().endsWith("/admin/users") && r.request().method() === "POST");
       await page
-        .getByLabel("Staff role", { exact: true })
-        .selectOption("approver");
-      await page
-        .getByRole("button", { name: "Create staff account", exact: true })
+        .getByRole("button", { name: "কর্মীর অ্যাকাউন্ট তৈরি করুন", exact: true })
         .click();
+      const staffResponse = await staffCreated;
+      assert.equal(staffResponse.status(), 201);
+      assert.equal(staffResponse.request().postDataJSON().role, "approver", "Bengali label must preserve canonical role value");
+      await page.getByRole("group", { name: "Language / ভাষা" }).getByRole("button", { name: "English", exact: true }).click();
       await page.getByText("Staff account created.", { exact: true }).waitFor();
       const member = page.getByRole("row").filter({ hasText: approverEmail });
       const recoveryResponse = page.waitForResponse(
@@ -309,9 +305,8 @@ test(
       await page
         .getByRole("tab", { name: "Office profile", exact: true })
         .click();
-      await page
-        .getByLabel("Upazila", { exact: true })
-        .fill("Updated Demo Upazila");
+      await page.locator('#admin-geo-union option[value="uni-0002"]').waitFor({ state: "attached" });
+      await page.locator("#admin-geo-union").selectOption("uni-0002");
       await page
         .getByRole("button", { name: "Save office profile", exact: true })
         .click();
@@ -404,7 +399,7 @@ test(
         .waitFor();
       await publicPage.reload();
       await publicPage
-        .getByRole("heading", { name: "প্রকাশিত বিজ্ঞপ্তি", exact: true })
+        .getByRole("heading", { name: "Published notices", exact: true })
         .waitFor();
       assert.equal(
         await publicPage
@@ -476,23 +471,32 @@ test(
       password = "Demo-Browser-2026!";
     try {
       await page.goto(`${origin}/register`);
+      const union = JSON.parse(fs.readFileSync("data/geo/unions.json", "utf8")).find((row: any) => row.upazilaCode === "upa-001");
+      for (const [level, code] of [["division", "div-01"], ["district", "dis-01"], ["upazila", "upa-001"], ["union", union.code], ["ward", `${union.code}-w01`]]) {
+        await page.locator(`#signup-geo-${level} option[value="${code}"]`).waitFor({ state: "attached" });
+        await page.locator(`#signup-geo-${level}`).selectOption(code);
+      }
+      await page.getByRole("button", { name: "Use a preview office", exact: true }).click();
+      const alphaOption = page.locator("#signup-office option").filter({ hasText: "Demo Alpha Union" });
+      await alphaOption.waitFor({ state: "attached" });
+      const alphaId = await alphaOption.getAttribute("value");
+      assert.ok(alphaId);
       await page
         .getByLabel("Select office", { exact: true })
-        .selectOption({ label: "Demo Alpha Union" });
+        .selectOption(alphaId);
       for (const [label, value] of Object.entries({
         "Email address": email,
         "Choose password": password,
         "Display name": "Browser Citizen",
-        "Synthetic name (Bangla)": "নমুনা নাগরিক",
-        "Synthetic name (English)": "Browser Citizen",
+        "Name (Bangla)": "নমুনা নাগরিক",
+        "Name (English)": "Browser Citizen",
         "Date of birth": "1990-01-01",
-        "Synthetic address (Bangla)": "নমুনা গ্রাম",
-        "Synthetic address (English)": "Synthetic Village",
-        "Unique demo reference": `DEMO-BROWSER-${unique}`,
+        "Address (Bangla)": "নমুনা গ্রাম",
+        "Address (English)": "Synthetic Village",
       }))
         await page.getByLabel(label, { exact: true }).fill(value);
       await page
-        .getByRole("button", { name: "Create synthetic account", exact: true })
+        .getByRole("button", { name: "Create account", exact: true })
         .click();
       await page
         .getByRole("heading", { name: "Account created", exact: true })
@@ -501,7 +505,7 @@ test(
       await nav(page, /Service catalog|সেবার তালিকা/);
       await page.getByRole("button", { name: /^01.*/ }).click();
       await page
-        .getByLabel("Citizen / নাগরিক", { exact: true })
+        .getByLabel("Citizen", { exact: true })
         .selectOption({ index: 1 });
       const saved = page.waitForResponse(
         (r) =>
@@ -679,6 +683,7 @@ test(
         .getByLabel("Application reference", { exact: true })
         .fill(renewal.id);
       await publicPage
+        .locator("#public-content")
         .getByRole("button", { name: "Track application", exact: true })
         .click();
       await publicPage.getByText("SUBMITTED", { exact: true }).waitFor();

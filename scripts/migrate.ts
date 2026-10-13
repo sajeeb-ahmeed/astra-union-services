@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import pg from "pg";
+import { importGeographyDataset } from "./geography-data.js";
 const local = fs.existsSync(".runtime/postgres.json")
   ? JSON.parse(fs.readFileSync(".runtime/postgres.json", "utf8"))
   : {};
@@ -24,6 +25,8 @@ try {
     await db.query("BEGIN");
     try {
       await db.query(fs.readFileSync(path.join("db/migrations", name), "utf8"));
+      if (name === "010_bangladesh_geography.sql")
+        await importGeographyDataset(db);
       await db.query("INSERT INTO schema_migrations(name) VALUES($1)", [name]);
       await db.query("COMMIT");
       console.log(`Applied ${name}`);

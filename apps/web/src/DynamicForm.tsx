@@ -1,3 +1,4 @@
+import { t, tx, choose } from "./i18n.js";
 import { useId, useRef, useState, type ReactNode } from "react";
 import {
   evaluatePredicate,
@@ -104,35 +105,38 @@ export function DynamicForm({
               key={key}
               className="repeatable"
             >
-              <legend>
-                {field.label.bn} <small>{field.label.en}</small>
-              </legend>
-              {rows.map((row: Values, index: number) => (
-                <div className="repeat-row" key={index}>
-                  <div className="row-heading">
-                    <strong>
-                      {field.label.en} {index + 1}
-                    </strong>
-                    <button
-                      type="button"
-                      className="text-button"
-                      disabled={disabled || uploading}
-                      onClick={() =>
-                        update(
-                          latestRows().filter(
-                            (_: any, position: number) => position !== index,
-                          ),
-                        )
-                      }
-                    >
-                      Remove {index + 1}
-                    </button>
+              <legend>{choose(field.label)}</legend>
+              {tx(
+                rows.map((row: Values, index: number) => (
+                  <div className="repeat-row" key={index}>
+                    <div className="row-heading">
+                      <strong>
+                        {choose(field.label)} {tx(index + 1)}
+                      </strong>
+                      <button
+                        type="button"
+                        className="text-button"
+                        disabled={disabled || uploading}
+                        onClick={() =>
+                          update(
+                            latestRows().filter(
+                              (_: any, position: number) => position !== index,
+                            ),
+                          )
+                        }
+                      >
+                        {t("Remove ")}
+                        {tx(index + 1)}
+                      </button>
+                    </div>
+                    <div className="form-grid">
+                      {tx(
+                        fields(field.children ?? [], row, `${key}[${index}]`),
+                      )}
+                    </div>
                   </div>
-                  <div className="form-grid">
-                    {fields(field.children ?? [], row, `${key}[${index}]`)}
-                  </div>
-                </div>
-              ))}
+                )),
+              )}
               <button
                 type="button"
                 className="secondary"
@@ -152,12 +156,15 @@ export function DynamicForm({
                   ])
                 }
               >
-                + Add {field.label.en.toLowerCase()}
+                {t("+ Add ")}
+                {choose(field.label)}
               </button>
-              {error && (
-                <p id={`${id}-error`} className="field-error">
-                  {error.message.bn} / {error.message.en}
-                </p>
+              {tx(
+                error && (
+                  <p id={`${id}-error`} className="field-error">
+                    {choose(error.message)}
+                  </p>
+                ),
               )}
             </fieldset>
           );
@@ -175,9 +182,8 @@ export function DynamicForm({
           return (
             <div className="field" key={key}>
               <label htmlFor={id}>
-                {field.label.bn}
+                {choose(field.label)}
                 {required ? " *" : ""}
-                <small>{field.label.en}</small>
               </label>
               <input
                 {...shared}
@@ -278,32 +284,47 @@ export function DynamicForm({
                 }}
               />
               <p id={`${id}-upload-hint`} className="hint">
-                {uploadUnavailable
-                  ? "নথি দেওয়ার আগে নাগরিক নির্বাচন করুন। / Select a citizen before uploading."
-                  : "ব্যক্তিগত নথি: PDF, PNG বা JPEG; সর্বোচ্চ 2 MiB। / Private document, maximum 2 MiB."}
+                {tx(
+                  uploadUnavailable
+                    ? "নথি দেওয়ার আগে নাগরিক নির্বাচন করুন। / Select a citizen before uploading."
+                    : "ব্যক্তিগত নথি: PDF, PNG বা JPEG; সর্বোচ্চ 2 MiB। / Private document, maximum 2 MiB.",
+                )}
               </p>
-              {scope[field.id] && (
-                <p className="hint" role="status">
-                  নথি সংরক্ষিত / Private upload saved:{" "}
-                  {scope[field.id].byteLength} bytes
-                </p>
+              {tx(
+                scope[field.id] && (
+                  <p className="hint" role="status">
+                    {t("নথি সংরক্ষিত / Private upload saved:")}
+                    {tx(" ")}
+                    {tx(scope[field.id].byteLength)}
+                    {t(" bytes ")}
+                  </p>
+                ),
               )}
-              {uploads[uploadKey] && (
-                <p role="status">নথি সংরক্ষণ চলছে… / Uploading document…</p>
+              {tx(
+                uploads[uploadKey] && (
+                  <p role="status">
+                    {t("নথি সংরক্ষণ চলছে… / Uploading document…")}
+                  </p>
+                ),
               )}
-              {localUploadError && (
-                <p
-                  id={`${id}-upload-error`}
-                  role="alert"
-                  className="field-error"
-                >
-                  নথি সংরক্ষণ করা যায়নি / {localUploadError}
-                </p>
+              {tx(
+                localUploadError && (
+                  <p
+                    id={`${id}-upload-error`}
+                    role="alert"
+                    className="field-error"
+                  >
+                    {t("নথি সংরক্ষণ করা যায়নি / ")}
+                    {tx(localUploadError)}
+                  </p>
+                ),
               )}
-              {error && (
-                <p id={`${id}-error`} className="field-error">
-                  {error.message.bn} / {error.message.en}
-                </p>
+              {tx(
+                error && (
+                  <p id={`${id}-error`} className="field-error">
+                    {choose(error.message)}
+                  </p>
+                ),
               )}
             </div>
           );
@@ -314,77 +335,85 @@ export function DynamicForm({
             className={`field ${field.type === "checkbox" ? "check-field" : ""}`}
             key={key}
           >
-            {field.type === "checkbox" ? (
-              <label htmlFor={id}>
-                <input
-                  {...shared}
-                  type="checkbox"
-                  checked={scope[field.id] === true}
-                  onChange={(event) => update(event.target.checked)}
-                />
-                <span>
-                  {field.label.bn}
-                  <small>{field.label.en}</small>
-                </span>
-              </label>
-            ) : (
-              <>
+            {tx(
+              field.type === "checkbox" ? (
                 <label htmlFor={id}>
-                  {field.label.bn}
-                  {required ? " *" : ""}
-                  <small>{field.label.en}</small>
-                </label>
-                {field.type === "select" ? (
-                  <select
-                    {...shared}
-                    value={scope[field.id] ?? ""}
-                    onChange={(event) => update(event.target.value)}
-                  >
-                    <option value="">নির্বাচন করুন / Select an option</option>
-                    {field.options?.map((option) => (
-                      <option key={option.value} value={option.value}>
-                        {option.label.bn} / {option.label.en}
-                      </option>
-                    ))}
-                  </select>
-                ) : field.type === "textarea" ? (
-                  <textarea
-                    {...shared}
-                    rows={3}
-                    maxLength={field.constraints?.maxLength}
-                    value={scope[field.id] ?? ""}
-                    onChange={(event) => update(event.target.value)}
-                  />
-                ) : (
                   <input
                     {...shared}
-                    type={
-                      field.type === "date"
-                        ? "date"
-                        : field.type === "number"
-                          ? "number"
-                          : "text"
-                    }
-                    maxLength={field.constraints?.maxLength}
-                    value={scope[field.id] ?? ""}
-                    onChange={(event) =>
-                      update(
-                        field.type === "number" && event.target.value !== ""
-                          ? Number(event.target.value)
-                          : event.target.value,
-                      )
-                    }
+                    type="checkbox"
+                    checked={scope[field.id] === true}
+                    onChange={(event) => update(event.target.checked)}
                   />
-                )}
-              </>
+                  <span>{choose(field.label)}</span>
+                </label>
+              ) : (
+                <>
+                  <label htmlFor={id}>
+                    {choose(field.label)}
+                    {required ? " *" : ""}
+                  </label>
+                  {tx(
+                    field.type === "select" ? (
+                      <select
+                        {...shared}
+                        value={scope[field.id] ?? ""}
+                        onChange={(event) => update(event.target.value)}
+                      >
+                        <option value="">
+                          {t("নির্বাচন করুন / Select an option")}
+                        </option>
+                        {tx(
+                          field.options?.map((option) => (
+                            <option key={option.value} value={option.value}>
+                              {choose(option.label)}
+                            </option>
+                          )),
+                        )}
+                      </select>
+                    ) : field.type === "textarea" ? (
+                      <textarea
+                        {...shared}
+                        rows={3}
+                        maxLength={field.constraints?.maxLength}
+                        value={scope[field.id] ?? ""}
+                        onChange={(event) => update(event.target.value)}
+                      />
+                    ) : (
+                      <input
+                        {...shared}
+                        type={
+                          field.type === "date"
+                            ? "date"
+                            : field.type === "number"
+                              ? "number"
+                              : "text"
+                        }
+                        maxLength={field.constraints?.maxLength}
+                        value={scope[field.id] ?? ""}
+                        onChange={(event) =>
+                          update(
+                            field.type === "number" && event.target.value !== ""
+                              ? Number(event.target.value)
+                              : event.target.value,
+                          )
+                        }
+                      />
+                    ),
+                  )}
+                </>
+              ),
             )}
-            {field.description && (
-              <p className="hint">{field.description.en}</p>
+            {tx(
+              field.description && (
+                <p className="hint">{choose(field.description)}</p>
+              ),
             )}
-            {error && (
-              <p id={`${id}-error`} className="field-error">
-                {error.message.bn} / {error.message.en}
-              </p>
+            {tx(
+              error && (
+                <p id={`${id}-error`} className="field-error">
+                  {choose(error.message)}
+                </p>
+              ),
             )}
           </div>
         );
@@ -392,15 +421,14 @@ export function DynamicForm({
   }
   return (
     <div className="dynamic-form" aria-busy={uploading}>
-      {schema.sections.map((section) => (
-        <fieldset key={section.id}>
-          <legend>
-            {section.title.bn}
-            <small>{section.title.en}</small>
-          </legend>
-          <div className="form-grid">{fields(section.fields, value)}</div>
-        </fieldset>
-      ))}
+      {tx(
+        schema.sections.map((section) => (
+          <fieldset key={section.id}>
+            <legend>{choose(section.title)}</legend>
+            <div className="form-grid">{tx(fields(section.fields, value))}</div>
+          </fieldset>
+        )),
+      )}
     </div>
   );
 }

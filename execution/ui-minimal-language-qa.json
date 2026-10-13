@@ -1,0 +1,407 @@
+{
+  "testedAt": "2026-10-13T08:11:18.632Z",
+  "results": [
+    {
+      "route": "/register",
+      "width": 1440,
+      "scrollWidth": 1440,
+      "language": "en",
+      "languageTargets": [
+        {
+          "width": 59,
+          "height": 44
+        },
+        {
+          "width": 62.875,
+          "height": 44
+        }
+      ]
+    },
+    {
+      "route": "/",
+      "width": 1440,
+      "scrollWidth": 1440,
+      "language": "en",
+      "languageTargets": [
+        {
+          "width": 59,
+          "height": 44
+        },
+        {
+          "width": 62.875,
+          "height": 44
+        }
+      ]
+    },
+    {
+      "route": "/services",
+      "width": 1440,
+      "scrollWidth": 1440,
+      "language": "en",
+      "languageTargets": [
+        {
+          "width": 59,
+          "height": 44
+        },
+        {
+          "width": 62.875,
+          "height": 44
+        }
+      ]
+    },
+    {
+      "route": "/offices",
+      "width": 1440,
+      "scrollWidth": 1440,
+      "language": "en",
+      "languageTargets": [
+        {
+          "width": 59,
+          "height": 44
+        },
+        {
+          "width": 62.875,
+          "height": 44
+        }
+      ]
+    },
+    {
+      "route": "/register",
+      "width": 1440,
+      "scrollWidth": 1440,
+      "language": "bn",
+      "languageTargets": [
+        {
+          "width": 59,
+          "height": 44
+        },
+        {
+          "width": 64.40625,
+          "height": 44
+        }
+      ]
+    },
+    {
+      "route": "/",
+      "width": 1440,
+      "scrollWidth": 1440,
+      "language": "bn",
+      "languageTargets": [
+        {
+          "width": 59,
+          "height": 44
+        },
+        {
+          "width": 64.40625,
+          "height": 44
+        }
+      ]
+    },
+    {
+      "route": "/services",
+      "width": 1440,
+      "scrollWidth": 1440,
+      "language": "bn",
+      "languageTargets": [
+        {
+          "width": 59,
+          "height": 44
+        },
+        {
+          "width": 64.40625,
+          "height": 44
+        }
+      ]
+    },
+    {
+      "route": "/offices",
+      "width": 1440,
+      "scrollWidth": 1440,
+      "language": "bn",
+      "languageTargets": [
+        {
+          "width": 59,
+          "height": 44
+        },
+        {
+          "width": 64.40625,
+          "height": 44
+        }
+      ]
+    },
+    {
+      "route": "signed-in staff dashboard",
+      "width": 1440,
+      "scrollWidth": 1440,
+      "language": "en"
+    },
+    {
+      "route": "/register",
+      "width": 390,
+      "scrollWidth": 390,
+      "language": "en",
+      "languageTargets": [
+        {
+          "width": 56,
+          "height": 44
+        },
+        {
+          "width": 58.875,
+          "height": 44
+        }
+      ]
+    },
+    {
+      "route": "/",
+      "width": 390,
+      "scrollWidth": 390,
+      "language": "en",
+      "languageTargets": [
+        {
+          "width": 56,
+          "height": 44
+        },
+        {
+          "width": 58.875,
+          "height": 44
+        }
+      ]
+    },
+    {
+      "route": "/services",
+      "width": 390,
+      "scrollWidth": 390,
+      "language": "en",
+      "languageTargets": [
+        {
+          "width": 56,
+          "height": 44
+        },
+        {
+          "width": 58.875,
+          "height": 44
+        }
+      ]
+    },
+    {
+      "route": "/offices",
+      "width": 390,
+      "scrollWidth": 390,
+      "language": "en",
+      "languageTargets": [
+        {
+          "width": 56,
+          "height": 44
+        },
+        {
+          "width": 58.875,
+          "height": 44
+        }
+      ]
+    },
+    {
+      "route": "/register",
+      "width": 390,
+      "scrollWidth": 390,
+      "language": "bn",
+      "languageTargets": [
+        {
+          "width": 56,
+          "height": 44
+        },
+        {
+          "width": 60.40625,
+          "height": 44
+        }
+      ]
+    },
+    {
+      "route": "/",
+      "width": 390,
+      "scrollWidth": 390,
+      "language": "bn",
+      "languageTargets": [
+        {
+          "width": 56,
+          "height": 44
+        },
+        {
+          "width": 60.40625,
+          "height": 44
+        }
+      ]
+    },
+    {
+      "route": "/services",
+      "width": 390,
+      "scrollWidth": 390,
+      "language": "bn",
+      "languageTargets": [
+        {
+          "width": 56,
+          "height": 44
+        },
+        {
+          "width": 60.40625,
+          "height": 44
+        }
+      ]
+    },
+    {
+      "route": "/offices",
+      "width": 390,
+      "scrollWidth": 390,
+      "language": "bn",
+      "languageTargets": [
+        {
+          "width": 56,
+          "height": 44
+        },
+        {
+          "width": 60.40625,
+          "height": 44
+        }
+      ]
+    },
+    {
+      "route": "signed-in staff dashboard",
+      "width": 390,
+      "scrollWidth": 390,
+      "language": "en"
+    },
+    {
+      "route": "/register",
+      "width": 320,
+      "scrollWidth": 320,
+      "language": "en",
+      "languageTargets": [
+        {
+          "width": 56,
+          "height": 44
+        },
+        {
+          "width": 58.875,
+          "height": 44
+        }
+      ]
+    },
+    {
+      "route": "/",
+      "width": 320,
+      "scrollWidth": 320,
+      "language": "en",
+      "languageTargets": [
+        {
+          "width": 56,
+          "height": 44
+        },
+        {
+          "width": 58.875,
+          "height": 44
+        }
+      ]
+    },
+    {
+      "route": "/services",
+      "width": 320,
+      "scrollWidth": 320,
+      "language": "en",
+      "languageTargets": [
+        {
+          "width": 56,
+          "height": 44
+        },
+        {
+          "width": 58.875,
+          "height": 44
+        }
+      ]
+    },
+    {
+      "route": "/offices",
+      "width": 320,
+      "scrollWidth": 320,
+      "language": "en",
+      "languageTargets": [
+        {
+          "width": 56,
+          "height": 44
+        },
+        {
+          "width": 58.875,
+          "height": 44
+        }
+      ]
+    },
+    {
+      "route": "/register",
+      "width": 320,
+      "scrollWidth": 320,
+      "language": "bn",
+      "languageTargets": [
+        {
+          "width": 56,
+          "height": 44
+        },
+        {
+          "width": 60.40625,
+          "height": 44
+        }
+      ]
+    },
+    {
+      "route": "/",
+      "width": 320,
+      "scrollWidth": 320,
+      "language": "bn",
+      "languageTargets": [
+        {
+          "width": 56,
+          "height": 44
+        },
+        {
+          "width": 60.40625,
+          "height": 44
+        }
+      ]
+    },
+    {
+      "route": "/services",
+      "width": 320,
+      "scrollWidth": 320,
+      "language": "bn",
+      "languageTargets": [
+        {
+          "width": 56,
+          "height": 44
+        },
+        {
+          "width": 60.40625,
+          "height": 44
+        }
+      ]
+    },
+    {
+      "route": "/offices",
+      "width": 320,
+      "scrollWidth": 320,
+      "language": "bn",
+      "languageTargets": [
+        {
+          "width": 56,
+          "height": 44
+        },
+        {
+          "width": 60.40625,
+          "height": 44
+        }
+      ]
+    },
+    {
+      "route": "signed-in staff dashboard",
+      "width": 320,
+      "scrollWidth": 320,
+      "language": "en"
+    }
+  ]
+}

@@ -1,0 +1,105 @@
+{
+  "status": "PASS_WITH_WARNINGS",
+  "checkedAt": "2026-10-13T08:35:22.262Z",
+  "method": "Independent verification of supplied bytes; does not certify current official boundaries.",
+  "files": [
+    {
+      "file": "divisions.json",
+      "records": 8,
+      "sha256": "7cd85edac040eac2d66a692be3c709ee74d35f43eaa1701a62a679e7275c79b8",
+      "uniqueCodes": true,
+      "orphanCount": 0,
+      "utf8Nfc": true,
+      "sameParentEnglishDuplicateGroups": [],
+      "sameParentBengaliDuplicateGroups": [],
+      "globalEnglishRepeatedNameGroups": 0,
+      "globalBengaliRepeatedNameGroups": 0
+    },
+    {
+      "file": "districts.json",
+      "records": 64,
+      "sha256": "8ee180d77ea24161cd9b0fa1ad669f3d554772f2424ad535882fe43097fe3622",
+      "uniqueCodes": true,
+      "orphanCount": 0,
+      "utf8Nfc": true,
+      "sameParentEnglishDuplicateGroups": [],
+      "sameParentBengaliDuplicateGroups": [],
+      "globalEnglishRepeatedNameGroups": 0,
+      "globalBengaliRepeatedNameGroups": 0
+    },
+    {
+      "file": "upazilas.json",
+      "records": 495,
+      "sha256": "d88126d4862bcab11915903b58f2d78a644c2d61cb8835fbcb5550165ffeaebd",
+      "uniqueCodes": true,
+      "orphanCount": 0,
+      "utf8Nfc": true,
+      "sameParentEnglishDuplicateGroups": [],
+      "sameParentBengaliDuplicateGroups": [],
+      "globalEnglishRepeatedNameGroups": 11,
+      "globalBengaliRepeatedNameGroups": 11
+    },
+    {
+      "file": "unions.json",
+      "records": 4586,
+      "sha256": "80664b1a45b865d03013b760bd3aabd653e5c71cc33d24e8214192a5a7ae49a5",
+      "uniqueCodes": true,
+      "orphanCount": 0,
+      "utf8Nfc": true,
+      "sameParentEnglishDuplicateGroups": [
+        [
+          "uni-0242",
+          "uni-0243"
+        ],
+        [
+          "uni-2962",
+          "uni-4568"
+        ]
+      ],
+      "sameParentBengaliDuplicateGroups": [
+        [
+          "uni-0886",
+          "uni-4573"
+        ],
+        [
+          "uni-0965",
+          "uni-4585"
+        ],
+        [
+          "uni-2963",
+          "uni-4567"
+        ]
+      ],
+      "globalEnglishRepeatedNameGroups": 301,
+      "globalBengaliRepeatedNameGroups": 343
+    },
+    {
+      "file": "wards.json",
+      "records": 41274,
+      "sha256": "b83239fa631618404ecdd4a7c34df6507c5a68f1ce91d154ee2ea19138456c8a",
+      "uniqueCodes": true,
+      "orphanCount": 0,
+      "utf8Nfc": true,
+      "sameParentEnglishDuplicateGroups": [],
+      "sameParentBengaliDuplicateGroups": [],
+      "globalEnglishRepeatedNameGroups": 9,
+      "globalBengaliRepeatedNameGroups": 9
+    }
+  ],
+  "emptyUpazilas": [
+    {
+      "code": "upa-388",
+      "districtCode": "dis-57",
+      "nameEn": "Shaistaganj",
+      "nameBn": "শায়েস্তাগঞ্জ"
+    }
+  ],
+  "warnings": [
+    "Community data: IDs are not BBS codes.",
+    "Same-parent names may conflict; retain IDs and full bilingual names.",
+    "Shaistaganj (upa-388) has no supplied unions.",
+    "41,274 wards are derived numbered rural wards; they are not boundary/gazette records.",
+    "City-corporation and municipality wards are outside the source scope."
+  ],
+  "totalRecords": 46427
+}

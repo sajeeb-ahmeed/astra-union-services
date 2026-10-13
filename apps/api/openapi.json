@@ -185,7 +185,11 @@
           },
           "syntheticReference": {
             "type": "string",
-            "pattern": "^DEMO-[A-Za-z0-9-]{3,50}$"
+            "pattern": "^DEMO-[A-Za-z0-9-]{3,50}$",
+            "description": "Optional compatibility field; omitted values receive a unique server-generated reference."
+          },
+          "geography": {
+            "$ref": "#/components/schemas/GeographyInput"
           }
         },
         "required": [
@@ -193,8 +197,7 @@
           "nameEn",
           "dateOfBirth",
           "addressBn",
-          "addressEn",
-          "syntheticReference"
+          "addressEn"
         ]
       },
       "PayloadInput": {
@@ -409,6 +412,62 @@
             "const": true
           }
         }
+      },
+      "GeographyInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "Community dataset IDs, not official BBS codes. Complete five-level rural hierarchy required for citizen addresses. UNION offices require unionCode; wardCode optional. Urban offices stop at upazila (urban wards are not in this dataset). Server validates every parent and mapped office jurisdiction.",
+        "properties": {
+          "divisionCode": {
+            "type": "string",
+            "pattern": "^[a-z0-9-]{3,30}$"
+          },
+          "districtCode": {
+            "type": "string",
+            "pattern": "^[a-z0-9-]{3,30}$"
+          },
+          "upazilaCode": {
+            "type": "string",
+            "pattern": "^[a-z0-9-]{3,30}$"
+          },
+          "unionCode": {
+            "type": "string",
+            "pattern": "^[a-z0-9-]{3,30}$"
+          },
+          "wardCode": {
+            "type": "string",
+            "pattern": "^[a-z0-9-]{3,30}$"
+          }
+        },
+        "required": [
+          "divisionCode",
+          "districtCode",
+          "upazilaCode"
+        ]
+      },
+      "GeographyItem": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string",
+            "pattern": "^[a-z0-9-]{3,30}$"
+          },
+          "nameEn": {
+            "type": "string"
+          },
+          "nameBn": {
+            "type": "string"
+          },
+          "parentCode": {
+            "type": "string",
+            "pattern": "^[a-z0-9-]{3,30}$"
+          }
+        },
+        "required": [
+          "code",
+          "nameEn",
+          "nameBn"
+        ]
       }
     }
   },
@@ -1459,6 +1518,9 @@
           "201": {
             "description": "Successful response; persistent mutation where applicable."
           },
+          "400": {
+            "description": "Invalid hierarchy, geographic jurisdiction or incompatible urban/rural scope"
+          },
           "401": {
             "description": "Session missing or inactive."
           },
@@ -1521,15 +1583,15 @@
                     "type": "string",
                     "minLength": 12,
                     "maxLength": 200
+                  },
+                  "geography": {
+                    "$ref": "#/components/schemas/GeographyInput"
                   }
                 },
                 "required": [
                   "slug",
                   "nameBn",
                   "nameEn",
-                  "division",
-                  "district",
-                  "upazila",
                   "officeType",
                   "adminEmail",
                   "adminName",
@@ -1685,7 +1747,7 @@
     "/api/v1/offices": {
       "get": {
         "summary": "Public active office directory",
-        "description": "Returns {items,total,page,pageSize}; pageSize 1–100, default12. Only active demo tenants; no citizen records.",
+        "description": "Returns {items,total,page,pageSize}; pageSize 1–100, default12. Only active demo tenants; no citizen records. Items include geography|null and flat divisionCode,districtCode,upazilaCode,unionCode,wardCode; old offices remain unmapped until explicitly configured.",
         "security": [],
         "parameters": [
           {
@@ -1743,6 +1805,46 @@
             "schema": {
               "type": "integer"
             }
+          },
+          {
+            "name": "divisionCode",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-z0-9-]{3,30}$"
+            },
+            "description": "Exact dataset code filter, combined with all other office filters"
+          },
+          {
+            "name": "districtCode",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-z0-9-]{3,30}$"
+            },
+            "description": "Exact dataset code filter, combined with all other office filters"
+          },
+          {
+            "name": "upazilaCode",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-z0-9-]{3,30}$"
+            },
+            "description": "Exact dataset code filter, combined with all other office filters"
+          },
+          {
+            "name": "unionCode",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-z0-9-]{3,30}$"
+            },
+            "description": "Exact dataset code filter, combined with all other office filters"
           }
         ],
         "responses": {
@@ -1867,12 +1969,15 @@
     "/api/v1/auth/signup": {
       "post": {
         "summary": "Create synthetic citizen account and profile",
-        "description": "Local DEMO account; no OTP or identity verification. Returns {registered:true,verificationState:SYNTHETIC_DEMO}; sign in separately.",
+        "description": "Creates a persistent local account; no identity-provider verification. Geography is optional for legacy unmapped offices and mandatory for mapped offices. A supplied address must include all five rural levels and match the mapped office. syntheticReference is optional and generated by the server. Returns registered,verificationState,geography; sign in separately.",
         "security": [],
         "parameters": [],
         "responses": {
           "201": {
             "description": "Successful response; persistent mutation where applicable."
+          },
+          "400": {
+            "description": "Geography missing for mapped office, parent mismatch, incomplete rural hierarchy or office jurisdiction mismatch"
           },
           "401": {
             "description": "Session missing or inactive."
@@ -1925,7 +2030,8 @@
                   },
                   "syntheticReference": {
                     "type": "string",
-                    "pattern": "^DEMO-[A-Za-z0-9-]{3,50}$"
+                    "pattern": "^DEMO-[A-Za-z0-9-]{3,50}$",
+                    "description": "Optional compatibility field; omitted values receive a unique server-generated reference."
                   },
                   "email": {
                     "type": "string",
@@ -1942,6 +2048,9 @@
                   "tenantId": {
                     "type": "string",
                     "format": "uuid"
+                  },
+                  "geography": {
+                    "$ref": "#/components/schemas/GeographyInput"
                   }
                 },
                 "required": [
@@ -1950,7 +2059,6 @@
                   "dateOfBirth",
                   "addressBn",
                   "addressEn",
-                  "syntheticReference",
                   "email",
                   "password",
                   "displayName",
@@ -2063,6 +2171,9 @@
           "200": {
             "description": "Successful response; persistent mutation where applicable."
           },
+          "400": {
+            "description": "Invalid hierarchy, geographic jurisdiction or incompatible urban/rural scope"
+          },
           "401": {
             "description": "Session missing or inactive."
           },
@@ -2109,6 +2220,9 @@
                       "MUNICIPALITY",
                       "CITY_CORPORATION"
                     ]
+                  },
+                  "geography": {
+                    "$ref": "#/components/schemas/GeographyInput"
                   }
                 },
                 "required": []
@@ -3049,7 +3163,7 @@
     "/api/v1/profile": {
       "get": {
         "summary": "Read own account profile",
-        "description": "",
+        "description": "Includes geography|null from the current user's citizen record, under tenant RLS. Non-citizen users have no citizen geography.",
         "security": [
           {
             "session": []
@@ -3082,7 +3196,7 @@
       },
       "patch": {
         "summary": "Update own profile",
-        "description": "Email, role and tenant cannot be set. All changes are scoped to authenticated user.",
+        "description": "Email, role and tenant cannot be set. All changes are scoped to authenticated user. Optional geography updates the caller's citizen record with tenant and office jurisdiction validation. Other roles cannot set citizen geography.",
         "security": [
           {
             "session": [],
@@ -3093,6 +3207,9 @@
         "responses": {
           "200": {
             "description": "Successful response"
+          },
+          "400": {
+            "description": "Invalid hierarchy, geographic jurisdiction or incompatible urban/rural scope"
           },
           "403": {
             "description": "Role or Origin/CSRF rejected"
@@ -3133,6 +3250,9 @@
                   },
                   "address": {
                     "type": "string"
+                  },
+                  "geography": {
+                    "$ref": "#/components/schemas/GeographyInput"
                   }
                 },
                 "required": [
@@ -3684,6 +3804,289 @@
                 ]
               }
             }
+          }
+        }
+      }
+    },
+    "/api/v1/geography/divisions": {
+      "get": {
+        "summary": "List divisions in the supplied Bangladesh geography dataset",
+        "security": [],
+        "description": "Public read-only reference data; Cache-Control public,max-age=3600 and ETag. No participating office or official authorization is implied. Child queries are bounded by their required parent. Wards are derived rural records.",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Valid parent with no children returns an empty items array.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/GeographyItem"
+                      }
+                    },
+                    "total": {
+                      "type": "integer"
+                    },
+                    "parentCode": {
+                      "type": "string",
+                      "pattern": "^[a-z0-9-]{3,30}$"
+                    }
+                  },
+                  "required": [
+                    "items",
+                    "total"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing, malformed, duplicated or unexpected query parameter"
+          },
+          "404": {
+            "description": "Parent code does not exist in the immediate parent table"
+          }
+        }
+      }
+    },
+    "/api/v1/geography/districts": {
+      "get": {
+        "summary": "List districts in the supplied Bangladesh geography dataset",
+        "security": [],
+        "description": "Public read-only reference data; Cache-Control public,max-age=3600 and ETag. No participating office or official authorization is implied. Child queries are bounded by their required parent. Wards are derived rural records.",
+        "parameters": [
+          {
+            "name": "parentCode",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-z0-9-]{3,30}$"
+            },
+            "description": "Immediate parent dataset code"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Valid parent with no children returns an empty items array.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/GeographyItem"
+                      }
+                    },
+                    "total": {
+                      "type": "integer"
+                    },
+                    "parentCode": {
+                      "type": "string",
+                      "pattern": "^[a-z0-9-]{3,30}$"
+                    }
+                  },
+                  "required": [
+                    "items",
+                    "total"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing, malformed, duplicated or unexpected query parameter"
+          },
+          "404": {
+            "description": "Parent code does not exist in the immediate parent table"
+          }
+        }
+      }
+    },
+    "/api/v1/geography/upazilas": {
+      "get": {
+        "summary": "List upazilas in the supplied Bangladesh geography dataset",
+        "security": [],
+        "description": "Public read-only reference data; Cache-Control public,max-age=3600 and ETag. No participating office or official authorization is implied. Child queries are bounded by their required parent. Wards are derived rural records.",
+        "parameters": [
+          {
+            "name": "parentCode",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-z0-9-]{3,30}$"
+            },
+            "description": "Immediate parent dataset code"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Valid parent with no children returns an empty items array.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/GeographyItem"
+                      }
+                    },
+                    "total": {
+                      "type": "integer"
+                    },
+                    "parentCode": {
+                      "type": "string",
+                      "pattern": "^[a-z0-9-]{3,30}$"
+                    }
+                  },
+                  "required": [
+                    "items",
+                    "total"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing, malformed, duplicated or unexpected query parameter"
+          },
+          "404": {
+            "description": "Parent code does not exist in the immediate parent table"
+          }
+        }
+      }
+    },
+    "/api/v1/geography/unions": {
+      "get": {
+        "summary": "List unions in the supplied Bangladesh geography dataset",
+        "security": [],
+        "description": "Public read-only reference data; Cache-Control public,max-age=3600 and ETag. No participating office or official authorization is implied. Child queries are bounded by their required parent. Wards are derived rural records.",
+        "parameters": [
+          {
+            "name": "parentCode",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-z0-9-]{3,30}$"
+            },
+            "description": "Immediate parent dataset code"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Valid parent with no children returns an empty items array.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/GeographyItem"
+                      }
+                    },
+                    "total": {
+                      "type": "integer"
+                    },
+                    "parentCode": {
+                      "type": "string",
+                      "pattern": "^[a-z0-9-]{3,30}$"
+                    }
+                  },
+                  "required": [
+                    "items",
+                    "total"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing, malformed, duplicated or unexpected query parameter"
+          },
+          "404": {
+            "description": "Parent code does not exist in the immediate parent table"
+          }
+        }
+      }
+    },
+    "/api/v1/geography/wards": {
+      "get": {
+        "summary": "List wards in the supplied Bangladesh geography dataset",
+        "security": [],
+        "description": "Public read-only reference data; Cache-Control public,max-age=3600 and ETag. No participating office or official authorization is implied. Child queries are bounded by their required parent. Wards are derived rural records.",
+        "parameters": [
+          {
+            "name": "parentCode",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-z0-9-]{3,30}$"
+            },
+            "description": "Immediate parent dataset code"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Valid parent with no children returns an empty items array.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/GeographyItem"
+                      }
+                    },
+                    "total": {
+                      "type": "integer"
+                    },
+                    "parentCode": {
+                      "type": "string",
+                      "pattern": "^[a-z0-9-]{3,30}$"
+                    }
+                  },
+                  "required": [
+                    "items",
+                    "total"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing, malformed, duplicated or unexpected query parameter"
+          },
+          "404": {
+            "description": "Parent code does not exist in the immediate parent table"
+          }
+        }
+      }
+    },
+    "/api/v1/geography/metadata": {
+      "get": {
+        "summary": "Read dataset provenance, counts, hashes and coverage limitations",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "datasetId,source,sourceUrl,sourceDate,license,counts,coverage,fileSha256,upazilasWithoutUnions,limitations,identifiersAreOfficial:false,wardsDerived:true"
+          },
+          "503": {
+            "description": "Dataset not initialized"
           }
         }
       }

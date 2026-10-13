@@ -1,0 +1,19 @@
+{
+  "release": "0.3.0",
+  "recordedAt": "2026-10-13T08:35:58.366Z",
+  "status": "PASS",
+  "localTests": {
+    "forms": 72,
+    "api": 47,
+    "web": 23,
+    "total": 142,
+    "failed": 0
+  },
+  "managedPostgresChecks": 10,
+  "responsiveLayoutObservations": 51,
+  "dependencyAuditVulnerabilities": 0,
+  "geographyRecords": 46427,
+  "hostedMigration": "PASS",
+  "externalDatabaseAccess": "BLOCKED_AFTER_MAINTENANCE",
+  "deployment": "Awaiting CI and manual deploy; see hosted release evidence for final status"
+}

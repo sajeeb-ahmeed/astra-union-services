@@ -75,6 +75,11 @@ try {
     checks.push(`${script} completed under the restricted migration owner.`);
   }
 
+  const geographyCounts = (await app.query("SELECT (SELECT count(*) FROM geo_divisions)::int divisions,(SELECT count(*) FROM geo_districts)::int districts,(SELECT count(*) FROM geo_upazilas)::int upazilas,(SELECT count(*) FROM geo_unions)::int unions,(SELECT count(*) FROM geo_wards)::int wards")).rows[0];
+  assert.deepEqual(geographyCounts,{divisions:8,districts:64,upazilas:495,unions:4586,wards:41274});
+  await assert.rejects(app.query("UPDATE geo_divisions SET name_en='Forbidden' WHERE code='div-01'"),(e:any)=>e.code==='42501');
+  checks.push('All 46,427 geography records import under the managed owner; runtime role can read but cannot mutate reference geography.');
+
   assert.equal((await owner.query(
     "SELECT pg_has_role('astra_app',current_user,'MEMBER') member",
   )).rows[0].member, false);

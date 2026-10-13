@@ -10,6 +10,15 @@ import {
 } from "./security.js";
 import { camelRow, fail } from "./models.js";
 import type { Auth } from "./app.js";
+import {
+  geographyInput,
+  geographyRow,
+  geographyValues,
+  validateGeography,
+  validateOfficeJurisdiction,
+} from "./geography.js";
+const officeRow = (row: any) =>
+  row ? { ...camelRow(row), geography: geographyRow(row) } : null;
 
 type Req = express.Request & { auth?: Auth };
 const uuid = z.string().uuid();
@@ -44,9 +53,10 @@ const officeInput = z.object({
   slug: z.string().regex(/^[a-z][a-z0-9-]{2,49}$/),
   nameBn: z.string().min(2).max(150),
   nameEn: z.string().min(2).max(150),
-  division: z.string().min(2).max(100),
-  district: z.string().min(2).max(100),
-  upazila: z.string().min(2).max(100),
+  division: z.string().min(2).max(100).optional(),
+  district: z.string().min(2).max(100).optional(),
+  upazila: z.string().min(2).max(100).optional(),
+  geography: geographyInput.optional(),
   officeType: z.enum(["UNION", "MUNICIPALITY", "CITY_CORPORATION"]),
 });
 export const publicManagementRouter = express.Router();
@@ -169,7 +179,7 @@ managementRouter.get(
   wrap(async (req, res) => {
     const a = role(req, ["admin"]);
     res.json(
-      camelRow(
+      officeRow(
         (await pool.query("SELECT * FROM tenants WHERE id=$1", [a.tenantId]))
           .rows[0],
       ),
@@ -187,22 +197,45 @@ managementRouter.patch(
         .refine((v) => Object.keys(v).length > 0)
         .parse(req.body);
     const item = await transaction(a.tenantId!, async (db) => {
+      const existing = (
+        await db.query("SELECT * FROM tenants WHERE id=$1 FOR UPDATE", [
+          a.tenantId,
+        ])
+      ).rows[0];
+      if (
+        !d.geography &&
+        existing.division_code &&
+        (d.division || d.district || d.upazila || d.officeType)
+      )
+        fail(
+          400,
+          "GEOGRAPHY_REQUIRED",
+          "Select structured geography to change an office location or type.",
+        );
+      const names = d.geography
+        ? await validateGeography(
+            db,
+            d.geography,
+            d.officeType ?? existing.office_type,
+          )
+        : d;
       const r = (
         await db.query(
-          "UPDATE tenants SET name_bn=coalesce($2,name_bn),name_en=coalesce($3,name_en),division=coalesce($4,division),district=coalesce($5,district),upazila=coalesce($6,upazila),office_type=coalesce($7,office_type) WHERE id=$1 RETURNING *",
+          "UPDATE tenants SET name_bn=coalesce($2,name_bn),name_en=coalesce($3,name_en),division=coalesce($4,division),district=coalesce($5,district),upazila=coalesce($6,upazila),office_type=coalesce($7,office_type),division_code=$8,district_code=$9,upazila_code=$10,union_code=$11,ward_code=$12 WHERE id=$1 RETURNING *",
           [
             a.tenantId,
             d.nameBn,
             d.nameEn,
-            d.division,
-            d.district,
-            d.upazila,
+            names.division,
+            names.district,
+            names.upazila,
             d.officeType,
+            ...geographyValues(d.geography ?? geographyRow(existing)),
           ],
         )
       ).rows[0];
       await audit(db, a.tenantId!, a.userId, "OFFICE_UPDATED", a.tenantId, d);
-      return camelRow(r);
+      return officeRow(r);
     });
     res.json(item);
   }),
@@ -222,12 +255,30 @@ publicManagementRouter.get(
         .max(100)
         .parse(req.query[k] ?? ""),
     );
-    const values = [`%${q}%`, ...filters];
+    const codes = [
+      "divisionCode",
+      "districtCode",
+      "upazilaCode",
+      "unionCode",
+    ].map((k) => {
+      const result = z
+        .string()
+        .regex(/^(?:[a-z0-9-]{3,30})?$/)
+        .safeParse(req.query[k] ?? "");
+      if (!result.success)
+        fail(
+          400,
+          "GEOGRAPHY_QUERY_INVALID",
+          "Office geography filters must be dataset codes.",
+        );
+      return result.data;
+    });
+    const values = [`%${q}%`, ...filters, ...codes];
     const where =
-      "status='ACTIVE' AND (name_bn ILIKE $1 OR name_en ILIKE $1 OR slug ILIKE $1) AND ($2='' OR division=$2) AND ($3='' OR district=$3) AND ($4='' OR upazila=$4) AND ($5='' OR office_type=$5)";
+      "status='ACTIVE' AND (name_bn ILIKE $1 OR name_en ILIKE $1 OR slug ILIKE $1) AND ($2='' OR division=$2) AND ($3='' OR district=$3) AND ($4='' OR upazila=$4) AND ($5='' OR office_type=$5) AND ($6='' OR division_code=$6) AND ($7='' OR district_code=$7) AND ($8='' OR upazila_code=$8) AND ($9='' OR union_code=$9)";
     const [items, count] = await Promise.all([
       pool.query(
-        `SELECT id,slug,name_bn,name_en,division,district,upazila,office_type,demo FROM tenants WHERE ${where} ORDER BY name_en,id LIMIT $6 OFFSET $7`,
+        `SELECT id,slug,name_bn,name_en,division,district,upazila,office_type,demo,division_code,district_code,upazila_code,union_code,ward_code FROM tenants WHERE ${where} ORDER BY name_en,id LIMIT $10 OFFSET $11`,
         [...values, p.pageSize, (p.page - 1) * p.pageSize],
       ),
       pool.query(
@@ -236,7 +287,7 @@ publicManagementRouter.get(
       ),
     ]);
     res.json({
-      items: items.rows.map(camelRow),
+      items: items.rows.map(officeRow),
       total: count.rows[0].total,
       ...p,
     });
@@ -247,7 +298,7 @@ publicManagementRouter.get(
   wrap(async (req, res) => {
     const office = (
       await pool.query(
-        "SELECT id,slug,name_bn,name_en,division,district,upazila,office_type,demo FROM tenants WHERE slug=$1 AND status='ACTIVE'",
+        "SELECT id,slug,name_bn,name_en,division,district,upazila,office_type,demo,division_code,district_code,upazila_code,union_code,ward_code FROM tenants WHERE slug=$1 AND status='ACTIVE'",
         [req.params.slug],
       )
     ).rows[0];
@@ -265,7 +316,7 @@ publicManagementRouter.get(
         [office.id],
       )
     ).rows.map(camelRow);
-    res.json({ office: camelRow(office), services, notices });
+    res.json({ office: officeRow(office), services, notices });
   }),
 );
 publicManagementRouter.get(
@@ -318,20 +369,32 @@ publicManagementRouter.post(
           ),
         addressBn: z.string().min(4).max(500),
         addressEn: z.string().min(4).max(500),
-        syntheticReference: z.string().regex(/^DEMO-[A-Za-z0-9-]{3,50}$/),
+        syntheticReference: z
+          .string()
+          .regex(/^DEMO-[A-Za-z0-9-]{3,50}$/)
+          .optional(),
+        geography: geographyInput.optional(),
       })
       .strict()
       .parse(req.body);
     await transaction(d.tenantId, async (db) => {
-      if (
-        !(
-          await db.query(
-            "SELECT 1 FROM tenants WHERE id=$1 AND status='ACTIVE' FOR SHARE",
-            [d.tenantId],
-          )
-        ).rowCount
-      )
-        fail(404, "NOT_FOUND", "Active office not found.");
+      const office = (
+        await db.query(
+          "SELECT * FROM tenants WHERE id=$1 AND status='ACTIVE' FOR SHARE",
+          [d.tenantId],
+        )
+      ).rows[0];
+      if (!office) fail(404, "NOT_FOUND", "Active office not found.");
+      if (office.division_code && !d.geography)
+        fail(
+          400,
+          "GEOGRAPHY_REQUIRED",
+          "Select an address hierarchy for this participating office.",
+        );
+      if (d.geography) {
+        await validateGeography(db, d.geography, "citizen");
+        validateOfficeJurisdiction(office, d.geography);
+      }
       const user = (
         await db.query(
           "INSERT INTO platform_users(email,display_name,password_hash) VALUES($1,$2,$3) RETURNING id",
@@ -343,7 +406,7 @@ publicManagementRouter.post(
         [user.id, d.tenantId],
       );
       await db.query(
-        "INSERT INTO citizens(tenant_id,user_id,full_name_bn,full_name_en,date_of_birth,address_bn,address_en,synthetic_reference) VALUES($1,$2,$3,$4,$5,$6,$7,$8)",
+        "INSERT INTO citizens(tenant_id,user_id,full_name_bn,full_name_en,date_of_birth,address_bn,address_en,synthetic_reference,division_code,district_code,upazila_code,union_code,ward_code) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)",
         [
           d.tenantId,
           user.id,
@@ -352,14 +415,19 @@ publicManagementRouter.post(
           d.dateOfBirth,
           d.addressBn,
           d.addressEn,
-          d.syntheticReference,
+          d.syntheticReference ?? `DEMO-${randomUUID()}`,
+          ...geographyValues(d.geography),
         ],
       );
       await audit(db, d.tenantId, user.id, "DEMO_SELF_REGISTRATION", user.id);
     });
     res
       .status(201)
-      .json({ registered: true, verificationState: "SYNTHETIC_DEMO" });
+      .json({
+        registered: true,
+        verificationState: "SYNTHETIC_DEMO",
+        geography: d.geography ?? null,
+      });
   }),
 );
 managementRouter.post(
@@ -684,18 +752,28 @@ managementRouter.post(
         .parse(req.body),
       id = randomUUID();
     const item = await transaction(id, async (db) => {
+      const names = d.geography
+        ? await validateGeography(db, d.geography, d.officeType)
+        : d;
+      if (!names.division || !names.district || !names.upazila)
+        fail(
+          400,
+          "GEOGRAPHY_REQUIRED",
+          "Select office geography or provide all legacy location names.",
+        );
       const t = (
         await db.query(
-          "INSERT INTO tenants(id,slug,name_bn,name_en,division,district,upazila,office_type) VALUES($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *",
+          "INSERT INTO tenants(id,slug,name_bn,name_en,division,district,upazila,office_type,division_code,district_code,upazila_code,union_code,ward_code) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) RETURNING *",
           [
             id,
             d.slug,
             d.nameBn,
             d.nameEn,
-            d.division,
-            d.district,
-            d.upazila,
+            names.division,
+            names.district,
+            names.upazila,
             d.officeType,
+            ...geographyValues(d.geography),
           ],
         )
       ).rows[0];
@@ -719,7 +797,7 @@ managementRouter.post(
         [id],
       );
       await audit(db, id, a.userId, "TENANT_CREATED", id, { demo: true });
-      return camelRow(t);
+      return officeRow(t);
     });
     res.status(201).json(item);
   }),

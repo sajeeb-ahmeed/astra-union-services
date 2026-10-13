@@ -1,12 +1,20 @@
 # Astra — working citizen-services website
 
-Release 0.2 · 13 October 2026. Independently authored Bangla-first React frontend, Express/TypeScript backend and real PostgreSQL database. The commissioning user owns the original software; third-party licenses are retained separately.
+Release 0.3 · 13 October 2026. Independently authored Bangla/English React frontend, Express/TypeScript backend and real PostgreSQL database. The commissioning user owns the original software; third-party licenses are retained separately.
 
 **Open:** [live demo](https://astra-union-services.onrender.com) or [local website](http://127.0.0.1:5173). **Read:** [hosted deployment and live test results](docs/HOSTED_DEPLOYMENT.md), [delivery report](docs/DELIVERY_REPORT.md), [deployment instructions](docs/DEPLOYMENT.md), [acceptance evidence](docs/TEST_MATRIX.md).
 
-The live demo runs on Render Free with PostgreSQL 17. Fifteen hosted workflow groups passed, followed by six durability checks after the final deployment and desktop/mobile browser checks. Final GitHub CI passed all **129 tests** and the Docker build. The Free database expires on **12 November 2026**, and the web service can sleep when idle. Live identity and commercial payment integrations remain unconfigured.
+The existing live deployment runs on Render Free with PostgreSQL 17. Its preceding release passed fifteen hosted workflow groups, six durability checks, desktop/mobile browser checks, **129 CI tests** and the Docker build. Release-specific deployment evidence is recorded in the hosted deployment document. The Free database expires on **12 November 2026**, and the web service can sleep when idle. Live identity and commercial payment integrations remain unconfigured.
 
 This release expands Phase 1 into **47 operational demonstration services**. Every service has been exercised through draft, submission, review, authorized approval, real PDF, QR lookup and exactly one credit debit. These tests prove this independently built implementation. Original reference-site success paths remain unverified. Documents remain DEMO / NOT OFFICIAL; live identity, legal authority and commercial payment-provider integrations are not configured.
+
+## Geography and language update
+
+Release 0.3 adds the supplied Bangladesh hierarchy: **8 divisions, 64 districts, 495 upazilas, 4,586 unions and 41,274 derived rural wards**. Public registration, staff citizen entry, profiles, office onboarding and directory filters use validated parent-linked records stored in PostgreSQL. Geographic coverage and actual participating offices remain distinct. Existing domain records remain compatible.
+
+The interface uses a restrained responsive design and a persistent **বাংলা / English** switch across public pages and role-based workspaces. Form labels, navigation, messages and service titles follow the selected language; API identifiers and saved inputs retain their original values. Read [geography provenance and integration](docs/GEOGRAPHY_INTEGRATION.md) and [language/UI guide](docs/LANGUAGE_AND_UI.md).
+
+The community dataset is not an official current national register. Ward numbers are derived; city-corporation and municipality wards are excluded. Government identity, official issuance and commercial payments remain separate integrations.
 
 ## Delivered functionality
 

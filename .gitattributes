@@ -1,0 +1,2 @@
+# Preserve the supplied dataset's documented byte checksums on every platform.
+data/geo/* text eol=lf

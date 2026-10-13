@@ -1,0 +1,549 @@
+{
+  "testedAt": "2026-10-13T08:09:00.420Z",
+  "results": [
+    {
+      "route": "/",
+      "width": 1440,
+      "scrollWidth": 1440,
+      "title": "Astra — ইউনিয়ন সেবা",
+      "buttons": [
+        {
+          "text": "বাংলা",
+          "height": 38,
+          "background": "rgba(0, 0, 0, 0)"
+        },
+        {
+          "text": "English",
+          "height": 38,
+          "background": "rgb(255, 255, 255)"
+        }
+      ],
+      "overflow": [],
+      "errors": []
+    },
+    {
+      "route": "/register",
+      "width": 1440,
+      "scrollWidth": 1440,
+      "title": "Astra — ইউনিয়ন সেবা",
+      "buttons": [
+        {
+          "text": "বাংলা",
+          "height": 38,
+          "background": "rgba(0, 0, 0, 0)"
+        },
+        {
+          "text": "English",
+          "height": 38,
+          "background": "rgb(255, 255, 255)"
+        }
+      ],
+      "overflow": [],
+      "errors": []
+    },
+    {
+      "route": "/services",
+      "width": 1440,
+      "scrollWidth": 1440,
+      "title": "Astra — ইউনিয়ন সেবা",
+      "buttons": [
+        {
+          "text": "বাংলা",
+          "height": 38,
+          "background": "rgba(0, 0, 0, 0)"
+        },
+        {
+          "text": "English",
+          "height": 38,
+          "background": "rgb(255, 255, 255)"
+        }
+      ],
+      "overflow": [],
+      "errors": []
+    },
+    {
+      "route": "/offices",
+      "width": 1440,
+      "scrollWidth": 1440,
+      "title": "Astra — ইউনিয়ন সেবা",
+      "buttons": [
+        {
+          "text": "বাংলা",
+          "height": 38,
+          "background": "rgba(0, 0, 0, 0)"
+        },
+        {
+          "text": "English",
+          "height": 38,
+          "background": "rgb(255, 255, 255)"
+        }
+      ],
+      "overflow": [],
+      "errors": []
+    },
+    {
+      "route": "/login",
+      "width": 1440,
+      "scrollWidth": 1440,
+      "title": "Astra — ইউনিয়ন সেবা",
+      "buttons": [
+        {
+          "text": "বাংলা",
+          "height": 38,
+          "background": "rgba(0, 0, 0, 0)"
+        },
+        {
+          "text": "English",
+          "height": 38,
+          "background": "rgb(255, 255, 255)"
+        }
+      ],
+      "overflow": [],
+      "errors": []
+    },
+    {
+      "route": "/help",
+      "width": 1440,
+      "scrollWidth": 1440,
+      "title": "Astra — ইউনিয়ন সেবা",
+      "buttons": [
+        {
+          "text": "বাংলা",
+          "height": 38,
+          "background": "rgba(0, 0, 0, 0)"
+        },
+        {
+          "text": "English",
+          "height": 38,
+          "background": "rgb(255, 255, 255)"
+        }
+      ],
+      "overflow": [],
+      "errors": []
+    },
+    {
+      "route": "/verify",
+      "width": 1440,
+      "scrollWidth": 1440,
+      "title": "Astra — ইউনিয়ন সেবা",
+      "buttons": [
+        {
+          "text": "বাংলা",
+          "height": 38,
+          "background": "rgba(0, 0, 0, 0)"
+        },
+        {
+          "text": "English",
+          "height": 38,
+          "background": "rgb(255, 255, 255)"
+        }
+      ],
+      "overflow": [],
+      "errors": []
+    },
+    {
+      "route": "/tracking",
+      "width": 1440,
+      "scrollWidth": 1440,
+      "title": "Astra — ইউনিয়ন সেবা",
+      "buttons": [
+        {
+          "text": "বাংলা",
+          "height": 38,
+          "background": "rgba(0, 0, 0, 0)"
+        },
+        {
+          "text": "English",
+          "height": 38,
+          "background": "rgb(255, 255, 255)"
+        }
+      ],
+      "overflow": [],
+      "errors": []
+    },
+    {
+      "route": "/",
+      "width": 390,
+      "scrollWidth": 390,
+      "title": "Astra — ইউনিয়ন সেবা",
+      "buttons": [
+        {
+          "text": "বাংলা",
+          "height": 38,
+          "background": "rgba(0, 0, 0, 0)"
+        },
+        {
+          "text": "English",
+          "height": 38,
+          "background": "rgb(255, 255, 255)"
+        }
+      ],
+      "overflow": [
+        "BUTTON.",
+        "BUTTON."
+      ],
+      "errors": []
+    },
+    {
+      "route": "/register",
+      "width": 390,
+      "scrollWidth": 390,
+      "title": "Astra — ইউনিয়ন সেবা",
+      "buttons": [
+        {
+          "text": "বাংলা",
+          "height": 38,
+          "background": "rgba(0, 0, 0, 0)"
+        },
+        {
+          "text": "English",
+          "height": 38,
+          "background": "rgb(255, 255, 255)"
+        }
+      ],
+      "overflow": [
+        "BUTTON.",
+        "BUTTON."
+      ],
+      "errors": []
+    },
+    {
+      "route": "/services",
+      "width": 390,
+      "scrollWidth": 390,
+      "title": "Astra — ইউনিয়ন সেবা",
+      "buttons": [
+        {
+          "text": "বাংলা",
+          "height": 38,
+          "background": "rgba(0, 0, 0, 0)"
+        },
+        {
+          "text": "English",
+          "height": 38,
+          "background": "rgb(255, 255, 255)"
+        }
+      ],
+      "overflow": [
+        "BUTTON.",
+        "BUTTON."
+      ],
+      "errors": []
+    },
+    {
+      "route": "/offices",
+      "width": 390,
+      "scrollWidth": 390,
+      "title": "Astra — ইউনিয়ন সেবা",
+      "buttons": [
+        {
+          "text": "বাংলা",
+          "height": 38,
+          "background": "rgba(0, 0, 0, 0)"
+        },
+        {
+          "text": "English",
+          "height": 38,
+          "background": "rgb(255, 255, 255)"
+        }
+      ],
+      "overflow": [
+        "BUTTON.",
+        "BUTTON."
+      ],
+      "errors": []
+    },
+    {
+      "route": "/login",
+      "width": 390,
+      "scrollWidth": 390,
+      "title": "Astra — ইউনিয়ন সেবা",
+      "buttons": [
+        {
+          "text": "বাংলা",
+          "height": 38,
+          "background": "rgba(0, 0, 0, 0)"
+        },
+        {
+          "text": "English",
+          "height": 38,
+          "background": "rgb(255, 255, 255)"
+        }
+      ],
+      "overflow": [
+        "BUTTON.",
+        "BUTTON."
+      ],
+      "errors": []
+    },
+    {
+      "route": "/help",
+      "width": 390,
+      "scrollWidth": 390,
+      "title": "Astra — ইউনিয়ন সেবা",
+      "buttons": [
+        {
+          "text": "বাংলা",
+          "height": 38,
+          "background": "rgba(0, 0, 0, 0)"
+        },
+        {
+          "text": "English",
+          "height": 38,
+          "background": "rgb(255, 255, 255)"
+        }
+      ],
+      "overflow": [
+        "BUTTON.",
+        "BUTTON."
+      ],
+      "errors": []
+    },
+    {
+      "route": "/verify",
+      "width": 390,
+      "scrollWidth": 390,
+      "title": "Astra — ইউনিয়ন সেবা",
+      "buttons": [
+        {
+          "text": "বাংলা",
+          "height": 38,
+          "background": "rgba(0, 0, 0, 0)"
+        },
+        {
+          "text": "English",
+          "height": 38,
+          "background": "rgb(255, 255, 255)"
+        }
+      ],
+      "overflow": [
+        "BUTTON.",
+        "BUTTON."
+      ],
+      "errors": []
+    },
+    {
+      "route": "/tracking",
+      "width": 390,
+      "scrollWidth": 390,
+      "title": "Astra — ইউনিয়ন সেবা",
+      "buttons": [
+        {
+          "text": "বাংলা",
+          "height": 38,
+          "background": "rgba(0, 0, 0, 0)"
+        },
+        {
+          "text": "English",
+          "height": 38,
+          "background": "rgb(255, 255, 255)"
+        }
+      ],
+      "overflow": [
+        "BUTTON.",
+        "BUTTON."
+      ],
+      "errors": []
+    },
+    {
+      "route": "/",
+      "width": 320,
+      "scrollWidth": 320,
+      "title": "Astra — ইউনিয়ন সেবা",
+      "buttons": [
+        {
+          "text": "বাংলা",
+          "height": 38,
+          "background": "rgba(0, 0, 0, 0)"
+        },
+        {
+          "text": "English",
+          "height": 38,
+          "background": "rgb(255, 255, 255)"
+        }
+      ],
+      "overflow": [
+        "BUTTON.",
+        "BUTTON.",
+        "BUTTON.",
+        "BUTTON."
+      ],
+      "errors": []
+    },
+    {
+      "route": "/register",
+      "width": 320,
+      "scrollWidth": 320,
+      "title": "Astra — ইউনিয়ন সেবা",
+      "buttons": [
+        {
+          "text": "বাংলা",
+          "height": 38,
+          "background": "rgba(0, 0, 0, 0)"
+        },
+        {
+          "text": "English",
+          "height": 38,
+          "background": "rgb(255, 255, 255)"
+        }
+      ],
+      "overflow": [
+        "BUTTON.",
+        "BUTTON.",
+        "BUTTON.",
+        "BUTTON."
+      ],
+      "errors": []
+    },
+    {
+      "route": "/services",
+      "width": 320,
+      "scrollWidth": 320,
+      "title": "Astra — ইউনিয়ন সেবা",
+      "buttons": [
+        {
+          "text": "বাংলা",
+          "height": 38,
+          "background": "rgba(0, 0, 0, 0)"
+        },
+        {
+          "text": "English",
+          "height": 38,
+          "background": "rgb(255, 255, 255)"
+        }
+      ],
+      "overflow": [
+        "BUTTON.",
+        "BUTTON.",
+        "BUTTON.",
+        "BUTTON."
+      ],
+      "errors": []
+    },
+    {
+      "route": "/offices",
+      "width": 320,
+      "scrollWidth": 320,
+      "title": "Astra — ইউনিয়ন সেবা",
+      "buttons": [
+        {
+          "text": "বাংলা",
+          "height": 38,
+          "background": "rgba(0, 0, 0, 0)"
+        },
+        {
+          "text": "English",
+          "height": 38,
+          "background": "rgb(255, 255, 255)"
+        }
+      ],
+      "overflow": [
+        "BUTTON.",
+        "BUTTON.",
+        "BUTTON.",
+        "BUTTON."
+      ],
+      "errors": []
+    },
+    {
+      "route": "/login",
+      "width": 320,
+      "scrollWidth": 320,
+      "title": "Astra — ইউনিয়ন সেবা",
+      "buttons": [
+        {
+          "text": "বাংলা",
+          "height": 38,
+          "background": "rgba(0, 0, 0, 0)"
+        },
+        {
+          "text": "English",
+          "height": 38,
+          "background": "rgb(255, 255, 255)"
+        }
+      ],
+      "overflow": [
+        "BUTTON.",
+        "BUTTON.",
+        "BUTTON.",
+        "BUTTON."
+      ],
+      "errors": []
+    },
+    {
+      "route": "/help",
+      "width": 320,
+      "scrollWidth": 320,
+      "title": "Astra — ইউনিয়ন সেবা",
+      "buttons": [
+        {
+          "text": "বাংলা",
+          "height": 38,
+          "background": "rgba(0, 0, 0, 0)"
+        },
+        {
+          "text": "English",
+          "height": 38,
+          "background": "rgb(255, 255, 255)"
+        }
+      ],
+      "overflow": [
+        "BUTTON.",
+        "BUTTON.",
+        "BUTTON.",
+        "BUTTON."
+      ],
+      "errors": []
+    },
+    {
+      "route": "/verify",
+      "width": 320,
+      "scrollWidth": 320,
+      "title": "Astra — ইউনিয়ন সেবা",
+      "buttons": [
+        {
+          "text": "বাংলা",
+          "height": 38,
+          "background": "rgba(0, 0, 0, 0)"
+        },
+        {
+          "text": "English",
+          "height": 38,
+          "background": "rgb(255, 255, 255)"
+        }
+      ],
+      "overflow": [
+        "BUTTON.",
+        "BUTTON.",
+        "BUTTON.",
+        "BUTTON."
+      ],
+      "errors": []
+    },
+    {
+      "route": "/tracking",
+      "width": 320,
+      "scrollWidth": 320,
+      "title": "Astra — ইউনিয়ন সেবা",
+      "buttons": [
+        {
+          "text": "বাংলা",
+          "height": 38,
+          "background": "rgba(0, 0, 0, 0)"
+        },
+        {
+          "text": "English",
+          "height": 38,
+          "background": "rgb(255, 255, 255)"
+        }
+      ],
+      "overflow": [
+        "BUTTON.",
+        "BUTTON.",
+        "BUTTON.",
+        "BUTTON."
+      ],
+      "errors": []
+    }
+  ]
+}

@@ -35,7 +35,7 @@ async function login(page: Page, role: string, tenant = "alpha") {
         : `${role}@${tenant}.demo.test`,
     );
   await page.getByLabel("Password", { exact: true }).fill("Demo-Phase1!");
-  await page.getByRole("button", { name: "Sign in", exact: true }).click();
+  await page.locator(".login-form").getByRole("button", { name: "Sign in", exact: true }).click();
   await page.getByRole("button", { name: "Sign out", exact: true }).waitFor();
 }
 async function nav(page: Page, name: string) {
@@ -102,7 +102,7 @@ test(
       await login(citizen, "citizen");
       await nav(citizen, "Service catalog");
       await citizen
-        .getByLabel("Citizen / নাগরিক", { exact: true })
+        .getByLabel("Citizen", { exact: true })
         .selectOption({ index: 1 });
       await citizen
         .getByLabel("Purpose (English)", { exact: false })
@@ -288,7 +288,7 @@ test(
         .click();
       await page.getByRole("button", { name: "Remove 1", exact: true }).click();
       await page
-        .getByLabel("Citizen / নাগরিক", { exact: true })
+        .getByLabel("Citizen", { exact: true })
         .selectOption({ index: 1 });
       await page
         .getByRole("button", { name: "Save draft application", exact: true })
@@ -314,7 +314,7 @@ test(
       await nav(page, "Service catalog");
       await page.getByRole("button", { name: /42.*Trade license/ }).click();
       await page
-        .getByLabel("Citizen / নাগরিক", { exact: true })
+        .getByLabel("Citizen", { exact: true })
         .selectOption({ index: 1 });
       await page
         .getByRole("button", { name: "Add supporting documents", exact: false })
@@ -397,7 +397,7 @@ test(
         fullPage: true,
       });
       await page.getByRole("button", { name: "Sign out", exact: true }).click();
-      await page.getByRole("button", { name: "Sign in", exact: true }).waitFor();
+      await page.locator(".login-form").getByRole("button", { name: "Sign in", exact: true }).waitFor();
       assert.equal(
         await page.getByLabel("Email", { exact: true }).inputValue(),
         "",
@@ -446,9 +446,12 @@ test(
     try {
       await login(page, "staff");
       await nav(page, "Citizens");
-      await page
-        .getByLabel("Demo reference", { exact: true })
-        .fill(`DEMO-BROWSER-${Date.now()}`);
+      for (const [key, value] of Object.entries({ nameBn: "নমুনা নাগরিক", nameEn: "Browser Registered Citizen", dateOfBirth: "1994-01-01", addressBn: "নমুনা গ্রাম", addressEn: "Sample village" })) await page.locator(`#citizen-${key}`).fill(value);
+      const union = JSON.parse(fs.readFileSync("data/geo/unions.json", "utf8")).find((row: any) => row.upazilaCode === "upa-001");
+      for (const [level, code] of [["division", "div-01"], ["district", "dis-01"], ["upazila", "upa-001"], ["union", union.code], ["ward", `${union.code}-w01`]]) {
+        await page.locator(`#citizen-geo-${level} option[value="${code}"]`).waitFor({ state: "attached" });
+        await page.locator(`#citizen-geo-${level}`).selectOption(code);
+      }
       const registered = page.waitForResponse(
         (r) => r.url().endsWith("/citizens") && r.request().method() === "POST",
       );
@@ -468,13 +471,14 @@ test(
         .getByLabel("Search within your tenant", { exact: true })
         .fill(citizen.syntheticReference);
       await page.getByText(citizen.id.slice(0, 8), { exact: true }).waitFor();
-      const duplicate = page.waitForResponse(
-        (r) => r.url().endsWith("/citizens") && r.request().method() === "POST",
-      );
-      await page
-        .getByRole("button", { name: "Register citizen", exact: true })
-        .click();
-      assert.equal((await duplicate).status(), 409);
+      assert.match(citizen.syntheticReference, /^DEMO-.+/);
+      assert.equal(response.request().postDataJSON().geography.unionCode, union.code);
+      const session = await (await context.request.get(`${origin}/api/v1/auth/me`)).json();
+      const duplicate = await context.request.post(`${origin}/api/v1/citizens`, {
+        data: { ...response.request().postDataJSON(), syntheticReference: citizen.syntheticReference },
+        headers: { "X-CSRF-Token": session.csrfToken },
+      });
+      assert.equal(duplicate.status(), 409);
       await page.getByRole("button", { name: "Sign out", exact: true }).click();
       await login(page, "owner");
       await page

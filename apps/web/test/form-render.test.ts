@@ -14,6 +14,9 @@ import {
   type ValidationIssue,
 } from "@astra/shared-schemas";
 import { DynamicForm } from "../src/DynamicForm.js";
+import { setLanguage } from "../src/i18n.js";
+
+test.beforeEach(() => setLanguage("en"));
 
 const render = (
   schema: FormSchema,
@@ -91,7 +94,7 @@ test("FOR-01: actual React renderer renders all 47 captured service entries and 
   assert.equal(renderedNames.size, 217);
 });
 
-test("operational bilingual labels and private upload accept rules render from the shared profile", () => {
+test("operational labels switch languages and private upload accept rules render from the shared profile", () => {
   const schema = getServiceSchema(42);
   const payload = {
     ...demoPayloads[42],
@@ -102,11 +105,12 @@ test("operational bilingual labels and private upload accept rules render from t
     (html.match(/<fieldset\b/g) ?? []).length,
     schema.sections.length + 1,
   );
-  for (const field of flattenFields(schema).filter(
-    (field) => !field.visibleWhen,
-  )) {
-    assert.ok(html.includes(field.label.bn));
-    assert.ok(html.includes(field.label.en));
+  for (const language of ["en", "bn"] as const) {
+    setLanguage(language);
+    const localized = render(schema, payload);
+    for (const field of flattenFields(schema).filter((field) => !field.visibleWhen)) {
+      assert.ok(localized.includes(field.label[language]), `${language} label: ${field.id}`);
+    }
   }
   assert.ok(html.includes('type="file"'));
   assert.ok(html.includes('accept="application/pdf,image/png,image/jpeg"'));
@@ -181,7 +185,9 @@ test("conditional trade previous-license control is hidden until selected and ha
   )!;
   assert.ok(previous);
   assert.ok(html.includes(`for="${previous.id}"`));
-  assert.ok(html.includes("পূর্বের লাইসেন্স নম্বর"));
+  assert.ok(html.includes("Previous license number"));
+  setLanguage("bn");
+  assert.ok(render(schema, { ...demoPayloads[42], has_previous_license: true, previous_license_number: "DEMO-OLD-001" }).includes("পূর্বের লাইসেন্স নম্বর"));
   assert.ok(html.includes("DEMO-OLD-001"));
 });
 
@@ -206,8 +212,11 @@ test("field errors link bilingual error content to the exact nested input", () =
     control.attributes.includes(`aria-describedby="${control.id}-error"`),
   );
   assert.ok(html.includes(`id="${control.id}-error"`));
-  assert.ok(html.includes("এই ঘরটি পূরণ করুন।"));
   assert.ok(html.includes("This field is required."));
+  setLanguage("bn");
+  const bengali = render(schema, payload, result.issues);
+  assert.ok(bengali.includes("এই ঘরটি পূরণ করুন।"));
+  assert.ok(controls(bengali).find((item) => item.id === control.id)?.attributes.includes(`aria-describedby="${control.id}-error"`));
 });
 
 test("repeatable group errors are focusable and programmatically linked to their fieldset", () => {

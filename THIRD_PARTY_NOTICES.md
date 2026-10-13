@@ -10,7 +10,10 @@ Dependencies and runtimes retain their original licenses. Ownership of original 
 | Playwright | Chromium PDF rendering and browser tests | Apache-2.0 |
 | PostgreSQL | Primary relational database | PostgreSQL License |
 | Chromium | Local headless rendering/testing | BSD-style and bundled third-party licenses |
+| Supplied Bangladesh administrative geography dataset, projected from `bangladesh-geo-data@4.0.9` | Bilingual rural location selectors and parent validation | MIT; original notice retained verbatim in `data/geo/LICENSE`, with provenance and transformation notes in `data/geo/SOURCE.md` |
 | Nirmala UI | Installed Windows font used by local UI/PDF | Windows font license; not redistributed in this source archive |
 | Python pypdf / pypdfium2 and Poppler | Development PDF QA via host bundle | Respective upstream licenses; host tools are not redistributed |
 
 The source deliverable excludes node_modules, downloaded PostgreSQL binaries, database clusters, private credentials and proprietary font files. Install dependencies from their official distributions and retain required notices for any redistribution. Linux font licensing and deployment packaging must be checked before distribution.
+
+The geography dataset remains third-party data. Its 8 divisions, 64 districts, 495 upazilas and 4,586 unions use application identifiers, not official BBS codes. The 41,274 union wards are derived numbered records, not surveyed boundaries. Municipality and city-corporation wards are excluded. Integration does not imply government endorsement, nationwide office enrollment or independently verified current administrative boundaries.
