@@ -397,6 +397,17 @@ test(
         fullPage: true,
       });
       await page.getByRole("button", { name: "Sign out", exact: true }).click();
+      await page.getByRole("button", { name: "Sign in", exact: true }).waitFor();
+      assert.equal(
+        await page.getByLabel("Email", { exact: true }).inputValue(),
+        "",
+        "Signing out clears the previous account from the form without navigation",
+      );
+      assert.equal(
+        await page.getByLabel("Password", { exact: true }).inputValue(),
+        "",
+        "Signing out never restores the submitted password or initial local demo password",
+      );
       await page.getByLabel("Email", { exact: true }).focus();
       await page.keyboard.press("Tab");
       assert.equal(

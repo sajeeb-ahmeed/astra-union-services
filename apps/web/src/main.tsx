@@ -350,9 +350,12 @@ function App() {
               onSubmit={(e) => {
                 e.preventDefault();
                 run(async () => {
-                  setSession(
-                    await api("/auth/login", "POST", { email, password }),
-                  );
+                  const nextSession = await api("/auth/login", "POST", {
+                    email,
+                    password,
+                  });
+                  setPassword("");
+                  setSession(nextSession);
                 });
               }}
             >
@@ -488,6 +491,8 @@ function App() {
               run(async () => {
                 await api("/auth/logout", "POST");
                 refreshEpoch.current++;
+                setEmail("");
+                setPassword("");
                 setSession(null);
                 setCitizens([]);
                 setApplications([]);
