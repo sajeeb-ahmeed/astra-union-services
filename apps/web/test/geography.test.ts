@@ -29,11 +29,18 @@ test("language source: displayed literal translations cover all six public/works
   const invariant = new Set(["A", "Demo-Phase1!", "English", "বাংলা", "you@example.test"]);
   const missing: string[] = [];
   let checked = 0;
+  function displayLiterals(node: ts.Node): string[] {
+    if (ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node)) return [node.text];
+    if (ts.isConditionalExpression(node)) return [...displayLiterals(node.whenTrue), ...displayLiterals(node.whenFalse)];
+    if (ts.isArrayLiteralExpression(node)) return node.elements.flatMap(displayLiterals);
+    return [];
+  }
   for (const filename of ["main", "AdditionalWorkspace", "DynamicForm", "PublicPortal", "AdminWorkspace", "GeographyFields"]) {
     const file = ts.createSourceFile(filename, fs.readFileSync(`apps/web/src/${filename}.tsx`, "utf8"), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
     function visit(node: ts.Node) {
-      if (ts.isCallExpression(node) && ["t", "tx"].includes(node.expression.getText(file)) && node.arguments[0] && ts.isStringLiteral(node.arguments[0])) {
-        const key = node.arguments[0].text.replace(/\s+/g, " ").trim();
+      if (ts.isCallExpression(node) && ["t", "tx"].includes(node.expression.getText(file)) && node.arguments[0]) {
+        for (const text of displayLiterals(node.arguments[0])) {
+        const key = text.replace(/\s+/g, " ").trim();
         if (!invariant.has(key) && /[A-Za-z\u0980-\u09ff]/.test(key)) {
           checked++;
           const parts = key.split(" / ");
@@ -42,6 +49,7 @@ test("language source: displayed literal translations cover all six public/works
             if (/[A-Za-z]/.test(key) && !dictionaries.bn[key]) missing.push(`${filename}: missing Bengali for ${key}`);
             if (/[\u0980-\u09ff]/.test(key) && !dictionaries.en[key]) missing.push(`${filename}: missing English for ${key}`);
           }
+        }
         }
       }
       ts.forEachChild(node, visit);
