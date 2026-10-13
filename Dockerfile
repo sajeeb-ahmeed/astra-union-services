@@ -2,7 +2,6 @@ FROM node:24-bookworm-slim
 WORKDIR /app
 ENV PLAYWRIGHT_BROWSERS_PATH=/opt/playwright
 COPY package.json package-lock.json ./
-COPY apps/api/package.json apps/api/package.json
 COPY apps/web/package.json apps/web/package.json
 COPY packages/shared-schemas/package.json packages/shared-schemas/package.json
 RUN npm ci --no-audit --no-fund && npx playwright install --with-deps chromium && apt-get update && apt-get install -y --no-install-recommends fonts-noto-core && rm -rf /var/lib/apt/lists/*
