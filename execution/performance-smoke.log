@@ -1,0 +1,60 @@
+{
+  "date": "2026-10-13T07:10:27.942Z",
+  "environment": "Local Windows/Chromium; built frontend; loopback. Not production load or field Core Web Vitals.",
+  "pages": [
+    {
+      "viewport": {
+        "width": 1440,
+        "height": 1024
+      },
+      "domContentLoadedMs": 67,
+      "loadMs": 68,
+      "firstContentfulPaintMs": 300,
+      "transferredBytes": 126593,
+      "horizontalOverflow": false,
+      "errors": []
+    },
+    {
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "domContentLoadedMs": 71,
+      "loadMs": 71,
+      "firstContentfulPaintMs": 104,
+      "transferredBytes": 126284,
+      "horizontalOverflow": false,
+      "errors": []
+    }
+  ],
+  "directoryRequests": 100,
+  "concurrency": 10,
+  "directoryMedianMs": 12,
+  "directoryP95Ms": 121,
+  "assets": [
+    {
+      "name": "AdditionalWorkspace-BT0cMN4r.js",
+      "rawBytes": 13076,
+      "gzipBytes": 3927,
+      "brotliBytes": 3328
+    },
+    {
+      "name": "AdminWorkspace-CdZ3MaAf.js",
+      "rawBytes": 13936,
+      "gzipBytes": 3747,
+      "brotliBytes": 3153
+    },
+    {
+      "name": "index-Ry0LfT-g.js",
+      "rawBytes": 860401,
+      "gzipBytes": 115698,
+      "brotliBytes": 90682
+    },
+    {
+      "name": "index-ToGT6bdm.css",
+      "rawBytes": 19519,
+      "gzipBytes": 5029,
+      "brotliBytes": 4398
+    }
+  ]
+}

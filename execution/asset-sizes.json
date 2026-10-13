@@ -1,0 +1,29 @@
+{
+  "measuredAt": "2026-10-13T07:17:14.216Z",
+  "assets": [
+    {
+      "name": "AdditionalWorkspace-BT0cMN4r.js",
+      "rawBytes": 13076,
+      "gzipBytes": 3927,
+      "brotliBytes": 3328
+    },
+    {
+      "name": "AdminWorkspace-CdZ3MaAf.js",
+      "rawBytes": 13936,
+      "gzipBytes": 3747,
+      "brotliBytes": 3153
+    },
+    {
+      "name": "index-Ry0LfT-g.js",
+      "rawBytes": 860401,
+      "gzipBytes": 115698,
+      "brotliBytes": 90682
+    },
+    {
+      "name": "index-ToGT6bdm.css",
+      "rawBytes": 19519,
+      "gzipBytes": 5029,
+      "brotliBytes": 4398
+    }
+  ]
+}

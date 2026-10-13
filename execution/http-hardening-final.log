@@ -1,0 +1,14 @@
+✔ Security: bounded limiter enforces per-IP budget, Retry-After and expiry (76.6063ms)
+✔ Security: headers and Origin check protect public login mutations as well as authenticated writes (12.3589ms)
+✔ Deployment: production rejects missing secrets, unsafe origins and broad proxy trust (0.6881ms)
+✔ Security: mixed-case route aliases share public authentication and verification rate limits (2621.4024ms)
+✔ Deployment: exact proxy trust normalizes host addresses and never trusts a neighboring peer (1.4746ms)
+✔ Security: only a trusted immediate proxy separates forwarded clients into distinct rate buckets (30.4566ms)
+ℹ tests 6
+ℹ suites 0
+ℹ pass 6
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 3093.5118

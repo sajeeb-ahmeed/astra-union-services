@@ -1,0 +1,16 @@
+{
+  "date": "2026-10-13",
+  "command": "npm run test:web",
+  "result": "PASS",
+  "tests": 17,
+  "passed": 17,
+  "failed": 0,
+  "browserJourneys": 9,
+  "rendererTests": 8,
+  "elapsedMs": 32451.5798,
+  "log": "execution/frontend-expanded.log",
+  "viewports": [{"width":1440,"height":1000},{"width":390,"height":844}],
+  "visualInspection": ["expanded-home-desktop.png", "expanded-home-mobile.png", "expanded-application-tracking.png"],
+  "coverage": ["Citizen correction/review/approval/PDF/QR/exactly-once issuance", "Family/trade validation/private uploads/mobile layout", "Staff registration and owner credit adjustment", "Public 47-service catalog/filter/help/feedback/newsletter", "Directory filter preservation across pagination and reload", "Owner onboarding/admin roles/service controls/authorization/notice publication", "Notice search/pagination/office attribution", "Administrator-issued one-use account recovery", "Citizen self-registration/new service draft/password change", "Trade renewal lineage/no draft charge/minimal submitted tracking", "Profile and biodata/holding/witness PDF copies", "Finance report date filters/CSV/PDF"],
+  "limitations": ["Synthetic local environment only", "No complete WCAG or assistive-technology certification", "No live government identity or payment integrations", "Legacy reference downstream workflows remain unverified"]
+}

@@ -1,0 +1,17 @@
+{
+  "decoded": true,
+  "matchedCertificateUrl": true,
+  "opaqueTokenBits": 256,
+  "httpStatus": 200,
+  "publicFields": [
+    "status",
+    "officeBn",
+    "officeEn",
+    "serviceNo",
+    "serviceBn",
+    "serviceEn",
+    "issuedAt",
+    "demo"
+  ],
+  "status": "ISSUED"
+}

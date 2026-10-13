@@ -1,0 +1,48 @@
+﻿no,service_bn,service_en,category,initial_form_family,forms,specific_visible_fields,field_group_codes,observed_form_action_paths,reference_evidence,success_path_tested,target_build_status
+1,হোল্ডিং ট্যাক্স,Holding tax,Property and local taxation,common_order_payment,1,0,C1,/portal/udcUser/applicationStore,audit/evidence/s-01.json,NO,NOT STARTED
+2,পারিবারিক সনদ,Family certificate,Family and civil status,specialist_additional_information,1,20,F01; F02,/portal/udcUser/warishCertificateStoreFamily,audit/evidence/s-02.json,NO,NOT STARTED
+3,ওয়ারিশ সনদ,Legal heirs certificate,Family and civil status,specialist_additional_information,1,22,F03; F02,/portal/udcUser/alive/default/warishCertificateStore,audit/evidence/s-03.json,NO,NOT STARTED
+4,উত্তরাধিকার সনদ,Succession certificate,Family and civil status,specialist_additional_information,1,25,F04; F05; F06; F02,/portal/udcUser/warishCertificateStoreDefault,audit/evidence/s-04.json,NO,NOT STARTED
+5,ক্ষমতা অর্পণ প্রত্যয়ন,Delegation of authority attestation,Consent and authorization,specialist_additional_information,1,16,F07; F08; F09,/portal/udcUser/authorityDelegationCertificateStore,audit/evidence/s-05.json,NO,NOT STARTED
+6,নতুন বিদ্যুৎ সংযোগের প্রত্যয়ন,New electricity connection attestation,Utilities,specialist_additional_information,1,6,F10,/portal/udcUser/electricityConnectionInfoStore,audit/evidence/s-06.json,NO,NOT STARTED
+7,মৃত্যু প্রত্যয়ন,Death attestation,Family and civil status,specialist_additional_information,1,19,F11; F05; F12,/portal/udcUser/deathCertificateStore,audit/evidence/s-07.json,NO,NOT STARTED
+8,রোহিঙ্গা নয় প্রত্যয়ন,Non Rohingya attestation,Identity and citizenship,specialist_additional_information,1,14,F13; F08; F09,/portal/udcUser/rohingya-info-store,audit/evidence/s-08.json,NO,NOT STARTED
+9,ভোটার তথ্য যাচাই-বাছাই প্রত্যয়ন,Voter information verification attestation,Voter and identity records,specialist_additional_information,1,11,F14; F08; F09,/portal/udcUser/voter-info-verify-store,audit/evidence/s-09.json,NO,NOT STARTED
+10,বেকারত্ব সনদ,Unemployment certificate,Occupation and economic status,common_order_payment,1,0,C1,/portal/udcUser/applicationStore,audit/evidence/s-10.json,NO,NOT STARTED
+11,জাতীয়তা সনদ,Nationality certificate,Identity and citizenship,common_order_payment,1,0,C1,/portal/udcUser/applicationStore,audit/evidence/s-11.json,NO,NOT STARTED
+12,নাগরিকত্ব সনদ,Citizenship certificate,Identity and citizenship,common_order_payment,1,0,C1,/portal/udcUser/applicationStore,audit/evidence/s-12.json,NO,NOT STARTED
+13,পুনঃবিবাহ সনদ,Remarriage certificate,Family and civil status,common_order_payment,1,2,C1; F15,/portal/udcUser/applicationStore,audit/evidence/s-13.json,NO,NOT STARTED
+14,ভূমিহীন সনদ,Landless certificate,Property and local taxation,common_order_payment,1,0,C1,/portal/udcUser/applicationStore,audit/evidence/s-14.json,NO,NOT STARTED
+15,নতুন ভোটার প্রত্যয়ন,New voter attestation,Voter and identity records,common_order_payment,1,0,C1,/portal/udcUser/applicationStore,audit/evidence/s-15.json,NO,NOT STARTED
+16,বিধবা প্রত্যয়ন,Widow attestation,Family and civil status,common_order_payment,1,0,C1,/portal/udcUser/applicationStore,audit/evidence/s-16.json,NO,NOT STARTED
+17,পেশাগত সনদ,Occupation certificate,Occupation and economic status,specialist_additional_information,1,2,F16,/portal/udcUser/incomeCertificateStore,audit/evidence/s-17.json,NO,NOT STARTED
+18,সম্প্রদায় সনদ,Community certificate,Community and social status,common_order_payment,1,1,C1; F17,/portal/udcUser/applicationStore,audit/evidence/s-18.json,NO,NOT STARTED
+19,অভিভাবক সম্মতি সনদ,Guardian consent certificate,Consent and authorization,specialist_additional_information,1,4,F18,/portal/udcUser/consentCertificateStore,audit/evidence/s-19.json,NO,NOT STARTED
+20,মুক্তিযোদ্ধা প্রত্যয়ন,Freedom fighter attestation,Community and social status,specialist_additional_information,1,12,F19,/portal/udcUser/freedomFighterInfoStore,audit/evidence/s-20.json,NO,NOT STARTED
+21,কৃষি প্রত্যয়ন,Agriculture attestation,Occupation and economic status,common_order_payment,1,0,C1,/portal/udcUser/applicationStore,audit/evidence/s-21.json,NO,NOT STARTED
+22,অবিবাহিত সনদ,Unmarried certificate,Family and civil status,common_order_payment,1,1,C1; F20,/portal/udcUser/applicationStore,audit/evidence/s-22.json,NO,NOT STARTED
+23,বার্ষিক আয়ের সনদ,Annual income certificate,Occupation and economic status,specialist_additional_information,1,9,F21; F05,/portal/udcUser/incomeCertificateStore,audit/evidence/s-23.json,NO,NOT STARTED
+24,এতিম সনদ,Orphan certificate,Family and civil status,common_order_payment,1,0,C1,/portal/udcUser/applicationStore,audit/evidence/s-24.json,NO,NOT STARTED
+25,বিবাহিত প্রত্যয়ন,Married attestation,Family and civil status,specialist_additional_information,1,8,F22,/portal/udcUser/marriageCertificateStore,audit/evidence/s-25.json,NO,NOT STARTED
+26,যৌতুক বিহীন বিবাহ প্রত্যয়ন,Dowry free marriage attestation,Family and civil status,specialist_additional_information,1,8,F22,/portal/udcUser/marriageCertificateStore,audit/evidence/s-26.json,NO,NOT STARTED
+27,পাসপোর্ট প্রদানের প্রত্যয়ন,Passport issuance attestation,Identity and citizenship,common_order_payment,1,0,C1,/portal/udcUser/applicationStore,audit/evidence/s-27.json,NO,NOT STARTED
+28,জীবিত ব্যক্তির প্রত্যয়ন,Living person attestation,Identity and citizenship,common_order_payment,1,0,C1,/portal/udcUser/applicationStore,audit/evidence/s-28.json,NO,NOT STARTED
+29,মাসিক আয়ের সনদ,Monthly income certificate,Occupation and economic status,specialist_additional_information,1,9,F21; F05,/portal/udcUser/incomeCertificateStore,audit/evidence/s-29.json,NO,NOT STARTED
+30,আর্থিক স্বচ্ছলতার সনদ,Financial solvency certificate,Occupation and economic status,common_order_payment,1,0,C1,/portal/udcUser/applicationStore,audit/evidence/s-30.json,NO,NOT STARTED
+31,অবিবাহিত অবস্থায় মৃত্যু সনদ,Death while unmarried certificate,Family and civil status,specialist_additional_information,1,17,F23; F05; F12,/portal/udcUser/deathCertificateStore,audit/evidence/s-31.json,NO,NOT STARTED
+32,আর্থিক অস্বচ্ছলতার সনদ,Financial hardship certificate,Occupation and economic status,common_order_payment,1,0,C1,/portal/udcUser/applicationStore,audit/evidence/s-32.json,NO,NOT STARTED
+33,জাতীয় পরিচয় তথ্য সংশোধন প্রত্যয়ন,National identity information correction attestation,Voter and identity records,specialist_additional_information,1,4,F24; F25,/portal/udcUser/national-data-correction-store,audit/evidence/s-33.json,NO,NOT STARTED
+34,নিঃসন্তান প্রত্যয়ন,Childless attestation,Family and civil status,common_order_payment,1,0,C1,/portal/udcUser/applicationStore,audit/evidence/s-34.json,NO,NOT STARTED
+35,চারিত্রিক সনদ,Character certificate,Identity and citizenship,common_order_payment,1,2,C1; F26,/portal/udcUser/applicationStore,audit/evidence/s-35.json,NO,NOT STARTED
+36,অনাপত্তি সনদ,No objection certificate,Consent and authorization,specialist_additional_information,1,34,F27; F28; F29; F30,/portal/udc/nocInfoStore,audit/evidence/s-36.json,NO,NOT STARTED
+37,ভোটার এলাকা স্থানান্তর প্রত্যয়ন,Voter area transfer attestation,Voter and identity records,common_order_payment,1,1,C1; F31,/portal/udcUser/applicationStore,audit/evidence/s-37.json,NO,NOT STARTED
+38,প্রতিবন্ধী সনদ,Disability certificate,Community and social status,common_order_payment,1,1,C1; F32,/portal/udcUser/applicationStore,audit/evidence/s-38.json,NO,NOT STARTED
+39,একই ব্যক্তির প্রত্যয়ন,Same person attestation,Identity and citizenship,common_order_payment,1,8,C1; F33,/portal/udcUser/applicationStore,audit/evidence/s-39.json,NO,NOT STARTED
+40,উপজাতি সনদ,Indigenous community certificate,Community and social status,common_order_payment,1,0,C1,/portal/udcUser/applicationStore,audit/evidence/s-40.json,NO,NOT STARTED
+41,প্রিমিসেস লাইসেন্স,Premises license,Licensing,specialist_additional_information,1,20,F34; F35,/portal/udc/primisesLicenseStore,audit/evidence/s-41.json,NO,NOT STARTED
+42,ট্রেড লাইসেন্স,Trade license,Licensing,specialist_additional_information,2,37,F36; F28; F30; F37,/portal/udc/tradeLicenseStore; /portal/udc/application/renew/verify,audit/evidence/s-42.json,NO,NOT STARTED
+43,ভোটার তালিকা বাদ পড়ায় অন্তর্ভুক্তির প্রত্যয়ন,Omitted voter inclusion attestation,Voter and identity records,common_order_payment,1,0,C1,/portal/udcUser/applicationStore,audit/evidence/s-43.json,NO,NOT STARTED
+44,পুনঃবিবাহ না হওয়ার প্রত্যয়ন,Non remarriage attestation,Family and civil status,common_order_payment,1,0,C1,/portal/udcUser/applicationStore,audit/evidence/s-44.json,NO,NOT STARTED
+45,স্থায়ী বাসিন্দা সনদ,Permanent resident certificate,Identity and citizenship,common_order_payment,1,0,C1,/portal/udcUser/applicationStore,audit/evidence/s-45.json,NO,NOT STARTED
+46,যানবাহন লাইসেন্স,Vehicle license,Licensing,specialist_additional_information,1,20,F38; F28,/portal/udc/transportLicenseStore,audit/evidence/s-46.json,NO,NOT STARTED
+47,বিবিধ সনদ,Miscellaneous certificate,Miscellaneous,common_order_payment,1,7,C1; F39,/portal/udcUser/applicationStore,audit/evidence/s-47.json,NO,NOT STARTED

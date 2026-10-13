@@ -1,0 +1,56 @@
+[
+  {
+    "file": "service-1-expanded-demo.pdf",
+    "pages": 1,
+    "demoWatermark": true,
+    "extractedCharacters": 1388
+  },
+  {
+    "file": "service-2-expanded-demo.pdf",
+    "pages": 1,
+    "demoWatermark": true,
+    "extractedCharacters": 1279
+  },
+  {
+    "file": "service-42-expanded-demo.pdf",
+    "pages": 1,
+    "demoWatermark": true,
+    "extractedCharacters": 1549
+  },
+  {
+    "file": "trade-renewal-demo.pdf",
+    "pages": 1,
+    "demoWatermark": true,
+    "extractedCharacters": 1761
+  },
+  {
+    "file": "biodata-copy-demo.pdf",
+    "pages": 1,
+    "demoWatermark": true,
+    "extractedCharacters": 498
+  },
+  {
+    "file": "holding-copy-demo.pdf",
+    "pages": 1,
+    "demoWatermark": true,
+    "extractedCharacters": 713
+  },
+  {
+    "file": "witness-copy-demo.pdf",
+    "pages": 1,
+    "demoWatermark": true,
+    "extractedCharacters": 689
+  },
+  {
+    "file": "credit-report-demo.pdf",
+    "pages": 1,
+    "demoWatermark": true,
+    "extractedCharacters": 553
+  },
+  {
+    "file": "sandbox-invoice-demo.pdf",
+    "pages": 1,
+    "demoWatermark": true,
+    "extractedCharacters": 498
+  }
+]

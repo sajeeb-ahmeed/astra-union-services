@@ -1,0 +1,133 @@
+{
+  "boundary": "Client-code-derived, not verified server API contracts",
+  "ajax_calls": [
+    {
+      "method": "GET",
+      "endpoint_path": "https://prottoyon.live/addressTypeWiseVillage",
+      "parameter_names": [
+        "city_corporation_id",
+        "municipality_id",
+        "type",
+        "union_id"
+      ],
+      "purpose_inferred": "Load Bengali and English village suggestions for present/permanent addresses by local-authority type.",
+      "evidence_level": "client_script",
+      "tested_request": false,
+      "contract_status": "Client-side evidence, not a verified API specification"
+    },
+    {
+      "method": "POST",
+      "endpoint_path": "https://prottoyon.live/getNidAreaInfo",
+      "parameter_names": [
+        "_token",
+        "district_name",
+        "division_id",
+        "post_office_name",
+        "upazila_name"
+      ],
+      "purpose_inferred": "Resolve identity-address names into district/upazila/post-office/local-authority selector HTML.",
+      "evidence_level": "client_script",
+      "tested_request": false,
+      "contract_status": "Client-side evidence, not a verified API specification"
+    },
+    {
+      "method": "POST",
+      "endpoint_path": "https://prottoyon.live/udc/office-cost-by-application",
+      "parameter_names": [
+        "_token",
+        "application_track_id",
+        "payment_gateway"
+      ],
+      "purpose_inferred": "Calculate office, service, VAT and gateway costs for an application payment/repayment modal.",
+      "evidence_level": "client_script",
+      "tested_request": false,
+      "contract_status": "Client-side evidence, not a verified API specification"
+    },
+    {
+      "method": "POST",
+      "endpoint_path": "https://prottoyon.live/application/edit-history",
+      "parameter_names": [
+        "_token",
+        "application_track_id"
+      ],
+      "purpose_inferred": "Retrieve edit history and determine whether to show an edit button.",
+      "evidence_level": "client_script",
+      "tested_request": false,
+      "contract_status": "Client-side evidence, not a verified API specification"
+    },
+    {
+      "method": "POST",
+      "endpoint_path": "https://prottoyon.live/portal/application/autofillServerData",
+      "parameter_names": [
+        "_token",
+        "age",
+        "dob",
+        "nidbrn"
+      ],
+      "purpose_inferred": "Autofill related-person identity information during application editing.",
+      "evidence_level": "client_script",
+      "tested_request": false,
+      "contract_status": "Client-side evidence, not a verified API specification"
+    },
+    {
+      "method": "POST",
+      "endpoint_path": "https://prottoyon.live/portal/application/supporting-document/upload",
+      "parameter_names": [],
+      "purpose_inferred": "Upload a supporting document from the supporting-document form.",
+      "evidence_level": "client_script",
+      "tested_request": false,
+      "contract_status": "Client-side evidence, not a verified API specification"
+    },
+    {
+      "method": "POST",
+      "endpoint_path": "https://prottoyon.live/portal/application/supporting-document/delete",
+      "parameter_names": [
+        "_token",
+        "application_id"
+      ],
+      "purpose_inferred": "Remove the supporting document attached to the selected application.",
+      "evidence_level": "client_script",
+      "tested_request": false,
+      "contract_status": "Client-side evidence, not a verified API specification"
+    },
+    {
+      "method": "POST",
+      "endpoint_path": "https://prottoyon.live/portal/udc/autofillServerData",
+      "parameter_names": [
+        "age",
+        "dob",
+        "nidbrn"
+      ],
+      "purpose_inferred": "Autofill related-person/heir names and father name from identity/birth details.",
+      "evidence_level": "client_script",
+      "tested_request": false,
+      "contract_status": "Client-side evidence, not a verified API specification"
+    },
+    {
+      "method": "POST",
+      "endpoint_path": "https://prottoyon.live/portal.udcUser.application.warish-info",
+      "parameter_names": [
+        "_token",
+        "dodOrDob",
+        "registerNo",
+        "type"
+      ],
+      "purpose_inferred": "Look up existing approved inheritance/heir data using a registration number and date.",
+      "evidence_level": "client_script",
+      "tested_request": false,
+      "contract_status": "Client-side evidence, not a verified API specification"
+    },
+    {
+      "method": "POST",
+      "endpoint_path": "https://prottoyon.live/address-wise-office",
+      "parameter_names": [
+        "office_type",
+        "office_type_id"
+      ],
+      "purpose_inferred": "Load office choices for the selected local authority during administrative registration, including multiple-office roles.",
+      "evidence_level": "client_script",
+      "tested_request": false,
+      "contract_status": "Client-side evidence, not a verified API specification"
+    }
+  ]
+}

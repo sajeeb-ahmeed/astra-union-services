@@ -1,0 +1,16 @@
+node_modules/
+.runtime/
+.env
+.env.*
+!.env.example
+dist/
+apps/web/dist/
+audit/
+audit.zip
+*.log
+test-results/
+!execution/
+!execution/*.log
+deliverables/
+.netlify/
+.vercel/

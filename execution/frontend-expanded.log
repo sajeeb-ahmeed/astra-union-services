@@ -1,0 +1,29 @@
+
+> astra-union-services@0.2.0 test:web
+> tsx scripts/test-web.ts
+
+✔ browser: citizen → staff visibility → correction → authorized approval → real PDF/QR → exactly-once debit (4580.0647ms)
+✔ browser: family/trade conditional validation, real private upload, finance settlement and mobile keyboard layout (2548.9991ms)
+✔ browser: staff citizen registration and owner compensating adjustments persist with role boundaries (1933.7273ms)
+✔ expanded browser: public 47-service discovery, retained directory pagination, help, feedback and newsletter persistence (2617.1474ms)
+✔ expanded browser: owner onboarding, staff/service administration, explicit authorization and public notice controls (5124.4717ms)
+✔ expanded browser: synthetic self-registration, new catalog application and secure password change (2462.2719ms)
+✔ expanded browser: trade renewal links a real issued source without charging, and public application tracking remains minimal (4226.8915ms)
+✔ FOR-01: actual React renderer renders all 47 captured service entries and all 48 initial form sections (132.6516ms)
+✔ operational bilingual labels and private upload accept rules render from the shared profile (6.8297ms)
+✔ nested family member rows expose local conditional guardian only for a minor (7.1705ms)
+✔ checkboxes use strict boolean semantics: false remains unchecked, true checks the declaration (9.039ms)
+✔ conditional trade previous-license control is hidden until selected and has an associated label (8.401ms)
+✔ field errors link bilingual error content to the exact nested input (2.5314ms)
+✔ repeatable group errors are focusable and programmatically linked to their fieldset (2.3333ms)
+✔ disabled application controls include nested add/remove and upload actions (3.1008ms)
+✔ portal browser: responsive profile, searchable applicant and biodata/holding/witness private PDF copies (3442.2662ms)
+✔ portal browser: finance filters actual reports and downloads private CSV/PDF (3210.0852ms)
+ℹ tests 17
+ℹ suites 0
+ℹ pass 17
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 32451.5798

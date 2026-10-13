@@ -1,0 +1,64 @@
+services:
+  db:
+    image: postgres:17-bookworm
+    environment:
+      POSTGRES_DB: astra
+      POSTGRES_USER: astra_admin
+      POSTGRES_PASSWORD: ${ASTRA_ADMIN_PASSWORD:?Set a unique administrator password}
+      POSTGRES_INITDB_ARGS: --auth-host=scram-sha-256
+    volumes:
+      - astra_database:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U astra_admin -d astra"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    restart: unless-stopped
+  app:
+    build: .
+    init: true
+    environment:
+      DATABASE_URL: postgresql://astra_app:${ASTRA_APP_PASSWORD:?Set a unique application password}@db:5432/astra
+      PUBLIC_ORIGIN: ${PUBLIC_ORIGIN:?Set an HTTPS origin}
+      DEMO_WEBHOOK_SECRET: ${DEMO_WEBHOOK_SECRET:?Set a unique webhook secret}
+      TRUST_PROXY_IP: ${ASTRA_PROXY_GATEWAY:-172.29.250.1}
+    ports:
+      - "127.0.0.1:3001:3001"
+    depends_on:
+      db:
+        condition: service_healthy
+    shm_size: 256mb
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:3001/api/v1/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 30s
+      timeout: 5s
+      start_period: 20s
+    restart: unless-stopped
+  setup:
+    build: .
+    profiles: ["tools"]
+    environment:
+      NODE_ENV: development
+      DATABASE_ADMIN_URL: postgresql://astra_admin:${ASTRA_ADMIN_PASSWORD:?Set administrator password}@db:5432/astra
+      ASTRA_APP_PASSWORD: ${ASTRA_APP_PASSWORD:?Set application password}
+      OWNER_EMAIL: ${OWNER_EMAIL:?Set initial owner email}
+      OWNER_PASSWORD: ${OWNER_PASSWORD:?Set initial owner password}
+    depends_on:
+      db:
+        condition: service_healthy
+    command: ["npm", "run", "db:initialize"]
+volumes:
+  astra_database:
+networks:
+  default:
+    name: astra_private
+    ipam:
+      config:
+        - subnet: ${ASTRA_PROXY_SUBNET:-172.29.250.0/24}
+          gateway: ${ASTRA_PROXY_GATEWAY:-172.29.250.1}

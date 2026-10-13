@@ -1,0 +1,77 @@
+Clean bootstrap verification — isolated generated database astra_clean_1791875826664_2e2db5
+Main astra database untouched. Connection credentials are omitted.
+
+COMMAND: migration from empty database
+Applied 001_initial.sql
+Applied 002_ledger_balance_privileges.sql
+Applied 003_wallet_lock_function.sql
+Applied 004_portal_management.sql
+Applied 006_portal_tools.sql
+Applied 007_account_recovery.sql
+Applied 008_tracking.sql
+Exit code: 0
+
+COMMAND: first synthetic seed
+Seeded 2 synthetic tenants, 13 demo users, 47 evidence catalog entries and operational demo schemas. No official issuance or identity verification.
+Exit code: 0
+
+COMMAND: second synthetic seed (idempotency)
+Seeded 2 synthetic tenants, 13 demo users, 47 evidence catalog entries and operational demo schemas. No official issuance or identity verification.
+Exit code: 0
+
+PASS:32 tables,47 services,13 users,2 tenants,7 migrations.
+PASS: seed repeated twice; each tenant balance20 and exactlyone seed grant.
+PASS: all 140 persisted schema hashes match published immutable profiles; all47 services operational.
+
+COMMAND: full real PostgreSQL backend integration suite on clean database
+✔ PORTAL-01: filtered paginated public offices, tenant notices and private draft visibility (1866.8749ms)
+✔ MGMT-01: memberships, approval grants, service settings and office isolation enforce roles (226.0094ms)
+✔ ALL47-01: every service validates, persists, submits, reviews, authorizes and issues a real PDF with one charge (19905.5561ms)
+✔ CER-RENEW: trade renewal preserves lineage, applicant and authority; concurrent creation/issue deduplicate (1313.3867ms)
+✔ CER-REVOKE: source revocation blocks an already approved renewal and preserves wallet (102.4537ms)
+✔ PDF-ALL: service templates retain approved family rows, trade data and HTML escaping (0.9439ms)
+✔ AUTH-NEW: signup validation, password verification and old-session invalidation (359.8732ms)
+✔ AUTH-RECOVERY: tenant-admin manual recovery is one-use, expires, blocks privilege escalation and invalidates sessions (276.0337ms)
+✔ TEN-NEW: suspension removes public office and invalidates existing sessions without deleting data (80.2884ms)
+✔ Security: bounded limiter enforces per-IP budget, Retry-After and expiry (91.2903ms)
+✔ Security: headers and Origin check protect public login mutations as well as authenticated writes (15.1664ms)
+✔ Deployment: production rejects missing secrets, unsafe origins and broad proxy trust (1.1785ms)
+✔ Security: mixed-case route aliases share public authentication and verification rate limits (2593.7837ms)
+✔ Deployment: exact proxy trust normalizes host addresses and never trusts a neighboring peer (1.6189ms)
+✔ Security: only a trusted immediate proxy separates forwarded clients into distinct rate buckets (26.0006ms)
+✔ OPS-01: real PostgreSQL, all 47 catalog entries and schema versions (820.6241ms)
+✔ CIT-01 / TEN-01 / TEN-02 / AUTH-01: synthetic registration, duplicate handling and tenant scopes (84.0406ms)
+✔ FOR-02 / APP-01 / APP-04: valid versioned draft, correction, resubmission and authorized approval (175.6216ms)
+✔ APP-02 / APP-03 / SEC-02 / CER-04: read has no effects and cross-tenant/unauthorized issue denied (147.1873ms)
+✔ WAL-03: insufficient credit retains approval without document/debit (732.0555ms)
+✔ WAL-04: injected database failure rolls certificate, ledger, state and outbox back (362.5423ms)
+✔ BILL-01: expired subscription blocks issuance and retains approved application (333.7165ms)
+✔ CER-01 / CER-02 / WAL-01 / WAL-02: concurrent issuance produces one real PDF and one debit (1630.1298ms)
+✔ CER-03 / PUB-02: revoke reflected in minimal lookup; random/invalid token safe (59.6571ms)
+✔ WAL-05 / BILL-01 / BILL-02: verified sandbox settlements are replay-safe and separate from official fees (176.2092ms)
+✔ FOR-02: repeatable family and conditional trade forms persist through the same engine (154.7808ms)
+✔ FOR-03: malformed/oversize uploads rejected, valid files remain tenant private (92.417ms)
+✔ AUTH-02: suspended membership and tenant invalidate existing sessions (30.3433ms)
+✔ WAL-06 / SEC-02: ledger/payload/audit immutability, balanced sum and tenant foreign keys (272.6652ms)
+✔ CER-01: current resident PDFs contain approved purpose/residency and genuine bn/en/bilingual content (1234.283ms)
+✔ Portal: feedback persists, only owner resolves, subscribe is idempotent and never claims email delivery (468.3919ms)
+✔ Portal: self profile edits persist, reject privilege fields and record audit without logging profile values (92.1332ms)
+✔ Portal: biodata, holding and witness generate real private PDFs; repeat request spends no credit and creates no duplicate (1797.7407ms)
+✔ Portal: print lookup is read-only, filters survive pagination, malformed and cross-tenant inputs denied (72.199ms)
+✔ Portal: finance reports have actual tenant ledger, safe CSV and PDF exports with date validation (534.9869ms)
+✔ Portal: in-app notifications obey tenant/applicant scope and idempotent read acknowledgements (111.8847ms)
+✔ Portal: report date boundaries are UTC regardless of PostgreSQL server timezone (14.2186ms)
+✔ Portal: public tracking returns only minimal submitted status; drafts and missing IDs stay private (46.8949ms)
+✔ Portal: sandbox invoice PDF is real, tenant-private and separate from statutory receipts (384.9713ms)
+✔ Deployment: same-origin SPA uses compressed immutable assets; private API misses never become HTML (152.1976ms)
+ℹ tests 40
+ℹ suites 0
+ℹ pass 40
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 41171.9124
+Exit code: 0
+
+RESULT: PASS. Isolated clean database retained as reproducibility evidence. Main astra database was not modified by this script.

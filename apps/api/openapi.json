@@ -1,0 +1,3692 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Astra independently authored DEMO API",
+    "version": "0.2.0",
+    "description": "Independently authored DEMO contracts for all 47 services. These are not reference-site server contracts. Mutation routes require session and CSRF except public signup/login/support subscriptions and signed sandbox webhook. Real identity, legal issuance and commercial payment providers are not configured."
+  },
+  "servers": [
+    {
+      "url": "http://127.0.0.1:3001"
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "session": {
+        "type": "apiKey",
+        "in": "cookie",
+        "name": "astra_session"
+      },
+      "csrf": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-CSRF-Token"
+      },
+      "webhookSignature": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-Demo-Signature"
+      }
+    },
+    "schemas": {
+      "Error": {
+        "type": "object",
+        "properties": {
+          "error": {
+            "type": "object",
+            "properties": {
+              "code": {
+                "type": "string"
+              },
+              "message": {
+                "type": "string"
+              },
+              "issues": {
+                "type": "array",
+                "items": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      },
+      "ApplicationInput": {
+        "type": "object",
+        "required": [
+          "citizenId",
+          "serviceNo",
+          "payload"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "citizenId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "serviceNo": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 47
+          },
+          "payload": {
+            "type": "object",
+            "description": "Validated against the latest published operational schema on creation; exact immutable application-pinned version on edits. GET services/{no}/schema."
+          }
+        }
+      },
+      "TransitionInput": {
+        "type": "object",
+        "required": [
+          "action"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "action": {
+            "enum": [
+              "submit",
+              "review",
+              "request_correction",
+              "resubmit",
+              "approve",
+              "reject",
+              "cancel"
+            ]
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 500
+          }
+        }
+      },
+      "Verification": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "status": {
+            "enum": [
+              "ISSUED",
+              "REVOKED"
+            ]
+          },
+          "officeBn": {
+            "type": "string"
+          },
+          "officeEn": {
+            "type": "string"
+          },
+          "serviceNo": {
+            "type": "integer"
+          },
+          "serviceBn": {
+            "type": "string"
+          },
+          "serviceEn": {
+            "type": "string"
+          },
+          "issuedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "demo": {
+            "const": true
+          }
+        }
+      },
+      "LoginInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "email": {
+            "type": "string",
+            "format": "email",
+            "maxLength": 150
+          },
+          "password": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          }
+        },
+        "required": [
+          "email",
+          "password"
+        ]
+      },
+      "CitizenInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "nameBn": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 120
+          },
+          "nameEn": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 120
+          },
+          "dateOfBirth": {
+            "type": "string",
+            "format": "date",
+            "description": "Strict ISO calendar validity; not legal identity verification."
+          },
+          "addressBn": {
+            "type": "string",
+            "minLength": 4,
+            "maxLength": 500
+          },
+          "addressEn": {
+            "type": "string",
+            "minLength": 4,
+            "maxLength": 500
+          },
+          "syntheticReference": {
+            "type": "string",
+            "pattern": "^DEMO-[A-Za-z0-9-]{3,50}$"
+          }
+        },
+        "required": [
+          "nameBn",
+          "nameEn",
+          "dateOfBirth",
+          "addressBn",
+          "addressEn",
+          "syntheticReference"
+        ]
+      },
+      "PayloadInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "payload": {
+            "type": "object",
+            "description": "Validated against the frozen persisted service schema."
+          }
+        },
+        "required": [
+          "payload"
+        ]
+      },
+      "ReasonInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "reason": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 500
+          }
+        },
+        "required": [
+          "reason"
+        ]
+      },
+      "AdjustmentInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "delta": {
+            "type": "integer",
+            "minimum": -10000,
+            "maximum": 10000,
+            "not": {
+              "const": 0
+            }
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 8,
+            "maxLength": 500
+          }
+        },
+        "required": [
+          "delta",
+          "reason"
+        ]
+      },
+      "OrderInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "enum": [
+              "topup",
+              "subscription"
+            ]
+          },
+          "planId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 50
+          },
+          "credits": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100
+          }
+        },
+        "required": [
+          "kind"
+        ]
+      },
+      "AttachmentInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "citizenId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "mimeType": {
+            "enum": [
+              "application/pdf",
+              "image/png",
+              "image/jpeg"
+            ]
+          },
+          "base64": {
+            "type": "string",
+            "maxLength": 2796204,
+            "description": "Decoded maximum2MiB. Magic and end-marker checks only; UNSCANNED."
+          }
+        },
+        "required": [
+          "citizenId",
+          "mimeType",
+          "base64"
+        ]
+      },
+      "SettlementInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "eventId": {
+            "type": "string",
+            "minLength": 8,
+            "maxLength": 100
+          },
+          "orderId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "tenantId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "amountMinor": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "currency": {
+            "const": "BDT"
+          },
+          "status": {
+            "const": "SETTLED"
+          }
+        },
+        "required": [
+          "eventId",
+          "orderId",
+          "tenantId",
+          "amountMinor",
+          "currency",
+          "status"
+        ]
+      },
+      "Certificate": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "applicationId",
+          "number",
+          "serviceNo",
+          "templateVersion",
+          "status",
+          "issuedAt",
+          "revokedAt",
+          "verificationUrl",
+          "pdfUrl",
+          "demo"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "applicationId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "number": {
+            "type": "string"
+          },
+          "serviceNo": {
+            "type": "integer",
+            "enum": [
+              2,
+              42,
+              45
+            ]
+          },
+          "templateVersion": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "New issues use2; previously stored version1 remains unchanged on retry."
+          },
+          "status": {
+            "enum": [
+              "ISSUED",
+              "REVOKED"
+            ]
+          },
+          "issuedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "revokedAt": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "verificationUrl": {
+            "type": "string",
+            "format": "uri"
+          },
+          "pdfUrl": {
+            "type": "string"
+          },
+          "demo": {
+            "const": true
+          }
+        }
+      }
+    }
+  },
+  "paths": {
+    "/api/v1/health": {
+      "get": {
+        "summary": "Database health",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Success; see apps/api/src/app.ts response contract"
+          },
+          "401": {
+            "description": "Authentication, suspension or signature failure"
+          },
+          "403": {
+            "description": "Role, authority or CSRF denied"
+          },
+          "404": {
+            "description": "Generic unavailable record"
+          },
+          "409": {
+            "description": "State, uniqueness or payment event conflict"
+          },
+          "422": {
+            "description": "Server validation failure"
+          }
+        },
+        "parameters": []
+      }
+    },
+    "/api/v1/services": {
+      "get": {
+        "summary": "47 evidence catalog entries and readiness",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Success; see apps/api/src/app.ts response contract"
+          },
+          "401": {
+            "description": "Authentication, suspension or signature failure"
+          },
+          "403": {
+            "description": "Role, authority or CSRF denied"
+          },
+          "404": {
+            "description": "Generic unavailable record"
+          },
+          "409": {
+            "description": "State, uniqueness or payment event conflict"
+          },
+          "422": {
+            "description": "Server validation failure"
+          }
+        },
+        "parameters": []
+      }
+    },
+    "/api/v1/services/{no}/schema": {
+      "get": {
+        "summary": "Immutable operational or read-only preview schema",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Success; see apps/api/src/app.ts response contract"
+          },
+          "401": {
+            "description": "Authentication, suspension or signature failure"
+          },
+          "403": {
+            "description": "Role, authority or CSRF denied"
+          },
+          "404": {
+            "description": "Generic unavailable record"
+          },
+          "409": {
+            "description": "State, uniqueness or payment event conflict"
+          },
+          "422": {
+            "description": "Server validation failure"
+          }
+        },
+        "parameters": [
+          {
+            "name": "no",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 47
+            }
+          },
+          {
+            "name": "view",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "version",
+            "in": "query",
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "description": "Default latest operational DEMO schema. view=reference returns observed read-only initial controls. version selects immutable historical schema."
+      }
+    },
+    "/api/v1/verify/{token}": {
+      "get": {
+        "summary": "Opaque token; minimal public certificate status",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Minimal public status",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Verification"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication, suspension or signature failure"
+          },
+          "403": {
+            "description": "Role, authority or CSRF denied"
+          },
+          "404": {
+            "description": "Generic unavailable record"
+          },
+          "409": {
+            "description": "State, uniqueness or payment event conflict"
+          },
+          "422": {
+            "description": "Server validation failure"
+          }
+        },
+        "parameters": [
+          {
+            "name": "token",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            }
+          }
+        ]
+      }
+    },
+    "/api/v1/auth/login": {
+      "post": {
+        "summary": "Synthetic account sign-in",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Success; see apps/api/src/app.ts response contract"
+          },
+          "401": {
+            "description": "Authentication, suspension or signature failure"
+          },
+          "403": {
+            "description": "Role, authority or CSRF denied"
+          },
+          "404": {
+            "description": "Generic unavailable record"
+          },
+          "409": {
+            "description": "State, uniqueness or payment event conflict"
+          },
+          "422": {
+            "description": "Server validation failure"
+          }
+        },
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginInput"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/auth/me": {
+      "get": {
+        "summary": "Current active server-derived tenant membership",
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success; see apps/api/src/app.ts response contract"
+          },
+          "401": {
+            "description": "Authentication, suspension or signature failure"
+          },
+          "403": {
+            "description": "Role, authority or CSRF denied"
+          },
+          "404": {
+            "description": "Generic unavailable record"
+          },
+          "409": {
+            "description": "State, uniqueness or payment event conflict"
+          },
+          "422": {
+            "description": "Server validation failure"
+          }
+        },
+        "parameters": []
+      }
+    },
+    "/api/v1/auth/logout": {
+      "post": {
+        "summary": "Invalidate session",
+        "security": [
+          {
+            "session": [],
+            "csrf": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success; see apps/api/src/app.ts response contract"
+          },
+          "401": {
+            "description": "Authentication, suspension or signature failure"
+          },
+          "403": {
+            "description": "Role, authority or CSRF denied"
+          },
+          "404": {
+            "description": "Generic unavailable record"
+          },
+          "409": {
+            "description": "State, uniqueness or payment event conflict"
+          },
+          "422": {
+            "description": "Server validation failure"
+          }
+        },
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {},
+                "required": []
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/citizens": {
+      "get": {
+        "summary": "Authorized tenant-scoped search; citizen sees own profile",
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success; see apps/api/src/app.ts response contract"
+          },
+          "401": {
+            "description": "Authentication, suspension or signature failure"
+          },
+          "403": {
+            "description": "Role, authority or CSRF denied"
+          },
+          "404": {
+            "description": "Generic unavailable record"
+          },
+          "409": {
+            "description": "State, uniqueness or payment event conflict"
+          },
+          "422": {
+            "description": "Server validation failure"
+          }
+        },
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "maxLength": 100
+            },
+            "description": "Search name or synthetic reference within authenticated tenant; citizen scope is own record."
+          }
+        ]
+      },
+      "post": {
+        "summary": "Register synthetic citizen; staff/admin or self-profile",
+        "security": [
+          {
+            "session": [],
+            "csrf": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success; see apps/api/src/app.ts response contract"
+          },
+          "201": {
+            "description": "Created; issuance may return200 on a safe retry."
+          },
+          "401": {
+            "description": "Authentication, suspension or signature failure"
+          },
+          "403": {
+            "description": "Role, authority or CSRF denied"
+          },
+          "404": {
+            "description": "Generic unavailable record"
+          },
+          "409": {
+            "description": "State, uniqueness or payment event conflict"
+          },
+          "422": {
+            "description": "Server validation failure"
+          }
+        },
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CitizenInput"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/applications": {
+      "get": {
+        "summary": "Tenant/role-scoped application list",
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success; see apps/api/src/app.ts response contract"
+          },
+          "401": {
+            "description": "Authentication, suspension or signature failure"
+          },
+          "403": {
+            "description": "Role, authority or CSRF denied"
+          },
+          "404": {
+            "description": "Generic unavailable record"
+          },
+          "409": {
+            "description": "State, uniqueness or payment event conflict"
+          },
+          "422": {
+            "description": "Server validation failure"
+          }
+        },
+        "parameters": [
+          {
+            "name": "state",
+            "in": "query",
+            "schema": {
+              "enum": [
+                "DRAFT",
+                "SUBMITTED",
+                "UNDER_REVIEW",
+                "CORRECTION_REQUIRED",
+                "RESUBMITTED",
+                "APPROVED",
+                "ISSUED",
+                "REJECTED",
+                "CANCELLED",
+                "REVOKED"
+              ]
+            }
+          },
+          {
+            "name": "serviceNo",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 47
+            }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "pageSize",
+            "in": "query",
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "description": "Tenant/own search by application UUID, citizen name or synthetic reference; state/serviceNo filters. Returns items,total,page,pageSize; default/max pageSize100."
+      },
+      "post": {
+        "summary": "Validate versioned payload and create persistent draft",
+        "security": [
+          {
+            "session": [],
+            "csrf": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success; see apps/api/src/app.ts response contract"
+          },
+          "201": {
+            "description": "Created; issuance may return200 on a safe retry."
+          },
+          "401": {
+            "description": "Authentication, suspension or signature failure"
+          },
+          "403": {
+            "description": "Role, authority or CSRF denied"
+          },
+          "404": {
+            "description": "Generic unavailable record"
+          },
+          "409": {
+            "description": "State, uniqueness or payment event conflict"
+          },
+          "422": {
+            "description": "Server validation failure"
+          }
+        },
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ApplicationInput"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/applications/{id}": {
+      "get": {
+        "summary": "Application, payload versions, events and certificate",
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success; see apps/api/src/app.ts response contract"
+          },
+          "401": {
+            "description": "Authentication, suspension or signature failure"
+          },
+          "403": {
+            "description": "Role, authority or CSRF denied"
+          },
+          "404": {
+            "description": "Generic unavailable record"
+          },
+          "409": {
+            "description": "State, uniqueness or payment event conflict"
+          },
+          "422": {
+            "description": "Server validation failure"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ]
+      },
+      "patch": {
+        "summary": "Append immutable edited payload version",
+        "security": [
+          {
+            "session": [],
+            "csrf": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success; see apps/api/src/app.ts response contract"
+          },
+          "401": {
+            "description": "Authentication, suspension or signature failure"
+          },
+          "403": {
+            "description": "Role, authority or CSRF denied"
+          },
+          "404": {
+            "description": "Generic unavailable record"
+          },
+          "409": {
+            "description": "State, uniqueness or payment event conflict"
+          },
+          "422": {
+            "description": "Server validation failure"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PayloadInput"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/applications/{id}/transition": {
+      "post": {
+        "summary": "Enforce role and state-specific workflow transition",
+        "security": [
+          {
+            "session": [],
+            "csrf": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success; see apps/api/src/app.ts response contract"
+          },
+          "401": {
+            "description": "Authentication, suspension or signature failure"
+          },
+          "403": {
+            "description": "Role, authority or CSRF denied"
+          },
+          "404": {
+            "description": "Generic unavailable record"
+          },
+          "409": {
+            "description": "State, uniqueness or payment event conflict"
+          },
+          "422": {
+            "description": "Server validation failure"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TransitionInput"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/applications/{id}/issue": {
+      "post": {
+        "summary": "Authorized DEMO PDF plus atomic exactly-once tenant credit debit",
+        "security": [
+          {
+            "session": [],
+            "csrf": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Existing certificate returned safely; preserves original templateVersion.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Certificate"
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "New templateVersion2 certificate or safe concurrent return.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Certificate"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication, suspension or signature failure"
+          },
+          "402": {
+            "description": "Insufficient credits or inactive subscription; approved application retained with no certificate/debit."
+          },
+          "403": {
+            "description": "Role, authority or CSRF denied"
+          },
+          "404": {
+            "description": "Generic unavailable record"
+          },
+          "409": {
+            "description": "State, uniqueness or payment event conflict"
+          },
+          "422": {
+            "description": "Server validation failure"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {},
+                "required": []
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/certificates/{id}/pdf": {
+      "get": {
+        "summary": "Protected PDF bytes",
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Tenant/role protected real PDF",
+            "content": {
+              "application/pdf": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication, suspension or signature failure"
+          },
+          "403": {
+            "description": "Role, authority or CSRF denied"
+          },
+          "404": {
+            "description": "Generic unavailable record"
+          },
+          "409": {
+            "description": "State, uniqueness or payment event conflict"
+          },
+          "422": {
+            "description": "Server validation failure"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ]
+      }
+    },
+    "/api/v1/certificates/{id}/revoke": {
+      "post": {
+        "summary": "Authorized auditable revocation; no automatic refund",
+        "security": [
+          {
+            "session": [],
+            "csrf": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Certificate status is revoked; original document templateVersion retained.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Certificate"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication, suspension or signature failure"
+          },
+          "403": {
+            "description": "Role, authority or CSRF denied"
+          },
+          "404": {
+            "description": "Generic unavailable record"
+          },
+          "409": {
+            "description": "State, uniqueness or payment event conflict"
+          },
+          "422": {
+            "description": "Server validation failure"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReasonInput"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/wallet": {
+      "get": {
+        "summary": "Tenant balance, ledger and subscription",
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success; see apps/api/src/app.ts response contract"
+          },
+          "401": {
+            "description": "Authentication, suspension or signature failure"
+          },
+          "403": {
+            "description": "Role, authority or CSRF denied"
+          },
+          "404": {
+            "description": "Generic unavailable record"
+          },
+          "409": {
+            "description": "State, uniqueness or payment event conflict"
+          },
+          "422": {
+            "description": "Server validation failure"
+          }
+        },
+        "parameters": []
+      }
+    },
+    "/api/v1/billing": {
+      "get": {
+        "summary": "Configured demo plans, orders and invoices",
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success; see apps/api/src/app.ts response contract"
+          },
+          "401": {
+            "description": "Authentication, suspension or signature failure"
+          },
+          "403": {
+            "description": "Role, authority or CSRF denied"
+          },
+          "404": {
+            "description": "Generic unavailable record"
+          },
+          "409": {
+            "description": "State, uniqueness or payment event conflict"
+          },
+          "422": {
+            "description": "Server validation failure"
+          }
+        },
+        "parameters": []
+      }
+    },
+    "/api/v1/billing/orders": {
+      "post": {
+        "summary": "Create zero-value synthetic top-up/subscription order",
+        "security": [
+          {
+            "session": [],
+            "csrf": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success; see apps/api/src/app.ts response contract"
+          },
+          "201": {
+            "description": "Created; issuance may return200 on a safe retry."
+          },
+          "401": {
+            "description": "Authentication, suspension or signature failure"
+          },
+          "403": {
+            "description": "Role, authority or CSRF denied"
+          },
+          "404": {
+            "description": "Generic unavailable record"
+          },
+          "409": {
+            "description": "State, uniqueness or payment event conflict"
+          },
+          "422": {
+            "description": "Server validation failure"
+          }
+        },
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OrderInput"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/billing/orders/{id}/demo-settle": {
+      "post": {
+        "summary": "Explicit synthetic signed settlement",
+        "security": [
+          {
+            "session": [],
+            "csrf": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success; see apps/api/src/app.ts response contract"
+          },
+          "401": {
+            "description": "Authentication, suspension or signature failure"
+          },
+          "403": {
+            "description": "Role, authority or CSRF denied"
+          },
+          "404": {
+            "description": "Generic unavailable record"
+          },
+          "409": {
+            "description": "State, uniqueness or payment event conflict"
+          },
+          "422": {
+            "description": "Server validation failure"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {},
+                "required": []
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/billing/webhook": {
+      "post": {
+        "summary": "HMAC-verified raw sandbox event; amount, currency and replay checks",
+        "security": [
+          {
+            "webhookSignature": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success; see apps/api/src/app.ts response contract"
+          },
+          "401": {
+            "description": "Authentication, suspension or signature failure"
+          },
+          "403": {
+            "description": "Role, authority or CSRF denied"
+          },
+          "404": {
+            "description": "Generic unavailable record"
+          },
+          "409": {
+            "description": "State, uniqueness or payment event conflict"
+          },
+          "422": {
+            "description": "Server validation failure"
+          }
+        },
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SettlementInput"
+              }
+            }
+          }
+        },
+        "description": "HMAC-SHA256 of the exact raw JSON body, hex header. Synthetic sandbox only. Server checks active order, immutable order amount/currency, event replay and exactly-once ledger grant. No live-provider contract."
+      }
+    },
+    "/api/v1/owner/tenants": {
+      "get": {
+        "summary": "Owner tenant billing overview without citizen access",
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success; see apps/api/src/app.ts response contract"
+          },
+          "401": {
+            "description": "Authentication, suspension or signature failure"
+          },
+          "403": {
+            "description": "Role, authority or CSRF denied"
+          },
+          "404": {
+            "description": "Generic unavailable record"
+          },
+          "409": {
+            "description": "State, uniqueness or payment event conflict"
+          },
+          "422": {
+            "description": "Server validation failure"
+          }
+        },
+        "parameters": []
+      },
+      "post": {
+        "summary": "Owner provisions independent demo office and administrator",
+        "description": "Creates zero-credit wallet, EXPIRED subscription,47 service settings and admin membership. Owner receives no citizen or issuing authority.",
+        "security": [
+          {
+            "session": [],
+            "csrf": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": "Successful response; persistent mutation where applicable."
+          },
+          "401": {
+            "description": "Session missing or inactive."
+          },
+          "403": {
+            "description": "Role, CSRF or Origin denied."
+          },
+          "404": {
+            "description": "Record unavailable in this scope."
+          },
+          "409": {
+            "description": "Duplicate or workflow conflict."
+          },
+          "422": {
+            "description": "Validated request failed."
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "slug": {
+                    "type": "string",
+                    "pattern": "^[a-z][a-z0-9-]{2,49}$"
+                  },
+                  "nameBn": {
+                    "type": "string"
+                  },
+                  "nameEn": {
+                    "type": "string"
+                  },
+                  "division": {
+                    "type": "string"
+                  },
+                  "district": {
+                    "type": "string"
+                  },
+                  "upazila": {
+                    "type": "string"
+                  },
+                  "officeType": {
+                    "type": "string",
+                    "enum": [
+                      "UNION",
+                      "MUNICIPALITY",
+                      "CITY_CORPORATION"
+                    ]
+                  },
+                  "adminEmail": {
+                    "type": "string",
+                    "format": "email"
+                  },
+                  "adminName": {
+                    "type": "string"
+                  },
+                  "adminPassword": {
+                    "type": "string",
+                    "minLength": 12,
+                    "maxLength": 200
+                  }
+                },
+                "required": [
+                  "slug",
+                  "nameBn",
+                  "nameEn",
+                  "division",
+                  "district",
+                  "upazila",
+                  "officeType",
+                  "adminEmail",
+                  "adminName",
+                  "adminPassword"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/owner/tenants/{id}/adjust": {
+      "post": {
+        "summary": "Compensating credit adjustment with required reason",
+        "security": [
+          {
+            "session": [],
+            "csrf": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success; see apps/api/src/app.ts response contract"
+          },
+          "201": {
+            "description": "Created; issuance may return200 on a safe retry."
+          },
+          "401": {
+            "description": "Authentication, suspension or signature failure"
+          },
+          "403": {
+            "description": "Role, authority or CSRF denied"
+          },
+          "404": {
+            "description": "Generic unavailable record"
+          },
+          "409": {
+            "description": "State, uniqueness or payment event conflict"
+          },
+          "422": {
+            "description": "Server validation failure"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdjustmentInput"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/attachments": {
+      "post": {
+        "summary": "Private base64 file upload with size/MIME signature checks; UNSCANNED",
+        "security": [
+          {
+            "session": [],
+            "csrf": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success; see apps/api/src/app.ts response contract"
+          },
+          "201": {
+            "description": "Created; issuance may return200 on a safe retry."
+          },
+          "401": {
+            "description": "Authentication, suspension or signature failure"
+          },
+          "403": {
+            "description": "Role, authority or CSRF denied"
+          },
+          "404": {
+            "description": "Generic unavailable record"
+          },
+          "409": {
+            "description": "State, uniqueness or payment event conflict"
+          },
+          "422": {
+            "description": "Server validation failure"
+          }
+        },
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AttachmentInput"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/attachments/{id}": {
+      "get": {
+        "summary": "Authorized tenant-private attachment download",
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success; see apps/api/src/app.ts response contract"
+          },
+          "401": {
+            "description": "Authentication, suspension or signature failure"
+          },
+          "403": {
+            "description": "Role, authority or CSRF denied"
+          },
+          "404": {
+            "description": "Generic unavailable record"
+          },
+          "409": {
+            "description": "State, uniqueness or payment event conflict"
+          },
+          "422": {
+            "description": "Server validation failure"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ]
+      }
+    },
+    "/api/v1/offices": {
+      "get": {
+        "summary": "Public active office directory",
+        "description": "Returns {items,total,page,pageSize}; pageSize 1–100, default12. Only active demo tenants; no citizen records.",
+        "security": [],
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "division",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "district",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "upazila",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "type",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "pageSize",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response; persistent mutation where applicable."
+          },
+          "401": {
+            "description": "Session missing or inactive."
+          },
+          "403": {
+            "description": "Role, CSRF or Origin denied."
+          },
+          "404": {
+            "description": "Record unavailable in this scope."
+          },
+          "409": {
+            "description": "Duplicate or workflow conflict."
+          },
+          "422": {
+            "description": "Validated request failed."
+          }
+        }
+      }
+    },
+    "/api/v1/offices/{slug}": {
+      "get": {
+        "summary": "Office details, enabled services and published notices",
+        "security": [],
+        "parameters": [
+          {
+            "name": "slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response; persistent mutation where applicable."
+          },
+          "401": {
+            "description": "Session missing or inactive."
+          },
+          "403": {
+            "description": "Role, CSRF or Origin denied."
+          },
+          "404": {
+            "description": "Record unavailable in this scope."
+          },
+          "409": {
+            "description": "Duplicate or workflow conflict."
+          },
+          "422": {
+            "description": "Validated request failed."
+          }
+        }
+      }
+    },
+    "/api/v1/notices": {
+      "get": {
+        "summary": "Published notices for active offices",
+        "description": "Search matches bilingual title/body before pagination.",
+        "security": [],
+        "parameters": [
+          {
+            "name": "office",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "pageSize",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response; persistent mutation where applicable."
+          },
+          "401": {
+            "description": "Session missing or inactive."
+          },
+          "403": {
+            "description": "Role, CSRF or Origin denied."
+          },
+          "404": {
+            "description": "Record unavailable in this scope."
+          },
+          "409": {
+            "description": "Duplicate or workflow conflict."
+          },
+          "422": {
+            "description": "Validated request failed."
+          }
+        }
+      }
+    },
+    "/api/v1/auth/signup": {
+      "post": {
+        "summary": "Create synthetic citizen account and profile",
+        "description": "Local DEMO account; no OTP or identity verification. Returns {registered:true,verificationState:SYNTHETIC_DEMO}; sign in separately.",
+        "security": [],
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": "Successful response; persistent mutation where applicable."
+          },
+          "401": {
+            "description": "Session missing or inactive."
+          },
+          "403": {
+            "description": "Role, CSRF or Origin denied."
+          },
+          "404": {
+            "description": "Record unavailable in this scope."
+          },
+          "409": {
+            "description": "Duplicate or workflow conflict."
+          },
+          "422": {
+            "description": "Validated request failed."
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "nameBn": {
+                    "type": "string",
+                    "minLength": 2,
+                    "maxLength": 120
+                  },
+                  "nameEn": {
+                    "type": "string",
+                    "minLength": 2,
+                    "maxLength": 120
+                  },
+                  "dateOfBirth": {
+                    "type": "string",
+                    "format": "date",
+                    "description": "Strict ISO calendar validity; not legal identity verification."
+                  },
+                  "addressBn": {
+                    "type": "string",
+                    "minLength": 4,
+                    "maxLength": 500
+                  },
+                  "addressEn": {
+                    "type": "string",
+                    "minLength": 4,
+                    "maxLength": 500
+                  },
+                  "syntheticReference": {
+                    "type": "string",
+                    "pattern": "^DEMO-[A-Za-z0-9-]{3,50}$"
+                  },
+                  "email": {
+                    "type": "string",
+                    "format": "email"
+                  },
+                  "password": {
+                    "type": "string",
+                    "minLength": 12,
+                    "maxLength": 200
+                  },
+                  "displayName": {
+                    "type": "string"
+                  },
+                  "tenantId": {
+                    "type": "string",
+                    "format": "uuid"
+                  }
+                },
+                "required": [
+                  "nameBn",
+                  "nameEn",
+                  "dateOfBirth",
+                  "addressBn",
+                  "addressEn",
+                  "syntheticReference",
+                  "email",
+                  "password",
+                  "displayName",
+                  "tenantId"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/auth/password": {
+      "post": {
+        "summary": "Change own password and invalidate other sessions",
+        "description": "Keeps current session; verifies current password under row lock.",
+        "security": [
+          {
+            "session": [],
+            "csrf": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Successful response; persistent mutation where applicable."
+          },
+          "401": {
+            "description": "Session missing or inactive."
+          },
+          "403": {
+            "description": "Role, CSRF or Origin denied."
+          },
+          "404": {
+            "description": "Record unavailable in this scope."
+          },
+          "409": {
+            "description": "Duplicate or workflow conflict."
+          },
+          "422": {
+            "description": "Validated request failed."
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "currentPassword": {
+                    "type": "string"
+                  },
+                  "newPassword": {
+                    "type": "string",
+                    "minLength": 12,
+                    "maxLength": 200
+                  }
+                },
+                "required": [
+                  "currentPassword",
+                  "newPassword"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/office": {
+      "get": {
+        "summary": "Tenant admin reads own office profile",
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Successful response; persistent mutation where applicable."
+          },
+          "401": {
+            "description": "Session missing or inactive."
+          },
+          "403": {
+            "description": "Role, CSRF or Origin denied."
+          },
+          "404": {
+            "description": "Record unavailable in this scope."
+          },
+          "409": {
+            "description": "Duplicate or workflow conflict."
+          },
+          "422": {
+            "description": "Validated request failed."
+          }
+        }
+      },
+      "patch": {
+        "summary": "Tenant admin updates office profile",
+        "security": [
+          {
+            "session": [],
+            "csrf": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Successful response; persistent mutation where applicable."
+          },
+          "401": {
+            "description": "Session missing or inactive."
+          },
+          "403": {
+            "description": "Role, CSRF or Origin denied."
+          },
+          "404": {
+            "description": "Record unavailable in this scope."
+          },
+          "409": {
+            "description": "Duplicate or workflow conflict."
+          },
+          "422": {
+            "description": "Validated request failed."
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "nameBn": {
+                    "type": "string"
+                  },
+                  "nameEn": {
+                    "type": "string"
+                  },
+                  "division": {
+                    "type": "string"
+                  },
+                  "district": {
+                    "type": "string"
+                  },
+                  "upazila": {
+                    "type": "string"
+                  },
+                  "officeType": {
+                    "type": "string",
+                    "enum": [
+                      "UNION",
+                      "MUNICIPALITY",
+                      "CITY_CORPORATION"
+                    ]
+                  }
+                },
+                "required": []
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/users": {
+      "get": {
+        "summary": "Tenant admin lists own office memberships",
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Successful response; persistent mutation where applicable."
+          },
+          "401": {
+            "description": "Session missing or inactive."
+          },
+          "403": {
+            "description": "Role, CSRF or Origin denied."
+          },
+          "404": {
+            "description": "Record unavailable in this scope."
+          },
+          "409": {
+            "description": "Duplicate or workflow conflict."
+          },
+          "422": {
+            "description": "Validated request failed."
+          }
+        }
+      },
+      "post": {
+        "summary": "Tenant admin creates user and scoped membership",
+        "security": [
+          {
+            "session": [],
+            "csrf": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": "Successful response; persistent mutation where applicable."
+          },
+          "401": {
+            "description": "Session missing or inactive."
+          },
+          "403": {
+            "description": "Role, CSRF or Origin denied."
+          },
+          "404": {
+            "description": "Record unavailable in this scope."
+          },
+          "409": {
+            "description": "Duplicate or workflow conflict."
+          },
+          "422": {
+            "description": "Validated request failed."
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "email": {
+                    "type": "string",
+                    "format": "email"
+                  },
+                  "displayName": {
+                    "type": "string"
+                  },
+                  "password": {
+                    "type": "string",
+                    "minLength": 12,
+                    "maxLength": 200
+                  },
+                  "role": {
+                    "type": "string",
+                    "enum": [
+                      "admin",
+                      "approver",
+                      "reviewer",
+                      "staff",
+                      "finance",
+                      "citizen"
+                    ]
+                  }
+                },
+                "required": [
+                  "email",
+                  "displayName",
+                  "password",
+                  "role"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/users/{id}": {
+      "patch": {
+        "summary": "Tenant admin changes role or activity",
+        "description": "Cannot remove own administration; unavailable foreign membership returns404. Activity/role rechecked every session request.",
+        "security": [
+          {
+            "session": [],
+            "csrf": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response; persistent mutation where applicable."
+          },
+          "401": {
+            "description": "Session missing or inactive."
+          },
+          "403": {
+            "description": "Role, CSRF or Origin denied."
+          },
+          "404": {
+            "description": "Record unavailable in this scope."
+          },
+          "409": {
+            "description": "Duplicate or workflow conflict."
+          },
+          "422": {
+            "description": "Validated request failed."
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "role": {
+                    "type": "string",
+                    "enum": [
+                      "admin",
+                      "approver",
+                      "reviewer",
+                      "staff",
+                      "finance",
+                      "citizen"
+                    ]
+                  },
+                  "active": {
+                    "type": "boolean"
+                  }
+                },
+                "required": []
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/authorizations": {
+      "get": {
+        "summary": "List office service-specific demo approval grants",
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Successful response; persistent mutation where applicable."
+          },
+          "401": {
+            "description": "Session missing or inactive."
+          },
+          "403": {
+            "description": "Role, CSRF or Origin denied."
+          },
+          "404": {
+            "description": "Record unavailable in this scope."
+          },
+          "409": {
+            "description": "Duplicate or workflow conflict."
+          },
+          "422": {
+            "description": "Validated request failed."
+          }
+        }
+      }
+    },
+    "/api/v1/admin/authorizations/{userId}/{serviceNo}": {
+      "put": {
+        "summary": "Grant or revoke demo service approval authority",
+        "description": "Active approver membership in same office required; all grants explicitly DEMO ONLY and audited. This is not official appointment evidence.",
+        "security": [
+          {
+            "session": [],
+            "csrf": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "serviceNo",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response; persistent mutation where applicable."
+          },
+          "401": {
+            "description": "Session missing or inactive."
+          },
+          "403": {
+            "description": "Role, CSRF or Origin denied."
+          },
+          "404": {
+            "description": "Record unavailable in this scope."
+          },
+          "409": {
+            "description": "Duplicate or workflow conflict."
+          },
+          "422": {
+            "description": "Validated request failed."
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "active": {
+                    "type": "boolean"
+                  },
+                  "authorityNote": {
+                    "type": "string",
+                    "minLength": 12,
+                    "maxLength": 500
+                  }
+                },
+                "required": [
+                  "active",
+                  "authorityNote"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/services": {
+      "get": {
+        "summary": "Read enabled status and cost of every office service",
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Successful response; persistent mutation where applicable."
+          },
+          "401": {
+            "description": "Session missing or inactive."
+          },
+          "403": {
+            "description": "Role, CSRF or Origin denied."
+          },
+          "404": {
+            "description": "Record unavailable in this scope."
+          },
+          "409": {
+            "description": "Duplicate or workflow conflict."
+          },
+          "422": {
+            "description": "Validated request failed."
+          }
+        }
+      }
+    },
+    "/api/v1/admin/services/{no}": {
+      "patch": {
+        "summary": "Change enabled status or integer credit cost",
+        "security": [
+          {
+            "session": [],
+            "csrf": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "no",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response; persistent mutation where applicable."
+          },
+          "401": {
+            "description": "Session missing or inactive."
+          },
+          "403": {
+            "description": "Role, CSRF or Origin denied."
+          },
+          "404": {
+            "description": "Record unavailable in this scope."
+          },
+          "409": {
+            "description": "Duplicate or workflow conflict."
+          },
+          "422": {
+            "description": "Validated request failed."
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "enabled": {
+                    "type": "boolean"
+                  },
+                  "creditCost": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 10000
+                  }
+                },
+                "required": []
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/notices": {
+      "get": {
+        "summary": "List own office draft and published notices",
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Successful response; persistent mutation where applicable."
+          },
+          "401": {
+            "description": "Session missing or inactive."
+          },
+          "403": {
+            "description": "Role, CSRF or Origin denied."
+          },
+          "404": {
+            "description": "Record unavailable in this scope."
+          },
+          "409": {
+            "description": "Duplicate or workflow conflict."
+          },
+          "422": {
+            "description": "Validated request failed."
+          }
+        }
+      },
+      "post": {
+        "summary": "Create an office notice",
+        "security": [
+          {
+            "session": [],
+            "csrf": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": "Successful response; persistent mutation where applicable."
+          },
+          "401": {
+            "description": "Session missing or inactive."
+          },
+          "403": {
+            "description": "Role, CSRF or Origin denied."
+          },
+          "404": {
+            "description": "Record unavailable in this scope."
+          },
+          "409": {
+            "description": "Duplicate or workflow conflict."
+          },
+          "422": {
+            "description": "Validated request failed."
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "titleBn": {
+                    "type": "string"
+                  },
+                  "titleEn": {
+                    "type": "string"
+                  },
+                  "bodyBn": {
+                    "type": "string"
+                  },
+                  "bodyEn": {
+                    "type": "string"
+                  },
+                  "published": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "titleBn",
+                  "titleEn",
+                  "bodyBn",
+                  "bodyEn",
+                  "published"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/notices/{id}": {
+      "patch": {
+        "summary": "Update or unpublish an office notice",
+        "security": [
+          {
+            "session": [],
+            "csrf": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response; persistent mutation where applicable."
+          },
+          "401": {
+            "description": "Session missing or inactive."
+          },
+          "403": {
+            "description": "Role, CSRF or Origin denied."
+          },
+          "404": {
+            "description": "Record unavailable in this scope."
+          },
+          "409": {
+            "description": "Duplicate or workflow conflict."
+          },
+          "422": {
+            "description": "Validated request failed."
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "titleBn": {
+                    "type": "string"
+                  },
+                  "titleEn": {
+                    "type": "string"
+                  },
+                  "bodyBn": {
+                    "type": "string"
+                  },
+                  "bodyEn": {
+                    "type": "string"
+                  },
+                  "published": {
+                    "type": "boolean"
+                  }
+                },
+                "required": []
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/owner/tenants/{id}": {
+      "patch": {
+        "summary": "Owner suspends or reactivates tenant",
+        "description": "Existing sessions become inactive while suspended; records preserved.",
+        "security": [
+          {
+            "session": [],
+            "csrf": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response; persistent mutation where applicable."
+          },
+          "401": {
+            "description": "Session missing or inactive."
+          },
+          "403": {
+            "description": "Role, CSRF or Origin denied."
+          },
+          "404": {
+            "description": "Record unavailable in this scope."
+          },
+          "409": {
+            "description": "Duplicate or workflow conflict."
+          },
+          "422": {
+            "description": "Validated request failed."
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "status": {
+                    "type": "string",
+                    "enum": [
+                      "ACTIVE",
+                      "SUSPENDED"
+                    ]
+                  }
+                },
+                "required": [
+                  "status"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/applications/{id}/renew": {
+      "post": {
+        "summary": "Create versioned renewal draft from issued certificate",
+        "description": "Citizen own/staff/admin tenant only; same service/citizen/tenant DB-enforced. All47 services allowed. One active successor per source; canceled/rejected successor allows replacement. Trade previous number is server pinned. Revoked source blocks issue; renewed document needs normal review/approval and one new charge.",
+        "security": [
+          {
+            "session": [],
+            "csrf": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Successful response; persistent mutation where applicable."
+          },
+          "401": {
+            "description": "Session missing or inactive."
+          },
+          "403": {
+            "description": "Role, CSRF or Origin denied."
+          },
+          "404": {
+            "description": "Record unavailable in this scope."
+          },
+          "409": {
+            "description": "Duplicate or workflow conflict."
+          },
+          "422": {
+            "description": "Validated request failed."
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "payload": {
+                    "type": "object"
+                  }
+                },
+                "required": []
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/users/{id}/recovery": {
+      "post": {
+        "summary": "Issue a one-use manual account recovery link",
+        "description": "Tenant admin only, active non-admin non-owner account in same office with no other memberships. Returns token,recoveryUrl,expiresAt. Hash stored for15minutes; administrator must convey through a trusted channel. No message is automatically delivered.",
+        "security": [
+          {
+            "session": [],
+            "csrf": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Successful response; persistent mutation where applicable."
+          },
+          "401": {
+            "description": "Session missing or inactive."
+          },
+          "403": {
+            "description": "Role, CSRF or Origin denied."
+          },
+          "404": {
+            "description": "Record unavailable in this scope."
+          },
+          "409": {
+            "description": "Duplicate or workflow conflict."
+          },
+          "422": {
+            "description": "Validated request failed."
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {},
+                "required": []
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/auth/recover": {
+      "post": {
+        "summary": "Consume manual recovery token and replace password",
+        "description": "Consumes once under transaction locks; validates account/tenant eligibility again and expires all prior sessions.",
+        "security": [],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Successful response; persistent mutation where applicable."
+          },
+          "401": {
+            "description": "Session missing or inactive."
+          },
+          "403": {
+            "description": "Role, CSRF or Origin denied."
+          },
+          "404": {
+            "description": "Record unavailable in this scope."
+          },
+          "409": {
+            "description": "Duplicate or workflow conflict."
+          },
+          "422": {
+            "description": "Validated request failed."
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "token": {
+                    "type": "string",
+                    "pattern": "^[a-f0-9]{64}$"
+                  },
+                  "newPassword": {
+                    "type": "string",
+                    "minLength": 12,
+                    "maxLength": 200
+                  }
+                },
+                "required": [
+                  "token",
+                  "newPassword"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/public/feedback": {
+      "post": {
+        "summary": "Persist support request",
+        "description": "Returns id,status,createdAt,delivery:SAVED_IN_PLATFORM. No message or email sent to an external party.",
+        "security": [],
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": "Successful response"
+          },
+          "403": {
+            "description": "Role or Origin/CSRF rejected"
+          },
+          "404": {
+            "description": "Not found within authorized scope"
+          },
+          "409": {
+            "description": "Idempotency conflict"
+          },
+          "422": {
+            "description": "Invalid input"
+          },
+          "429": {
+            "description": "Retry after rate limit"
+          },
+          "503": {
+            "description": "PDF queue capacity reached; retry safely"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  },
+                  "email": {
+                    "type": "string",
+                    "format": "email"
+                  },
+                  "subject": {
+                    "type": "string"
+                  },
+                  "message": {
+                    "type": "string",
+                    "minLength": 10,
+                    "maxLength": 4000
+                  }
+                },
+                "required": [
+                  "name",
+                  "subject",
+                  "message"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/public/subscribe": {
+      "post": {
+        "summary": "Save update interest",
+        "description": "Idempotent normalized email preference only; status REQUESTED. Outgoing mail not configured.",
+        "security": [],
+        "parameters": [],
+        "responses": {
+          "202": {
+            "description": "Successful response"
+          },
+          "403": {
+            "description": "Role or Origin/CSRF rejected"
+          },
+          "404": {
+            "description": "Not found within authorized scope"
+          },
+          "409": {
+            "description": "Idempotency conflict"
+          },
+          "422": {
+            "description": "Invalid input"
+          },
+          "429": {
+            "description": "Retry after rate limit"
+          },
+          "503": {
+            "description": "PDF queue capacity reached; retry safely"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "email": {
+                    "type": "string",
+                    "format": "email"
+                  }
+                },
+                "required": [
+                  "email"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/track/{id}": {
+      "get": {
+        "summary": "Minimal public application status",
+        "description": "Exact submitted application UUID required. Drafts/missing/invalid IDs return404. Only status,officeBn,officeEn,serviceNo,serviceBn,serviceEn,createdAt,demo; no identity or payload.",
+        "security": [],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response"
+          },
+          "403": {
+            "description": "Role or Origin/CSRF rejected"
+          },
+          "404": {
+            "description": "Not found within authorized scope"
+          },
+          "409": {
+            "description": "Idempotency conflict"
+          },
+          "422": {
+            "description": "Invalid input"
+          },
+          "429": {
+            "description": "Retry after rate limit"
+          },
+          "503": {
+            "description": "PDF queue capacity reached; retry safely"
+          }
+        }
+      }
+    },
+    "/api/v1/profile": {
+      "get": {
+        "summary": "Read own account profile",
+        "description": "",
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Successful response"
+          },
+          "403": {
+            "description": "Role or Origin/CSRF rejected"
+          },
+          "404": {
+            "description": "Not found within authorized scope"
+          },
+          "409": {
+            "description": "Idempotency conflict"
+          },
+          "422": {
+            "description": "Invalid input"
+          },
+          "429": {
+            "description": "Retry after rate limit"
+          },
+          "503": {
+            "description": "PDF queue capacity reached; retry safely"
+          }
+        }
+      },
+      "patch": {
+        "summary": "Update own profile",
+        "description": "Email, role and tenant cannot be set. All changes are scoped to authenticated user.",
+        "security": [
+          {
+            "session": [],
+            "csrf": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Successful response"
+          },
+          "403": {
+            "description": "Role or Origin/CSRF rejected"
+          },
+          "404": {
+            "description": "Not found within authorized scope"
+          },
+          "409": {
+            "description": "Idempotency conflict"
+          },
+          "422": {
+            "description": "Invalid input"
+          },
+          "429": {
+            "description": "Retry after rate limit"
+          },
+          "503": {
+            "description": "PDF queue capacity reached; retry safely"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "displayName": {
+                    "type": "string"
+                  },
+                  "nameBn": {
+                    "type": "string"
+                  },
+                  "phone": {
+                    "type": "string",
+                    "pattern": "^(?:01[0-9]{9})?$"
+                  },
+                  "address": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "displayName"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/print-requests": {
+      "get": {
+        "summary": "List permitted private copy requests",
+        "description": "Citizen own or staff/admin tenant records. 20 rows per page, returns items,total,page,pageSize. Fields include id,kind,language,citizenId,createdAt,status:READY,demo,pdfUrl.",
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "kind",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response"
+          },
+          "403": {
+            "description": "Role or Origin/CSRF rejected"
+          },
+          "404": {
+            "description": "Not found within authorized scope"
+          },
+          "409": {
+            "description": "Idempotency conflict"
+          },
+          "422": {
+            "description": "Invalid input"
+          },
+          "429": {
+            "description": "Retry after rate limit"
+          },
+          "503": {
+            "description": "PDF queue capacity reached; retry safely"
+          }
+        }
+      },
+      "post": {
+        "summary": "Generate and persist a private DEMO PDF copy",
+        "description": "Citizen own/staff/admin. Holding/witness object required only for matchingkind. Same requestKey+sameinput returns200samecopy; differentinput409. No certificate or credit debit; no tax/legal attestation.",
+        "security": [
+          {
+            "session": [],
+            "csrf": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": "Successful response"
+          },
+          "403": {
+            "description": "Role or Origin/CSRF rejected"
+          },
+          "404": {
+            "description": "Not found within authorized scope"
+          },
+          "409": {
+            "description": "Idempotency conflict"
+          },
+          "422": {
+            "description": "Invalid input"
+          },
+          "429": {
+            "description": "Retry after rate limit"
+          },
+          "503": {
+            "description": "PDF queue capacity reached; retry safely"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "kind": {
+                    "type": "string",
+                    "enum": [
+                      "biodata",
+                      "holding",
+                      "witness"
+                    ]
+                  },
+                  "citizenId": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "language": {
+                    "type": "string",
+                    "enum": [
+                      "bn",
+                      "en",
+                      "bilingual"
+                    ]
+                  },
+                  "requestKey": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "holding": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "number": {
+                        "type": "string"
+                      },
+                      "addressBn": {
+                        "type": "string"
+                      },
+                      "addressEn": {
+                        "type": "string"
+                      },
+                      "ownerBn": {
+                        "type": "string"
+                      },
+                      "ownerEn": {
+                        "type": "string"
+                      },
+                      "annualValueMinor": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 1000000000
+                      }
+                    },
+                    "required": [
+                      "number",
+                      "addressBn",
+                      "addressEn",
+                      "ownerBn",
+                      "ownerEn",
+                      "annualValueMinor"
+                    ]
+                  },
+                  "witness": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "deceasedNameBn": {
+                        "type": "string"
+                      },
+                      "deceasedNameEn": {
+                        "type": "string"
+                      },
+                      "witnessNameBn": {
+                        "type": "string"
+                      },
+                      "witnessNameEn": {
+                        "type": "string"
+                      },
+                      "statement": {
+                        "type": "string",
+                        "minLength": 10,
+                        "maxLength": 2000
+                      }
+                    },
+                    "required": [
+                      "deceasedNameBn",
+                      "deceasedNameEn",
+                      "witnessNameBn",
+                      "witnessNameEn",
+                      "statement"
+                    ]
+                  }
+                },
+                "required": [
+                  "kind",
+                  "citizenId",
+                  "language"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/print-requests/{id}/pdf": {
+      "get": {
+        "summary": "Download private copy PDF",
+        "description": "application/pdf attachment; tenant/applicant authorization required.",
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response"
+          },
+          "403": {
+            "description": "Role or Origin/CSRF rejected"
+          },
+          "404": {
+            "description": "Not found within authorized scope"
+          },
+          "409": {
+            "description": "Idempotency conflict"
+          },
+          "422": {
+            "description": "Invalid input"
+          },
+          "429": {
+            "description": "Retry after rate limit"
+          },
+          "503": {
+            "description": "PDF queue capacity reached; retry safely"
+          }
+        }
+      }
+    },
+    "/api/v1/notifications": {
+      "get": {
+        "summary": "Read permitted in-app issuance updates",
+        "description": "Latest100 tenant or citizen-owned certificate issuance events; fields id,kind,createdAt,readAt,certificateNumber. channel IN_APP. No external delivery.",
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Successful response"
+          },
+          "403": {
+            "description": "Role or Origin/CSRF rejected"
+          },
+          "404": {
+            "description": "Not found within authorized scope"
+          },
+          "409": {
+            "description": "Idempotency conflict"
+          },
+          "422": {
+            "description": "Invalid input"
+          },
+          "429": {
+            "description": "Retry after rate limit"
+          },
+          "503": {
+            "description": "PDF queue capacity reached; retry safely"
+          }
+        }
+      }
+    },
+    "/api/v1/notifications/{id}/read": {
+      "post": {
+        "summary": "Idempotent notification read receipt",
+        "description": "Only own permitted notification; no other tenant receipt can be created.",
+        "security": [
+          {
+            "session": [],
+            "csrf": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response"
+          },
+          "403": {
+            "description": "Role or Origin/CSRF rejected"
+          },
+          "404": {
+            "description": "Not found within authorized scope"
+          },
+          "409": {
+            "description": "Idempotency conflict"
+          },
+          "422": {
+            "description": "Invalid input"
+          },
+          "429": {
+            "description": "Retry after rate limit"
+          },
+          "503": {
+            "description": "PDF queue capacity reached; retry safely"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {},
+                "required": []
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/reports": {
+      "get": {
+        "summary": "Finance/admin tenant reports",
+        "description": "ISOdateinclusiveUTCbounds; format json(default),csv,pdf. Maximum5000ledgerrows; narrower range needed above cap. Only creditaccounting/applicationcounts, no citizenidentity. JSON ledger,states,balance,from,to,demo,governmentFees:NOT_CONFIGURED,currency:BDT,timezone:UTC.",
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "from",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "format",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response"
+          },
+          "403": {
+            "description": "Role or Origin/CSRF rejected"
+          },
+          "404": {
+            "description": "Not found within authorized scope"
+          },
+          "409": {
+            "description": "Idempotency conflict"
+          },
+          "422": {
+            "description": "Invalid input"
+          },
+          "429": {
+            "description": "Retry after rate limit"
+          },
+          "503": {
+            "description": "PDF queue capacity reached; retry safely"
+          }
+        }
+      }
+    },
+    "/api/v1/invoices/{id}/pdf": {
+      "get": {
+        "summary": "Finance/admin download stored sandbox invoice",
+        "description": "Protected application/pdf. Derived from immutable invoice and server order; explicit no realpayment/government receipt.",
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response"
+          },
+          "403": {
+            "description": "Role or Origin/CSRF rejected"
+          },
+          "404": {
+            "description": "Not found within authorized scope"
+          },
+          "409": {
+            "description": "Idempotency conflict"
+          },
+          "422": {
+            "description": "Invalid input"
+          },
+          "429": {
+            "description": "Retry after rate limit"
+          },
+          "503": {
+            "description": "PDF queue capacity reached; retry safely"
+          }
+        }
+      }
+    },
+    "/api/v1/owner/feedback": {
+      "get": {
+        "summary": "Owner support inbox",
+        "description": "Latest100 ownplatform public submissions, OPEN/RESOLVED optional filter. No tenant citizenrecords included.",
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response"
+          },
+          "403": {
+            "description": "Role or Origin/CSRF rejected"
+          },
+          "404": {
+            "description": "Not found within authorized scope"
+          },
+          "409": {
+            "description": "Idempotency conflict"
+          },
+          "422": {
+            "description": "Invalid input"
+          },
+          "429": {
+            "description": "Retry after rate limit"
+          },
+          "503": {
+            "description": "PDF queue capacity reached; retry safely"
+          }
+        }
+      }
+    },
+    "/api/v1/owner/feedback/{id}": {
+      "patch": {
+        "summary": "Owner resolves or reopens support request",
+        "description": "Records resolved actor/time. Does not send email.",
+        "security": [
+          {
+            "session": [],
+            "csrf": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response"
+          },
+          "403": {
+            "description": "Role or Origin/CSRF rejected"
+          },
+          "404": {
+            "description": "Not found within authorized scope"
+          },
+          "409": {
+            "description": "Idempotency conflict"
+          },
+          "422": {
+            "description": "Invalid input"
+          },
+          "429": {
+            "description": "Retry after rate limit"
+          },
+          "503": {
+            "description": "PDF queue capacity reached; retry safely"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "status": {
+                    "type": "string",
+                    "enum": [
+                      "OPEN",
+                      "RESOLVED"
+                    ]
+                  }
+                },
+                "required": [
+                  "status"
+                ]
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

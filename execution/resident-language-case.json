@@ -1,0 +1,29 @@
+{
+  "residenceSince": "2012-04-05",
+  "residenceSinceBn": "২০১২-০৪-০৫",
+  "purposeBn": "ডেমো শিক্ষাবৃত্তির আবেদন",
+  "purposeEn": "Synthetic scholarship & study application",
+  "templates": [
+    {
+      "language": "bn",
+      "artifact": "execution/resident-bn-demo.pdf",
+      "certificateId": "86b4b017-e258-48d4-8a22-8b47ae8e0908",
+      "applicationId": "26021d95-45c5-4e87-99c7-25d54ac54d30",
+      "templateVersion": 4
+    },
+    {
+      "language": "en",
+      "artifact": "execution/resident-en-demo.pdf",
+      "certificateId": "31521b32-42cb-4a27-a7e2-e5a5f421a8fd",
+      "applicationId": "19c689cb-1d6a-4cda-a18a-4d074c14c7d6",
+      "templateVersion": 4
+    },
+    {
+      "language": "bilingual",
+      "artifact": "execution/resident-bilingual-demo.pdf",
+      "certificateId": "83350455-3982-45a5-a33d-597988e77f1c",
+      "applicationId": "df35f04e-edfd-4ec2-bb0c-940edd58b336",
+      "templateVersion": 4
+    }
+  ]
+}

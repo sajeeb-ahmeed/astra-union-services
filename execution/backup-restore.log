@@ -1,0 +1,16 @@
+OPS-02 encrypted PostgreSQL recovery drill; 2026-10-13T07:06:28.484Z
+PASS: real pg_dump exported snapshot; tables=32, tenants=17, certificates=184.
+PASS: encrypted AES-256-GCM archive (17348460 bytes); plaintext dump and identity values are not printed.
+PASS: restored only a new isolated database astra_restore_20261013070631_f388f85e; every table count/hash exactly matches the exported snapshot.
+PASS: all 7 migrations, tenant rows, foreign-key definitions/validation, RLS flags/policies, function definitions/grants and append-only triggers preserved; orphan tenant references=0.
+PASS: 17 tenant wallet balances equal append-only ledger sums; total credits=617.
+PASS: 184 actual certificate PDFs retain SHA-256 hashes, %PDF- headers and one issuance debit each.
+PASS: restored restricted application account sees no unscoped citizens; tenant A cannot read tenant B citizens.
+PASS: restored tenant-context wallet helper locks only the active tenant; direct wallet UPDATE and direct trigger execution privileges remain revoked.
+PASS: restored ledger still rejects modification through the real database trigger.
+PASS: modified ciphertext rejected by actual restore path before plaintext/database creation.
+PASS: wrong encryption key rejected by actual restore path before plaintext/database creation.
+PASS: main database and existing restore targets cannot be overwritten or dropped.
+PASS: no plaintext backup/restore dump files remain; failed authentication created no database.
+RESULT: OPS-02 local encrypted backup/restore drill PASS. Main astra received only snapshot SELECTs; no writes/drop/restore targeted it.
+UNVERIFIED: offsite durability, independent KMS key custody, rotation/retention, production RPO/RTO and full infrastructure disaster recovery.

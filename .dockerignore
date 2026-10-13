@@ -1,0 +1,13 @@
+node_modules
+**/node_modules
+.git
+.runtime
+.env
+.env.*
+!.env.example
+audit
+audit.zip
+deliverables
+execution
+apps/web/dist
+**/__pycache__

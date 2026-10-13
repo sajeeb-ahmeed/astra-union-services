@@ -1,0 +1,34 @@
+{
+  "pages": 1,
+  "banglaCodepoints": 312,
+  "fonts": [
+    "/AAAAAA+Arial-BoldMT",
+    "/BAAAAA+NirmalaUI-Bold",
+    "/CAAAAA+Consolas",
+    "/DAAAAA+NirmalaUI"
+  ],
+  "visualQa": "See rendered PNG. Copy/text extraction of some Bengali ligatures is imperfect with current Nirmala/Chromium PDF mapping.",
+  "languageVariants": [
+    {
+      "language": "bn",
+      "pages": 1,
+      "templateVersion": 4,
+      "expectedApprovedValuesAndLanguage": true,
+      "banglaCodepoints": 352
+    },
+    {
+      "language": "en",
+      "pages": 1,
+      "templateVersion": 4,
+      "expectedApprovedValuesAndLanguage": true,
+      "banglaCodepoints": 27
+    },
+    {
+      "language": "bilingual",
+      "pages": 1,
+      "templateVersion": 4,
+      "expectedApprovedValuesAndLanguage": true,
+      "banglaCodepoints": 312
+    }
+  ]
+}

@@ -1,0 +1,17 @@
+# Set ASTRA_DOMAIN to a domain you control; route its DNS to this server.
+{$ASTRA_DOMAIN} {
+  encode zstd gzip
+  reverse_proxy 127.0.0.1:3001
+  log {
+    output file /var/log/caddy/astra-access.log
+    format filter {
+      wrap json
+      fields {
+        request>uri delete
+        request>headers>Cookie delete
+        request>headers>Authorization delete
+        request>headers>X-Csrf-Token delete
+      }
+    }
+  }
+}

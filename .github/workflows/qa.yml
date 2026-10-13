@@ -1,0 +1,43 @@
+name: Astra verification
+on: [push, pull_request]
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:17-bookworm
+        env:
+          POSTGRES_DB: astra
+          POSTGRES_USER: astra_admin
+          POSTGRES_PASSWORD: ci-only-admin-password
+        ports: ["5432:5432"]
+        options: --health-cmd "pg_isready -U astra_admin -d astra" --health-interval 5s --health-timeout 5s --health-retries 20
+    env:
+      DATABASE_ADMIN_URL: postgresql://astra_admin:ci-only-admin-password@127.0.0.1:5432/astra
+      DATABASE_URL: postgresql://astra_app:ci-only-app-password-not-production@127.0.0.1:5432/astra
+      ASTRA_APP_PASSWORD: ci-only-app-password-not-production
+      NODE_ENV: test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - run: npx playwright install --with-deps chromium
+      - run: sudo apt-get update && sudo apt-get install -y fonts-noto-core
+      - run: npm run db:bootstrap-role
+      - run: npm run db:migrate
+      - run: npm run db:seed
+      - run: npm run build
+      - run: npm test
+      - run: npm audit --audit-level=high
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: synthetic-execution-evidence
+          path: execution/
+          retention-days: 7

@@ -1,0 +1,50 @@
+{
+  "name": "astra-union-services",
+  "version": "0.2.0",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "tsx scripts/dev.ts",
+    "dev:api": "tsx watch apps/api/src/server.ts",
+    "dev:web": "vite --config apps/web/vite.config.ts",
+    "build": "tsc --noEmit && vite build --config apps/web/vite.config.ts && node scripts/compress-assets.mjs",
+    "typecheck": "tsc --noEmit",
+    "db:migrate": "tsx scripts/migrate.ts",
+    "db:seed": "tsx scripts/seed.ts",
+    "test:forms": "node --import tsx --test packages/shared-schemas/test/*.test.ts",
+    "test:api": "node --import tsx --test --test-concurrency=1 apps/api/test/*.test.ts",
+    "test:web": "tsx scripts/test-web.ts",
+    "test": "npm run test:forms && npm run test:api && npm run test:web",
+    "start": "node --import tsx apps/api/src/server.ts",
+    "db:bootstrap-role": "tsx scripts/bootstrap-db.ts",
+    "db:initialize": "npm run db:bootstrap-role && npm run db:migrate && tsx scripts/initialize.ts"
+  },
+  "dependencies": {
+    "express": "5.2.1",
+    "pg": "8.23.0",
+    "playwright": "1.58.2",
+    "qrcode": "1.5.4",
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
+    "zod": "4.5.4"
+  },
+  "devDependencies": {
+    "@types/express": "5.0.6",
+    "@types/node": "24.10.1",
+    "@types/pg": "8.16.0",
+    "@types/pngjs": "^6.0.5",
+    "@types/qrcode": "1.5.6",
+    "@types/react": "19.2.7",
+    "@types/react-dom": "19.2.3",
+    "jsqr": "^1.4.0",
+    "pngjs": "^5.0.0",
+    "prettier": "^3.6.2",
+    "tsx": "4.23.15",
+    "typescript": "5.9.3",
+    "vite": "7.3.7"
+  }
+}

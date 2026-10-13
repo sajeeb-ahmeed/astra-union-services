@@ -1,0 +1,21 @@
+Isolated deployment initialization test; 2026-10-13T06:47:23.003Z
+Database: astra_release_1791874042745_ce112d
+scripts/migrate.ts
+Applied 001_initial.sql
+Applied 002_ledger_balance_privileges.sql
+Applied 003_wallet_lock_function.sql
+Applied 004_portal_management.sql
+Applied 006_portal_tools.sql
+Applied 007_account_recovery.sql
+Applied 008_tracking.sql
+
+
+scripts/initialize.ts
+Published catalog and demo plan initialized; owner account available. Existing passwords preserved. No sample tenant/citizen accounts created.
+
+
+scripts/initialize.ts
+Published catalog and demo plan initialized; owner account available. Existing passwords preserved. No sample tenant/citizen accounts created.
+
+
+PASS: idempotent initialization creates exactly1 owner,47 services,0 sample users/citizens/tenants. Password hash only; no credentials printed.
