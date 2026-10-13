@@ -10,4 +10,6 @@ try{
     await db.query(statement);console.log('Restricted astra_app database role created. Password omitted.');
   }else if(existing.rolsuper||existing.rolbypassrls||existing.rolcreatedb||existing.rolcreaterole)throw Error('Existing astra_app is privileged. Correct role privileges before starting.');
   else console.log('Existing restricted astra_app role preserved; password unchanged.');
+  const grant=(await db.query("SELECT format('GRANT CONNECT ON DATABASE %I TO astra_app',current_database()) sql")).rows[0].sql;
+  await db.query(grant);
 }finally{await db.end();}

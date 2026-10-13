@@ -1,0 +1,24 @@
+{
+  "status": "PASS",
+  "executedAt": "2026-10-13T07:32:13.040Z",
+  "provider": "Render Free",
+  "region": "Singapore",
+  "expiresOn": "2026-11-12",
+  "postgresMajor": 17,
+  "tls": "Certificate-verified external connection",
+  "migrationRoleSuperuser": false,
+  "migrationRoleBypassRLS": false,
+  "restrictedRuntime": {
+    "services": 47,
+    "unscoped_citizens": 0,
+    "rolsuper": false,
+    "rolbypassrls": false,
+    "rolcreatedb": false,
+    "rolcreaterole": false
+  },
+  "counts": {
+    "users": 1,
+    "offices": 0,
+    "migrations": 8
+  }
+}

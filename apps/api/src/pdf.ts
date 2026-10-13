@@ -14,9 +14,12 @@ export {
 } from "./certificate-template.js";
 let browserPromise: Promise<Browser> | undefined;
 let activeRenders = 0;
+const renderLimit = Number(process.env.PDF_MAX_CONCURRENCY ?? 4);
+if (!Number.isInteger(renderLimit) || renderLimit < 1 || renderLimit > 4)
+  throw new Error("PDF_MAX_CONCURRENCY must be an integer between 1 and 4.");
 const waitingRenders: Array<() => void> = [];
 async function acquireRenderer() {
-  if (activeRenders < 4) {
+  if (activeRenders < renderLimit) {
     activeRenders++;
     return;
   }
