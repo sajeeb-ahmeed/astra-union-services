@@ -1,0 +1,35 @@
+{
+  "baseUrl": "https://astra-union-services.onrender.com",
+  "date": "2026-10-13",
+  "method": "Chrome browser UI through CUA; actual hosted service",
+  "status": "PASS",
+  "checks": [
+    "Desktop homepage renders Bangla text, service navigation and blank hosted login fields.",
+    "Mobile homepage at 390x844 requested viewport has document clientWidth 375 and scrollWidth 375; navigation scrolls within its own strip.",
+    "Mobile service catalog search for Permanent resident filters to the expected service; its information panel opens without page overflow.",
+    "Owner login opens the authenticated workspace and platform management displays the two persisted QA offices with balances 24 and 0.",
+    "Owner logout returns to public sign-in; the browser is left signed out.",
+    "Actual certificate QR URL renders ISSUED, office/service metadata and DEMO notice without citizen name, address or private PDF.",
+    "No browser error or warning logs were observed during these checks."
+  ],
+  "initialInspectedCommit": "72acccd5329e76bd29834eac39835adbab869c5b",
+  "screenshots": [
+    "hosted-home-desktop.png",
+    "hosted-home-mobile.png",
+    "hosted-service-mobile.png",
+    "hosted-owner-workspace.png",
+    "hosted-public-verification.png"
+  ],
+  "logoutCredentialReset": {
+    "initialFinding": "Masked password remained in client form state after logout until navigation.",
+    "correctedCommit": "a398af0fe7fb0805d5077f522ebf98a9102dbf43",
+    "localRegression": "PASS: typecheck and 3 existing browser workflow tests, including immediate post-logout empty email/password assertions.",
+    "hostedRegression": "PASS: final deployed frontend login and logout performed without navigation; emailEmpty=true and passwordEmpty=true; browser warning/error logs empty.",
+    "verifiedDeployment": "dep-db6u4dnf3r2c73chvk5g",
+    "verifiedCommit": "a398af0fe7fb0805d5077f522ebf98a9102dbf43"
+  },
+  "limits": [
+    "This is a targeted desktop/mobile smoke check, not an exhaustive device, accessibility or production load certification.",
+    "All offices and certificates exercised are synthetic demonstrations."
+  ]
+}

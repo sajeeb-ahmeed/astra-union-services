@@ -1,0 +1,12 @@
+{
+  "executedAt": "2026-10-13T07:45:13.910Z",
+  "externalConnectionBlocked": true,
+  "healthStatus": 200,
+  "healthBody": {
+    "status": "ok",
+    "database": "PostgreSQL",
+    "mode": "DEMO_ONLY"
+  },
+  "dashboardRule": "All internet traffic is blocked by PostgreSQL inbound IP rules",
+  "status": "PASS"
+}

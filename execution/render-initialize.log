@@ -1,0 +1,20 @@
+New Render database initialization; TLS certificate verification enabled.
+scripts/bootstrap-db.ts
+Restricted astra_app database role created. Password omitted.
+
+Exit 0
+scripts/migrate.ts
+Applied 001_initial.sql
+Applied 002_ledger_balance_privileges.sql
+Applied 003_wallet_lock_function.sql
+Applied 004_portal_management.sql
+Applied 006_portal_tools.sql
+Applied 007_account_recovery.sql
+Applied 008_tracking.sql
+Applied 009_managed_public_read.sql
+
+Exit 0
+scripts/initialize.ts
+Published catalog and demo plan initialized; owner account available. Existing passwords preserved. No sample tenant/citizen accounts created.
+
+Exit 0

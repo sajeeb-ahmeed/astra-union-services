@@ -1,0 +1,100 @@
+{
+  "sourceRunId": "mv6dikgo-e92f52",
+  "baseUrl": "https://astra-union-services.onrender.com",
+  "startedAt": "2026-10-13T07:49:57.719Z",
+  "status": "PASS",
+  "mutationScope": "Login and logout sessions only; existing QA domain records are read-only.",
+  "checks": [
+    {
+      "name": "01 PostgreSQL is healthy after redeployment",
+      "status": "PASS",
+      "evidence": {
+        "database": "PostgreSQL",
+        "status": "ok"
+      },
+      "durationMs": 167
+    },
+    {
+      "name": "02 Existing citizen and finance accounts still authenticate securely",
+      "status": "PASS",
+      "evidence": {
+        "roles": [
+          "citizen",
+          "finance"
+        ],
+        "samePrimaryOffice": true,
+        "secureCookie": true
+      },
+      "durationMs": 1478
+    },
+    {
+      "name": "03 Existing wallet retains 24 credits and one issuance debit",
+      "status": "PASS",
+      "evidence": {
+        "balance": 24,
+        "issuanceEntries": 1,
+        "issuanceDelta": -3,
+        "totalLedgerEntries": 3
+      },
+      "durationMs": 189
+    },
+    {
+      "name": "04 Same issued application, certificate and audit transitions persist",
+      "status": "PASS",
+      "evidence": {
+        "applicationId": "1a2ff7c7-1df9-45d1-8006-ff871f9eb138",
+        "certificateId": "05a6a54e-1bea-4979-af77-49e9ad3b8cf7",
+        "state": "ISSUED",
+        "unchangedEventCount": 5
+      },
+      "durationMs": 117
+    },
+    {
+      "name": "05 Stored PDF remains byte-for-byte identical",
+      "status": "PASS",
+      "evidence": {
+        "certificateId": "05a6a54e-1bea-4979-af77-49e9ad3b8cf7",
+        "sha256": "c45948f0e9df74073010820258ccd60b1ce35f2d49ca8f4956c7f2a11668a0fb",
+        "bytes": 114286,
+        "identicalToInitialDownload": true
+      },
+      "durationMs": 246
+    },
+    {
+      "name": "06 Existing public QR verification and tracking remain minimal",
+      "status": "PASS",
+      "evidence": {
+        "verificationStatus": "ISSUED",
+        "trackingStatus": "ISSUED",
+        "publicVerificationFields": [
+          "status",
+          "officeBn",
+          "officeEn",
+          "serviceNo",
+          "serviceBn",
+          "serviceEn",
+          "issuedAt",
+          "demo"
+        ],
+        "publicTrackingFields": [
+          "status",
+          "officeBn",
+          "officeEn",
+          "serviceNo",
+          "serviceBn",
+          "serviceEn",
+          "createdAt",
+          "demo"
+        ]
+      },
+      "durationMs": 220
+    }
+  ],
+  "loggedOutRoles": [
+    "citizen",
+    "finance"
+  ],
+  "finishedAt": "2026-10-13T07:50:00.324Z",
+  "passed": 6,
+  "failed": 0
+}

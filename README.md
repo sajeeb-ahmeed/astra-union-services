@@ -2,7 +2,9 @@
 
 Release 0.2 · 13 October 2026. Independently authored Bangla-first React frontend, Express/TypeScript backend and real PostgreSQL database. The commissioning user owns the original software; third-party licenses are retained separately.
 
-**Open:** [local website](http://127.0.0.1:5173). **Read:** [delivery report](docs/DELIVERY_REPORT.md), [deployment instructions](docs/DEPLOYMENT.md), [acceptance evidence](docs/TEST_MATRIX.md).
+**Open:** [live demo](https://astra-union-services.onrender.com) or [local website](http://127.0.0.1:5173). **Read:** [hosted deployment and live test results](docs/HOSTED_DEPLOYMENT.md), [delivery report](docs/DELIVERY_REPORT.md), [deployment instructions](docs/DEPLOYMENT.md), [acceptance evidence](docs/TEST_MATRIX.md).
+
+The live demo runs on Render Free with PostgreSQL 17. Fifteen hosted workflow groups passed, followed by six durability checks after the final deployment and desktop/mobile browser checks. Final GitHub CI passed all **129 tests** and the Docker build. The Free database expires on **12 November 2026**, and the web service can sleep when idle. Live identity and commercial payment integrations remain unconfigured.
 
 This release expands Phase 1 into **47 operational demonstration services**. Every service has been exercised through draft, submission, review, authorized approval, real PDF, QR lookup and exactly one credit debit. These tests prove this independently built implementation. Original reference-site success paths remain unverified. Documents remain DEMO / NOT OFFICIAL; live identity, legal authority and commercial payment-provider integrations are not configured.
 
@@ -35,7 +37,7 @@ npm run dev
 
 Ports: PostgreSQL 55432, API 3001, frontend 5173, all loopback. Generated administrator/restricted app connection strings stay in ignored `.runtime/postgres.json`. No system service/global database is installed. Repeated seed preserves applications/balances and checks schema hashes. After stopping the app, stop the DB with `scripts/runtime/stop-postgres.ps1`.
 
-Local synthetic accounts use **Demo-Phase 1!**:
+Local synthetic accounts use **Demo-Phase1!**:
 
 | Account | Access |
 |---|---|
@@ -75,7 +77,7 @@ Tests create synthetic rows and sandbox payments; use test/development databases
 | execution | Actual synthetic logs, screenshots, PDFs and measurements |
 | handoff | Nine curated reference files; private audit excluded |
 
-Docker/Compose and GitHub Actions recipes are included. Docker is unavailable on this host: container execution and hosted CI remain **unverified**. Built frontend serving, compression, clean initialization and configuration safeguards were tested locally.
+The Docker image was built and deployed successfully on Render. GitHub Actions application verification and the separate Docker build job passed. Docker/Compose remains an alternative deployment recipe; Compose execution was not performed on this Windows host. See the [hosted deployment record](docs/HOSTED_DEPLOYMENT.md) for deployed commits, CI links, live evidence, update procedures, and hosting limits.
 
 ## Limits
 

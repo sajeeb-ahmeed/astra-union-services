@@ -1,0 +1,410 @@
+{
+  "runId": "mv6dikgo-e92f52",
+  "baseUrl": "https://astra-union-services.onrender.com",
+  "startedAt": "2026-10-13T07:42:40.920Z",
+  "status": "PASS",
+  "mode": "SYNTHETIC_DEMO_ONLY",
+  "preflight": {
+    "authorizedOriginMatched": true,
+    "pdfPythonImports": true
+  },
+  "checks": [
+    {
+      "name": "01 HTTPS health, frontend and security headers",
+      "status": "PASS",
+      "durationMs": 187,
+      "evidence": {
+        "database": "PostgreSQL",
+        "frontend": "HTML with module bundle",
+        "httpsHeaders": true
+      }
+    },
+    {
+      "name": "02 Public catalog and all 47 operational schemas respond",
+      "status": "PASS",
+      "durationMs": 1266,
+      "evidence": {
+        "services": 47,
+        "fetchedOperationalSchemas": 47,
+        "exercisedServiceNo": 45,
+        "schemaVersions": [
+          {
+            "serviceNo": 1,
+            "version": 2
+          },
+          {
+            "serviceNo": 2,
+            "version": 2
+          },
+          {
+            "serviceNo": 3,
+            "version": 2
+          },
+          {
+            "serviceNo": 4,
+            "version": 2
+          },
+          {
+            "serviceNo": 5,
+            "version": 2
+          },
+          {
+            "serviceNo": 6,
+            "version": 2
+          },
+          {
+            "serviceNo": 7,
+            "version": 2
+          },
+          {
+            "serviceNo": 8,
+            "version": 2
+          },
+          {
+            "serviceNo": 9,
+            "version": 2
+          },
+          {
+            "serviceNo": 10,
+            "version": 2
+          },
+          {
+            "serviceNo": 11,
+            "version": 2
+          },
+          {
+            "serviceNo": 12,
+            "version": 2
+          },
+          {
+            "serviceNo": 13,
+            "version": 2
+          },
+          {
+            "serviceNo": 14,
+            "version": 2
+          },
+          {
+            "serviceNo": 15,
+            "version": 2
+          },
+          {
+            "serviceNo": 16,
+            "version": 2
+          },
+          {
+            "serviceNo": 17,
+            "version": 2
+          },
+          {
+            "serviceNo": 18,
+            "version": 2
+          },
+          {
+            "serviceNo": 19,
+            "version": 2
+          },
+          {
+            "serviceNo": 20,
+            "version": 2
+          },
+          {
+            "serviceNo": 21,
+            "version": 2
+          },
+          {
+            "serviceNo": 22,
+            "version": 2
+          },
+          {
+            "serviceNo": 23,
+            "version": 2
+          },
+          {
+            "serviceNo": 24,
+            "version": 2
+          },
+          {
+            "serviceNo": 25,
+            "version": 2
+          },
+          {
+            "serviceNo": 26,
+            "version": 2
+          },
+          {
+            "serviceNo": 27,
+            "version": 2
+          },
+          {
+            "serviceNo": 28,
+            "version": 2
+          },
+          {
+            "serviceNo": 29,
+            "version": 2
+          },
+          {
+            "serviceNo": 30,
+            "version": 2
+          },
+          {
+            "serviceNo": 31,
+            "version": 2
+          },
+          {
+            "serviceNo": 32,
+            "version": 2
+          },
+          {
+            "serviceNo": 33,
+            "version": 2
+          },
+          {
+            "serviceNo": 34,
+            "version": 2
+          },
+          {
+            "serviceNo": 35,
+            "version": 2
+          },
+          {
+            "serviceNo": 36,
+            "version": 2
+          },
+          {
+            "serviceNo": 37,
+            "version": 2
+          },
+          {
+            "serviceNo": 38,
+            "version": 2
+          },
+          {
+            "serviceNo": 39,
+            "version": 2
+          },
+          {
+            "serviceNo": 40,
+            "version": 2
+          },
+          {
+            "serviceNo": 41,
+            "version": 2
+          },
+          {
+            "serviceNo": 42,
+            "version": 2
+          },
+          {
+            "serviceNo": 43,
+            "version": 2
+          },
+          {
+            "serviceNo": 44,
+            "version": 2
+          },
+          {
+            "serviceNo": 45,
+            "version": 1
+          },
+          {
+            "serviceNo": 46,
+            "version": 2
+          },
+          {
+            "serviceNo": 47,
+            "version": 2
+          }
+        ]
+      }
+    },
+    {
+      "name": "03 Owner onboarding starts isolated offices at zero and inactive subscription",
+      "status": "PASS",
+      "durationMs": 2250,
+      "evidence": {
+        "primaryOfficeId": "3c864cc7-251a-4035-a833-4bbd4a07b0e8",
+        "isolationOfficeId": "db379c6d-c076-46ea-9da8-896e779e3fd5",
+        "startingCredits": 0,
+        "subscription": "EXPIRED"
+      }
+    },
+    {
+      "name": "04 Admin provisions distinct roles and service configuration",
+      "status": "PASS",
+      "durationMs": 2049,
+      "evidence": {
+        "roles": [
+          "admin",
+          "reviewer",
+          "approver",
+          "finance"
+        ],
+        "serviceCost": 3
+      }
+    },
+    {
+      "name": "05 Citizen signup and own profile persist",
+      "status": "PASS",
+      "durationMs": 801,
+      "evidence": {
+        "citizenId": "b285d9cb-96d8-49e4-941e-e8ca502284b2",
+        "syntheticOnly": true
+      }
+    },
+    {
+      "name": "06 Invalid schema, unauthorized billing and missing CSRF are rejected",
+      "status": "PASS",
+      "durationMs": 249,
+      "evidence": {
+        "invalidForm": 422,
+        "unauthorizedBilling": 403,
+        "missingCsrf": 403
+      }
+    },
+    {
+      "name": "07 Valid dynamic form persists as a private draft",
+      "status": "PASS",
+      "durationMs": 257,
+      "evidence": {
+        "applicationId": "1a2ff7c7-1df9-45d1-8006-ff871f9eb138",
+        "state": "DRAFT",
+        "pinnedSchemaVersion": 1
+      }
+    },
+    {
+      "name": "08 Tenant isolation and unauthenticated private reads are denied",
+      "status": "PASS",
+      "durationMs": 247,
+      "evidence": {
+        "crossTenantRead": 404,
+        "anonymousRead": 401,
+        "isolatedListCount": 0
+      }
+    },
+    {
+      "name": "09 Submit and review enforce state and role boundaries",
+      "status": "PASS",
+      "durationMs": 457,
+      "evidence": {
+        "resultingState": "UNDER_REVIEW",
+        "ungrantedApprover": 403
+      }
+    },
+    {
+      "name": "10 Explicit service approval grant authorizes final approval",
+      "status": "PASS",
+      "durationMs": 284,
+      "evidence": {
+        "state": "APPROVED",
+        "approvedVersion": 1,
+        "serviceSpecificGrant": true
+      }
+    },
+    {
+      "name": "11 Inactive subscription blocks issuance without charging",
+      "status": "PASS",
+      "durationMs": 5121,
+      "evidence": {
+        "status": 402,
+        "balance": 0,
+        "ledgerEntries": 0,
+        "applicationRetained": "APPROVED"
+      }
+    },
+    {
+      "name": "12 Sandbox subscription and top-up settle once and produce invoices",
+      "status": "PASS",
+      "durationMs": 831,
+      "evidence": {
+        "monetaryAmountMinor": 0,
+        "balance": 27,
+        "ledgerEntries": 2,
+        "invoices": 2,
+        "replayedSettlement": true
+      }
+    },
+    {
+      "name": "13 Concurrent issuance and retry return one certificate with exactly one debit",
+      "status": "PASS",
+      "durationMs": 4278,
+      "evidence": {
+        "certificateId": "05a6a54e-1bea-4979-af77-49e9ad3b8cf7",
+        "concurrentResponses": [
+          201,
+          201
+        ],
+        "replayStatus": 200,
+        "balanceBefore": 27,
+        "balanceAfter": 24,
+        "issuanceEntries": 1,
+        "deductedCredits": 3
+      }
+    },
+    {
+      "name": "14 Private PDF downloads; rendered QR resolves to minimal public verification",
+      "status": "PASS",
+      "durationMs": 1011,
+      "evidence": {
+        "pages": 1,
+        "demoWatermark": true,
+        "decodedQr": true,
+        "qrMatchesCertificateUrl": true,
+        "publicFields": [
+          "status",
+          "officeBn",
+          "officeEn",
+          "serviceNo",
+          "serviceBn",
+          "serviceEn",
+          "issuedAt",
+          "demo"
+        ],
+        "anonymousPdf": 401,
+        "otherTenantPdf": 404
+      }
+    },
+    {
+      "name": "15 Public tracking is minimal and authorized state is durable",
+      "status": "PASS",
+      "durationMs": 262,
+      "evidence": {
+        "state": "ISSUED",
+        "applicationEvents": 5,
+        "publicFields": [
+          "status",
+          "officeBn",
+          "officeEn",
+          "serviceNo",
+          "serviceBn",
+          "serviceEn",
+          "createdAt",
+          "demo"
+        ],
+        "isolationOfficeCredits": 0
+      }
+    }
+  ],
+  "artifacts": {
+    "pdf": {
+      "path": "execution/hosted-demo-certificate.pdf",
+      "bytes": 114286,
+      "sha256": "c45948f0e9df74073010820258ccd60b1ce35f2d49ca8f4956c7f2a11668a0fb"
+    },
+    "render": "execution/hosted-demo-certificate.png"
+  },
+  "limitations": [
+    "Synthetic accounts and zero-money sandbox settlement only.",
+    "No external identity, payment, email, SMS or official certificate authority was exercised.",
+    "Created QA offices and immutable audit/ledger records are retained for inspection."
+  ],
+  "qaOfficeIds": [
+    "3c864cc7-251a-4035-a833-4bbd4a07b0e8",
+    "db379c6d-c076-46ea-9da8-896e779e3fd5"
+  ],
+  "verificationUrl": "https://astra-union-services.onrender.com/verify/624c460ff0fe13fa17699340b0a264f1458f218ebfc05d024fa65bca421f2065",
+  "finishedAt": "2026-10-13T07:43:01.051Z",
+  "passed": 15,
+  "failed": 0
+}

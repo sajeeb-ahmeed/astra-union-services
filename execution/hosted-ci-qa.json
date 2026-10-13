@@ -1,0 +1,33 @@
+{
+  "status": "PASS",
+  "provider": "GitHub Actions",
+  "runUrl": "https://github.com/sajeeb-ahmeed/astra-union-services/actions/runs/38364753145",
+  "commit": "a398af0fe7fb0805d5077f522ebf98a9102dbf43",
+  "date": "2026-10-13",
+  "jobs": {
+    "docker-build": "PASS",
+    "verify": "PASS"
+  },
+  "applicationTests": {
+    "forms": 72,
+    "api": 40,
+    "web": 17,
+    "total": 129,
+    "failed": 0
+  },
+  "npmAudit": {
+    "vulnerabilities": 0,
+    "threshold": "high"
+  },
+  "runtimeRelease": {
+    "provider": "Render Free",
+    "region": "Singapore",
+    "serviceId": "srv-db6tvpou01pc73bjkpr0",
+    "deploymentId": "dep-db6u4dnf3r2c73chvk5g",
+    "status": "LIVE",
+    "duration": "1m22s",
+    "publicUrl": "https://astra-union-services.onrender.com"
+  },
+  "evidence": "GitHub CLI run status and downloaded run log; Render deployment dashboard and actual HTTPS application checks.",
+  "limits": "CI uses a separate synthetic PostgreSQL database. Hosted flow, browser, network and redeploy checks are recorded separately."
+}
