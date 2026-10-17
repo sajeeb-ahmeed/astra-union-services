@@ -1,0 +1,6 @@
+2026-10-17T09:22:22.684Z Preflight passed; only migration 011 is authorized by this runner.
+2026-10-17T09:22:24.403Z Both database sessions verified the certificate chain, hostname and expected non-superuser identities.
+2026-10-17T09:22:28.408Z Applied 011_application_orders.sql inside the bounded transaction.
+2026-10-17T09:22:31.807Z Committed migration after unchanged-data verification; no policies or snapshots were created.
+2026-10-17T09:22:33.095Z Runtime privileges and legacy fixture access verified without writing domain records.
+2026-10-17T09:22:35.935Z PASS migration and replay verification. Close the temporary approved database IP access separately.

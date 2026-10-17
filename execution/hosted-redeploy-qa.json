@@ -1,7 +1,7 @@
 {
   "sourceRunId": "mv6dikgo-e92f52",
   "baseUrl": "https://astra-union-services.onrender.com",
-  "startedAt": "2026-10-13T08:53:50.975Z",
+  "startedAt": "2026-10-17T09:27:09.225Z",
   "status": "PASS",
   "mutationScope": "Login and logout sessions only; existing QA domain records are read-only.",
   "checks": [
@@ -12,7 +12,7 @@
         "database": "PostgreSQL",
         "status": "ok"
       },
-      "durationMs": 256
+      "durationMs": 118
     },
     {
       "name": "02 Existing citizen and finance accounts still authenticate securely",
@@ -25,7 +25,7 @@
         "samePrimaryOffice": true,
         "secureCookie": true
       },
-      "durationMs": 944
+      "durationMs": 604
     },
     {
       "name": "03 Existing wallet retains 24 credits and one issuance debit",
@@ -36,7 +36,7 @@
         "issuanceDelta": -3,
         "totalLedgerEntries": 3
       },
-      "durationMs": 246
+      "durationMs": 76
     },
     {
       "name": "04 Same issued application, certificate and audit transitions persist",
@@ -47,7 +47,7 @@
         "state": "ISSUED",
         "unchangedEventCount": 5
       },
-      "durationMs": 205
+      "durationMs": 101
     },
     {
       "name": "05 Stored PDF remains byte-for-byte identical",
@@ -58,7 +58,7 @@
         "bytes": 114286,
         "identicalToInitialDownload": true
       },
-      "durationMs": 247
+      "durationMs": 129
     },
     {
       "name": "06 Existing public QR verification and tracking remain minimal",
@@ -87,14 +87,14 @@
           "demo"
         ]
       },
-      "durationMs": 154
+      "durationMs": 151
     }
   ],
   "loggedOutRoles": [
     "citizen",
     "finance"
   ],
-  "finishedAt": "2026-10-13T08:53:53.185Z",
+  "finishedAt": "2026-10-17T09:27:10.583Z",
   "passed": 6,
   "failed": 0
 }

@@ -1,6 +1,6 @@
 # Office fees and application order workflow
 
-**Source version 0.4.0 · 17 October 2026 · LOCALLY VERIFIED; hosted migration/deployment pending.** The local suites passed 162 tests and 11 managed PostgreSQL compatibility groups. This is not a claim that 0.4 is live. See [release evidence](RELEASE_0_4.md).
+**Release 0.4.0 · 17 October 2026 · LIVE; local, CI and hosted API verification passed.** The suites passed 162 tests and 11 separate local managed PostgreSQL groups. Hosted verification passed nine order, six historical-readback and five geography groups. See [release evidence](RELEASE_0_4.md) for the deployed commit, migration, network closure and evidence scope.
 
 The user confirmed two product rules: a separate chairman/approver account grants approval, and each union configures statutory service fees separately from processing fees. The follow-up reference audit retrieved an existing approved trade PDF and processing invoice; it did not execute a new reference payment, approval or issuance. See [process parity](PROCESS_PARITY.md) and [sanitized observations](../execution/reference-workflow-observations-2026-10-13.json).
 
@@ -71,6 +71,6 @@ Local execution passed **72 form + 63 API + 27 web = 162 tests**, including orde
 
 The separate managed PostgreSQL check passed **11 groups** on a fresh isolated database with all **10 migration files through `011_application_orders.sql`**. It verified non-superuser initialization, restricted runtime privileges, forced RLS and append-only order tables. The dependency audit reported zero vulnerabilities. See [release evidence and logs](RELEASE_0_4.md), including the corrected initial browser timing failure.
 
-Source implementation and local automated/API/browser verification: **passed**. Hosted migration/deployment/readback and new release CI: **pending**. No new hosted commit or deploy ID is asserted here.
+Source implementation, local automated/API/browser verification and [Linux release CI](https://github.com/sajeeb-ahmeed/astra-union-services/actions/runs/39020055573): **passed**. Hosted migration 011, deployment `dep-db9jt9m1egvs73fi5bbg` of commit `de8a0c335aa2315e8ff03faf2e9100fcf7492622`, nine order groups, six historical-readback groups and five geography groups: **passed**. Existing-office tariffs were not configured by migration or QA. [Live browser checks](../execution/orders-live-browser-qa.json) passed bilingual fee retention, mobile layout, blank citizen-first intake and quote/acceptance gating without creating new domain records. See the [release evidence](RELEASE_0_4.md).
 
 Next milestone: verified citizen payment collection with separate receipts/reconciliation and authorized provider or counter-collection rules. Service-specific geography adapters, expanded citizen addresses and official signing remain separate parity gaps. Source code uses independent Astra contracts; complete reference-process equivalence is not claimed.

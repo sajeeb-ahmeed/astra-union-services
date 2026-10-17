@@ -1,0 +1,12 @@
+{
+  "executedAt": "2026-10-17T09:23:46.309Z",
+  "externalConnectionBlocked": true,
+  "healthStatus": 200,
+  "healthBody": {
+    "status": "ok",
+    "database": "PostgreSQL",
+    "mode": "DEMO_ONLY"
+  },
+  "status": "PASS",
+  "scope": "Connection probe only; evaluate alongside fresh Render empty IP allowlist and dashboard evidence."
+}

@@ -1,0 +1,87 @@
+{
+  "release": "0.4.0",
+  "status": "PASS",
+  "completedAt": "2026-10-17T09:30:24.933Z",
+  "url": "https://astra-union-services.onrender.com/",
+  "runtimeCommit": "de8a0c335aa2315e8ff03faf2e9100fcf7492622",
+  "branch": "codex/initial-deployment",
+  "deployment": {
+    "id": "dep-db9jt9m1egvs73fi5bbg",
+    "status": "live",
+    "finishedAt": "2026-10-17T09:26:11.236745Z",
+    "evidence": "execution/orders-render-deploy.json"
+  },
+  "ci": {
+    "url": "https://github.com/sajeeb-ahmeed/astra-union-services/actions/runs/39020055573",
+    "headSha": "de8a0c335aa2315e8ff03faf2e9100fcf7492622",
+    "conclusion": "success",
+    "tests": {
+      "forms": 72,
+      "api": 63,
+      "web": 27,
+      "total": 162
+    },
+    "dockerBuild": "PASS",
+    "dependencyAudit": "Zero reported vulnerabilities at execution time"
+  },
+  "migration": {
+    "file": "011_application_orders.sql",
+    "sqlSha256": "ab1d800d45d8d5c292e51d1d35f735c19b98c3696185ea05b12f2fa3d855573a",
+    "status": "PASS",
+    "tls": "verify-full",
+    "completedAt": "2026-10-17T09:22:35.934Z",
+    "originalDomainFingerprintsPreserved": true,
+    "originalPdfBytes": 114286,
+    "originalBalance": 24,
+    "forcedRlsVerified": true,
+    "idempotentReplay": true,
+    "evidence": "execution/orders-hosted-migration.json"
+  },
+  "network": {
+    "temporaryAccessRemoved": true,
+    "databaseIpAllowList": [],
+    "externalConnectionBlocked": true,
+    "applicationHealthStatus": 200,
+    "evidence": "execution/orders-network-qa.json"
+  },
+  "hostedChecks": [
+    {
+      "evidence": "execution/hosted-orders-qa.json",
+      "status": "PASS",
+      "passed": 9,
+      "failed": 0,
+      "finishedAt": "2026-10-17T09:26:53.300Z"
+    },
+    {
+      "evidence": "execution/hosted-redeploy-qa.json",
+      "status": "PASS",
+      "passed": 6,
+      "failed": 0,
+      "finishedAt": "2026-10-17T09:27:10.583Z"
+    },
+    {
+      "evidence": "execution/geography-hosted-qa.json",
+      "status": "PASS",
+      "passed": 5,
+      "failed": 0,
+      "finishedAt": "2026-10-17T09:27:13.201Z"
+    }
+  ],
+  "hostedGroupsTotal": 20,
+  "liveAssets": {
+    "status": "PASS",
+    "evidence": "execution/orders-live-assets.json"
+  },
+  "browser": {
+    "status": "PASS",
+    "evidence": "execution/orders-live-browser-qa.json"
+  },
+  "limitations": [
+    "Certificates remain DEMO / NOT OFFICIAL; full reference-process equivalence is unverified.",
+    "Real citizen payment collection and settlement are not connected; positive-fee issuance stays blocked without debit.",
+    "Synthetic QA tariffs are not defaults and existing offices were not assigned new fees.",
+    "Render Free database expires on 2026-11-12; no paid upgrade was performed.",
+    "This record identifies the deployed runtime commit; later documentation-only commits are not redeployed."
+  ],
+  "nextMilestone": "Verified citizen fee collection, distinct receipts and reconciliation under approved office/provider rules, plus service-form geography adapters."
+}

@@ -1,0 +1,51 @@
+{
+  "status": "PASS",
+  "completedAt": "2026-10-17T09:30:24.930Z",
+  "origin": "https://astra-union-services.onrender.com",
+  "method": "Live Chrome inspection through CUA; dedicated synthetic QA administrator",
+  "sourceRunId": "mvc6zn32-e0e60d",
+  "checks": [
+    "Public homepage renders in Bangla and English.",
+    "Admin fee policy version 2 renders in English and Bangla with unchanged numeric values.",
+    "Citizen-first service catalog hides application facts until a citizen is selected.",
+    "Selecting the synthetic citizen opens blank service facts; hosted synthetic-example insertion is absent.",
+    "English certificate, digital delivery and urgent service produce a server-calculated BDT 152.10 fee review.",
+    "Positive fees display the unconnected-payment warning; acceptance is unchecked and draft save stays disabled.",
+    "No horizontal overflow in inspected mobile fee-policy and quote views at 390 x 844.",
+    "Captured browser warning/error logs are empty.",
+    "QA administrator signed out; login fields cleared; temporary viewport override reset; Bangla homepage left open."
+  ],
+  "feePolicy": {
+    "version": 2,
+    "serviceNo": 45,
+    "currency": "BDT",
+    "statutory": "121.01",
+    "processing": "23.02",
+    "urgent": "7.03",
+    "officeCollection": "2.05",
+    "digitalDelivery": "1.04",
+    "inspectedTotal": "152.10",
+    "syntheticOnly": true
+  },
+  "mobile": {
+    "width": 390,
+    "height": 844,
+    "documentScrollWidth": 375,
+    "overflow": false
+  },
+  "console": {
+    "warnings": 0,
+    "errors": 0
+  },
+  "mutationScope": "Login/logout only; fee review did not create applications, policies, certificates or ledger entries.",
+  "screenshots": [
+    "execution/orders-live-admin-en.png",
+    "execution/orders-live-admin-mobile-bn.png",
+    "execution/orders-live-quote-mobile-en.png",
+    "execution/orders-live-home-bn.png"
+  ],
+  "limitations": [
+    "Focused live smoke inspection, not an exhaustive browser/device audit.",
+    "The mobile quote screenshot shows the upper quote region; the full total and payment warning were verified in the accessibility state."
+  ]
+}

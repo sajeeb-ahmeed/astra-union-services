@@ -1,7 +1,7 @@
 {
   "baseUrl": "https://astra-union-services.onrender.com",
   "status": "PASS",
-  "startedAt": "2026-10-13T08:53:50.971Z",
+  "startedAt": "2026-10-17T09:27:09.224Z",
   "mutationScope": "None: all remote requests are unauthenticated GETs.",
   "checks": [
     {
@@ -45,7 +45,7 @@
         ],
         "identifiersAreOfficial": false
       },
-      "durationMs": 274
+      "durationMs": 129
     },
     {
       "name": "02 Eight divisions and all 64 districts match supplied bilingual records",
@@ -56,7 +56,7 @@
         "namesAndParentsMatchSource": true,
         "cacheControl": "public, max-age=3600"
       },
-      "durationMs": 1545
+      "durationMs": 1163
     },
     {
       "name": "03 Full parent-filtered route in each division returns exact source children",
@@ -123,7 +123,7 @@
         "sampledDivisionCoverage": "8/8",
         "scope": "Representative complete paths, not exhaustive validation of every hosted row."
       },
-      "durationMs": 1960
+      "durationMs": 2023
     },
     {
       "name": "04 Missing, wrong-level and unknown parents are rejected; coverage gap remains empty",
@@ -134,7 +134,7 @@
         "nonexistentParent": 404,
         "shaistaganjUnionCount": 0
       },
-      "durationMs": 547
+      "durationMs": 516
     },
     {
       "name": "05 Directory code filter does not invent a participating office for a geography record",
@@ -154,10 +154,10 @@
         ],
         "explicitOfficeEnrollmentRequired": true
       },
-      "durationMs": 159
+      "durationMs": 141
     }
   ],
-  "finishedAt": "2026-10-13T08:53:55.462Z",
+  "finishedAt": "2026-10-17T09:27:13.201Z",
   "passed": 5,
   "failed": 0
 }

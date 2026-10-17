@@ -1,18 +1,18 @@
 # Astra — working citizen-services website
 
-Source 0.4.0 · 17 October 2026; locally verified, hosted deployment pending. Last documented live release: 0.3 · 13 October 2026. Independently authored Bangla/English React frontend, Express/TypeScript backend and real PostgreSQL database. The commissioning user owns the original software; third-party licenses are retained separately.
+Release 0.4.0 · live and verified on 17 October 2026. Independently authored Bangla/English React frontend, Express/TypeScript backend and real PostgreSQL database. The commissioning user owns the original software; third-party licenses are retained separately.
 
 **Open:** [live demo](https://astra-union-services.onrender.com) or [local website](http://127.0.0.1:5173). **Read:** [hosted deployment and live test results](docs/HOSTED_DEPLOYMENT.md), [delivery report](docs/DELIVERY_REPORT.md), [deployment instructions](docs/DEPLOYMENT.md), [acceptance evidence](docs/TEST_MATRIX.md).
 
-The current live release runs on Render Free with PostgreSQL 17. It passed **142 CI tests**, the Docker build, five hosted geography groups, six durability checks and desktop/mobile bilingual browser checks. The preceding release also completed the fifteen-group hosted issuance workflow. Exact commit, deployment and evidence are recorded in the hosted deployment document. The Free database expires on **12 November 2026**, and the web service can sleep when idle. Live identity and commercial payment integrations remain unconfigured.
+The current live release runs on Render Free with PostgreSQL 17. It passed **162 CI tests**, the Docker build, **nine hosted order-workflow groups**, **six historical-record readback groups** and **five geography groups**. Migration preserved existing records and PDFs; temporary external database access was closed again. Exact commit, deployment and evidence are recorded in the hosted deployment document. The Free database expires on **12 November 2026**, and the web service can sleep when idle. Live identity and commercial payment integrations remain unconfigured.
 
 This release expands Phase 1 into **47 operational demonstration services**. Every service has been exercised through draft, submission, review, authorized approval, real PDF, QR lookup and exactly one credit debit. These tests prove this independently built implementation. Original reference-site success paths remain unverified. Documents remain DEMO / NOT OFFICIAL; live identity, legal authority and commercial payment-provider integrations are not configured.
 
-## Incoming 0.4 order workflow
+## Live 0.4 order workflow
 
 Implemented source adds citizen-first blank applications, exact Astra application/certificate lookup, per-office/service statutory and processing fee policies, permitted language/delivery/urgency choices, and immutable server-calculated assessments. Existing separate approver authorization and SaaS credits remain in force. Positive citizen-fee totals block issuance until verified payment collection is implemented; a quote is not a payment receipt.
 
-Local verification passed **162 tests** (72 form, 63 API and 27 web), **11 managed PostgreSQL compatibility groups**, and a dependency audit reporting **zero vulnerabilities**. Hosted migration, CI and deployment of 0.4 remain pending. See [0.4 release evidence](docs/RELEASE_0_4.md), [order workflow](docs/ORDER_WORKFLOW.md), [process parity and remaining gaps](docs/PROCESS_PARITY.md), and [OpenAPI](apps/api/openapi.json).
+Local and Linux CI verification passed **162 tests** (72 form, 63 API and 27 web); the Docker build and dependency audit passed with **zero vulnerabilities**. Eleven additional local managed PostgreSQL compatibility groups passed. Commit `de8a0c3` is live as Render deployment `dep-db9jt9m1egvs73fi5bbg`; entry asset hashes match the tested build. Hosted QA used a new synthetic office and did not configure tariffs in existing offices. Live Chrome checks passed for Bangla/English fees, mobile layout, blank citizen-first intake and quote acceptance gating, with no console warnings/errors. See [0.4 release evidence](docs/RELEASE_0_4.md), [order workflow](docs/ORDER_WORKFLOW.md), [process parity and remaining gaps](docs/PROCESS_PARITY.md), and [OpenAPI](apps/api/openapi.json).
 
 ## Geography and language update
 

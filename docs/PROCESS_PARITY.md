@@ -1,6 +1,6 @@
 # Reference process parity tracker
 
-**Updated 17 October 2026 · source version 0.4.0.** The new order slice is locally verified: 162 tests and 11 managed PostgreSQL compatibility groups passed. Hosted migration/deployment remains pending. [Release evidence](RELEASE_0_4.md) records actual execution; this file does not establish a new live release.
+**Updated 17 October 2026 · release 0.4.0 is live.** Local/CI verification passed 162 tests; 11 additional local managed PostgreSQL groups passed. Hosted migration/deployment passed, followed by nine order, six historical-readback and five geography groups. Live Chrome checks passed bilingual fees, mobile layout, blank citizen-first intake and quote/acceptance gating. [Release evidence](RELEASE_0_4.md) records the exact runtime/deployment and verification scope.
 
 The target is a shared service workflow for all participating unions with office-specific fees, enabled services and authorized approvers. Identical reference behavior across all offices has not been established. Astra remains independently implemented and owned; source screenshots, private records, seals and signatures are not copied into the product.
 
@@ -23,7 +23,7 @@ The user confirmed **separate chairman/approver approval** and **union-specific 
 
 ## Feature/process tracker
 
-P0 preserves correctness; P1 closes a major process difference; P2 covers secondary paths or work awaiting external evidence. “Implemented 0.4” below means source complete and locally verified in the linked release evidence; hosted deployment remains pending.
+P0 preserves correctness; P1 closes a major process difference; P2 covers secondary paths or work awaiting external evidence. “Implemented 0.4” below identifies independently implemented, deployed capabilities with the scoped local/hosted evidence linked above. Deployment does not establish reference-process equivalence or verify every screen/office combination.
 
 | ID / priority | Reference evidence                                                                                                              | Astra status and remaining work                                                                                                                                                                                                                                                  |
 | ------------- | ------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -62,6 +62,6 @@ Safe follow-up evidence records labels, roles, options and outcomes separately. 
 
 ## Release gate and next milestone
 
-The **0.4 source is locally verified; hosted migration and deployment remain pending**. The 162-test run includes order roles/isolation, arithmetic and tamper rejection, concurrent publication, stale policies, exact lookup ownership, immutable corrections, legacy compatibility, positive-fee issuance blocking, zero-fee authorized concurrent issuance and bilingual/mobile flows. Eleven separate managed PostgreSQL groups passed. See [actual local results](RELEASE_0_4.md). Hosted migration, release CI, deploy identity and live readback must be recorded separately before calling 0.4 live.
+Release **0.4 is live with scoped verification**. The 162-test run includes order roles/isolation, arithmetic and tamper rejection, concurrent publication, stale policies, exact lookup ownership, immutable corrections, legacy compatibility, positive-fee issuance blocking, zero-fee authorized concurrent issuance and bilingual/mobile flows. Hosted order QA exercised a new synthetic office and left existing-office tariffs unchanged; historical readback preserved the original PDF/balance/debit/events. Migration, network closure, exact deploy identity and all group results are recorded in [release evidence](RELEASE_0_4.md). Full reference equivalence, real citizen payment and official issuance remain unestablished.
 
-Next: verified citizen fee collection and reconciliation under user-approved rules, plus service-specific geography adapters. Identity, official signing and complete reference parity remain separate uncompleted work. [ORDER_WORKFLOW.md](ORDER_WORKFLOW.md) records the pending acceptance scope.
+Next: verified citizen fee collection and reconciliation under user-approved rules, plus service-specific geography adapters. Identity, official signing and complete reference parity remain separate uncompleted work. [ORDER_WORKFLOW.md](ORDER_WORKFLOW.md) records the implemented contract and verification scope.

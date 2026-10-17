@@ -1,0 +1,49 @@
+{
+  "startedAt": "2026-10-17T09:21:52.082Z",
+  "database": "astra_uvug",
+  "migration": "011_application_orders.sql",
+  "sqlSha256": "ab1d800d45d8d5c292e51d1d35f735c19b98c3696185ea05b12f2fa3d855573a",
+  "tls": "verify-full",
+  "status": "FAIL",
+  "mutationScope": "Only migration 011 and its schema_migrations marker. No tariff, user, application, payment or ledger data is created or changed.",
+  "checks": [],
+  "originalFixtureEvidence": {
+    "sourceRunId": "mv6dikgo-e92f52",
+    "applicationEvents": 5,
+    "balance": 24,
+    "issuanceEntries": 1
+  },
+  "migrationRole": {
+    "current_user": "astra_admin",
+    "database": "astra_uvug",
+    "rolsuper": false,
+    "rolbypassrls": false,
+    "rolcreatedb": true,
+    "rolcreaterole": true
+  },
+  "runtimeRole": {
+    "current_user": "astra_app",
+    "database": "astra_uvug",
+    "rolsuper": false,
+    "rolbypassrls": false,
+    "rolcreatedb": false,
+    "rolcreaterole": false
+  },
+  "baselineMigrations": [
+    "001_initial.sql",
+    "002_ledger_balance_privileges.sql",
+    "003_wallet_lock_function.sql",
+    "004_portal_management.sql",
+    "006_portal_tools.sql",
+    "007_account_recovery.sql",
+    "008_tracking.sql",
+    "009_managed_public_read.sql",
+    "010_bangladesh_geography.sql"
+  ],
+  "failedAt": "2026-10-17T09:21:54.474Z",
+  "failure": {
+    "stage": "transactional baseline and migration",
+    "code": "CHECK_FAILED",
+    "message": "Hosted domain counts changed since the reviewed baseline"
+  }
+}

@@ -1,10 +1,38 @@
 # Hosted deployment record
 
-**Source update · 17 October 2026:** 0.4.0 is locally verified (162 tests and 11 managed PostgreSQL groups), but its hosted migration/deployment is pending. The live deployment identifiers and CI results below remain the verified **0.3 history**. See [0.4 local release evidence](RELEASE_0_4.md); do not treat these earlier deployment results as 0.4 verification.
+**Updated 17 October 2026: release 0.4.0 is live and its hosted API checks passed.** Astra remains a synthetic DEMO application: certificate output is **DEMO / NOT OFFICIAL**. Citizen fee assessments are uncollected; positive totals block issuance. SaaS billing QA uses zero-money sandbox settlement. See [0.4 release evidence](RELEASE_0_4.md).
 
-Updated 13 October 2026. Astra remains a synthetic DEMO application: certificate output is marked **DEMO / NOT OFFICIAL**, and billing uses zero-money sandbox settlement.
+## Current 0.4 deployment and verification
 
-## Current status
+| Component | Verified result |
+| --- | --- |
+| Live URL | [astra-union-services.onrender.com](https://astra-union-services.onrender.com/) |
+| Runtime commit | `de8a0c335aa2315e8ff03faf2e9100fcf7492622` |
+| Render deployment | `dep-db9jt9m1egvs73fi5bbg`, status `live`; completed `2026-10-17T09:26:11.236745Z` (15:26:11 Asia/Dhaka) |
+| CI | [Run 39020055573](https://github.com/sajeeb-ahmeed/astra-union-services/actions/runs/39020055573): Docker build and **162 tests** passed; zero audit vulnerabilities |
+| Database migration | `011_application_orders.sql` committed after preservation checks; 10 migration files installed; runtime privileges/RLS and idempotent replay passed |
+| Existing data | At migration, two offices, eight users and one certificate preserved; recorded domain fingerprints, original PDF, 24-credit wallet, one debit and five fixture events unchanged |
+| External database access | Temporary approved single-IP rule removed; empty allowlist and fresh blocked connection probe, while app health remained HTTP 200 |
+| New order workflow | **9/9 hosted groups passed** in one new synthetic QA office; existing-office policies untouched |
+| Historical readback | **6/6 groups passed** after deployment; original PDF byte-for-byte unchanged |
+| Geography regression | **5/5 read-only hosted groups passed** |
+| Frontend assets | Entry JavaScript and CSS hashes match the tested local production build; immutable cache headers present |
+| Live UI browser inspection | Passed bilingual fee retention, 390 × 844 layout, blank citizen-first intake and quote/acceptance gating; no console warnings/errors |
+| Hosting | Same Free Singapore service `srv-db6tvpou01pc73bjkpr0`; Auto-Deploy Off; Free PostgreSQL expiry **12 November 2026** |
+
+Evidence: [deployment](../execution/orders-render-deploy.json), [CI](../execution/orders-ci-qa.json), [migration](../execution/orders-hosted-migration.json), [network](../execution/orders-network-qa.json), [closed database access](../execution/orders-database-private.png), [order QA](../execution/hosted-orders-qa.json), [readback](../execution/hosted-redeploy-qa.json), [geography](../execution/geography-hosted-qa.json), [asset hashes](../execution/orders-live-assets.json).
+
+[Live browser inspection](../execution/orders-live-browser-qa.json) retained the synthetic policy amounts across Bangla/English, showed no horizontal overflow at 390 × 844, hid service facts until citizen selection, then opened blank fields without hosted sample insertion. English/digital/urgent options calculated BDT 152.10, displayed the uncollected-payment warning and kept Save draft disabled while acceptance was unchecked. No domain records were added through the UI and console warning/error logs were empty. The browser ended signed out, login inputs cleared and viewport restored on the Bangla homepage. See [English admin](../execution/orders-live-admin-en.png), [Bangla mobile admin](../execution/orders-live-admin-mobile-bn.png), [mobile quote](../execution/orders-live-quote-mobile-en.png), [final homepage](../execution/orders-live-home-bn.png) and [consolidated release metadata](../execution/orders-live-release.json).
+
+The first migration preflight stopped before changes because an older expected count was seven users; fresh read-only review confirmed eight existing users and preserved all eight. Only the private runner's preflight expectation changed; the CI-tested migration SQL did not. The bounded TLS-verified migration created schema/marker changes only, with no new tariff, payment or application records. Replay skipped migration SQL and kept its marker/domain fingerprints unchanged. Initial [preflight report](../execution/orders-hosted-migration-preflight.json) and [log](../execution/orders-hosted-migration-preflight.log) remain as evidence.
+
+The new nine-group QA run deliberately created one dedicated synthetic office, four separate role accounts, one citizen, two policy versions, two applications and one DEMO certificate. Sandbox credits started at 20; concurrent zero-fee issuance and retry deducted three credits exactly once, leaving 17. The second approved application had an uncollected BDT 152.10 assessment and was blocked with `402 ORDER_PAYMENT_REQUIRED`, without a document or debit. All API QA sessions were logged out; immutable test records are retained. No existing office was assigned a fee policy by migration or this test. These synthetic test tariffs are not defaults or legal schedules.
+
+Original-fixture readback finished `2026-10-17T09:27:10.583Z`: its 114,286-byte PDF/hash, 24-credit balance, one three-credit debit and five events persisted. The separate geography regression used only unauthenticated GETs. These checks establish the exercised paths at that time, not an uptime commitment or full reference-site parity. Later evidence-only commits may differ from the deployed runtime SHA above.
+
+## Release 0.3 history — 13 October 2026
+
+The following table and 13 October narrative retain the preceding deployment's evidence. They are not the current runtime identifiers or 0.4 test counts. Files reused for readback/geography evidence now contain the 17 October rerun; original 0.3 aggregate metadata remains in [geography-live-release.json](../execution/geography-live-release.json).
 
 | Component | Verified status |
 | --- | --- |
@@ -89,9 +117,9 @@ Auto-Deploy is **Off**. Pushing a commit to GitHub does not publish that commit 
 3. In the new Astra Render service, use **Manual Deploy**, selecting the verified commit where available. Confirm the deployment log's commit matches the passing CI run.
 4. Wait for the service to become healthy, then rerun the relevant hosted checks and record the deployed commit, URL, and results.
 
-The final deployed commit's CI run and Render build passed. The initial 15-group hosted workflow was followed by six durability checks and the login/logout browser regression on the final release. Public-URL services require manual deployment; see [Render's deployment guidance](https://render.com/docs/deploys).
+The 0.3 deployment's CI run and Render build passed. Its initial 15-group hosted workflow was followed by six durability checks and the login/logout browser regression. Release 0.4 was explicitly deployed using the exact CI-verified commit recorded above. Public-URL services require explicit deployment; see [Render's deployment guidance](https://render.com/docs/deploys).
 
-## Hosted verification results
+## Historical initial hosted verification — 13 October 2026
 
 [The hosted workflow runner](../scripts/verify-hosted.ts) completed successfully against the confirmed HTTPS origin on commit `72acccd5329e76bd29834eac39835adbab869c5b`, using privately stored owner credentials. The runner created dedicated synthetic offices and accounts and retained their immutable ledger/audit evidence. All 15 check groups passed. It exercised:
 
@@ -113,11 +141,11 @@ Separate browser inspection passed for the desktop homepage and a 390 by 844 mob
 
 The initial inspection found a masked password value remaining in React state after logout. The preceding release corrected this and clears both sign-in fields on logout. Browser testing performed login and logout without navigation on deployment `dep-db6u4dnf3r2c73chvk5g` and confirmed `emailEmpty=true` and `passwordEmpty=true`, with no warning or error logs. Those screenshots document the preceding release. A browser password manager may independently refill a login form; the application does not control that user preference.
 
-[The readback runner](../scripts/verify-hosted-readback.ts) passed all six groups again on release 0.3 at `2026-10-13T08:53:53.185Z`. Only login/logout session state changed. The same application, certificate and five audit transitions persisted; the wallet remained at 24 credits with one issuance debit of minus three; the PDF retained the identical SHA-256 above. Public verification/tracking remained minimal. See [current durability evidence](../execution/hosted-redeploy-qa.json).
+[The readback runner](../scripts/verify-hosted-readback.ts) passed all six groups again on release 0.3 at `2026-10-13T08:53:53.185Z`, recorded in [0.3 aggregate evidence](../execution/geography-live-release.json). Only login/logout session state changed. The same application, certificate and five audit transitions persisted; the wallet remained at 24 credits with one issuance debit of minus three; the PDF retained the identical SHA-256 above. The [current durability evidence](../execution/hosted-redeploy-qa.json) now records the successful 17 October rerun against 0.4.
 
 ## Release 0.3 geography and interface verification
 
-The deployed geography API passed all five [read-only hosted groups](../execution/geography-hosted-qa.json) at `2026-10-13T08:53:55.462Z`. Counts match the supplied 8 divisions, 64 districts, 495 upazilas, 4,586 unions and 41,274 derived wards. All eight divisions and all 64 districts were compared to source names and parents; a complete district/upazila/union/ward route was checked in each division. This is representative hosted route coverage, not an exhaustive request for every row. Missing, wrong-level and unknown parents were rejected, Shaistaganj remained an explicit empty coverage gap, and geography filters did not invent participating offices.
+The 0.3 geography API passed five read-only hosted groups at `2026-10-13T08:53:55.462Z`, recorded in [0.3 aggregate evidence](../execution/geography-live-release.json). The [current read-only report](../execution/geography-hosted-qa.json) now records the passing 17 October rerun against 0.4. Counts match the supplied 8 divisions, 64 districts, 495 upazilas, 4,586 unions and 41,274 derived wards. All eight divisions and all 64 districts were compared to source names and parents; a complete district/upazila/union/ward route was checked in each division. This is representative hosted route coverage, not an exhaustive request for every row. Missing, wrong-level and unknown parents were rejected, Shaistaganj remained an explicit empty coverage gap, and geography filters did not invent participating offices.
 
 Browser inspection verified the minimal English/Bangla public interface, persisted language after reload, a Dhaka → Dhaka → Savar → Ashulia → Ward 3 cascade, retained selected geography and a draft display name across language changes, and the explicit preview-office fallback. The 390 × 844 registration viewport had no overall horizontal overflow. Owner login, translated navigation and management controls, and sign-out were exercised. Final checks confirmed translated owner metrics and bilingual office names. See [browser evidence](../execution/geography-live-browser-qa.json), [Bangla homepage](../execution/geography-live-home-bn.png), [mobile registration](../execution/geography-live-register-mobile.png) and [deployed Render release](../execution/geography-render-deployed.png).
 
@@ -127,7 +155,7 @@ The supplied dataset is community MIT data, not an official current national reg
 
 ## Owner handoff
 
-Unique hosted credentials are supplied in local ignored files `OWNER_LOGIN.txt` and `DEMO_ROLE_LOGINS.txt` under `.runtime/hosted/`. They are not part of the public source repository or this report. Use the owner login for platform administration; the role logins are synthetic QA accounts for inspecting the demonstrated workflow. The browser was left signed out after verification. Keep these handoff files private and rotate credentials through the application's password controls when transferring access.
+Unique hosted credentials are supplied in local ignored files `OWNER_LOGIN.txt` and `DEMO_ROLE_LOGINS.txt` under `.runtime/hosted/`. They are not part of the public source repository or this report. Use the owner login for platform administration; the role logins are synthetic QA accounts for inspecting the demonstrated workflow. Release 0.4 API QA invalidated its sessions, and the live browser inspection ended signed out with cleared login inputs. Keep these handoff files private and rotate credentials through the application's password controls when transferring access.
 
 ## Free hosting limits and next operational milestone
 

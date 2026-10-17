@@ -1,0 +1,375 @@
+{
+  "runId": "mvc6zn32-e0e60d",
+  "baseUrl": "https://astra-union-services.onrender.com",
+  "startedAt": "2026-10-17T09:26:37.214Z",
+  "status": "PASS",
+  "mode": "SYNTHETIC_DEMO_ONLY",
+  "scope": "New dedicated synthetic order-QA tenant only; no existing tenant policies or records are modified.",
+  "expectedRecords": {
+    "newTenants": 1,
+    "newAccounts": 4,
+    "newCitizenProfiles": 1,
+    "newFeePolicies": 2,
+    "newApplications": 2,
+    "newCertificates": 1,
+    "newIssuanceDebits": 1,
+    "sandboxSubscriptionOrders": 1,
+    "realMoneyCollected": false
+  },
+  "checks": [
+    {
+      "name": "01 Authorized HTTPS DEMO endpoint and order routes are available",
+      "status": "PASS",
+      "durationMs": 826,
+      "evidence": {
+        "authorizedOriginMatched": true,
+        "demoOnly": true,
+        "orderRoutePresent": true
+      }
+    },
+    {
+      "name": "02 A new dedicated office and separate role accounts are provisioned",
+      "status": "PASS",
+      "durationMs": 2705,
+      "evidence": {
+        "newTenants": 1,
+        "newAccounts": 4,
+        "separateRoles": [
+          "admin",
+          "staff",
+          "reviewer",
+          "approver"
+        ],
+        "syntheticCitizenProfiles": 1
+      }
+    },
+    {
+      "name": "03 Service authority and zero-money sandbox credits are configured",
+      "status": "PASS",
+      "durationMs": 526,
+      "evidence": {
+        "monetaryAmountMinor": 0,
+        "grantedCredits": 20,
+        "issuanceCreditCost": 3,
+        "separateApproverGrant": true
+      }
+    },
+    {
+      "name": "04 Admin publishes explicit zero fees; staff cannot publish; quotes are read-only",
+      "status": "PASS",
+      "durationMs": 1187,
+      "evidence": {
+        "policyVersion": 1,
+        "zeroTotalMinor": 0,
+        "staffPublicationStatus": 403,
+        "repeatedQuotesCreatedApplications": 0,
+        "quoteLedgerUnchanged": true,
+        "snapshotStored": true
+      }
+    },
+    {
+      "name": "05 New positive tariff rejects stale requests and preserves the old snapshot",
+      "status": "PASS",
+      "durationMs": 876,
+      "evidence": {
+        "currentPolicyVersion": 2,
+        "stalePolicy": 409,
+        "staleApplication": 409,
+        "missingOrder": 409,
+        "totalTampering": 422,
+        "positiveTotalMinor": 15210,
+        "originalZeroSnapshotUnchanged": true,
+        "validApplications": 2
+      }
+    },
+    {
+      "name": "06 Separate reviewer and approver authorize both applications; staff is denied",
+      "status": "PASS",
+      "durationMs": 955,
+      "evidence": {
+        "staffApprovalStatus": 403,
+        "staffIssuanceStatus": 403,
+        "distinctReviewerAndApprover": true,
+        "approvedApplications": 2
+      }
+    },
+    {
+      "name": "07 Concurrent zero-fee issuance and retry produce one DEMO certificate/debit",
+      "status": "PASS",
+      "durationMs": 7736,
+      "evidence": {
+        "concurrentResponses": [
+          201,
+          201
+        ],
+        "retryStatus": 200,
+        "balanceBefore": 20,
+        "balanceAfter": 17,
+        "issuanceEntries": 1,
+        "deductedCredits": 3,
+        "issueEvents": 1
+      }
+    },
+    {
+      "name": "08 Approved positive-fee issuance is blocked with no debit or document",
+      "status": "PASS",
+      "durationMs": 574,
+      "evidence": {
+        "issueStatus": 402,
+        "code": "ORDER_PAYMENT_REQUIRED",
+        "certificateCreated": false,
+        "balanceUnchanged": true,
+        "ledgerUnchanged": true,
+        "state": "APPROVED",
+        "paymentStatus": "NOT_COLLECTED"
+      }
+    },
+    {
+      "name": "09 Stored PDF and safe public verification match the single issued certificate",
+      "status": "PASS",
+      "durationMs": 282,
+      "evidence": {
+        "pdfBytes": 96424,
+        "pdfSha256": "5b927e5b5feee8dff0cd467c6d516b5a66b707ba872d61743f1400c50114260a",
+        "publicStatus": "ISSUED",
+        "serviceNo": 45,
+        "opaqueVerificationToken": true
+      }
+    }
+  ],
+  "mutationAttempts": [
+    {
+      "operation": "Sign in owner",
+      "outcome": "ACCEPTED",
+      "httpStatus": 200
+    },
+    {
+      "operation": "Create one dedicated synthetic QA office/admin",
+      "outcome": "ACCEPTED",
+      "httpStatus": 201
+    },
+    {
+      "operation": "Sign in admin",
+      "outcome": "ACCEPTED",
+      "httpStatus": 200
+    },
+    {
+      "operation": "Create separate QA staff account",
+      "outcome": "ACCEPTED",
+      "httpStatus": 201
+    },
+    {
+      "operation": "Sign in staff",
+      "outcome": "ACCEPTED",
+      "httpStatus": 200
+    },
+    {
+      "operation": "Create separate QA reviewer account",
+      "outcome": "ACCEPTED",
+      "httpStatus": 201
+    },
+    {
+      "operation": "Sign in reviewer",
+      "outcome": "ACCEPTED",
+      "httpStatus": 200
+    },
+    {
+      "operation": "Create separate QA approver account",
+      "outcome": "ACCEPTED",
+      "httpStatus": 201
+    },
+    {
+      "operation": "Sign in approver",
+      "outcome": "ACCEPTED",
+      "httpStatus": 200
+    },
+    {
+      "operation": "Register one synthetic QA citizen profile",
+      "outcome": "ACCEPTED",
+      "httpStatus": 201
+    },
+    {
+      "operation": "Configure QA service credit cost",
+      "outcome": "ACCEPTED",
+      "httpStatus": 200
+    },
+    {
+      "operation": "Grant QA approver explicit service authority",
+      "outcome": "ACCEPTED",
+      "httpStatus": 200
+    },
+    {
+      "operation": "Create zero-money QA subscription order",
+      "outcome": "ACCEPTED",
+      "httpStatus": 201
+    },
+    {
+      "operation": "Settle zero-money sandbox subscription",
+      "outcome": "ACCEPTED",
+      "httpStatus": 200
+    },
+    {
+      "operation": "Reject staff tariff publication",
+      "outcome": "REJECTED",
+      "httpStatus": 403
+    },
+    {
+      "operation": "Publish explicit zero-fee QA policy version 1",
+      "outcome": "ACCEPTED",
+      "httpStatus": 201
+    },
+    {
+      "operation": "Create zero-fee QA application",
+      "outcome": "ACCEPTED",
+      "httpStatus": 201
+    },
+    {
+      "operation": "Publish positive-fee QA policy version 2",
+      "outcome": "ACCEPTED",
+      "httpStatus": 201
+    },
+    {
+      "operation": "Reject stale policy publication",
+      "outcome": "REJECTED",
+      "httpStatus": 409
+    },
+    {
+      "operation": "Reject stale order on new application",
+      "outcome": "REJECTED",
+      "httpStatus": 409
+    },
+    {
+      "operation": "Reject new configured application without order",
+      "outcome": "REJECTED",
+      "httpStatus": 409
+    },
+    {
+      "operation": "Create positive-fee QA application",
+      "outcome": "ACCEPTED",
+      "httpStatus": 201
+    },
+    {
+      "operation": "staff submit QA application",
+      "outcome": "ACCEPTED",
+      "httpStatus": 200
+    },
+    {
+      "operation": "reviewer review QA application",
+      "outcome": "ACCEPTED",
+      "httpStatus": 200
+    },
+    {
+      "operation": "staff approve QA application",
+      "outcome": "REJECTED",
+      "httpStatus": 403
+    },
+    {
+      "operation": "approver approve QA application",
+      "outcome": "ACCEPTED",
+      "httpStatus": 200
+    },
+    {
+      "operation": "staff submit QA application",
+      "outcome": "ACCEPTED",
+      "httpStatus": 200
+    },
+    {
+      "operation": "reviewer review QA application",
+      "outcome": "ACCEPTED",
+      "httpStatus": 200
+    },
+    {
+      "operation": "staff approve QA application",
+      "outcome": "REJECTED",
+      "httpStatus": 403
+    },
+    {
+      "operation": "approver approve QA application",
+      "outcome": "ACCEPTED",
+      "httpStatus": 200
+    },
+    {
+      "operation": "Reject staff certificate issuance",
+      "outcome": "REJECTED",
+      "httpStatus": 403
+    },
+    {
+      "operation": "Concurrent zero-fee QA issue 1",
+      "outcome": "ACCEPTED",
+      "httpStatus": 201
+    },
+    {
+      "operation": "Concurrent zero-fee QA issue 2",
+      "outcome": "ACCEPTED",
+      "httpStatus": 201
+    },
+    {
+      "operation": "Retry already-issued zero-fee QA certificate",
+      "outcome": "ACCEPTED",
+      "httpStatus": 200
+    },
+    {
+      "operation": "Confirm positive-fee QA issuance payment gate",
+      "outcome": "REJECTED",
+      "httpStatus": 402
+    },
+    {
+      "operation": "Sign out owner QA session",
+      "outcome": "ACCEPTED",
+      "httpStatus": 200
+    },
+    {
+      "operation": "Sign out admin QA session",
+      "outcome": "ACCEPTED",
+      "httpStatus": 200
+    },
+    {
+      "operation": "Sign out staff QA session",
+      "outcome": "ACCEPTED",
+      "httpStatus": 200
+    },
+    {
+      "operation": "Sign out reviewer QA session",
+      "outcome": "ACCEPTED",
+      "httpStatus": 200
+    },
+    {
+      "operation": "Sign out approver QA session",
+      "outcome": "ACCEPTED",
+      "httpStatus": 200
+    }
+  ],
+  "cleanup": [
+    {
+      "role": "owner",
+      "logoutStatus": 200
+    },
+    {
+      "role": "admin",
+      "logoutStatus": 200
+    },
+    {
+      "role": "staff",
+      "logoutStatus": 200
+    },
+    {
+      "role": "reviewer",
+      "logoutStatus": 200
+    },
+    {
+      "role": "approver",
+      "logoutStatus": 200
+    }
+  ],
+  "limitations": [
+    "Synthetic citizen and DEMO certificate only; no original reference-site records are used.",
+    "Subscription settlement is a zero-money local sandbox event, not citizen payment verification.",
+    "Positive-fee issuance is expected to remain blocked and unpaid.",
+    "HTTP evidence verifies persisted API-visible state; direct database tampering and RLS constraints belong to local integration tests.",
+    "The new QA tenant and immutable records are deliberately retained; sessions are invalidated at the end where reachable."
+  ],
+  "finishedAt": "2026-10-17T09:26:53.300Z",
+  "passed": 9,
+  "failed": 0,
+  "runFinished": true
+}

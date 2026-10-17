@@ -1,6 +1,6 @@
 # Release 0.2 — execution results
 
-**History notice · 17 October 2026:** this page retains release 0.2 results. For source 0.4.0, see [current local verification](RELEASE_0_4.md): 162 tests and 11 managed PostgreSQL groups passed; hosted migration/deployment remains pending. The 0.3 hosted record is maintained separately in [HOSTED_DEPLOYMENT.md](HOSTED_DEPLOYMENT.md).
+**History notice · 17 October 2026:** this page retains release 0.2 results. Release 0.4.0 is live: see [current release verification](RELEASE_0_4.md) for 162 tests, 11 separate local managed PostgreSQL groups, migration/deployment and hosted 9 order + 6 readback + 5 geography groups. [HOSTED_DEPLOYMENT.md](HOSTED_DEPLOYMENT.md) distinguishes current deployment from preserved 0.3 history.
 
 Executed on 13 October 2026, Windows, Node 24.18.0/npm 10.9.8, PostgreSQL 17.11 and Playwright Chromium. All records and payments are synthetic. Phase 0 was not repeated. Tests establish this independently authored system's behavior, not the reference website's unobserved server behavior.
 

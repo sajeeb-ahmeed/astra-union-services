@@ -1,0 +1,430 @@
+{
+  "startedAt": "2026-10-17T09:22:22.681Z",
+  "database": "astra_uvug",
+  "migration": "011_application_orders.sql",
+  "sqlSha256": "ab1d800d45d8d5c292e51d1d35f735c19b98c3696185ea05b12f2fa3d855573a",
+  "tls": "verify-full",
+  "status": "PASS",
+  "mutationScope": "Only migration 011 and its schema_migrations marker. No tariff, user, application, payment or ledger data is created or changed.",
+  "checks": [
+    "All existing domain fingerprints, issued PDF, application events, wallet and issuance debit remained unchanged.",
+    "Runtime new-table SELECT/INSERT allowed, history changes denied; forced RLS and cross-office isolation verified.",
+    "Replay skipped migration SQL and retained the single unchanged migration marker and domain fingerprints."
+  ],
+  "originalFixtureEvidence": {
+    "sourceRunId": "mv6dikgo-e92f52",
+    "applicationEvents": 5,
+    "balance": 24,
+    "issuanceEntries": 1
+  },
+  "migrationRole": {
+    "current_user": "astra_admin",
+    "database": "astra_uvug",
+    "rolsuper": false,
+    "rolbypassrls": false,
+    "rolcreatedb": true,
+    "rolcreaterole": true
+  },
+  "runtimeRole": {
+    "current_user": "astra_app",
+    "database": "astra_uvug",
+    "rolsuper": false,
+    "rolbypassrls": false,
+    "rolcreatedb": false,
+    "rolcreaterole": false
+  },
+  "baselineMigrations": [
+    "001_initial.sql",
+    "002_ledger_balance_privileges.sql",
+    "003_wallet_lock_function.sql",
+    "004_portal_management.sql",
+    "006_portal_tools.sql",
+    "007_account_recovery.sql",
+    "008_tracking.sql",
+    "009_managed_public_read.sql",
+    "010_bangladesh_geography.sql"
+  ],
+  "baselineReview": "Fresh read-only inspection confirmed 2 offices, 8 users and 1 certificate; the additional post-QA user is preserved.",
+  "before": {
+    "counts": {
+      "offices": 2,
+      "users": 8,
+      "certificates": 1
+    },
+    "fixture": {
+      "application_id": "1a2ff7c7-1df9-45d1-8006-ff871f9eb138",
+      "state": "ISSUED",
+      "certificate_id": "05a6a54e-1bea-4979-af77-49e9ad3b8cf7",
+      "status": "ISSUED",
+      "pdf_bytes": 114286,
+      "pdf_sha256": "c45948f0e9df74073010820258ccd60b1ce35f2d49ca8f4956c7f2a11668a0fb",
+      "balance": 24,
+      "issuance_entries": 1,
+      "issuance_delta": -3,
+      "events": 5
+    },
+    "fingerprints": {
+      "3c864cc7-251a-4035-a833-4bbd4a07b0e8": {
+        "approval_authorizations": {
+          "count": 1,
+          "sha256": "59ef613e0b27db3b2525378514052d59da848a193f19bb059edcbcfff2778564"
+        },
+        "citizens": {
+          "count": 2,
+          "sha256": "d8fa36497c1a119187df748947ac6a3d94e21d8515de34674fa31147b272e5aa"
+        },
+        "tenant_service_configuration": {
+          "count": 47,
+          "sha256": "90452451630ac20ce0e4985ae520aff4fc5013ea31d3cc4aed808836adf329e7"
+        },
+        "applications": {
+          "count": 2,
+          "sha256": "c9d4be5a0999762d0462a49976fb5a0e837521ee63c82a77a73d3e9a72e0ad14"
+        },
+        "application_payload_versions": {
+          "count": 2,
+          "sha256": "8f61bf69d398562ef8f25b1f9bc3d5fdc7f3f688ee38aa27c41124d0f4afa233"
+        },
+        "application_events": {
+          "count": 7,
+          "sha256": "e1421b31a6b1547da7472d3ad6dd57d6a3ae831427b2fbf1580bba0542f34cc7"
+        },
+        "audit_events": {
+          "count": 25,
+          "sha256": "c3656a1fe4ca01951b2cb7d777b5da5fa2eb72837f45739b680d4a328de60e9e"
+        },
+        "tenant_subscriptions": {
+          "count": 1,
+          "sha256": "4d7232941e3c5e7ded41411195c5996bba9d1626586d35a7517669e28e7f11c9"
+        },
+        "tenant_wallets": {
+          "count": 1,
+          "sha256": "c0a7322ba0a54764f965859db7ca785387056a103ae2d4d5d0eaa12c6cc5adaa"
+        },
+        "certificates": {
+          "count": 1,
+          "sha256": "6d1ee1e01f15d5b2491a1db67756e664ab79abb050c184db32091fe4d34c61f3"
+        },
+        "credit_ledger": {
+          "count": 3,
+          "sha256": "8d14987e027d293f0fef7088b26252b44560b564e0b7ff17f0f91d1e07558d54"
+        },
+        "payment_orders": {
+          "count": 3,
+          "sha256": "75c2d7ade7d6f9c100c7a30e8af78dc3b61fe51beabe7d6dae3d12427d4d8183"
+        },
+        "payment_events": {
+          "count": 2,
+          "sha256": "27161e608309dcbe68615325d89ca906cb4c56a9928dae228495ec1acdf5eb71"
+        },
+        "invoices": {
+          "count": 2,
+          "sha256": "00793d255eed3351bdc9a312b921b09e77d433b225dcd8f99f1c762ba112d6c5"
+        },
+        "government_fee_assessments": {
+          "count": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "outbox_events": {
+          "count": 1,
+          "sha256": "f8ee4fa8cbd8baf5c846fa2b0a94e6df6ac4ef88d97573ab267ab439cf4421d9"
+        },
+        "attachments": {
+          "count": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "notices": {
+          "count": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "renewal_links": {
+          "count": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        }
+      },
+      "db379c6d-c076-46ea-9da8-896e779e3fd5": {
+        "approval_authorizations": {
+          "count": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "citizens": {
+          "count": 1,
+          "sha256": "d30d6d54e1f5d1152564a873cb97bb91676bc11841adee3408dbcf67b0d47c96"
+        },
+        "tenant_service_configuration": {
+          "count": 47,
+          "sha256": "0fb5924b4f39ce30e8a313524f5dd66f1cc718bf7bea691997423cca071cddfb"
+        },
+        "applications": {
+          "count": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "application_payload_versions": {
+          "count": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "application_events": {
+          "count": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "audit_events": {
+          "count": 4,
+          "sha256": "370a3658390aa7232d37ec122e2c1ded068678a5e9b07bd8a260e20d490c5d2e"
+        },
+        "tenant_subscriptions": {
+          "count": 1,
+          "sha256": "c50a24c708544ebce5b8389b9fc70258f01d642f24133a7fa1e6862564706254"
+        },
+        "tenant_wallets": {
+          "count": 1,
+          "sha256": "0566ace604ec6645552c227b8ffd3c6d94abbe350ac798a6b8f6f3e9bed8f9b6"
+        },
+        "certificates": {
+          "count": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "credit_ledger": {
+          "count": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "payment_orders": {
+          "count": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "payment_events": {
+          "count": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "invoices": {
+          "count": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "government_fee_assessments": {
+          "count": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "outbox_events": {
+          "count": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "attachments": {
+          "count": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "notices": {
+          "count": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "renewal_links": {
+          "count": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        }
+      }
+    }
+  },
+  "after": {
+    "counts": {
+      "offices": 2,
+      "users": 8,
+      "certificates": 1
+    },
+    "fixture": {
+      "application_id": "1a2ff7c7-1df9-45d1-8006-ff871f9eb138",
+      "state": "ISSUED",
+      "certificate_id": "05a6a54e-1bea-4979-af77-49e9ad3b8cf7",
+      "status": "ISSUED",
+      "pdf_bytes": 114286,
+      "pdf_sha256": "c45948f0e9df74073010820258ccd60b1ce35f2d49ca8f4956c7f2a11668a0fb",
+      "balance": 24,
+      "issuance_entries": 1,
+      "issuance_delta": -3,
+      "events": 5
+    },
+    "fingerprints": {
+      "3c864cc7-251a-4035-a833-4bbd4a07b0e8": {
+        "approval_authorizations": {
+          "count": 1,
+          "sha256": "59ef613e0b27db3b2525378514052d59da848a193f19bb059edcbcfff2778564"
+        },
+        "citizens": {
+          "count": 2,
+          "sha256": "d8fa36497c1a119187df748947ac6a3d94e21d8515de34674fa31147b272e5aa"
+        },
+        "tenant_service_configuration": {
+          "count": 47,
+          "sha256": "90452451630ac20ce0e4985ae520aff4fc5013ea31d3cc4aed808836adf329e7"
+        },
+        "applications": {
+          "count": 2,
+          "sha256": "c9d4be5a0999762d0462a49976fb5a0e837521ee63c82a77a73d3e9a72e0ad14"
+        },
+        "application_payload_versions": {
+          "count": 2,
+          "sha256": "8f61bf69d398562ef8f25b1f9bc3d5fdc7f3f688ee38aa27c41124d0f4afa233"
+        },
+        "application_events": {
+          "count": 7,
+          "sha256": "e1421b31a6b1547da7472d3ad6dd57d6a3ae831427b2fbf1580bba0542f34cc7"
+        },
+        "audit_events": {
+          "count": 25,
+          "sha256": "c3656a1fe4ca01951b2cb7d777b5da5fa2eb72837f45739b680d4a328de60e9e"
+        },
+        "tenant_subscriptions": {
+          "count": 1,
+          "sha256": "4d7232941e3c5e7ded41411195c5996bba9d1626586d35a7517669e28e7f11c9"
+        },
+        "tenant_wallets": {
+          "count": 1,
+          "sha256": "c0a7322ba0a54764f965859db7ca785387056a103ae2d4d5d0eaa12c6cc5adaa"
+        },
+        "certificates": {
+          "count": 1,
+          "sha256": "6d1ee1e01f15d5b2491a1db67756e664ab79abb050c184db32091fe4d34c61f3"
+        },
+        "credit_ledger": {
+          "count": 3,
+          "sha256": "8d14987e027d293f0fef7088b26252b44560b564e0b7ff17f0f91d1e07558d54"
+        },
+        "payment_orders": {
+          "count": 3,
+          "sha256": "75c2d7ade7d6f9c100c7a30e8af78dc3b61fe51beabe7d6dae3d12427d4d8183"
+        },
+        "payment_events": {
+          "count": 2,
+          "sha256": "27161e608309dcbe68615325d89ca906cb4c56a9928dae228495ec1acdf5eb71"
+        },
+        "invoices": {
+          "count": 2,
+          "sha256": "00793d255eed3351bdc9a312b921b09e77d433b225dcd8f99f1c762ba112d6c5"
+        },
+        "government_fee_assessments": {
+          "count": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "outbox_events": {
+          "count": 1,
+          "sha256": "f8ee4fa8cbd8baf5c846fa2b0a94e6df6ac4ef88d97573ab267ab439cf4421d9"
+        },
+        "attachments": {
+          "count": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "notices": {
+          "count": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "renewal_links": {
+          "count": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        }
+      },
+      "db379c6d-c076-46ea-9da8-896e779e3fd5": {
+        "approval_authorizations": {
+          "count": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "citizens": {
+          "count": 1,
+          "sha256": "d30d6d54e1f5d1152564a873cb97bb91676bc11841adee3408dbcf67b0d47c96"
+        },
+        "tenant_service_configuration": {
+          "count": 47,
+          "sha256": "0fb5924b4f39ce30e8a313524f5dd66f1cc718bf7bea691997423cca071cddfb"
+        },
+        "applications": {
+          "count": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "application_payload_versions": {
+          "count": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "application_events": {
+          "count": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "audit_events": {
+          "count": 4,
+          "sha256": "370a3658390aa7232d37ec122e2c1ded068678a5e9b07bd8a260e20d490c5d2e"
+        },
+        "tenant_subscriptions": {
+          "count": 1,
+          "sha256": "c50a24c708544ebce5b8389b9fc70258f01d642f24133a7fa1e6862564706254"
+        },
+        "tenant_wallets": {
+          "count": 1,
+          "sha256": "0566ace604ec6645552c227b8ffd3c6d94abbe350ac798a6b8f6f3e9bed8f9b6"
+        },
+        "certificates": {
+          "count": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "credit_ledger": {
+          "count": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "payment_orders": {
+          "count": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "payment_events": {
+          "count": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "invoices": {
+          "count": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "government_fee_assessments": {
+          "count": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "outbox_events": {
+          "count": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "attachments": {
+          "count": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "notices": {
+          "count": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "renewal_links": {
+          "count": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        }
+      }
+    }
+  },
+  "committed": true,
+  "runtimePrivileges": [
+    {
+      "table_name": "public.service_order_policies",
+      "can_select": true,
+      "can_insert": true,
+      "can_modify_history": false,
+      "relrowsecurity": true,
+      "relforcerowsecurity": true,
+      "owner": "astra_admin"
+    },
+    {
+      "table_name": "public.application_order_snapshots",
+      "can_select": true,
+      "can_insert": true,
+      "can_modify_history": false,
+      "relrowsecurity": true,
+      "relforcerowsecurity": true,
+      "owner": "astra_admin"
+    }
+  ],
+  "idempotentReplay": true,
+  "replay": {
+    "migrationSkipped": true,
+    "unchangedMarker": true,
+    "unchangedDomainFingerprints": true
+  },
+  "completedAt": "2026-10-17T09:22:35.934Z"
+}

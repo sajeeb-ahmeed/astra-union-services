@@ -1,0 +1,10 @@
+PASS 01 Authorized HTTPS DEMO endpoint and order routes are available
+PASS 02 A new dedicated office and separate role accounts are provisioned
+PASS 03 Service authority and zero-money sandbox credits are configured
+PASS 04 Admin publishes explicit zero fees; staff cannot publish; quotes are read-only
+PASS 05 New positive tariff rejects stale requests and preserves the old snapshot
+PASS 06 Separate reviewer and approver authorize both applications; staff is denied
+PASS 07 Concurrent zero-fee issuance and retry produce one DEMO certificate/debit
+PASS 08 Approved positive-fee issuance is blocked with no debit or document
+PASS 09 Stored PDF and safe public verification match the single issued certificate
+PASS: 9 hosted order checks passed; 0 failed. Safe evidence: execution/hosted-orders-qa.json

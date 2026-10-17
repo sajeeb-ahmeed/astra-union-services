@@ -1,0 +1,14 @@
+{
+  "commit": {
+    "createdAt": "2026-10-17T09:09:28Z",
+    "id": "de8a0c335aa2315e8ff03faf2e9100fcf7492622",
+    "message": "Wait for order form state transitions in browser regression"
+  },
+  "createdAt": "2026-10-17T09:23:50.921596Z",
+  "finishedAt": "2026-10-17T09:26:11.236745Z",
+  "id": "dep-db9jt9m1egvs73fi5bbg",
+  "startedAt": "2026-10-17T09:23:50.887559Z",
+  "status": "live",
+  "trigger": "api",
+  "updatedAt": "2026-10-17T09:26:11.237002Z"
+}
