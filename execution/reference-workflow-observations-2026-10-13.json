@@ -1,0 +1,60 @@
+{
+  "observedAt": "2026-10-13",
+  "source": "User-authorized authenticated Prottoyon browser session",
+  "roleObserved": "UDC",
+  "scope": "Targeted follow-up on existing approved records; not a repeated Phase 0 audit",
+  "privacy": "No citizen names, contact details, identity numbers, application identifiers, opaque URLs, signatures or source certificate images are included.",
+  "observations": [
+    {
+      "feature": "Application list",
+      "status": "OBSERVED_EXISTING_APPROVED_OUTPUT",
+      "facts": [
+        "Existing trade applications show paid and approved states.",
+        "Bangla and English outputs appear as separate application rows.",
+        "Rows expose application details, applicant details, invoice printing and trade renewal actions."
+      ]
+    },
+    {
+      "feature": "Approved trade application detail",
+      "status": "OBSERVED_EXISTING_APPROVED_OUTPUT",
+      "facts": [
+        "Details include general, business and business-address information.",
+        "Edit controls and an approved-certificate warning exist in the rendered UI.",
+        "No edit, renewal, cancellation or approval was performed."
+      ]
+    },
+    {
+      "feature": "Existing trade invoice",
+      "status": "OBSERVED_EXISTING_APPROVED_OUTPUT",
+      "sample": {
+        "certificateLanguage": "English",
+        "urgency": "normal",
+        "facilitationFeeMinor": 0,
+        "otherFeesMinor": 1575,
+        "totalMinor": 1575,
+        "currency": "BDT"
+      },
+      "limitation": "One existing invoice is not an office-approved tariff or proof that every office/service uses this price. No payment was made."
+    },
+    {
+      "feature": "Approved certificate reference lookup",
+      "status": "OBSERVED_EXISTING_APPROVED_OUTPUT",
+      "entryRoute": "/portal/udc/print/certificate",
+      "form": { "method": "POST", "action": "/portal/udc/print/pdf/certificate", "field": "application_no" },
+      "resultRouteTemplate": "/portal/udc/application/view/pdf/{opaqueReference}",
+      "facts": [
+        "Submitting an existing approved reference opened a one-page English trade PDF in a separate browser tab.",
+        "The certificate includes business and address sections, a fiscal-year validity period, fee breakdown, signatory area and verification URL.",
+        "Statutory trade-license charges shown on the certificate differ from the platform processing invoice total. These must be separate fee concepts."
+      ],
+      "limitation": "Retrieval of an existing output does not establish successful new submission, payment settlement, approval authority, or the source issuance transaction."
+    }
+  ],
+  "unverified": [
+    "The action and account that granted approval",
+    "Whether specific services auto-approve or require a separate approver",
+    "Payment gateway settlement and refunds",
+    "Union-specific approved tariffs and signatory authority",
+    "Source concurrency, validation and exactly-once accounting behavior"
+  ]
+}

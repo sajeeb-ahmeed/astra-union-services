@@ -507,6 +507,9 @@ test(
       await page
         .getByLabel("Citizen", { exact: true })
         .selectOption({ index: 1 });
+      await page
+        .getByRole("button", { name: "Fill synthetic example", exact: true })
+        .click();
       const saved = page.waitForResponse(
         (r) =>
           r.url().endsWith("/applications") && r.request().method() === "POST",

@@ -28,6 +28,14 @@ import { publicManagementRouter, managementRouter } from "./management.js";
 import { publicToolsRouter, protectedToolsRouter } from "./portal-tools.js";
 import { httpHardening } from "./http-hardening.js";
 import {
+  ordersRouter,
+  applicationOrderInput,
+  prepareApplicationOrder,
+  saveApplicationOrder,
+  getApplicationOrder,
+  validateApplicationOrder,
+} from "./orders.js";
+import {
   geographyRouter,
   geographyInput,
   geographyValues,
@@ -479,6 +487,7 @@ app.use(
 );
 app.use("/api/v1", managementRouter);
 app.use("/api/v1", protectedToolsRouter);
+app.use("/api/v1", ordersRouter);
 app.get(
   "/api/v1/auth/me",
   wrap(async (req, res) => {
@@ -678,6 +687,7 @@ app.post(
         citizenId: uuid,
         serviceNo: z.number().int(),
         payload: z.record(z.string(), z.unknown()),
+        order: applicationOrderInput.optional(),
       })
       .strict()
       .parse(req.body);
@@ -720,9 +730,16 @@ app.post(
           "SERVICE_DISABLED",
           "Service is not enabled for this tenant.",
         );
+      const order = await prepareApplicationOrder(
+        db,
+        a.tenantId!,
+        data.serviceNo,
+        data.order,
+        data.payload,
+      );
       const r = (
         await db.query(
-          "INSERT INTO applications(tenant_id,citizen_id,service_no,schema_version,schema_hash,created_by) VALUES($1,$2,$3,$6,$4,$5) RETURNING *",
+          "INSERT INTO applications(tenant_id,citizen_id,service_no,schema_version,schema_hash,created_by,order_mode) VALUES($1,$2,$3,$6,$4,$5,$7) RETURNING *",
           [
             a.tenantId,
             data.citizenId,
@@ -730,6 +747,7 @@ app.post(
             sv.schema_hash,
             a.userId,
             schemaVersion,
+            order ? "POLICY" : "LEGACY",
           ],
         )
       ).rows[0];
@@ -743,10 +761,59 @@ app.post(
           a.userId,
         ],
       );
+      await saveApplicationOrder(db, a.tenantId!, r.id, data.serviceNo, order);
       await event(db, { ...r, state: null }, a, "create", "DRAFT");
       return camelRow(r);
     });
     res.status(201).json(result);
+  }),
+);
+app.get(
+  "/api/v1/applications/lookup",
+  wrap(async (req, res) => {
+    const a = roles(req, [...staffRead, "citizen"]);
+    const input = z
+      .string()
+      .trim()
+      .min(1)
+      .max(128)
+      .regex(/^[^\u0000-\u001f\u007f]+$/)
+      .safeParse(req.query.reference);
+    if (!input.success)
+      fail(
+        400,
+        "INPUT_INVALID",
+        "Provide an exact application or certificate reference.",
+      );
+    const result = await transaction(tenant(req), async (db) => {
+      const row = (
+        await db.query(
+          `SELECT a.id,a.service_no,a.state,cert.id certificate_id,cert.number certificate_number,cert.status certificate_status
+           FROM applications a
+           JOIN citizens c ON c.id=a.citizen_id AND c.tenant_id=a.tenant_id
+           LEFT JOIN certificates cert ON cert.application_id=a.id AND cert.tenant_id=a.tenant_id
+           WHERE a.tenant_id=$1 AND (a.id::text=lower($2) OR upper(cert.number)=upper($2))
+             AND ($3::uuid IS NULL OR c.user_id=$3)`,
+          [a.tenantId, input.data, a.role === "citizen" ? a.userId : null],
+        )
+      ).rows[0];
+      if (!row) fail(404, "NOT_FOUND", "Application not found.");
+      return {
+        application: {
+          id: row.id,
+          serviceNo: row.service_no,
+          state: row.state,
+        },
+        certificate: row.certificate_id
+          ? {
+              id: row.certificate_id,
+              number: row.certificate_number,
+              status: row.certificate_status,
+            }
+          : null,
+      };
+    });
+    res.json(result);
   }),
 );
 app.get(
@@ -763,6 +830,7 @@ app.get(
       ).rows.map(camelRow);
       return {
         application: camelRow(r),
+        order: await getApplicationOrder(db, r.id),
         serviceConfiguration: camelRow(
           (
             await db.query(
@@ -810,7 +878,10 @@ app.post(
     const a = roles(req, ["citizen", "staff", "admin"]),
       id = uuid.parse(req.params.id),
       d = z
-        .object({ payload: z.record(z.string(), z.unknown()).optional() })
+        .object({
+          payload: z.record(z.string(), z.unknown()).optional(),
+          order: applicationOrderInput.optional(),
+        })
         .strict()
         .parse(req.body ?? {});
     const result = await transaction(
@@ -870,6 +941,13 @@ app.post(
           schemaVersion,
           parent.citizen_id,
         );
+        const order = await prepareApplicationOrder(
+          db,
+          a.tenantId!,
+          parent.service_no,
+          d.order,
+          payload,
+        );
         const schema = (
           await db.query(
             "SELECT schema_hash FROM service_versions WHERE service_no=$1 AND version=$2",
@@ -878,7 +956,7 @@ app.post(
         ).rows[0];
         const child = (
           await db.query(
-            "INSERT INTO applications(tenant_id,citizen_id,service_no,schema_version,schema_hash,created_by) VALUES($1,$2,$3,$6,$4,$5) RETURNING *",
+            "INSERT INTO applications(tenant_id,citizen_id,service_no,schema_version,schema_hash,created_by,order_mode) VALUES($1,$2,$3,$6,$4,$5,$7) RETURNING *",
             [
               a.tenantId,
               parent.citizen_id,
@@ -886,6 +964,7 @@ app.post(
               schema.schema_hash,
               a.userId,
               schemaVersion,
+              order ? "POLICY" : "LEGACY",
             ],
           )
         ).rows[0];
@@ -898,6 +977,13 @@ app.post(
             digest(stablePayload(payload)),
             a.userId,
           ],
+        );
+        await saveApplicationOrder(
+          db,
+          a.tenantId!,
+          child.id,
+          parent.service_no,
+          order,
         );
         await db.query(
           "INSERT INTO renewal_links(tenant_id,application_id,source_certificate_id) VALUES($1,$2,$3)",
@@ -941,6 +1027,7 @@ app.patch(
         r.schema_version,
         r.citizen_id,
       );
+      await validateApplicationOrder(db, r, data.payload);
       const version = r.latest_version + 1;
       await db.query(
         "INSERT INTO application_payload_versions(tenant_id,application_id,version,payload,payload_hash,actor_id) VALUES($1,$2,$3,$4,$5,$6)",
@@ -988,6 +1075,15 @@ app.post(
     const result = await transaction(tenant(req), async (db) => {
       const r = await loadApplication(db, String(req.params.id), a, true);
       let next: string;
+      if (["submit", "resubmit"].includes(data.action)) {
+        const payload = (
+          await db.query(
+            "SELECT payload FROM application_payload_versions WHERE application_id=$1 AND version=$2",
+            [r.id, r.latest_version],
+          )
+        ).rows[0].payload;
+        await validateApplicationOrder(db, r, payload);
+      }
       switch (data.action) {
         case "submit":
           roles(req, ["citizen", "staff", "admin"]);
@@ -1085,6 +1181,7 @@ app.post(
           "APPROVAL_REQUIRED",
           "This application requires final approval of its current payload.",
         );
+      await validateApplicationOrder(db, r, undefined, true);
       await validateRenewalSource(db, r.id);
       return {
         r,
@@ -1154,6 +1251,7 @@ app.post(
             "APPROVAL_REQUIRED",
             "Current payload requires final approval.",
           );
+        await validateApplicationOrder(db, r, undefined, true);
         await validateRenewalSource(db, r.id);
         if (
           !(

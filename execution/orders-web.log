@@ -1,0 +1,50 @@
+
+> astra-union-services@0.4.0 test:web
+> tsx scripts/test-web.ts
+
+
+  VITE v7.3.7  ready in 301 ms
+
+  ➜  Local:   http://127.0.0.1:5173/
+3:02:58 PM [vite] http proxy error: /api/v1/health
+Error: connect ECONNREFUSED 127.0.0.1:3001
+    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1706:16)
+3:02:59 PM [vite] http proxy error: /api/v1/health
+Error: connect ECONNREFUSED 127.0.0.1:3001
+    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1706:16)
+Astra DEMO server on http://127.0.0.1:3001; PostgreSQL; official issuance disabled.
+✔ browser: citizen → staff visibility → correction → authorized approval → real PDF/QR → exactly-once debit (6024.8276ms)
+✔ browser: family/trade conditional validation, real private upload, finance settlement and mobile keyboard layout (2827.3982ms)
+✔ browser: staff citizen registration and owner compensating adjustments persist with role boundaries (2846.2829ms)
+✔ expanded browser: public 47-service discovery, retained directory pagination, help, feedback and newsletter persistence (2683.7793ms)
+✔ expanded browser: owner onboarding, staff/service administration, explicit authorization and public notice controls (4495.5801ms)
+✔ expanded browser: synthetic self-registration, new catalog application and secure password change (3016.0107ms)
+✔ expanded browser: trade renewal links a real issued source without charging, and public application tracking remains minimal (3926.4331ms)
+✔ FOR-01: actual React renderer renders all 47 captured service entries and all 48 initial form sections (85.4268ms)
+✔ operational labels switch languages and private upload accept rules render from the shared profile (13.258ms)
+✔ nested family member rows expose local conditional guardian only for a minor (4.8149ms)
+✔ checkboxes use strict boolean semantics: false remains unchecked, true checks the declaration (8.017ms)
+✔ conditional trade previous-license control is hidden until selected and has an associated label (10.2681ms)
+✔ field errors link bilingual error content to the exact nested input (4.454ms)
+✔ repeatable group errors are focusable and programmatically linked to their fieldset (1.6789ms)
+✔ disabled application controls include nested add/remove and upload actions (2.3201ms)
+✔ language source: displayed literal translations cover all six public/workspace components (79.669ms)
+✔ geography source: checksums, strict UTF-8/NFC, unique IDs, typed parents and all derived wards (809.654ms)
+✔ geography browser: mobile cascade uses parent IDs, clears descendants and handles a source coverage gap (1213.7456ms)
+✔ geography browser: failed child lookup exposes retry and a retry retrieves real districts (789.0198ms)
+✔ geography browser: mobile registration stores selected geography and server-generated reference (1564.9072ms)
+✔ language browser: preference persists across public pages and authenticated workspace (2342.4433ms)
+✔ intake browser: citizen first, empty application, language retention and new citizen return (2035.482ms)
+✔ intake browser: hosted hostname hides sample insertion and exact reference opens own application (1557.1706ms)
+✔ order browser: explicit office fees, citizen-first quote acceptance, bilingual/mobile state and immutable fee snapshot (3814.2089ms)
+✔ order browser: delayed policy load cannot populate another service's blank fee editor (981.4451ms)
+✔ portal browser: responsive profile, searchable applicant and biodata/holding/witness private PDF copies (2947.4165ms)
+✔ portal browser: finance filters actual reports and downloads private CSV/PDF (2753.4079ms)
+ℹ tests 27
+ℹ suites 0
+ℹ pass 27
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 51169.7576

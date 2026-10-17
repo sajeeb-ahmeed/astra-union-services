@@ -2397,3 +2397,41 @@ html[lang="bn"] .hero-copy h1 {
     transition: none;
   }
 }
+.intake-selection {
+  margin: 1rem 0 0;
+  padding: .75rem 1rem;
+  border-left: 3px solid #15803d;
+  background: #f0fdf4;
+  overflow-wrap: anywhere;
+}
+.reference-lookup {
+  margin: 1.25rem 0;
+  padding: 1rem;
+  border: 1px solid #dce5e1;
+  border-radius: .75rem;
+  background: #f8faf9;
+}
+.reference-lookup-controls {
+  display: flex;
+  align-items: center;
+  gap: .75rem;
+}
+.reference-lookup-controls input { flex: 1; min-width: 0; }
+.reference-lookup-controls button { flex-shrink: 0; }
+.order-panel {
+  margin: 24px 0;
+  padding: 22px;
+  border: 1px solid #dce5e1;
+  border-radius: 12px;
+  background: #fafcfb;
+}
+.order-summary { margin: 20px 0; }
+.fee-breakdown { max-width: 560px; margin: 18px 0; }
+.fee-breakdown > div { display: flex; justify-content: space-between; gap: 18px; padding: 8px 0; }
+.fee-breakdown dd { margin: 0; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.fee-breakdown .fee-total { border-top: 1px solid #b8ccc3; font-weight: 700; }
+.order-panel .checkbox { display: flex; align-items: flex-start; gap: 10px; }
+.order-panel .checkbox input { width: auto; margin-top: 5px; }
+@media (max-width: 600px) {
+  .reference-lookup-controls { flex-direction: column; align-items: stretch; }
+}

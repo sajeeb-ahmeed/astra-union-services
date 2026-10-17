@@ -1,0 +1,5 @@
+
+> astra-union-services@0.4.0 build
+> tsc --noEmit && vite build --config apps/web/vite.config.ts && node scripts/compress-assets.mjs
+
+scripts/verify-hosted-orders.ts(291,30): error TS18047: 'cookie' is possibly 'null'.

@@ -105,6 +105,9 @@ test(
         .getByLabel("Citizen", { exact: true })
         .selectOption({ index: 1 });
       await citizen
+        .getByRole("button", { name: "Fill synthetic example", exact: true })
+        .click();
+      await citizen
         .getByLabel("Purpose (English)", { exact: false })
         .fill("Browser acceptance demonstration");
       const createdResponse = citizen.waitForResponse(
@@ -286,10 +289,13 @@ test(
       await page
         .getByRole("button", { name: /02.*Family certificate/ })
         .click();
-      await page.getByRole("button", { name: "Remove 1", exact: true }).click();
       await page
         .getByLabel("Citizen", { exact: true })
         .selectOption({ index: 1 });
+      await page
+        .getByRole("button", { name: "Fill synthetic example", exact: true })
+        .click();
+      await page.getByRole("button", { name: "Remove 1", exact: true }).click();
       await page
         .getByRole("button", { name: "Save draft application", exact: true })
         .click();
@@ -316,6 +322,9 @@ test(
       await page
         .getByLabel("Citizen", { exact: true })
         .selectOption({ index: 1 });
+      await page
+        .getByRole("button", { name: "Fill synthetic example", exact: true })
+        .click();
       await page
         .getByRole("button", { name: "Add supporting documents", exact: false })
         .click();

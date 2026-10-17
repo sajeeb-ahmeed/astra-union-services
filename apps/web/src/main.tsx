@@ -18,6 +18,11 @@ import {
 } from "@astra/shared-schemas";
 import { api, items } from "./api.js";
 import { DynamicForm } from "./DynamicForm.js";
+import {
+  ApplicationOrder,
+  OrderSummary,
+  type IntakeOrderState,
+} from "./ApplicationOrder.js";
 import "./style.css";
 import { PublicPortal } from "./PublicPortal.js";
 import {
@@ -96,6 +101,17 @@ const actionText: Record<string, string> = {
   reject: "Reject application",
   cancel: "Cancel application",
 };
+function withoutOrderLanguage(schema: ReturnType<typeof getServiceSchema>) {
+  return {
+    ...schema,
+    sections: schema.sections.map((section) => ({
+      ...section,
+      fields: section.fields.filter(
+        (field) => field.id !== "delivery_language",
+      ),
+    })),
+  };
+}
 function App() {
   useLanguage();
   const [session, setSession] = useState<any>(null),
@@ -113,10 +129,10 @@ function App() {
     [tenants, setTenants] = useState<any[]>([]);
   const [selectedService, setSelectedService] = useState(45),
     [preview, setPreview] = useState(false),
-    [payload, setPayload] = useState<Record<string, any>>({
-      ...demoPayloads[45],
-    }),
+    [payload, setPayload] = useState<Record<string, any>>({}),
     [citizenId, setCitizenId] = useState(""),
+    [selectedCitizen, setSelectedCitizen] = useState<any>(null),
+    [returnToIntake, setReturnToIntake] = useState(false),
     [issues, setIssues] = useState<readonly ValidationIssue[]>([]),
     [detail, setDetail] = useState<any>(null),
     [reason, setReason] = useState(""),
@@ -127,6 +143,15 @@ function App() {
     [appPage, setAppPage] = useState(1),
     [appPageSize, setAppPageSize] = useState(25),
     [appTotal, setAppTotal] = useState(0);
+  const [applicationReference, setApplicationReference] = useState("");
+  const [intakeOrder, setIntakeOrder] = useState<IntakeOrderState | null>(null);
+  const [renewalOrder, setRenewalOrder] = useState<IntakeOrderState | null>(
+    null,
+  );
+  const [renewalLanguageChoice, setRenewalLanguageChoice] = useState<{
+    id: string;
+    language: "bn" | "en";
+  } | null>(null);
   useEffect(() => {
     const timer = setTimeout(() => {
       setAppQuery(appSearch);
@@ -227,7 +252,7 @@ function App() {
     if (session) run(refresh);
   }, [session, filter, appQuery, appPage, appPageSize, citizenQuery]);
   useEffect(() => {
-    setPayload({ ...demoPayloads[selectedService] });
+    setPayload({});
     setPreview(false);
     setIssues([]);
   }, [selectedService]);
@@ -236,14 +261,37 @@ function App() {
     reviewer = role === "reviewer",
     approver = role === "approver",
     finance = ["finance", "admin"].includes(role);
+  const canApply = staff || role === "citizen";
+  const applicantChoices =
+    selectedCitizen && !citizens.some((c) => c.id === selectedCitizen.id)
+      ? [selectedCitizen, ...citizens]
+      : citizens;
+  function selectApplicant(
+    id: string,
+    citizen = applicantChoices.find((c) => c.id === id),
+  ) {
+    if (id !== citizenId) {
+      setPayload({});
+      setIssues([]);
+    }
+    setCitizenId(id);
+    setSelectedCitizen(citizen ?? null);
+  }
   const operational =
       operationalServiceNumbers.includes(selectedService) && !preview,
     schema = operational
       ? getServiceSchema(selectedService)
       : getCatalogPreviewSchema(selectedService);
   const issueCost = detail?.serviceConfiguration?.creditCost ?? 1;
+  const intakeContext = `${citizenId}:${selectedService}`;
+  const orderConfigured =
+    intakeOrder?.context === intakeContext && intakeOrder.configured;
   const application = detail?.application || detail,
     detailPayload = detail?.payload || application?.payload || {};
+  const renewalLanguage =
+    renewalLanguageChoice && renewalLanguageChoice.id === application?.id
+      ? renewalLanguageChoice.language
+      : detailPayload.delivery_language;
   async function openApplication(id: string) {
     setDetail(await api(`/applications/${id}`));
     setPage("applications");
@@ -259,6 +307,7 @@ function App() {
     setMessage(`${actionText[action]} completed.`);
   }
   function nav(next: string) {
+    setReturnToIntake(false);
     setPage(next);
     setDetail(null);
     setMessage("");
@@ -488,9 +537,7 @@ function App() {
           <span>{t("ASTRA UNION SERVICES")}</span>
         </a>
         <p className="office">
-          {tx(
-            recordName(session.tenant) || "Platform owner",
-          )}
+          {tx(recordName(session.tenant) || "Platform owner")}
           <small>
             {tx(
               session.tenant ? "Office workspace" : "Independent SaaS platform",
@@ -562,8 +609,13 @@ function App() {
                 setBilling(null);
                 setTenants([]);
                 setCitizenId("");
+                setSelectedCitizen(null);
+                setReturnToIntake(false);
+                setPayload({});
+                setIssues([]);
                 setCitizenSearch("");
                 setAppSearch("");
+                setApplicationReference("");
                 setAppPage(1);
                 setAppTotal(0);
                 setFilter("");
@@ -690,6 +742,88 @@ function App() {
         {tx(
           page === "services" && (
             <>
+              {canApply && (
+                <section
+                  className="panel intake-panel"
+                  aria-labelledby="intake-heading"
+                >
+                  <div className="section-heading">
+                    <div>
+                      <span className="eyebrow">{t("NEW APPLICATION")}</span>
+                      <h2 id="intake-heading">
+                        {t("Choose the citizen first")}
+                      </h2>
+                    </div>
+                    {staff && (
+                      <button
+                        type="button"
+                        className="secondary"
+                        onClick={() => {
+                          nav("citizens");
+                          setReturnToIntake(true);
+                        }}
+                      >
+                        {t("Register a new citizen")}
+                      </button>
+                    )}
+                  </div>
+                  <p className="hint">
+                    {t(
+                      "Select an existing citizen, choose a service, then complete the application. New applications start with empty fields.",
+                    )}
+                  </p>
+                  <div className="form-grid">
+                    <div className="field">
+                      <label htmlFor="applicant-search">
+                        {t("Find applicant")}
+                      </label>
+                      <input
+                        id="applicant-search"
+                        placeholder={t("Name or unique demo reference")}
+                        value={citizenSearch}
+                        onChange={(e) => setCitizenSearch(e.target.value)}
+                      />
+                      <p className="hint">
+                        {t(
+                          "Searches your office records. Up to 100 matching citizens are shown.",
+                        )}
+                      </p>
+                    </div>
+                    <div className="field">
+                      <label htmlFor="applicant">{t("Citizen / নাগরিক")}</label>
+                      <select
+                        id="applicant"
+                        value={citizenId}
+                        onChange={(e) => selectApplicant(e.target.value)}
+                      >
+                        <option value="">{t("Choose citizen")}</option>
+                        {applicantChoices.map((c) => (
+                          <option value={c.id} key={c.id}>
+                            {choose({
+                              bn: c.nameBn || c.name_bn,
+                              en: c.nameEn || c.name_en,
+                            })}
+                          </option>
+                        ))}
+                      </select>
+                      <p className="hint">
+                        {t(
+                          "Changing the citizen clears unsaved application details.",
+                        )}
+                      </p>
+                    </div>
+                  </div>
+                  {selectedCitizen && (
+                    <p className="intake-selection" role="status">
+                      <strong>{t("Selected citizen")}: </strong>
+                      {choose({
+                        bn: selectedCitizen.nameBn || selectedCitizen.name_bn,
+                        en: selectedCitizen.nameEn || selectedCitizen.name_en,
+                      })}
+                    </p>
+                  )}
+                </section>
+              )}
               <section className="panel">
                 <label htmlFor="service-search">{t("Search services")}</label>
                 <input
@@ -783,49 +917,61 @@ function App() {
                     </div>
                   ),
                 )}
-                <DynamicForm
-                  schema={schema}
-                  citizenId={citizenId}
-                  value={payload}
-                  onChange={setPayload}
-                  issues={issues}
-                  disabled={!operational}
-                />
+                {!operational || (canApply && citizenId) ? (
+                  <div
+                    className="application-form"
+                    data-testid="service-application-form"
+                  >
+                    <DynamicForm
+                      schema={
+                        operational && orderConfigured
+                          ? withoutOrderLanguage(schema)
+                          : schema
+                      }
+                      citizenId={citizenId}
+                      value={operational ? payload : {}}
+                      onChange={setPayload}
+                      issues={issues}
+                      disabled={!operational}
+                    />
+                  </div>
+                ) : (
+                  <p className="notice" role="status">
+                    {t(
+                      canApply
+                        ? "Choose a citizen above to open this service's application form."
+                        : "Your role can view reference fields. Applications are created by citizens or authorized counter staff.",
+                    )}
+                  </p>
+                )}
                 {tx(
-                  operational && (staff || role === "citizen") && (
+                  operational && canApply && citizenId && (
                     <>
-                      <label htmlFor="applicant-search">
-                        {t("Find applicant")}
-                      </label>
-                      <input
-                        id="applicant-search"
-                        placeholder={t("Name or unique demo reference")}
-                        value={citizenSearch}
-                        onChange={(e) => setCitizenSearch(e.target.value)}
+                      <ApplicationOrder
+                        key={intakeContext}
+                        context={intakeContext}
+                        serviceNo={selectedService}
+                        certificateLanguage={payload.delivery_language}
+                        officeName={recordName(session.tenant)}
+                        address={choose({
+                          bn: selectedCitizen?.addressBn,
+                          en: selectedCitizen?.addressEn,
+                        })}
+                        onLanguageChange={(language) =>
+                          setPayload((current) => ({
+                            ...current,
+                            delivery_language: language,
+                          }))
+                        }
+                        onChange={setIntakeOrder}
                       />
-                      <p className="hint">
-                        {t(
-                          "Searches your office records. Up to 100 matching citizens are shown. ",
-                        )}
-                      </p>
-                      <label htmlFor="applicant">{t("Citizen / নাগরিক")}</label>
-                      <select
-                        id="applicant"
-                        value={citizenId}
-                        onChange={(e) => setCitizenId(e.target.value)}
-                      >
-                        <option value="">{t("Choose citizen")}</option>
-                        {tx(
-                          citizens.map((c) => (
-                            <option value={c.id} key={c.id}>
-                              {c.nameBn || c.name_bn || c.nameEn || c.name_en}
-                            </option>
-                          )),
-                        )}
-                      </select>
                       <div className="actions">
                         <button
-                          disabled={busy}
+                          disabled={
+                            busy ||
+                            intakeOrder?.context !== intakeContext ||
+                            !intakeOrder.ready
+                          }
                           onClick={() =>
                             run(async () => {
                               const result = validateForm(schema, payload);
@@ -848,29 +994,36 @@ function App() {
                                   citizenId,
                                   serviceNo: selectedService,
                                   payload,
+                                  ...(intakeOrder?.order
+                                    ? { order: intakeOrder.order }
+                                    : {}),
                                 },
                               );
                               await refresh();
                               await openApplication(
                                 (resultApi.application || resultApi).id,
                               );
+                              setPayload({});
+                              setIssues([]);
                               setMessage("Draft saved to PostgreSQL.");
                             })
                           }
                         >
                           {t("Save draft application ")}
                         </button>
-                        <button
-                          className="secondary"
-                          onClick={() => {
-                            setPayload(
-                              structuredClone(demoPayloads[selectedService]),
-                            );
-                            setIssues([]);
-                          }}
-                        >
-                          {t("Fill synthetic example ")}
-                        </button>
+                        {localDemo && (
+                          <button
+                            className="secondary"
+                            onClick={() => {
+                              setPayload(
+                                structuredClone(demoPayloads[selectedService]),
+                              );
+                              setIssues([]);
+                            }}
+                          >
+                            {t("Fill synthetic example ")}
+                          </button>
+                        )}
                       </div>
                     </>
                   ),
@@ -882,6 +1035,25 @@ function App() {
         {tx(
           page === "citizens" && (
             <>
+              {returnToIntake && (
+                <section className="panel">
+                  <p>
+                    {t(
+                      "Register this citizen to continue the selected service application.",
+                    )}
+                  </p>
+                  <button
+                    type="button"
+                    className="secondary"
+                    onClick={() => {
+                      setReturnToIntake(false);
+                      nav("services");
+                    }}
+                  >
+                    {t("Back to application")}
+                  </button>
+                </section>
+              )}
               <section className="panel">
                 <h2>{t("নাগরিক তালিকা")}</h2>
                 <label htmlFor="citizen-search">
@@ -942,7 +1114,7 @@ function App() {
                             throw Error(
                               "Choose your complete administrative area and registration office.",
                             );
-                          await api("/citizens", "POST", {
+                          const created = await api("/citizens", "POST", {
                             ...citizenForm,
                             geography: geographyPayload(citizenGeography),
                           });
@@ -954,9 +1126,20 @@ function App() {
                             addressBn: "",
                             addressEn: "",
                           });
-                          setMessage(
-                            "Citizen registered. Duplicate identity keys are rejected.",
-                          );
+                          if (returnToIntake) {
+                            selectApplicant(created.id, created);
+                            setCitizenSearch("");
+                            setCitizenQuery("");
+                            setReturnToIntake(false);
+                            nav("services");
+                            setMessage(
+                              "Citizen registered and selected. Complete the application below.",
+                            );
+                          } else {
+                            setMessage(
+                              "Citizen registered. Duplicate identity keys are rejected.",
+                            );
+                          }
                         });
                       }}
                     >
@@ -1018,6 +1201,10 @@ function App() {
                     <button
                       onClick={() => {
                         setSelectedService(45);
+                        selectApplicant("");
+                        setPayload({});
+                        setIssues([]);
+                        setPreview(false);
                         nav("services");
                       }}
                     >
@@ -1026,6 +1213,43 @@ function App() {
                   ),
                 )}
               </div>
+              <form
+                className="reference-lookup"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  void run(async () => {
+                    const found = await api(
+                      `/applications/lookup?${new URLSearchParams({ reference: applicationReference.trim() })}`,
+                    );
+                    await openApplication(found.application.id);
+                  });
+                }}
+              >
+                <label htmlFor="application-reference">
+                  {t("Find application or certificate")}
+                </label>
+                <div className="reference-lookup-controls">
+                  <input
+                    id="application-reference"
+                    value={applicationReference}
+                    onChange={(e) => setApplicationReference(e.target.value)}
+                    required
+                    maxLength={120}
+                    aria-describedby="application-reference-hint"
+                    placeholder={t(
+                      "Full Astra application ID or certificate number",
+                    )}
+                  />
+                  <button disabled={busy || !applicationReference.trim()}>
+                    {t("Find record")}
+                  </button>
+                </div>
+                <p id="application-reference-hint" className="hint">
+                  {t(
+                    "Use an Astra reference from your account or certificate. Numbers issued by other websites are not supported. Open an issued record to download or renew it.",
+                  )}
+                </p>
+              </form>
               <label htmlFor="application-search">
                 {t("Search applications")}
               </label>
@@ -1220,10 +1444,25 @@ function App() {
                     "Use this reference on the public application tracking page. Only status and service information are returned. ",
                   )}
                 </p>
+                {detail.order && (
+                  <>
+                    <OrderSummary order={detail.order} />
+                    <p className="hint">
+                      {choose({
+                        bn: "সংরক্ষিত ভাষা, সনদ সংগ্রহের মাধ্যম ও ফি এই আবেদনে অপরিবর্তনীয়। এগুলো বদলাতে নতুন আবেদন শুরু করুন।",
+                        en: "The saved language, delivery choice and fees are fixed for this application. Start a new application to change them.",
+                      })}
+                    </p>
+                  </>
+                )}
                 <DynamicForm
-                  schema={getServiceSchema(
-                    application.serviceNo || application.service_no,
-                    application.schemaVersion || 1,
+                  schema={(detail.order
+                    ? withoutOrderLanguage
+                    : (value: ReturnType<typeof getServiceSchema>) => value)(
+                    getServiceSchema(
+                      application.serviceNo || application.service_no,
+                      application.schemaVersion || 1,
+                    ),
                   )}
                   citizenId={application.citizenId}
                   value={detailPayload}
@@ -1405,33 +1644,70 @@ function App() {
                 {tx(
                   (staff || role === "citizen") &&
                     application.state === "ISSUED" && (
-                      <button
-                        className="secondary"
-                        disabled={busy}
-                        onClick={() =>
-                          run(async () => {
-                            const renewal = await api(
-                              `/applications/${application.id}/renew`,
-                              "POST",
-                              {},
-                            );
-                            await refresh();
-                            await openApplication(
-                              (renewal.application || renewal).id,
-                            );
-                            setMessage(
-                              "Renewal draft created with linked source certificate.",
-                            );
-                          })
-                        }
-                      >
-                        {tx(
-                          (application.serviceNo || application.service_no) ===
-                            42
-                            ? "Start trade license renewal"
-                            : "Start renewal application",
-                        )}
-                      </button>
+                      <>
+                        <ApplicationOrder
+                          key={`renew:${application.id}`}
+                          context={`renew:${application.id}`}
+                          serviceNo={
+                            application.serviceNo || application.service_no
+                          }
+                          certificateLanguage={renewalLanguage}
+                          officeName={recordName(session.tenant)}
+                          address={choose({
+                            bn: detail.citizen?.addressBn,
+                            en: detail.citizen?.addressEn,
+                          })}
+                          onLanguageChange={(language) =>
+                            setRenewalLanguageChoice({
+                              id: application.id,
+                              language,
+                            })
+                          }
+                          onChange={setRenewalOrder}
+                        />
+                        <button
+                          className="secondary"
+                          disabled={
+                            busy ||
+                            renewalOrder?.context !==
+                              `renew:${application.id}` ||
+                            !renewalOrder.ready
+                          }
+                          onClick={() =>
+                            run(async () => {
+                              const renewal = await api(
+                                `/applications/${application.id}/renew`,
+                                "POST",
+                                {
+                                  ...(renewalOrder?.order
+                                    ? {
+                                        order: renewalOrder.order,
+                                        payload: {
+                                          ...detailPayload,
+                                          delivery_language: renewalLanguage,
+                                        },
+                                      }
+                                    : {}),
+                                },
+                              );
+                              await refresh();
+                              await openApplication(
+                                (renewal.application || renewal).id,
+                              );
+                              setMessage(
+                                "Renewal draft created with linked source certificate.",
+                              );
+                            })
+                          }
+                        >
+                          {tx(
+                            (application.serviceNo ||
+                              application.service_no) === 42
+                              ? "Start trade license renewal"
+                              : "Start renewal application",
+                          )}
+                        </button>
+                      </>
                     ),
                 )}
               </section>
@@ -1685,11 +1961,7 @@ function App() {
               {tx(
                 tenants.map((officeTenant) => (
                   <div className="tenant-card" key={officeTenant.id}>
-                    <h3>
-                      {tx(
-                        recordName(officeTenant),
-                      )}
-                    </h3>
+                    <h3>{tx(recordName(officeTenant))}</h3>
                     <p>
                       {tx(officeTenant.status)}
                       {t(" · Credits:")}

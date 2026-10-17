@@ -1,0 +1,69 @@
+
+> astra-union-services@0.4.0 test:web
+> tsx scripts/test-web.ts
+
+
+  VITE v7.3.7  ready in 387 ms
+
+  ➜  Local:   http://127.0.0.1:5173/
+3:01:46 PM [vite] http proxy error: /api/v1/health
+Error: connect ECONNREFUSED 127.0.0.1:3001
+    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1706:16)
+3:01:46 PM [vite] http proxy error: /api/v1/health
+Error: connect ECONNREFUSED 127.0.0.1:3001
+    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1706:16)
+Astra DEMO server on http://127.0.0.1:3001; PostgreSQL; official issuance disabled.
+✔ browser: citizen → staff visibility → correction → authorized approval → real PDF/QR → exactly-once debit (6066.6541ms)
+✔ browser: family/trade conditional validation, real private upload, finance settlement and mobile keyboard layout (2814.1217ms)
+✔ browser: staff citizen registration and owner compensating adjustments persist with role boundaries (2872.6518ms)
+✔ expanded browser: public 47-service discovery, retained directory pagination, help, feedback and newsletter persistence (2688.5889ms)
+✔ expanded browser: owner onboarding, staff/service administration, explicit authorization and public notice controls (4709.6717ms)
+✔ expanded browser: synthetic self-registration, new catalog application and secure password change (3010.326ms)
+✔ expanded browser: trade renewal links a real issued source without charging, and public application tracking remains minimal (3521.5121ms)
+✔ FOR-01: actual React renderer renders all 47 captured service entries and all 48 initial form sections (92.4749ms)
+✔ operational labels switch languages and private upload accept rules render from the shared profile (13.7443ms)
+✔ nested family member rows expose local conditional guardian only for a minor (5.1058ms)
+✔ checkboxes use strict boolean semantics: false remains unchecked, true checks the declaration (8.3706ms)
+✔ conditional trade previous-license control is hidden until selected and has an associated label (10.587ms)
+✔ field errors link bilingual error content to the exact nested input (4.2011ms)
+✔ repeatable group errors are focusable and programmatically linked to their fieldset (1.6678ms)
+✔ disabled application controls include nested add/remove and upload actions (2.3074ms)
+✔ language source: displayed literal translations cover all six public/workspace components (104.5968ms)
+✔ geography source: checksums, strict UTF-8/NFC, unique IDs, typed parents and all derived wards (800.3764ms)
+✔ geography browser: mobile cascade uses parent IDs, clears descendants and handles a source coverage gap (1246.7499ms)
+✔ geography browser: failed child lookup exposes retry and a retry retrieves real districts (793.9506ms)
+✔ geography browser: mobile registration stores selected geography and server-generated reference (1539.9372ms)
+✔ language browser: preference persists across public pages and authenticated workspace (2229.6687ms)
+✔ intake browser: citizen first, empty application, language retention and new citizen return (1914.826ms)
+✔ intake browser: hosted hostname hides sample insertion and exact reference opens own application (1538.5487ms)
+✖ order browser: explicit office fees, citizen-first quote acceptance, bilingual/mobile state and immutable fee snapshot (2754.9926ms)
+✔ order browser: delayed policy load cannot populate another service's blank fee editor (884.2337ms)
+✔ portal browser: responsive profile, searchable applicant and biodata/holding/witness private PDF copies (3081.8683ms)
+✔ portal browser: finance filters actual reports and downloads private CSV/PDF (2714.8023ms)
+ℹ tests 27
+ℹ suites 0
+ℹ pass 26
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 50487.3224
+
+✖ failing tests:
+
+test at apps\web\test\order-browser.test.ts:1:4556
+✖ order browser: explicit office fees, citizen-first quote acceptance, bilingual/mobile state and immutable fee snapshot (2754.9926ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  false !== true
+  
+      at TestContext.<anonymous> (C:\Users\USER\Documents\ChatGPT\prottoyon  live\apps\web\test\order-browser.test.ts:139:12)
+      at async Test.run (node:internal/test_runner/test:1332:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:385:3) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

@@ -1,7 +1,7 @@
 {
-  "executedAt": "2026-10-13T08:06:58.104Z",
-  "database": "astra_managed_1791878818103_012b5e",
-  "migrationRole": "astra_migrator_1791878818103_012b5e",
+  "executedAt": "2026-10-17T09:02:51.252Z",
+  "database": "astra_managed_1792227771252_b33837",
+  "migrationRole": "astra_migrator_1792227771252_b33837",
   "checks": [
     "Migration owner is NOSUPERUSER NOBYPASSRLS with CREATEROLE.",
     "A non-superuser migration owner can create the restricted application-role shape.",
@@ -11,9 +11,10 @@
     "All 46,427 geography records import under the managed owner; runtime role can read but cannot mutate reference geography.",
     "Exactly four SELECT policies name only the migration owner; astra_app has no membership.",
     "Unscoped astra_app direct reads return zero rows; FORCE RLS remains enabled.",
+    "Order policies and snapshots retain forced RLS and append-only runtime grants on managed PostgreSQL.",
     "All four bounded public definer functions work; invalid token, draft, unpublished notice and expired recovery remain hidden.",
     "Cross-tenant reads and writes are denied; managed-owner ledger lock/trigger works; direct wallet updates and owner SET ROLE are denied."
   ],
   "status": "PASS",
-  "migrations": 9
+  "migrations": 10
 }

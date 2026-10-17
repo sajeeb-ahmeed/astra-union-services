@@ -1,6 +1,7 @@
 import { t, tx, choose } from "./i18n.js";
 import React, { useEffect, useState } from "react";
 import { api, items } from "./api.js";
+import { OrderPolicySettings } from "./OrderPolicySettings.js";
 import {
   GeographyFields,
   geographyPayload,
@@ -126,6 +127,14 @@ export function AdminWorkspace() {
           role="tablist"
           aria-label={t("Administration sections")}
         >
+          <button
+            role="tab"
+            aria-selected={tab === "order-policies"}
+            className={tab === "order-policies" ? "" : "secondary"}
+            onClick={() => setTab("order-policies")}
+          >
+            {choose({ bn: "আবেদন ফি নীতি", en: "Application fee policies" })}
+          </button>
           {tx(
             [
               ["office", "Office profile"],
@@ -471,9 +480,7 @@ export function AdminWorkspace() {
           <section className="panel">
             <h2>{t("Enabled services and software credits")}</h2>
             <p className="hint">
-              {t(
-                "Credit cost is a SaaS charge, separate from unconfigured statutory government fees. ",
-              )}
+              {choose({ bn: "ক্রেডিট হলো সফটওয়্যার ব্যবহারের খরচ। আবেদন ফি নীতিতে সরকারি ফি ও প্রসেসিং ফি আলাদাভাবে নির্ধারিত হয়।", en: "Credits pay for software use. Statutory and processing fees are configured separately under Application fee policies." })}
             </p>
             <div className="table-wrap">
               <table>
@@ -556,6 +563,7 @@ export function AdminWorkspace() {
           </section>
         ),
       )}
+      {tab === "order-policies" && <OrderPolicySettings services={services} />}
       {tx(
         tab === "authority" && (
           <section className="panel">

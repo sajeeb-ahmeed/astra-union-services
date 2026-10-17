@@ -21,7 +21,7 @@
     "file": "trade-renewal-demo.pdf",
     "pages": 1,
     "demoWatermark": true,
-    "extractedCharacters": 1761
+    "extractedCharacters": 1760
   },
   {
     "file": "biodata-copy-demo.pdf",
@@ -43,9 +43,9 @@
   },
   {
     "file": "credit-report-demo.pdf",
-    "pages": 1,
+    "pages": 6,
     "demoWatermark": true,
-    "extractedCharacters": 553
+    "extractedCharacters": 3706
   },
   {
     "file": "sandbox-invoice-demo.pdf",

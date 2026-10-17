@@ -2,8 +2,8 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Astra independently authored DEMO API",
-    "version": "0.2.0",
-    "description": "Independently authored DEMO contracts for all 47 services. These are not reference-site server contracts. Mutation routes require session and CSRF except public signup/login/support subscriptions and signed sandbox webhook. Real identity, legal issuance and commercial payment providers are not configured."
+    "version": "0.4.0",
+    "description": "Independently authored DEMO contracts for all 47 services, including office-specific fee policies and immutable application assessments. These are not reference-site server contracts. Session and CSRF protect authenticated mutations. Citizen fees, processing charges and tenant SaaS credits remain separate. Real identity, official issuance and commercial payment providers are unconfigured. Source version is not evidence of hosted deployment or passing tests."
   },
   "servers": [
     {
@@ -72,8 +72,12 @@
           "payload": {
             "type": "object",
             "description": "Validated against the latest published operational schema on creation; exact immutable application-pinned version on edits. GET services/{no}/schema."
+          },
+          "order": {
+            "$ref": "#/components/schemas/ApplicationOrderInput"
           }
-        }
+        },
+        "description": "Citizen-owned or authorized tenant staff/admin draft. Order is required when this office/service has a fee policy; absent policies retain the explicit legacy demo workflow. Client prices, paid flags and tenant overrides are rejected."
       },
       "TransitionInput": {
         "type": "object",
@@ -369,16 +373,13 @@
           },
           "serviceNo": {
             "type": "integer",
-            "enum": [
-              2,
-              42,
-              45
-            ]
+            "minimum": 1,
+            "maximum": 47
           },
           "templateVersion": {
             "type": "integer",
             "minimum": 1,
-            "description": "New issues use2; previously stored version1 remains unchanged on retry."
+            "description": "New issues use version 4; previously stored PDF/template versions remain unchanged on retry."
           },
           "status": {
             "enum": [
@@ -467,6 +468,472 @@
           "code",
           "nameEn",
           "nameBn"
+        ]
+      },
+      "OrderPreferences": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "addressBasis": {
+            "const": "registered_profile"
+          },
+          "certificateLanguage": {
+            "type": "string",
+            "enum": [
+              "bn",
+              "en"
+            ]
+          },
+          "deliveryMode": {
+            "type": "string",
+            "enum": [
+              "office_collection",
+              "digital_copy"
+            ]
+          },
+          "urgency": {
+            "type": "string",
+            "enum": [
+              "normal",
+              "urgent"
+            ]
+          }
+        },
+        "required": [
+          "addressBasis",
+          "certificateLanguage",
+          "deliveryMode",
+          "urgency"
+        ]
+      },
+      "ApplicationOrderInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "policyVersion": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 2147483647
+          },
+          "preferences": {
+            "$ref": "#/components/schemas/OrderPreferences"
+          }
+        },
+        "required": [
+          "policyVersion",
+          "preferences"
+        ]
+      },
+      "OrderPolicyInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "expectedVersion": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 2147483646
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 500,
+            "description": "Trimmed publication reason; whitespace alone is invalid."
+          },
+          "statutoryFeeMinor": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100000000
+          },
+          "processingFeeMinor": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100000000
+          },
+          "emergencySurchargeMinor": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100000000
+          },
+          "deliveryFeesMinor": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "office_collection": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 100000000
+              },
+              "digital_copy": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 100000000
+              }
+            },
+            "required": [
+              "office_collection",
+              "digital_copy"
+            ]
+          },
+          "deliveryModes": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 2,
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "enum": [
+                "office_collection",
+                "digital_copy"
+              ]
+            }
+          },
+          "urgencies": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 2,
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "enum": [
+                "normal",
+                "urgent"
+              ]
+            }
+          }
+        },
+        "required": [
+          "expectedVersion",
+          "reason",
+          "statutoryFeeMinor",
+          "processingFeeMinor",
+          "emergencySurchargeMinor",
+          "deliveryFeesMinor",
+          "deliveryModes",
+          "urgencies"
+        ]
+      },
+      "OrderPolicy": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "version": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 2147483647
+          },
+          "statutoryFeeMinor": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100000000
+          },
+          "processingFeeMinor": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100000000
+          },
+          "emergencySurchargeMinor": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100000000
+          },
+          "deliveryFeesMinor": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "office_collection": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 100000000
+              },
+              "digital_copy": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 100000000
+              }
+            },
+            "required": [
+              "office_collection",
+              "digital_copy"
+            ]
+          },
+          "deliveryModes": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 2,
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "enum": [
+                "office_collection",
+                "digital_copy"
+              ]
+            }
+          },
+          "urgencies": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 2,
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "enum": [
+                "normal",
+                "urgent"
+              ]
+            }
+          },
+          "currency": {
+            "const": "BDT"
+          }
+        },
+        "required": [
+          "version",
+          "statutoryFeeMinor",
+          "processingFeeMinor",
+          "emergencySurchargeMinor",
+          "deliveryFeesMinor",
+          "deliveryModes",
+          "urgencies",
+          "currency"
+        ]
+      },
+      "OrderOptions": {
+        "oneOf": [
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "configured": {
+                "const": false
+              },
+              "policy": {
+                "type": "null"
+              }
+            },
+            "required": [
+              "configured",
+              "policy"
+            ]
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "configured": {
+                "const": true
+              },
+              "policy": {
+                "$ref": "#/components/schemas/OrderPolicy"
+              }
+            },
+            "required": [
+              "configured",
+              "policy"
+            ]
+          }
+        ]
+      },
+      "OrderQuoteInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "preferences": {
+            "$ref": "#/components/schemas/OrderPreferences"
+          }
+        },
+        "required": [
+          "preferences"
+        ]
+      },
+      "OrderFeeComponent": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "type": "string",
+            "enum": [
+              "statutory_fee",
+              "processing_fee",
+              "emergency_surcharge",
+              "delivery_fee"
+            ]
+          },
+          "amountMinor": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100000000
+          }
+        },
+        "required": [
+          "code",
+          "amountMinor"
+        ]
+      },
+      "OrderQuote": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "policyVersion": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 2147483647
+          },
+          "preferences": {
+            "$ref": "#/components/schemas/OrderPreferences"
+          },
+          "currency": {
+            "const": "BDT"
+          },
+          "components": {
+            "type": "array",
+            "minItems": 4,
+            "maxItems": 4,
+            "items": {
+              "$ref": "#/components/schemas/OrderFeeComponent"
+            },
+            "description": "Exactly one each, in order: statutory_fee, processing_fee, emergency_surcharge, delivery_fee."
+          },
+          "totalMinor": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 400000000,
+            "description": "Server-calculated sum in BDT minor units (100 = BDT 1.00). Not a payment or a tenant credit amount."
+          },
+          "paymentStatus": {
+            "const": "NOT_COLLECTED"
+          }
+        },
+        "required": [
+          "policyVersion",
+          "preferences",
+          "currency",
+          "components",
+          "totalMinor",
+          "paymentStatus"
+        ]
+      },
+      "ApplicationOrderSnapshot": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "applicationId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "serviceNo": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 47
+          },
+          "policyVersion": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 2147483647
+          },
+          "preferences": {
+            "$ref": "#/components/schemas/OrderPreferences"
+          },
+          "currency": {
+            "const": "BDT"
+          },
+          "components": {
+            "type": "array",
+            "minItems": 4,
+            "maxItems": 4,
+            "items": {
+              "$ref": "#/components/schemas/OrderFeeComponent"
+            },
+            "description": "Exactly one each, in order: statutory_fee, processing_fee, emergency_surcharge, delivery_fee."
+          },
+          "totalMinor": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 400000000,
+            "description": "Server-calculated sum in BDT minor units (100 = BDT 1.00). Not a payment or a tenant credit amount."
+          },
+          "paymentStatus": {
+            "const": "NOT_COLLECTED"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "applicationId",
+          "serviceNo",
+          "policyVersion",
+          "preferences",
+          "currency",
+          "components",
+          "totalMinor",
+          "paymentStatus",
+          "createdAt"
+        ]
+      },
+      "ApplicationLookup": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "application": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "serviceNo": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 47
+              },
+              "state": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "serviceNo",
+              "state"
+            ]
+          },
+          "certificate": {
+            "anyOf": [
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "number": {
+                    "type": "string"
+                  },
+                  "status": {
+                    "type": "string",
+                    "enum": [
+                      "ISSUED",
+                      "REVOKED"
+                    ]
+                  }
+                },
+                "required": [
+                  "id",
+                  "number",
+                  "status"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "application",
+          "certificate"
         ]
       }
     }
@@ -909,11 +1376,8 @@
           }
         ],
         "responses": {
-          "200": {
-            "description": "Success; see apps/api/src/app.ts response contract"
-          },
           "201": {
-            "description": "Created; issuance may return200 on a safe retry."
+            "description": "Persistent draft application (camelCase fields including orderMode: LEGACY or POLICY)."
           },
           "401": {
             "description": "Authentication, suspension or signature failure"
@@ -925,10 +1389,24 @@
             "description": "Generic unavailable record"
           },
           "409": {
-            "description": "State, uniqueness or payment event conflict"
+            "description": "ORDER_REQUIRED, ORDER_POLICY_STALE or ORDER_POLICY_NOT_CONFIGURED; no partial draft is saved.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
           },
           "422": {
-            "description": "Server validation failure"
+            "description": "Invalid service payload/preferences or ORDER_LANGUAGE_MISMATCH.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
           }
         },
         "parameters": [],
@@ -941,7 +1419,8 @@
               }
             }
           }
-        }
+        },
+        "description": "Valid complete service payload required even for draft creation. Server serializes policy acceptance, validates payload/order language equality, recalculates fees and persists the draft, payload and immutable order atomically. No generic create-retry deduplication is provided. No policy means LEGACY origin, not paid status."
       }
     },
     "/api/v1/applications/{id}": {
@@ -954,7 +1433,97 @@
         ],
         "responses": {
           "200": {
-            "description": "Success; see apps/api/src/app.ts response contract"
+            "description": "Application detail; order is the immutable accepted assessment or null.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "application",
+                    "order",
+                    "serviceConfiguration",
+                    "payload",
+                    "versions",
+                    "events",
+                    "citizen",
+                    "certificate",
+                    "renewal"
+                  ],
+                  "properties": {
+                    "application": {
+                      "type": "object",
+                      "properties": {
+                        "orderMode": {
+                          "type": "string",
+                          "enum": [
+                            "LEGACY",
+                            "POLICY"
+                          ]
+                        }
+                      }
+                    },
+                    "order": {
+                      "anyOf": [
+                        {
+                          "$ref": "#/components/schemas/ApplicationOrderSnapshot"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "serviceConfiguration": {
+                      "type": "object"
+                    },
+                    "payload": {
+                      "type": "object"
+                    },
+                    "versions": {
+                      "type": "array",
+                      "items": {
+                        "type": "object"
+                      }
+                    },
+                    "events": {
+                      "type": "array",
+                      "items": {
+                        "type": "object"
+                      }
+                    },
+                    "citizen": {
+                      "anyOf": [
+                        {
+                          "type": "object"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "certificate": {
+                      "anyOf": [
+                        {
+                          "$ref": "#/components/schemas/Certificate"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "renewal": {
+                      "anyOf": [
+                        {
+                          "type": "object"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  }
+                }
+              }
+            }
           },
           "401": {
             "description": "Authentication, suspension or signature failure"
@@ -982,7 +1551,8 @@
               "format": "uuid"
             }
           }
-        ]
+        ],
+        "description": "Authorized own/tenant application with immutable payload history, events and nullable order. POLICY orders return the creation-time fee/preferences snapshot; later policy changes never reprice it. LEGACY applications return order:null. No payment is asserted."
       },
       "patch": {
         "summary": "Append immutable edited payload version",
@@ -1032,7 +1602,8 @@
               }
             }
           }
-        }
+        },
+        "description": "Append a payload version only in DRAFT or CORRECTION_REQUIRED. A policy-backed application's order is immutable; changing payload.delivery_language to disagree with its order returns 422 ORDER_LANGUAGE_MISMATCH. No price/preference/payment edits are accepted."
       }
     },
     "/api/v1/applications/{id}/transition": {
@@ -1108,7 +1679,7 @@
             }
           },
           "201": {
-            "description": "New templateVersion2 certificate or safe concurrent return.",
+            "description": "New templateVersion4 DEMO certificate or safe concurrent return.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1121,7 +1692,14 @@
             "description": "Authentication, suspension or signature failure"
           },
           "402": {
-            "description": "Insufficient credits or inactive subscription; approved application retained with no certificate/debit."
+            "description": "ORDER_PAYMENT_REQUIRED for an unpaid positive citizen-fee order, SUBSCRIPTION_INACTIVE or INSUFFICIENT_CREDITS. Application retained; no new certificate, issuance ledger entry or credit debit.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
           },
           "403": {
             "description": "Role, authority or CSRF denied"
@@ -1159,7 +1737,8 @@
               }
             }
           }
-        }
+        },
+        "description": "Separate active approver with the service grant required. New issuance validates current approved payload, renewal eligibility, subscription and tenant credits. A POLICY order with totalMinor > 0 is blocked with ORDER_PAYMENT_REQUIRED: verified citizen payment collection is not implemented. Explicit zero-fee or historical legacy applications retain existing approval/credit rules. Existing certificate retries return the stored document without repricing or another debit."
       }
     },
     "/api/v1/certificates/{id}/pdf": {
@@ -2839,7 +3418,7 @@
     "/api/v1/applications/{id}/renew": {
       "post": {
         "summary": "Create versioned renewal draft from issued certificate",
-        "description": "Citizen own/staff/admin tenant only; same service/citizen/tenant DB-enforced. All47 services allowed. One active successor per source; canceled/rejected successor allows replacement. Trade previous number is server pinned. Revoked source blocks issue; renewed document needs normal review/approval and one new charge.",
+        "description": "Citizen own/staff/admin tenant only. Creates a linked draft for the same service/citizen, with one active successor per source. Source must be issued and unrevoked; trade prior number is server-pinned. Requires a fresh current-policy order when configured, including when the source is legacy. Optional payload is validated against the current schema; otherwise source facts are reused. Current policy fees are recalculated, not copied from the source. Normal separate review/approval and exactly-once SaaS issuance credit apply.",
         "security": [
           {
             "session": [],
@@ -2870,14 +3449,28 @@
             "description": "Record unavailable in this scope."
           },
           "409": {
-            "description": "Duplicate or workflow conflict."
+            "description": "Renewal lineage/state conflict, ORDER_REQUIRED, ORDER_POLICY_STALE or ORDER_POLICY_NOT_CONFIGURED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
           },
           "422": {
-            "description": "Validated request failed."
+            "description": "Invalid current-schema payload/preferences or ORDER_LANGUAGE_MISMATCH.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
           }
         },
         "requestBody": {
-          "required": true,
+          "required": false,
           "content": {
             "application/json": {
               "schema": {
@@ -2886,6 +3479,9 @@
                 "properties": {
                   "payload": {
                     "type": "object"
+                  },
+                  "order": {
+                    "$ref": "#/components/schemas/ApplicationOrderInput"
                   }
                 },
                 "required": []
@@ -4087,6 +4683,343 @@
           },
           "503": {
             "description": "Dataset not initialized"
+          }
+        }
+      }
+    },
+    "/api/v1/services/{no}/order-options": {
+      "get": {
+        "summary": "Read the current office/service fee policy",
+        "description": "Citizen, staff, admin, reviewer, approver or finance in the active tenant. An unconfigured policy returns configured:false and policy:null, not an approved zero fee. This endpoint does not imply service enablement or collect money.",
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "no",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 47
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current tenant policy or unconfigured state.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrderOptions"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Session missing, expired or inactive.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Role, tenant, CSRF or Origin denied.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Strict input validation failed (INPUT_INVALID); quote also rejects disabled service or unavailable options.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/services/{no}/order-quote": {
+      "post": {
+        "summary": "Calculate a citizen fee assessment without saving or charging",
+        "description": "Citizen, staff or admin. Reads the enabled service's current policy. Fees are computed from server-held amounts; urgency and delivery must be permitted. No quote ID, expiry, persisted reservation, payment success or ledger entry is created. Creation/renewal rechecks policyVersion and recalculates the quote atomically.",
+        "security": [
+          {
+            "session": [],
+            "csrf": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "no",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 47
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OrderQuoteInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Read-only assessment; paymentStatus is always NOT_COLLECTED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrderQuote"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Session missing, expired or inactive.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Role, tenant, CSRF or Origin denied.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "ORDER_POLICY_NOT_CONFIGURED: this office/service has no policy.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Strict input validation failed (INPUT_INVALID); quote also rejects disabled service or unavailable options.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/services/{no}/order-policies": {
+      "post": {
+        "summary": "Publish an immutable office/service fee policy version",
+        "description": "Active tenant admin only. Explicit statutory, processing, urgency and delivery fees are integer BDT minor units; no default rate is inferred. expectedVersion is 0 initially, otherwise the current version. Publication serializes with other publishers and new order creation. Existing accepted snapshots and SaaS credits are unchanged. Publishing any positive payable total blocks that order's certificate issuance until verified collection is implemented.",
+        "security": [
+          {
+            "session": [],
+            "csrf": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "no",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 47
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OrderPolicyInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "New immutable version and audit event stored.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "configured": {
+                      "const": true
+                    },
+                    "policy": {
+                      "$ref": "#/components/schemas/OrderPolicy"
+                    }
+                  },
+                  "required": [
+                    "configured",
+                    "policy"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Session missing, expired or inactive.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Role, tenant, CSRF or Origin denied.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Service configuration not found in this tenant.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "ORDER_POLICY_STALE: reload and review the current policy before publishing.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Strict input validation failed (INPUT_INVALID); quote also rejects disabled service or unavailable options.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/applications/lookup": {
+      "get": {
+        "summary": "Resolve an exact Astra application ID or certificate number",
+        "description": "Citizen sees only their own records; permitted staff see their active tenant. Matches a full application UUID or certificate number case-insensitively. No prefix search, private payload or cross-site reference lookup. A revoked certificate may be resolved but remains ineligible for renewal under the existing renewal checks.",
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "reference",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128,
+              "pattern": "^[^\\u0000-\\u001f\\u007f]+$"
+            },
+            "description": "Trimmed exact reference; no control characters."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Minimal matching application/certificate references.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApplicationLookup"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "INPUT_INVALID: missing or invalid reference.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Session missing, expired or inactive.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Role, tenant, CSRF or Origin denied.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "NOT_FOUND: unavailable in the caller's authorized scope.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
           }
         }
       }

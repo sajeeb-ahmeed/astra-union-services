@@ -150,13 +150,23 @@ try {
   } catch (error) { await fixture.query('ROLLBACK'); throw error; }
   finally { fixture.release(); }
 
-  for (const table of ['certificates', 'applications', 'notices', 'password_recovery_tokens', 'citizens']) {
+  for (const table of ['certificates', 'applications', 'notices', 'password_recovery_tokens', 'citizens', 'service_order_policies', 'application_order_snapshots']) {
     assert.equal((await app.query(`SELECT count(*)::int n FROM ${table}`)).rows[0].n, 0);
     assert.equal((await owner.query(
       'SELECT relrowsecurity AND relforcerowsecurity enabled FROM pg_class WHERE oid=$1::regclass', [table],
     )).rows[0].enabled, true);
   }
   checks.push('Unscoped astra_app direct reads return zero rows; FORCE RLS remains enabled.');
+  for (const table of ['service_order_policies', 'application_order_snapshots']) {
+    const permissions = (await app.query(
+      `SELECT has_table_privilege(current_user,$1,'SELECT') can_select,
+              has_table_privilege(current_user,$1,'INSERT') can_insert,
+              has_table_privilege(current_user,$1,'UPDATE') can_update,
+              has_table_privilege(current_user,$1,'DELETE') can_delete`, [table],
+    )).rows[0];
+    assert.deepEqual(permissions, {can_select:true,can_insert:true,can_update:false,can_delete:false});
+  }
+  checks.push('Order policies and snapshots retain forced RLS and append-only runtime grants on managed PostgreSQL.');
   assert.equal((await app.query("SELECT * FROM public_verify('managed-certificate-digest')")).rows.length, 1);
   assert.equal((await app.query("SELECT * FROM public_verify('invalid-digest')")).rows.length, 0);
   assert.equal((await app.query('SELECT * FROM public_track($1)', [applicationA])).rows.length, 1);

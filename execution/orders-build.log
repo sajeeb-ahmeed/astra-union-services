@@ -1,0 +1,21 @@
+
+> astra-union-services@0.4.0 build
+> tsc --noEmit && vite build --config apps/web/vite.config.ts && node scripts/compress-assets.mjs
+
+vite v7.3.7 building client environment for production...
+transforming...
+✓ 49 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                                0.67 kB │ gzip:   0.43 kB
+dist/assets/index-XvG6gtNx.css                34.32 kB │ gzip:   7.89 kB
+dist/assets/AdditionalWorkspace-BIZ8_7Dk.js   13.92 kB │ gzip:   4.15 kB
+dist/assets/AdminWorkspace-DNd6_eDA.js        27.76 kB │ gzip:   7.93 kB
+dist/assets/index-B7EZsOYR.js                989.10 kB │ gzip: 144.33 kB
+
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+✓ built in 1.36s
+[{"name":"AdditionalWorkspace-BIZ8_7Dk.js","rawBytes":13924,"gzipBytes":4152,"brotliBytes":3529},{"name":"AdminWorkspace-DNd6_eDA.js","rawBytes":27759,"gzipBytes":7921,"brotliBytes":6735},{"name":"index-B7EZsOYR.js","rawBytes":989102,"gzipBytes":143381,"brotliBytes":108678},{"name":"index-XvG6gtNx.css","rawBytes":34320,"gzipBytes":7826,"brotliBytes":6920}]

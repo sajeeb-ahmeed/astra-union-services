@@ -1,5 +1,7 @@
 # Hosted deployment record
 
+**Source update · 17 October 2026:** 0.4.0 is locally verified (162 tests and 11 managed PostgreSQL groups), but its hosted migration/deployment is pending. The live deployment identifiers and CI results below remain the verified **0.3 history**. See [0.4 local release evidence](RELEASE_0_4.md); do not treat these earlier deployment results as 0.4 verification.
+
 Updated 13 October 2026. Astra remains a synthetic DEMO application: certificate output is marked **DEMO / NOT OFFICIAL**, and billing uses zero-money sandbox settlement.
 
 ## Current status

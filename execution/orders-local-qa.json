@@ -1,0 +1,72 @@
+{
+  "release": "0.4.0",
+  "recordedAt": "2026-10-17T09:05:28.455Z",
+  "scope": "Local synthetic test databases only",
+  "status": "PASS",
+  "tests": 162,
+  "suites": [
+    {
+      "suite": "forms",
+      "tests": 72,
+      "pass": 72,
+      "fail": 0,
+      "evidence": "execution/orders-forms.log"
+    },
+    {
+      "suite": "api",
+      "tests": 63,
+      "pass": 63,
+      "fail": 0,
+      "evidence": "execution/orders-api.log"
+    },
+    {
+      "suite": "web",
+      "tests": 27,
+      "pass": 27,
+      "fail": 0,
+      "evidence": "execution/orders-web.log"
+    }
+  ],
+  "managedPostgres": {
+    "status": "PASS",
+    "groups": 11,
+    "migrations": 10,
+    "evidence": "execution/managed-postgres-qa.json"
+  },
+  "build": {
+    "status": "PASS",
+    "evidence": "execution/orders-build.log",
+    "mainChunkWarning": true
+  },
+  "dependencyAudit": {
+    "vulnerabilities": 0,
+    "evidence": "execution/orders-dependency-audit.json"
+  },
+  "source": [
+    {
+      "path": "apps/api/src/app.ts",
+      "sha256NormalizedLF": "799b6cd34f5f3a48950457f96a47e1a60bd1cc57fc1a47f6302b6eb7005a05b5"
+    },
+    {
+      "path": "apps/api/src/orders.ts",
+      "sha256NormalizedLF": "ff124e07877fd8f515d76eac6de1d9bbecb5f3d6fa0961b6530a36a2889fa5d0"
+    },
+    {
+      "path": "db/migrations/011_application_orders.sql",
+      "sha256NormalizedLF": "ab1d800d45d8d5c292e51d1d35f735c19b98c3696185ea05b12f2fa3d855573a"
+    },
+    {
+      "path": "apps/web/src/main.tsx",
+      "sha256NormalizedLF": "2db1f870bf23e1b81d9dea55644514832953bb9f389374fb7b43859adc123626"
+    },
+    {
+      "path": "apps/web/src/ApplicationOrder.tsx",
+      "sha256NormalizedLF": "209e7b71636f372c59effa5202cca02ce4a714a233bdd7d3a95b6b45d2e0265b"
+    },
+    {
+      "path": "apps/web/src/OrderPolicySettings.tsx",
+      "sha256NormalizedLF": "1e36879e8286b9ff9fff5bf95d7adcbe7f206698a9483679acdb365cc6c5b57d"
+    }
+  ],
+  "hostedStatus": "Not yet migrated or deployed"
+}

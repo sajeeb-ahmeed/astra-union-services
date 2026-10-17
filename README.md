@@ -1,12 +1,18 @@
 # Astra — working citizen-services website
 
-Release 0.3 · 13 October 2026. Independently authored Bangla/English React frontend, Express/TypeScript backend and real PostgreSQL database. The commissioning user owns the original software; third-party licenses are retained separately.
+Source 0.4.0 · 17 October 2026; locally verified, hosted deployment pending. Last documented live release: 0.3 · 13 October 2026. Independently authored Bangla/English React frontend, Express/TypeScript backend and real PostgreSQL database. The commissioning user owns the original software; third-party licenses are retained separately.
 
 **Open:** [live demo](https://astra-union-services.onrender.com) or [local website](http://127.0.0.1:5173). **Read:** [hosted deployment and live test results](docs/HOSTED_DEPLOYMENT.md), [delivery report](docs/DELIVERY_REPORT.md), [deployment instructions](docs/DEPLOYMENT.md), [acceptance evidence](docs/TEST_MATRIX.md).
 
 The current live release runs on Render Free with PostgreSQL 17. It passed **142 CI tests**, the Docker build, five hosted geography groups, six durability checks and desktop/mobile bilingual browser checks. The preceding release also completed the fifteen-group hosted issuance workflow. Exact commit, deployment and evidence are recorded in the hosted deployment document. The Free database expires on **12 November 2026**, and the web service can sleep when idle. Live identity and commercial payment integrations remain unconfigured.
 
 This release expands Phase 1 into **47 operational demonstration services**. Every service has been exercised through draft, submission, review, authorized approval, real PDF, QR lookup and exactly one credit debit. These tests prove this independently built implementation. Original reference-site success paths remain unverified. Documents remain DEMO / NOT OFFICIAL; live identity, legal authority and commercial payment-provider integrations are not configured.
+
+## Incoming 0.4 order workflow
+
+Implemented source adds citizen-first blank applications, exact Astra application/certificate lookup, per-office/service statutory and processing fee policies, permitted language/delivery/urgency choices, and immutable server-calculated assessments. Existing separate approver authorization and SaaS credits remain in force. Positive citizen-fee totals block issuance until verified payment collection is implemented; a quote is not a payment receipt.
+
+Local verification passed **162 tests** (72 form, 63 API and 27 web), **11 managed PostgreSQL compatibility groups**, and a dependency audit reporting **zero vulnerabilities**. Hosted migration, CI and deployment of 0.4 remain pending. See [0.4 release evidence](docs/RELEASE_0_4.md), [order workflow](docs/ORDER_WORKFLOW.md), [process parity and remaining gaps](docs/PROCESS_PARITY.md), and [OpenAPI](apps/api/openapi.json).
 
 ## Geography and language update
 
@@ -47,15 +53,15 @@ Ports: PostgreSQL 55432, API 3001, frontend 5173, all loopback. Generated admini
 
 Local synthetic accounts use **Demo-Phase1!**:
 
-| Account | Access |
-|---|---|
-| citizen@alpha.demo.test | Own applications, profile, copies and certificates |
-| staff@alpha.demo.test | Register/find citizens and prepare applications |
-| reviewer@alpha.demo.test | Review, correction and rejection |
-| approver@alpha.demo.test | Granted demo approval, issuance and revocation |
-| admin@alpha.demo.test | Office/staff administration and billing |
-| finance@alpha.demo.test | Billing, invoices and reports |
-| owner@astra.demo.test | Tenant provisioning, adjustments and support |
+| Account                  | Access                                             |
+| ------------------------ | -------------------------------------------------- |
+| citizen@alpha.demo.test  | Own applications, profile, copies and certificates |
+| staff@alpha.demo.test    | Register/find citizens and prepare applications    |
+| reviewer@alpha.demo.test | Review, correction and rejection                   |
+| approver@alpha.demo.test | Granted demo approval, issuance and revocation     |
+| admin@alpha.demo.test    | Office/staff administration and billing            |
+| finance@alpha.demo.test  | Billing, invoices and reports                      |
+| owner@astra.demo.test    | Tenant provisioning, adjustments and support       |
 
 Equivalent tenant accounts exist at `@beta.demo.test`. Hosted setup uses `db:initialize` and a unique owner password, **not** development seed; see deployment instructions.
 
@@ -73,17 +79,17 @@ Tests create synthetic rows and sandbox payments; use test/development databases
 
 ## Source map
 
-| Folder | Contents |
-|---|---|
-| apps/web | Responsive React UI, dynamic renderer, browser/renderer tests |
-| apps/api | Auth, roles, workflow, billing, management, documents, integration tests and OpenAPI |
-| packages/shared-schemas | 47 current schemas, historical versions, sanitized previews and validation |
-| db/migrations | PostgreSQL/RLS, immutable history, wallet protection, renewal/recovery |
-| scripts | Setup, initialization, backups, QA, compression and packaging |
-| deployment | HTTPS reverse-proxy example |
-| docs | Specifications, deployment, evidence and limitations |
-| execution | Actual synthetic logs, screenshots, PDFs and measurements |
-| handoff | Nine curated reference files; private audit excluded |
+| Folder                  | Contents                                                                             |
+| ----------------------- | ------------------------------------------------------------------------------------ |
+| apps/web                | Responsive React UI, dynamic renderer, browser/renderer tests                        |
+| apps/api                | Auth, roles, workflow, billing, management, documents, integration tests and OpenAPI |
+| packages/shared-schemas | 47 current schemas, historical versions, sanitized previews and validation           |
+| db/migrations           | PostgreSQL/RLS, immutable history, wallet protection, renewal/recovery               |
+| scripts                 | Setup, initialization, backups, QA, compression and packaging                        |
+| deployment              | HTTPS reverse-proxy example                                                          |
+| docs                    | Specifications, deployment, evidence and limitations                                 |
+| execution               | Actual synthetic logs, screenshots, PDFs and measurements                            |
+| handoff                 | Nine curated reference files; private audit excluded                                 |
 
 The Docker image was built and deployed successfully on Render. GitHub Actions application verification and the separate Docker build job passed. Docker/Compose remains an alternative deployment recipe; Compose execution was not performed on this Windows host. See the [hosted deployment record](docs/HOSTED_DEPLOYMENT.md) for deployed commits, CI links, live evidence, update procedures, and hosting limits.
 
