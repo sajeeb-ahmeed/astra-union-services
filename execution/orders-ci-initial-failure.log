@@ -1,0 +1,245 @@
+verify	Run npm test	﻿2026-10-17T09:06:50.3893051Z ##[group]Run npm test
+verify	Run npm test	2026-10-17T09:06:50.3893536Z ^[[36;1mnpm test^[[0m
+verify	Run npm test	2026-10-17T09:06:50.3961067Z shell: /usr/bin/bash -e {0}
+verify	Run npm test	2026-10-17T09:06:50.3961501Z env:
+verify	Run npm test	2026-10-17T09:06:50.3962350Z   DATABASE_ADMIN_URL: ***127.0.0.1:5432/astra
+verify	Run npm test	2026-10-17T09:06:50.3963311Z   DATABASE_URL: ***127.0.0.1:5432/astra
+verify	Run npm test	2026-10-17T09:06:50.3964096Z   ASTRA_APP_PASSWORD: ci-only-app-password-not-production
+verify	Run npm test	2026-10-17T09:06:50.3964449Z   NODE_ENV: test
+verify	Run npm test	2026-10-17T09:06:50.3964670Z ##[endgroup]
+verify	Run npm test	2026-10-17T09:06:50.4987857Z 
+verify	Run npm test	2026-10-17T09:06:50.4988468Z > astra-union-services@0.4.0 test
+verify	Run npm test	2026-10-17T09:06:50.4989115Z > npm run test:forms && npm run test:api && npm run test:web
+verify	Run npm test	2026-10-17T09:06:50.4989389Z 
+verify	Run npm test	2026-10-17T09:06:50.5967781Z 
+verify	Run npm test	2026-10-17T09:06:50.5968506Z > astra-union-services@0.4.0 test:forms
+verify	Run npm test	2026-10-17T09:06:50.5969190Z > node --import tsx --test packages/shared-schemas/test/*.test.ts
+verify	Run npm test	2026-10-17T09:06:50.5969500Z 
+verify	Run npm test	2026-10-17T09:06:50.9931230Z ✔ Service 1: Holding tax accepts synthetic data and rejects missing, untrusted, or mistyped facts (6.222641ms)
+verify	Run npm test	2026-10-17T09:06:50.9933708Z ✔ Service 2: Family certificate accepts synthetic data and rejects missing, untrusted, or mistyped facts (1.081853ms)
+verify	Run npm test	2026-10-17T09:06:50.9936980Z ✔ Service 3: Legal heirs certificate accepts synthetic data and rejects missing, untrusted, or mistyped facts (1.155661ms)
+verify	Run npm test	2026-10-17T09:06:50.9939300Z ✔ Service 4: Succession certificate accepts synthetic data and rejects missing, untrusted, or mistyped facts (0.563088ms)
+verify	Run npm test	2026-10-17T09:06:50.9941899Z ✔ Service 5: Delegation of authority attestation accepts synthetic data and rejects missing, untrusted, or mistyped facts (0.944956ms)
+verify	Run npm test	2026-10-17T09:06:50.9946062Z ✔ Service 6: New electricity connection attestation accepts synthetic data and rejects missing, untrusted, or mistyped facts (3.451595ms)
+verify	Run npm test	2026-10-17T09:06:50.9948413Z ✔ Service 7: Death attestation accepts synthetic data and rejects missing, untrusted, or mistyped facts (0.450736ms)
+verify	Run npm test	2026-10-17T09:06:50.9950692Z ✔ Service 8: Non Rohingya attestation accepts synthetic data and rejects missing, untrusted, or mistyped facts (0.464543ms)
+verify	Run npm test	2026-10-17T09:06:50.9954190Z ✔ Service 9: Voter information verification attestation accepts synthetic data and rejects missing, untrusted, or mistyped facts (0.444225ms)
+verify	Run npm test	2026-10-17T09:06:50.9957354Z ✔ Service 10: Unemployment certificate accepts synthetic data and rejects missing, untrusted, or mistyped facts (1.124994ms)
+verify	Run npm test	2026-10-17T09:06:50.9964370Z ✔ Service 11: Nationality certificate accepts synthetic data and rejects missing, untrusted, or mistyped facts (0.314371ms)
+verify	Run npm test	2026-10-17T09:06:50.9966647Z ✔ Service 12: Citizenship certificate accepts synthetic data and rejects missing, untrusted, or mistyped facts (0.406494ms)
+verify	Run npm test	2026-10-17T09:06:50.9979961Z ✔ Service 13: Remarriage certificate accepts synthetic data and rejects missing, untrusted, or mistyped facts (0.241113ms)
+verify	Run npm test	2026-10-17T09:06:50.9982189Z ✔ Service 14: Landless certificate accepts synthetic data and rejects missing, untrusted, or mistyped facts (0.254288ms)
+verify	Run npm test	2026-10-17T09:06:50.9984699Z ✔ Service 15: New voter attestation accepts synthetic data and rejects missing, untrusted, or mistyped facts (0.228329ms)
+verify	Run npm test	2026-10-17T09:06:50.9987921Z ✔ Service 16: Widow attestation accepts synthetic data and rejects missing, untrusted, or mistyped facts (0.348665ms)
+verify	Run npm test	2026-10-17T09:06:50.9990376Z ✔ Service 17: Occupation certificate accepts synthetic data and rejects missing, untrusted, or mistyped facts (0.39889ms)
+verify	Run npm test	2026-10-17T09:06:51.0007795Z ✔ Service 18: Community certificate accepts synthetic data and rejects missing, untrusted, or mistyped facts (0.247696ms)
+verify	Run npm test	2026-10-17T09:06:51.0010167Z ✔ Service 19: Guardian consent certificate accepts synthetic data and rejects missing, untrusted, or mistyped facts (0.254218ms)
+verify	Run npm test	2026-10-17T09:06:51.0012623Z ✔ Service 20: Freedom fighter attestation accepts synthetic data and rejects missing, untrusted, or mistyped facts (0.420741ms)
+verify	Run npm test	2026-10-17T09:06:51.0016743Z ✔ Service 21: Agriculture attestation accepts synthetic data and rejects missing, untrusted, or mistyped facts (0.25012ms)
+verify	Run npm test	2026-10-17T09:06:51.0040332Z ✔ Service 22: Unmarried certificate accepts synthetic data and rejects missing, untrusted, or mistyped facts (0.258506ms)
+verify	Run npm test	2026-10-17T09:06:51.0042556Z ✔ Service 23: Annual income certificate accepts synthetic data and rejects missing, untrusted, or mistyped facts (0.35661ms)
+verify	Run npm test	2026-10-17T09:06:51.0045039Z ✔ Service 24: Orphan certificate accepts synthetic data and rejects missing, untrusted, or mistyped facts (0.258937ms)
+verify	Run npm test	2026-10-17T09:06:51.0047228Z ✔ Service 25: Married attestation accepts synthetic data and rejects missing, untrusted, or mistyped facts (0.343225ms)
+verify	Run npm test	2026-10-17T09:06:51.0049466Z ✔ Service 26: Dowry free marriage attestation accepts synthetic data and rejects missing, untrusted, or mistyped facts (0.480563ms)
+verify	Run npm test	2026-10-17T09:06:51.0056841Z ✔ Service 27: Passport issuance attestation accepts synthetic data and rejects missing, untrusted, or mistyped facts (0.251743ms)
+verify	Run npm test	2026-10-17T09:06:51.0059244Z ✔ Service 28: Living person attestation accepts synthetic data and rejects missing, untrusted, or mistyped facts (0.482016ms)
+verify	Run npm test	2026-10-17T09:06:51.0064901Z ✔ Service 29: Monthly income certificate accepts synthetic data and rejects missing, untrusted, or mistyped facts (0.314451ms)
+verify	Run npm test	2026-10-17T09:06:51.0067630Z ✔ Service 30: Financial solvency certificate accepts synthetic data and rejects missing, untrusted, or mistyped facts (2.506299ms)
+verify	Run npm test	2026-10-17T09:06:51.0070045Z ✔ Service 31: Death while unmarried certificate accepts synthetic data and rejects missing, untrusted, or mistyped facts (0.913025ms)
+verify	Run npm test	2026-10-17T09:06:51.0072526Z ✔ Service 32: Financial hardship certificate accepts synthetic data and rejects missing, untrusted, or mistyped facts (0.368683ms)
+verify	Run npm test	2026-10-17T09:06:51.0088506Z ✔ Service 33: National identity information correction attestation accepts synthetic data and rejects missing, untrusted, or mistyped facts (0.483749ms)
+verify	Run npm test	2026-10-17T09:06:51.0115119Z ✔ Service 34: Childless attestation accepts synthetic data and rejects missing, untrusted, or mistyped facts (0.290696ms)
+verify	Run npm test	2026-10-17T09:06:51.0135671Z ✔ Service 35: Character certificate accepts synthetic data and rejects missing, untrusted, or mistyped facts (0.290837ms)
+verify	Run npm test	2026-10-17T09:06:51.0137891Z ✔ Service 36: No objection certificate accepts synthetic data and rejects missing, untrusted, or mistyped facts (1.021149ms)
+verify	Run npm test	2026-10-17T09:06:51.0143538Z ✔ Service 37: Voter area transfer attestation accepts synthetic data and rejects missing, untrusted, or mistyped facts (0.349807ms)
+verify	Run npm test	2026-10-17T09:06:51.0145840Z ✔ Service 38: Disability certificate accepts synthetic data and rejects missing, untrusted, or mistyped facts (0.285867ms)
+verify	Run npm test	2026-10-17T09:06:51.0147774Z ✔ Service 39: Same person attestation accepts synthetic data and rejects missing, untrusted, or mistyped facts (0.398338ms)
+verify	Run npm test	2026-10-17T09:06:51.0149805Z ✔ Service 40: Indigenous community certificate accepts synthetic data and rejects missing, untrusted, or mistyped facts (0.285216ms)
+verify	Run npm test	2026-10-17T09:06:51.0151774Z ✔ Service 41: Premises license accepts synthetic data and rejects missing, untrusted, or mistyped facts (0.463872ms)
+verify	Run npm test	2026-10-17T09:06:51.0153594Z ✔ Service 42: Trade license accepts synthetic data and rejects missing, untrusted, or mistyped facts (1.223449ms)
+verify	Run npm test	2026-10-17T09:06:51.0155924Z ✔ Service 43: Omitted voter inclusion attestation accepts synthetic data and rejects missing, untrusted, or mistyped facts (0.624393ms)
+verify	Run npm test	2026-10-17T09:06:51.0157987Z ✔ Service 44: Non remarriage attestation accepts synthetic data and rejects missing, untrusted, or mistyped facts (0.467819ms)
+verify	Run npm test	2026-10-17T09:06:51.0159984Z ✔ Service 45: Permanent resident certificate accepts synthetic data and rejects missing, untrusted, or mistyped facts (0.350528ms)
+verify	Run npm test	2026-10-17T09:06:51.0161890Z ✔ Service 46: Vehicle license accepts synthetic data and rejects missing, untrusted, or mistyped facts (0.427303ms)
+verify	Run npm test	2026-10-17T09:06:51.0163994Z ✔ Service 47: Miscellaneous certificate accepts synthetic data and rejects missing, untrusted, or mistyped facts (0.301506ms)
+verify	Run npm test	2026-10-17T09:06:51.0166022Z ✔ all operational service numbers are unique and samples are isolated mutable copies (0.684847ms)
+verify	Run npm test	2026-10-17T09:06:51.0167555Z ✔ the original three version-one contracts retain their exact published canonical hashes (1.185217ms)
+verify	Run npm test	2026-10-17T09:06:51.0169201Z ✔ published historical versions remain pinned while new applications select current versions (23.790981ms)
+verify	Run npm test	2026-10-17T09:06:51.0170881Z ✔ trade v2 maps all 37 captured fields, keeps v1 payloads valid and validates optional expanded facts (1.451678ms)
+verify	Run npm test	2026-10-17T09:06:51.0172573Z ✔ family v2 maps all 20 captured fields inside one member array while preserving v1 payloads (0.849666ms)
+verify	Run npm test	2026-10-17T09:06:51.0174893Z ✔ all 47 operational schemas map every observed service-specific field while retaining exact read-only reference previews (6.110391ms)
+verify	Run npm test	2026-10-17T09:06:51.0176827Z ✔ heirs enforce row limits, required identity facts, guardian conditions and inactive adult references (4.579986ms)
+verify	Run npm test	2026-10-17T09:06:51.0178495Z ✔ correction rows require a genuine change and reject duplicate categories and authority claims (1.559841ms)
+verify	Run npm test	2026-10-17T09:06:51.0180068Z ✔ income, death, related-person and marital-status conditions require newly active facts (0.823468ms)
+verify	Run npm test	2026-10-17T09:06:51.0181937Z ✔ license address branches reject stale union values and require the selected local authority (0.574069ms)
+verify	Run npm test	2026-10-17T09:06:51.0183983Z ✔ service-specific financial/vehicle numbers, holding year, dates and private attachment handles are validated (1.559239ms)
+verify	Run npm test	2026-10-17T09:06:51.0501264Z ✔ 47 service / 48 form / 26 common / 21 specialist / 39 groups / 217 data-name metadata boundary reconciles (2.220311ms)
+verify	Run npm test	2026-10-17T09:06:51.0504062Z ✔ sanitized derivation preserves every original safe field attribute in every captured form (35.772283ms)
+verify	Run npm test	2026-10-17T09:06:51.0506375Z ✔ all 47 renderer catalog previews preserve exact named controls in all 48 initial forms (6.456852ms)
+verify	Run npm test	2026-10-17T09:06:51.0508560Z ✔ all 47 proposed schemas enabled; versions remain pinned and cannot silently fall forward (2.110887ms)
+verify	Run npm test	2026-10-17T09:06:51.0510510Z ✔ published schema and catalog metadata are recursively immutable (1.21849ms)
+verify	Run npm test	2026-10-17T09:06:51.0512172Z ✔ canonical schema serialization ignores object key insertion order (0.936299ms)
+verify	Run npm test	2026-10-17T09:06:51.0514300Z ✔ all operational bilingual synthetic fixtures validate; declared labels are nonempty (2.892996ms)
+verify	Run npm test	2026-10-17T09:06:51.0516320Z ✔ required fields, unknown fields and boolean confirmations fail accessibly (0.283953ms)
+verify	Run npm test	2026-10-17T09:06:51.0518081Z ✔ date, Unicode length, select membership and payload root type are validated (0.594878ms)
+verify	Run npm test	2026-10-17T09:06:51.0520778Z ✔ conditional fields use local row context and reject stale inactive data (0.959272ms)
+verify	Run npm test	2026-10-17T09:06:51.0522687Z ✔ repeatable rows validate order, limits, nested private attachments and unknown properties (0.89937ms)
+verify	Run npm test	2026-10-17T09:06:51.0525018Z ✔ attachment handles reject URLs, oversized/malformed metadata and extra claims (0.578808ms)
+verify	Run npm test	2026-10-17T09:06:51.0526953Z ✔ trade v1 keeps independent sections and conditional previous license linkage (0.327165ms)
+verify	Run npm test	2026-10-17T09:06:51.0528919Z ✔ predicate composition supports nested values and present checks without executing code (0.17524ms)
+verify	Run npm test	2026-10-17T09:06:51.0530349Z ℹ tests 72
+verify	Run npm test	2026-10-17T09:06:51.0531047Z ℹ suites 0
+verify	Run npm test	2026-10-17T09:06:51.0531724Z ℹ pass 72
+verify	Run npm test	2026-10-17T09:06:51.0532404Z ℹ fail 0
+verify	Run npm test	2026-10-17T09:06:51.0533074Z ℹ cancelled 0
+verify	Run npm test	2026-10-17T09:06:51.0536637Z ℹ skipped 0
+verify	Run npm test	2026-10-17T09:06:51.0537984Z ℹ todo 0
+verify	Run npm test	2026-10-17T09:06:51.0538610Z ℹ duration_ms 422.112801
+verify	Run npm test	2026-10-17T09:06:51.1600148Z 
+verify	Run npm test	2026-10-17T09:06:51.1601168Z > astra-union-services@0.4.0 test:api
+verify	Run npm test	2026-10-17T09:06:51.1601761Z > node --import tsx --test --test-concurrency=1 apps/api/test/*.test.ts
+verify	Run npm test	2026-10-17T09:06:51.1602082Z 
+verify	Run npm test	2026-10-17T09:06:53.1889454Z ✔ PORTAL-01: filtered paginated public offices, tenant notices and private draft visibility (1065.362275ms)
+verify	Run npm test	2026-10-17T09:06:53.2516803Z ✔ MGMT-01: memberships, approval grants, service settings and office isolation enforce roles (63.668947ms)
+verify	Run npm test	2026-10-17T09:06:59.7393463Z ✔ ALL47-01: every service validates, persists, submits, reviews, authorizes and issues a real PDF with one charge (6487.666518ms)
+verify	Run npm test	2026-10-17T09:07:00.1243580Z ✔ CER-RENEW: trade renewal preserves lineage, applicant and authority; concurrent creation/issue deduplicate (384.870702ms)
+verify	Run npm test	2026-10-17T09:07:00.1645404Z ✔ CER-REVOKE: source revocation blocks an already approved renewal and preserves wallet (39.688793ms)
+verify	Run npm test	2026-10-17T09:07:00.1647595Z ✔ PDF-ALL: service templates retain approved family rows, trade data and HTML escaping (0.688754ms)
+verify	Run npm test	2026-10-17T09:07:00.3949224Z ✔ AUTH-NEW: signup validation, password verification and old-session invalidation (229.920203ms)
+verify	Run npm test	2026-10-17T09:07:00.5346561Z ✔ AUTH-RECOVERY: tenant-admin manual recovery is one-use, expires, blocks privilege escalation and invalidates sessions (139.704559ms)
+verify	Run npm test	2026-10-17T09:07:00.5510596Z ✔ TEN-NEW: suspension removes public office and invalidates existing sessions without deleting data (14.659444ms)
+verify	Run npm test	2026-10-17T09:07:01.8730982Z ✔ GEO-01: pinned source counts, bilingual hierarchy, provenance and bounded cached public lists (373.793645ms)
+verify	Run npm test	2026-10-17T09:07:01.8864639Z ✔ GEO-02: missing, injected, unknown and unexpected lookup parameters are rejected (13.627404ms)
+verify	Run npm test	2026-10-17T09:07:01.9942177Z ✔ GEO-03: owner creates a mapped office from codes and public filtering returns exact jurisdiction (107.416621ms)
+verify	Run npm test	2026-10-17T09:07:02.1022411Z ✔ GEO-04: registration persists hierarchy, auto reference and rejects jurisdiction bypass atomically (108.057989ms)
+verify	Run npm test	2026-10-17T09:07:02.1332339Z ✔ GEO-05: profile and admin updates validate hierarchy, preserve mappings, and reject text tampering (30.985308ms)
+verify	Run npm test	2026-10-17T09:07:02.1560499Z ✔ GEO-06: PostgreSQL enforces cross-parent constraints, runtime reference immutability and citizen tenant isolation (22.873006ms)
+verify	Run npm test	2026-10-17T09:07:02.2498026Z ✔ GEO-07: legacy unmapped offices and reference-providing callers remain usable without invented mapping (90.11525ms)
+verify	Run npm test	2026-10-17T09:07:02.5805874Z ✔ Security: bounded limiter enforces per-IP budget, Retry-After and expiry (63.917663ms)
+verify	Run npm test	2026-10-17T09:07:02.5955390Z ✔ Security: headers and Origin check protect public login mutations as well as authenticated writes (13.219758ms)
+verify	Run npm test	2026-10-17T09:07:02.5959355Z ✔ Deployment: production rejects missing secrets, unsafe origins and broad proxy trust (1.196598ms)
+verify	Run npm test	2026-10-17T09:07:02.7332056Z ✔ Security: mixed-case route aliases share public authentication and verification rate limits (138.61579ms)
+verify	Run npm test	2026-10-17T09:07:02.7334137Z ✔ Deployment: exact proxy trust normalizes host addresses and never trusts a neighboring peer (1.78864ms)
+verify	Run npm test	2026-10-17T09:07:02.7468181Z ✔ Security: only a trusted immediate proxy separates forwarded clients into distinct rate buckets (14.627594ms)
+verify	Run npm test	2026-10-17T09:07:04.1172279Z ✔ OPS-01: real PostgreSQL, all 47 catalog entries and schema versions (481.651803ms)
+verify	Run npm test	2026-10-17T09:07:04.1481674Z ✔ CIT-01 / TEN-01 / TEN-02 / AUTH-01: synthetic registration, duplicate handling and tenant scopes (31.09167ms)
+verify	Run npm test	2026-10-17T09:07:04.2249257Z ✔ FOR-02 / APP-01 / APP-04: valid versioned draft, correction, resubmission and authorized approval (76.949782ms)
+verify	Run npm test	2026-10-17T09:07:04.2660412Z ✔ APP-02 / APP-03 / SEC-02 / CER-04: read has no effects and cross-tenant/unauthorized issue denied (41.089562ms)
+verify	Run npm test	2026-10-17T09:07:04.5397856Z ✔ WAL-03: insufficient credit retains approval without document/debit (272.606771ms)
+verify	Run npm test	2026-10-17T09:07:04.6898548Z ✔ WAL-04: injected database failure rolls certificate, ledger, state and outbox back (149.929302ms)
+verify	Run npm test	2026-10-17T09:07:04.8250444Z ✔ BILL-01: expired subscription blocks issuance and retains approved application (135.571473ms)
+verify	Run npm test	2026-10-17T09:07:05.4598380Z ✔ CER-01 / CER-02 / WAL-01 / WAL-02: concurrent issuance produces one real PDF and one debit (634.590411ms)
+verify	Run npm test	2026-10-17T09:07:05.4804228Z ✔ CER-03 / PUB-02: revoke reflected in minimal lookup; random/invalid token safe (20.313197ms)
+verify	Run npm test	2026-10-17T09:07:05.5320432Z ✔ WAL-05 / BILL-01 / BILL-02: verified sandbox settlements are replay-safe and separate from official fees (52.169582ms)
+verify	Run npm test	2026-10-17T09:07:05.5958052Z ✔ FOR-02: repeatable family and conditional trade forms persist through the same engine (63.478409ms)
+verify	Run npm test	2026-10-17T09:07:05.6335177Z ✔ FOR-03: malformed/oversize uploads rejected, valid files remain tenant private (38.023381ms)
+verify	Run npm test	2026-10-17T09:07:05.6389483Z ✔ AUTH-02: suspended membership and tenant invalidate existing sessions (5.301962ms)
+verify	Run npm test	2026-10-17T09:07:05.6800401Z ✔ WAL-06 / SEC-02: ledger/payload/audit immutability, balanced sum and tenant foreign keys (40.941694ms)
+verify	Run npm test	2026-10-17T09:07:06.0645687Z ✔ CER-01: current resident PDFs contain approved purpose/residency and genuine bn/en/bilingual content (382.352142ms)
+verify	Run npm test	2026-10-17T09:07:07.7678346Z ✔ ORDER-01: policies are opt-in, unknown tariffs are not zero quotes, and legacy creation stays explicit (774.071534ms)
+verify	Run npm test	2026-10-17T09:07:07.8262565Z ✔ ORDER-02: only office admins publish explicit integer fees and policies are scoped and audited (58.440506ms)
+verify	Run npm test	2026-10-17T09:07:07.8759823Z ✔ ORDER-03: server quotes exact paisa components without writing applications, charges or payment records (49.496875ms)
+verify	Run npm test	2026-10-17T09:07:07.9223954Z ✔ ORDER-04: application accepts a recomputed immutable snapshot and rejects missing, stale, client-priced or language-mismatched orders atomically (45.727471ms)
+verify	Run npm test	2026-10-17T09:07:07.9510448Z ✔ ORDER-05: concurrent publication accepts one expected version; existing snapshots stay fixed and stale new applications fail (29.326567ms)
+verify	Run npm test	2026-10-17T09:07:07.9751715Z ✔ ORDER-06: PostgreSQL enforces forced tenant isolation, immutable policy/snapshot records and creation origin (23.880117ms)
+verify	Run npm test	2026-10-17T09:07:08.0549805Z ✔ ORDER-07: correction preserves order language and snapshot; uncollected positive fees prevent issuance without a debit (79.578781ms)
+verify	Run npm test	2026-10-17T09:07:08.3469803Z ✔ ORDER-08: a draft created before any policy retains its legacy path after publication (291.520388ms)
+verify	Run npm test	2026-10-17T09:07:08.5826463Z ✔ ORDER-09: explicit zero-fee policy still requires separate authorized approval and concurrent issuance deducts exactly once (236.017082ms)
+verify	Run npm test	2026-10-17T09:07:08.6275138Z ✔ ORDER-10: renewal explicitly accepts the current policy and cannot reuse superseded preferences or prices (43.783759ms)
+verify	Run npm test	2026-10-17T09:07:09.9235923Z ✔ Portal: feedback persists, only owner resolves, subscribe is idempotent and never claims email delivery (353.489933ms)
+verify	Run npm test	2026-10-17T09:07:09.9543303Z ✔ Portal: self profile edits persist, reject privilege fields and record audit without logging profile values (30.829386ms)
+verify	Run npm test	2026-10-17T09:07:10.3690010Z ✔ Portal: biodata, holding and witness generate real private PDFs; repeat request spends no credit and creates no duplicate (414.448187ms)
+verify	Run npm test	2026-10-17T09:07:10.3877236Z ✔ Portal: print lookup is read-only, filters survive pagination, malformed and cross-tenant inputs denied (18.560228ms)
+verify	Run npm test	2026-10-17T09:07:10.4803579Z ✔ Portal: finance reports have actual tenant ledger, safe CSV and PDF exports with date validation (92.696828ms)
+verify	Run npm test	2026-10-17T09:07:10.5099063Z ✔ Portal: in-app notifications obey tenant/applicant scope and idempotent read acknowledgements (29.462244ms)
+verify	Run npm test	2026-10-17T09:07:10.5191745Z ✔ Portal: report date boundaries are UTC regardless of PostgreSQL server timezone (9.250591ms)
+verify	Run npm test	2026-10-17T09:07:10.5266277Z ✔ Portal: public tracking returns only minimal submitted status; drafts and missing IDs stay private (7.19566ms)
+verify	Run npm test	2026-10-17T09:07:10.6142303Z ✔ Portal: sandbox invoice PDF is real, tenant-private and separate from statutory receipts (85.304171ms)
+verify	Run npm test	2026-10-17T09:07:12.7805808Z ✔ LOOKUP-01: exact application UUID and issued certificate number resolve with a minimal private response (1235.955936ms)
+verify	Run npm test	2026-10-17T09:07:12.8336512Z ✔ LOOKUP-02: authorized office roles can resolve references but citizens only see their own applications (54.003434ms)
+verify	Run npm test	2026-10-17T09:07:12.9023547Z ✔ LOOKUP-03: unknown, partial and cross-tenant references have indistinguishable not-found responses (68.622755ms)
+verify	Run npm test	2026-10-17T09:07:12.9221570Z ✔ LOOKUP-04: malformed references return 400 and login/role restrictions apply before resolution (19.75208ms)
+verify	Run npm test	2026-10-17T09:07:12.9637065Z ✔ LOOKUP-05: repeated resolution leaves application history, renewal lineage and credits unchanged (41.201743ms)
+verify	Run npm test	2026-10-17T09:07:13.0092349Z ✔ LOOKUP-06: current submission and revocation states remain visible without bypassing renewal checks (44.128261ms)
+verify	Run npm test	2026-10-17T09:07:13.3955048Z ✔ Deployment: same-origin SPA uses compressed immutable assets; private API misses never become HTML (94.715629ms)
+verify	Run npm test	2026-10-17T09:07:13.4256561Z ℹ tests 63
+verify	Run npm test	2026-10-17T09:07:13.4259912Z ℹ suites 0
+verify	Run npm test	2026-10-17T09:07:13.4260709Z ℹ pass 63
+verify	Run npm test	2026-10-17T09:07:13.4261152Z ℹ fail 0
+verify	Run npm test	2026-10-17T09:07:13.4261559Z ℹ cancelled 0
+verify	Run npm test	2026-10-17T09:07:13.4261938Z ℹ skipped 0
+verify	Run npm test	2026-10-17T09:07:13.4262288Z ℹ todo 0
+verify	Run npm test	2026-10-17T09:07:13.4262704Z ℹ duration_ms 22230.455698
+verify	Run npm test	2026-10-17T09:07:13.5320345Z 
+verify	Run npm test	2026-10-17T09:07:13.5321186Z > astra-union-services@0.4.0 test:web
+verify	Run npm test	2026-10-17T09:07:13.5321770Z > tsx scripts/test-web.ts
+verify	Run npm test	2026-10-17T09:07:13.5321934Z 
+verify	Run npm test	2026-10-17T09:07:14.0894969Z 
+verify	Run npm test	2026-10-17T09:07:14.0975666Z   ^[[32m^[[1mVITE^[[22m v7.3.7^[[39m  ^[[2mready in ^[[0m^[[1m180^[[22m^[[2m^[[0m ms^[[22m
+verify	Run npm test	2026-10-17T09:07:14.1004488Z 
+verify	Run npm test	2026-10-17T09:07:14.1045364Z   ^[[32m➜^[[39m  ^[[1mLocal^[[22m:   ^[[36mhttp://127.0.0.1:^[[1m5173^[[22m/^[[39m
+verify	Run npm test	2026-10-17T09:07:14.2805734Z ^[[2m9:07:14 AM^[[22m ^[[31m^[[1m[vite]^[[22m^[[39m ^[[31mhttp proxy error: /api/v1/health^[[39m
+verify	Run npm test	2026-10-17T09:07:14.2834576Z Error: connect ECONNREFUSED 127.0.0.1:3001
+verify	Run npm test	2026-10-17T09:07:14.2865014Z     at TCPConnectWrap.afterConnect [as oncomplete] (node:net:2021:16)
+verify	Run npm test	2026-10-17T09:07:14.5525855Z ^[[2m9:07:14 AM^[[22m ^[[31m^[[1m[vite]^[[22m^[[39m ^[[31mhttp proxy error: /api/v1/health^[[39m
+verify	Run npm test	2026-10-17T09:07:14.5554642Z Error: connect ECONNREFUSED 127.0.0.1:3001
+verify	Run npm test	2026-10-17T09:07:14.5555743Z     at TCPConnectWrap.afterConnect [as oncomplete] (node:net:2021:16)
+verify	Run npm test	2026-10-17T09:07:14.8026797Z ^[[2m9:07:14 AM^[[22m ^[[31m^[[1m[vite]^[[22m^[[39m ^[[31mhttp proxy error: /api/v1/health^[[39m
+verify	Run npm test	2026-10-17T09:07:14.8027911Z Error: connect ECONNREFUSED 127.0.0.1:3001
+verify	Run npm test	2026-10-17T09:07:14.8028663Z     at TCPConnectWrap.afterConnect [as oncomplete] (node:net:2021:16)
+verify	Run npm test	2026-10-17T09:07:14.9044741Z Astra DEMO server on http://127.0.0.1:3001; PostgreSQL; official issuance disabled.
+verify	Run npm test	2026-10-17T09:07:21.0130464Z ✔ browser: citizen → staff visibility → correction → authorized approval → real PDF/QR → exactly-once debit (5262.320058ms)
+verify	Run npm test	2026-10-17T09:07:23.7454053Z ✔ browser: family/trade conditional validation, real private upload, finance settlement and mobile keyboard layout (2733.793077ms)
+verify	Run npm test	2026-10-17T09:07:25.5181905Z ✔ browser: staff citizen registration and owner compensating adjustments persist with role boundaries (1774.86003ms)
+verify	Run npm test	2026-10-17T09:07:29.1695100Z ✔ expanded browser: public 47-service discovery, retained directory pagination, help, feedback and newsletter persistence (2897.310597ms)
+verify	Run npm test	2026-10-17T09:07:34.2688221Z ✔ expanded browser: owner onboarding, staff/service administration, explicit authorization and public notice controls (5099.128189ms)
+verify	Run npm test	2026-10-17T09:07:37.5255678Z ✔ expanded browser: synthetic self-registration, new catalog application and secure password change (3257.417967ms)
+verify	Run npm test	2026-10-17T09:07:40.3396662Z ✔ expanded browser: trade renewal links a real issued source without charging, and public application tracking remains minimal (2814.482123ms)
+verify	Run npm test	2026-10-17T09:07:40.8397933Z ✔ FOR-01: actual React renderer renders all 47 captured service entries and all 48 initial form sections (102.615603ms)
+verify	Run npm test	2026-10-17T09:07:40.8400351Z ✔ operational labels switch languages and private upload accept rules render from the shared profile (15.650094ms)
+verify	Run npm test	2026-10-17T09:07:40.8405034Z ✔ nested family member rows expose local conditional guardian only for a minor (4.778168ms)
+verify	Run npm test	2026-10-17T09:07:40.8407341Z ✔ checkboxes use strict boolean semantics: false remains unchecked, true checks the declaration (9.577184ms)
+verify	Run npm test	2026-10-17T09:07:40.8422813Z ✔ conditional trade previous-license control is hidden until selected and has an associated label (11.645901ms)
+verify	Run npm test	2026-10-17T09:07:40.8425226Z ✔ field errors link bilingual error content to the exact nested input (4.817541ms)
+verify	Run npm test	2026-10-17T09:07:40.8426646Z ✔ repeatable group errors are focusable and programmatically linked to their fieldset (1.840197ms)
+verify	Run npm test	2026-10-17T09:07:40.8428144Z ✔ disabled application controls include nested add/remove and upload actions (3.202588ms)
+verify	Run npm test	2026-10-17T09:07:42.8518350Z ✔ language source: displayed literal translations cover all six public/workspace components (120.423559ms)
+verify	Run npm test	2026-10-17T09:07:42.8520745Z ✔ geography source: checksums, strict UTF-8/NFC, unique IDs, typed parents and all derived wards (730.672438ms)
+verify	Run npm test	2026-10-17T09:07:43.8361637Z ✔ geography browser: mobile cascade uses parent IDs, clears descendants and handles a source coverage gap (993.955269ms)
+verify	Run npm test	2026-10-17T09:07:44.4171936Z ✔ geography browser: failed child lookup exposes retry and a retry retrieves real districts (580.256043ms)
+verify	Run npm test	2026-10-17T09:07:45.7378031Z ✔ geography browser: mobile registration stores selected geography and server-generated reference (1320.933441ms)
+verify	Run npm test	2026-10-17T09:07:47.7769927Z ✔ language browser: preference persists across public pages and authenticated workspace (2039.242982ms)
+verify	Run npm test	2026-10-17T09:07:50.1540268Z ✔ intake browser: citizen first, empty application, language retention and new citizen return (1681.305391ms)
+verify	Run npm test	2026-10-17T09:07:51.4275262Z ✔ intake browser: hosted hostname hides sample insertion and exact reference opens own application (1273.890673ms)
+verify	Run npm test	2026-10-17T09:07:55.3805882Z ✖ order browser: explicit office fees, citizen-first quote acceptance, bilingual/mobile state and immutable fee snapshot (3296.346264ms)
+verify	Run npm test	2026-10-17T09:07:56.7570100Z ✔ order browser: delayed policy load cannot populate another service's blank fee editor (1380.411244ms)
+verify	Run npm test	2026-10-17T09:07:59.8880219Z ✔ portal browser: responsive profile, searchable applicant and biodata/holding/witness private PDF copies (2329.881942ms)
+verify	Run npm test	2026-10-17T09:08:01.6068413Z ✔ portal browser: finance filters actual reports and downloads private CSV/PDF (1718.900228ms)
+verify	Run npm test	2026-10-17T09:08:01.6276228Z ℹ tests 27
+verify	Run npm test	2026-10-17T09:08:01.6276646Z ℹ suites 0
+verify	Run npm test	2026-10-17T09:08:01.6277028Z ℹ pass 26
+verify	Run npm test	2026-10-17T09:08:01.6277364Z ℹ fail 1
+verify	Run npm test	2026-10-17T09:08:01.6277714Z ℹ cancelled 0
+verify	Run npm test	2026-10-17T09:08:01.6278111Z ℹ skipped 0
+verify	Run npm test	2026-10-17T09:08:01.6278452Z ℹ todo 0
+verify	Run npm test	2026-10-17T09:08:01.6283224Z ℹ duration_ms 46512.447748
+verify	Run npm test	2026-10-17T09:08:01.6286825Z 
+verify	Run npm test	2026-10-17T09:08:01.6287150Z ✖ failing tests:
+verify	Run npm test	2026-10-17T09:08:01.6287378Z 
+verify	Run npm test	2026-10-17T09:08:01.6287762Z test at apps/web/test/order-browser.test.ts:1:4556
+verify	Run npm test	2026-10-17T09:08:01.6289329Z ✖ order browser: explicit office fees, citizen-first quote acceptance, bilingual/mobile state and immutable fee snapshot (3296.346264ms)
+verify	Run npm test	2026-10-17T09:08:01.6290643Z   AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+verify	Run npm test	2026-10-17T09:08:01.6291139Z   
+verify	Run npm test	2026-10-17T09:08:01.6291323Z   false !== true
+verify	Run npm test	2026-10-17T09:08:01.6291517Z   
+verify	Run npm test	2026-10-17T09:08:01.6292154Z       at TestContext.<anonymous> (/home/runner/work/astra-union-services/astra-union-services/apps/web/test/order-browser.test.ts:152:12)
+verify	Run npm test	2026-10-17T09:08:01.6292922Z       at async Test.run (node:internal/test_runner/test:1409:7)
+verify	Run npm test	2026-10-17T09:08:01.6293476Z       at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+verify	Run npm test	2026-10-17T09:08:01.6294189Z     generatedMessage: true,
+verify	Run npm test	2026-10-17T09:08:01.6294443Z     code: 'ERR_ASSERTION',
+verify	Run npm test	2026-10-17T09:08:01.6294673Z     actual: false,
+verify	Run npm test	2026-10-17T09:08:01.6294879Z     expected: true,
+verify	Run npm test	2026-10-17T09:08:01.6295098Z     operator: 'strictEqual',
+verify	Run npm test	2026-10-17T09:08:01.6295329Z     diff: 'simple'
+verify	Run npm test	2026-10-17T09:08:01.6295519Z   }
+verify	Run npm test	2026-10-17T09:08:02.3733456Z ##[error]Process completed with exit code 1.

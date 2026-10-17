@@ -34,6 +34,8 @@ Browser coverage includes citizen-first blank forms, language/input retention, r
 
 Managed PostgreSQL verification used a non-superuser/non-bypass migration owner and restricted application role. It checked geography initialization, forced RLS, owner-only policies, append-only order tables, bounded public functions, cross-tenant denial and wallet restrictions. This was a local isolated compatibility exercise, not a Render production write.
 
+The first Linux CI run (`39019827032`) passed the Docker build, all 72 form tests and all 63 API tests, but passed 26/27 web tests: the same order journey read the disabled state before the parent update after a preference change. The test now waits for the old quote to disappear and the save control to become disabled before asserting. Both focused order browser tests passed locally afterward; the full Linux rerun is pending. Evidence: [initial CI log](../execution/orders-ci-initial-failure.log), [focused regression](../execution/orders-web-state-regression.log). No application logic or database schema changed in this test repair.
+
 The build retains Vite's warning for a main chunk over 500 kB: 989,102 raw bytes, 143,381 gzip bytes and 108,678 Brotli bytes. Additional code splitting remains a performance improvement. The finance PDF spans six pages because the test database contains accumulated synthetic records. Some Bengali ligature text extraction remains imperfect with the Nirmala/Chromium PDF mapping; layout and approved-language checks are recorded separately from extraction fidelity.
 
 ## Release and operational limits

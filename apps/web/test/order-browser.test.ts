@@ -148,6 +148,8 @@ test("order browser: explicit office fees, citizen-first quote acceptance, bilin
     await citizen.screenshot({ path: "execution/screenshots/order-quote-mobile-bn.png", fullPage: true });
     await language(citizen, "English");
     await citizen.locator("#order-urgency").selectOption("normal");
+    await citizen.getByRole("region", { name: "Application fee breakdown" }).waitFor({ state: "hidden" });
+    await save.and(citizen.locator(":disabled")).waitFor();
     assert.equal(await citizen.getByRole("region", { name: "Application fee breakdown" }).count(), 0, "Changing preferences invalidates acceptance");
     assert.equal(await save.isDisabled(), true);
 
