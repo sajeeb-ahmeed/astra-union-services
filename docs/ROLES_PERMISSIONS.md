@@ -2,6 +2,8 @@
 
 The roles below are **new product policy**. Phase 0 observed a UDC interface; other role behavior and official appointment requirements were not verified. Runtime source: [app.ts](../apps/api/src/app.ts), database membership/authorization in [migration](../db/migrations/001_initial.sql). Role names do not establish legal authority.
 
+**0.5 source scope:** online citizen-fee permissions below are implemented, with release verification/deployment tracked separately. bKash merchant setup is missing, so production checkout stays disabled. Nagad, bank payouts and cash collection are not implemented. [Gateway payments](GATEWAY_PAYMENTS.md) documents the independent provider and receipt boundaries; no reference-site administrative behavior is inferred.
+
 ## Implemented role matrix
 
 `Own` means the citizen profile/application is linked to the current user. `Tenant` means only the server-selected active tenant. `Authority` additionally requires an active service-specific approval authorization. A dash means the API denies the action.
@@ -26,6 +28,12 @@ The roles below are **new product policy**. Phase 0 observed a UDC interface; ot
 | Read tenant wallet/ledger | — | — | — | — | Tenant | Tenant | Tenant | — |
 | Read billing/plans/orders/invoices | — | — | — | — | — | Tenant | Tenant | — |
 | Create/settle synthetic billing order | — | — | — | — | — | Tenant | Tenant | — |
+| Read gateway availability | — | Tenant | Tenant | Tenant | Tenant | Tenant | Tenant | — |
+| Read application payment / protected receipt PDF | — | Own | Tenant | Tenant | Tenant | Tenant | Tenant | — |
+| Start bKash checkout for approved positive-fee application | — | Own | Tenant | — | — | Tenant | — | — |
+| Query/search a recorded gateway payment | — | Own | Tenant | — | — | Tenant | Tenant | — |
+| Read minimal payment register | — | — | Tenant | — | — | Tenant | Tenant | — |
+| Read daily gateway summary / export CSV | — | — | — | — | — | Tenant | Tenant | — |
 | List tenant status/balance/subscription | — | — | — | — | — | — | — | Yes |
 | Append compensating tenant credit adjustment | — | — | — | — | — | — | — | Yes, reason required |
 | Published office directory and notices | Yes | Yes | Yes | Yes | Yes | Yes | Yes | Yes |
@@ -53,6 +61,10 @@ Rejection currently requires reviewer/approver role and tenant/state policy, wit
 ## UI and audit behavior
 
 Frontend controls are shown for the current role and eligible state. The API is the enforcement boundary; hidden buttons are not a security mechanism. Invalid role actions return 403; unavailable tenant records return generic 404. Tenant-scoped denied access is audited with attempted resource, actor, method/route and code without disclosing another tenant's record. Mutation events include actor and state; correction/rejection/revocation/cancellation and wallet adjustments require reasons.
+
+The payment register exposes minimal applicant/service references to finance without opening full application payloads, citizen search or private uploads. Receipt access joins the authorized application; knowing a receipt/payment UUID is insufficient. Payment success does not grant approval, issuance authority or SaaS credits. The signed opaque-token bKash callback is public only for provider continuation: it validates the saved payment ID/signature, makes a durable single execution claim, and independently verifies Query/Search before recording a receipt. It is not a user role or a public mark-paid API.
+
+A later mismatched check can place the application payment in `REVIEW_REQUIRED` and prevent new issuance, while retaining the historical receipt. Citizen-own/staff/admin/finance may request another provider query; only fresh matching server evidence clears that hold. There is no admin override to fabricate settlement, refund a transaction, rewrite a receipt or reset an unresolved checkout.
 
 Global owner denials and authentication failures do not yet have a dedicated immutable platform audit stream. Login throttling is in-memory, so distributed production authentication requires a shared limiter and security telemetry. Session management UI, delegated support access and impersonation are absent.
 

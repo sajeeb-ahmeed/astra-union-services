@@ -1,6 +1,6 @@
 # Deployment and reproducibility
 
-Release 0.2 · 13 October 2026. Windows/Node 24/PostgreSQL 17.11 is the executed development path. Docker and a deployment destination are unavailable here, so container/hosted execution is unverified. All environments retain DEMO/synthetic semantics.
+Updated for **0.5 source configuration · 17 October 2026**. Windows/Node 24/PostgreSQL 17.11 is the local development path. Historical 0.4 Linux CI and Render deployment evidence are recorded in [RELEASE_0_4.md](RELEASE_0_4.md) and [HOSTED_DEPLOYMENT.md](HOSTED_DEPLOYMENT.md); this guide does not claim that 0.5 QA/CI/deployment has completed. Certificate documents retain DEMO / NOT OFFICIAL semantics.
 
 ## Local Windows
 
@@ -33,7 +33,7 @@ docker compose ps
 ```
 
 3. Configure HTTPS. `deployment/Caddyfile` is an example using `ASTRA_DOMAIN`; route DNS and configure Caddy log-directory permissions. It proxies to loopback 3001 and strips URI/cookie/auth/CSRF values from structured logs. Compose uses the named network `astra_private`, subnet `172.29.250.0/24`, gateway `172.29.250.1`; the app trusts only that exact gateway as the expected host-to-container proxy peer. If this subnet conflicts with an existing network, change both `ASTRA_PROXY_SUBNET` and `ASTRA_PROXY_GATEWAY` in `.env` before creating the network. The latter also supplies the app's `TRUST_PROXY_IP`; never replace it with the whole subnet. Caddy installation/TLS issuance and Docker forwarding are not executed here. In staging, verify the actual immediate proxy address and that different real clients receive separate rate-limit buckets before inviting users. Equivalent provider-managed HTTPS requires configuring its exact immediate proxy peer.
-4. Sign in as the unique owner and create an office/administrator. New offices have zero credits and an expired subscription. Administrators may settle a **local sandbox** subscription, provision staff and record explicit demo service grants. No money is collected and no legal appointment is inferred.
+4. Sign in as the unique owner and create an office/administrator. New offices have zero credits and an expired subscription. Administrators may settle a **local sandbox SaaS subscription**, provision staff and record explicit demo service grants. That SaaS fixture collects no money and confers no legal appointment. Citizen-fee bKash checkout is separately disabled by default.
 5. Verify the full tenant-isolated journey in staging before additional users.
 
 Setup receives administrator credentials for role creation/migrations/initialization; the running app receives restricted `astra_app` credentials only. The database port is not published. Bootstrap refuses a privileged application role. `initialize.ts` creates the 47-service catalog/demo plan/one owner without sample citizens or offices; repeated initialization preserves passwords and rejects changes under immutable schema versions. This was executed twice against an empty local DB.
@@ -48,6 +48,18 @@ Install Node 24, PostgreSQL 17, Chromium dependencies and a licensed Bangla font
 
 Production-mode startup rejects missing secrets, insecure/malformed origins and broad proxy trust. `TRUST_PROXY_IP` accepts one literal IPv4/IPv6 host address and rejects hostnames, lists, CIDRs and unspecified addresses. `TRUST_PROXY=loopback` optionally adds local loopback proxies; it does not trust Docker bridge peers by itself. Leave both unset for direct access without a proxy. Only the trusted immediate peer's forwarded chain can identify clients; an untrusted peer's forwarding headers are ignored. The public port remains bound to 127.0.0.1 and the DB remains unpublished. Multiple replicas need a shared limiter. Cookies are HttpOnly/SameSiteStrict and Secure in production mode.
 
+## Online payment deployment gate
+
+Migration `012_gateway_payments.sql` adds the restricted gateway token/intent/event/confirmation/receipt/reconciliation tables. Apply migrations using the separate administrator role after backup/readback preparation, then deploy the compatible runtime. Preserve existing assessment snapshots, SaaS balances, certificates and stored PDF bytes. A source migration file is not evidence it ran on the hosted database.
+
+Keep `BKASH_ENVIRONMENT=disabled` while the approved merchant account and provider credentials are absent. The deployed UI must show **bKash setup required**, and checkout must refuse before saving a new intent. **Nagad is not integrated.** There is no manual cash substitute or mark-paid control. The local provider test adapter is available only in the test environment and is not a public route.
+
+Activation requires the server-only configuration documented in [GATEWAY_PAYMENTS.md](GATEWAY_PAYMENTS.md): explicit tenant binding, provider-issued credentials, expected receiving merchant, independent token-encryption key and exact HTTPS origin. Live mode additionally requires `BKASH_LIVE_ENABLED=true`. This initial configuration supports one merchant-bound office per deployment; it does not silently share a merchant across unions. Do not place secrets in source, frontend bundles, chat or screenshot evidence.
+
+Verify the registered bKash v2 callback, sandbox environment, receiving merchant and actual provider transaction before live activation. The public callback's token and signature are credentials; keep URI/query parameters out of operational logs. Authenticated read/status routes and receipt downloads still require the user session. A redirect alone never establishes payment. Unknown creation/execution outcomes must recover against the original intent; do not delete/reset the row or issue a replacement payment to bypass uncertainty.
+
+Preserve original merchant configuration and encryption-key custody while attempts remain unresolved. Later gateway mismatch can hold new certificate issuance without modifying the historical receipt. Query/search reconciliation is distinct from bank payout settlement, which remains `NOT_CONNECTED`. Refunds, disputes, recovery resets and automatic replacement checkout are not implemented. Local mock-provider tests and a disabled hosted deployment cannot substitute for genuine provider acceptance.
+
 ## Updates and recovery
 
 - Back up and verify restore before migrations. Migrations are forward-only; rollback needs a database-compatible prior app release. Never rewrite issued PDFs/published schemas.
@@ -58,6 +70,6 @@ Production-mode startup rejects missing secrets, insecure/malformed origins and 
 
 ## CI
 
-`.github/workflows/qa.yml` provisions PostgreSQL 17, creates restricted role, migrates/seeds, installs Chromium/fonts, builds, runs tests and audits dependencies. CI passwords are disposable isolated fixtures. The workflow was not pushed or executed on GitHub; executed local evidence is under `execution/`.
+`.github/workflows/qa.yml` provisions PostgreSQL 17, creates the restricted role, migrates/seeds, installs Chromium/fonts, builds, runs tests and audits dependencies. CI passwords are disposable isolated fixtures. The historical 0.4 workflow passed on GitHub; retain its pinned link in [RELEASE_0_4.md](RELEASE_0_4.md). The current release must receive its own recorded run and results; neither workflow configuration nor a prior pass proves current 0.5 success. Gateway mock tests verify application behavior, not merchant/provider acceptance.
 
 The log-filter example follows [Caddy's field-filter documentation](https://caddyserver.com/docs/caddyfile/directives/log#filter), which supports deleting nested request fields. Runtime validation of the supplied Caddy configuration remains part of staging acceptance.

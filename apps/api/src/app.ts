@@ -27,6 +27,7 @@ import { generatePdf, DEMO_TEMPLATE_VERSION } from "./pdf.js";
 import { publicManagementRouter, managementRouter } from "./management.js";
 import { publicToolsRouter, protectedToolsRouter } from "./portal-tools.js";
 import { httpHardening } from "./http-hardening.js";
+import { paymentsRouter, publicPaymentsRouter } from "./payments.js";
 import {
   ordersRouter,
   applicationOrderInput,
@@ -317,6 +318,7 @@ app.use(express.json({ limit: "3mb" }));
 app.use("/api/v1", publicManagementRouter);
 app.use("/api/v1", geographyRouter);
 app.use("/api/v1", publicToolsRouter);
+app.use("/api/v1", publicPaymentsRouter);
 app.get(
   "/api/v1/health",
   wrap(async (_req, res) => {
@@ -488,6 +490,7 @@ app.use(
 app.use("/api/v1", managementRouter);
 app.use("/api/v1", protectedToolsRouter);
 app.use("/api/v1", ordersRouter);
+app.use("/api/v1", paymentsRouter);
 app.get(
   "/api/v1/auth/me",
   wrap(async (req, res) => {

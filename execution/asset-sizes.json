@@ -1,29 +1,35 @@
 {
-  "measuredAt": "2026-10-17T09:04:47.363Z",
+  "measuredAt": "2026-10-17T09:51:10.557Z",
   "assets": [
     {
-      "name": "AdditionalWorkspace-BIZ8_7Dk.js",
+      "name": "AdditionalWorkspace-CpXmPHIe.js",
       "rawBytes": 13924,
       "gzipBytes": 4152,
-      "brotliBytes": 3529
+      "brotliBytes": 3522
     },
     {
-      "name": "AdminWorkspace-DNd6_eDA.js",
+      "name": "AdminWorkspace-CQ0YM01N.js",
       "rawBytes": 27759,
-      "gzipBytes": 7921,
-      "brotliBytes": 6735
+      "gzipBytes": 7920,
+      "brotliBytes": 6736
     },
     {
-      "name": "index-B7EZsOYR.js",
-      "rawBytes": 989102,
-      "gzipBytes": 143381,
-      "brotliBytes": 108678
+      "name": "index-7lagO9Mq.css",
+      "rawBytes": 34830,
+      "gzipBytes": 7941,
+      "brotliBytes": 6998
     },
     {
-      "name": "index-XvG6gtNx.css",
-      "rawBytes": 34320,
-      "gzipBytes": 7826,
-      "brotliBytes": 6920
+      "name": "index-CRaW6-P0.js",
+      "rawBytes": 990538,
+      "gzipBytes": 143874,
+      "brotliBytes": 109050
+    },
+    {
+      "name": "OnlinePayments-DAma-ZjM.js",
+      "rawBytes": 23734,
+      "gzipBytes": 6557,
+      "brotliBytes": 5591
     }
   ]
 }

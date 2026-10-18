@@ -1,0 +1,24 @@
+✔ PAY-01: missing merchant configuration fails closed without a checkout, receipt, invoice or credit mutation (1175.0876ms)
+✔ PAY-02: approval, actor ownership, CSRF and immutable server price are required before checkout (158.5178ms)
+✔ PAY-03: concurrent retries create one gateway checkout and bind the request key to its original application (189.5888ms)
+✔ PAY-04: callback status and forged signatures cannot fabricate payment or execute a checkout (83.5494ms)
+✔ PAY-05: one execution survives timeout and duplicate callbacks; query plus merchant transaction evidence commits one immutable PDF receipt (845.6658ms)
+✔ PAY-06: verified citizen payment preserves independent approver authorization and exactly-once SaaS credit deduction (505.1093ms)
+✔ PAY-07: wrong amount, currency, invoice, payment identity, merchant or transaction evidence never creates a receipt (891.7078ms)
+✔ PAY-08: confirmation plus PDF is atomic on injected failure; authoritative reconciliation recovers without re-executing (743.9013ms)
+✔ PAY-09: ambiguous checkout creation remains recoverable without creating another remote checkout (142.6474ms)
+✔ PAY-10: an unknown execution is never repeated; later query recovery requires unchanged gateway binding (477.8712ms)
+✔ PAY-11: payment and receipt access stay tenant- and citizen-scoped; finance responses exclude sensitive application payload (239.045ms)
+✔ PAY-12: PostgreSQL enforces forced RLS, immutable evidence, exact financial binding and atomic paid-state constraints (118.9938ms)
+✔ PAY-13: finance reconciliation reports provider-query results separately from bank settlement and protects CSV exports (65.743ms)
+✔ PAY-14: PostgreSQL token authorization reservation survives failure before provider completion (5.1467ms)
+✔ PAY-15: concurrent reconciliation requests share one durable provider-call budget and preserve bounded mismatch evidence (484.7959ms)
+✔ PAY-16: later contradictory provider evidence holds issuance without rewriting receipts; a fresh MATCHED check restores eligibility (929.5796ms)
+ℹ tests 16
+ℹ suites 0
+ℹ pass 16
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 8183.0057

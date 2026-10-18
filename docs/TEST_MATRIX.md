@@ -1,6 +1,31 @@
-# Acceptance matrix — release 0.2
+# Acceptance matrix and evidence boundaries
 
-13 October 2026. PASS means the independently built local DEMO behavior was executed. It never verifies Prottoyon's unseen server behavior or legal production authority. All tests use synthetic records.
+## Release 0.5 source acceptance scope
+
+The bKash v2 citizen-payment implementation has local mock-provider/API/browser acceptance cases. **This section records coverage and required gates, not a passing 0.5 test run, CI result or live deployment.** Consult the separate 0.5 release evidence when available. Merchant credentials are absent; genuine bKash sandbox and live acceptance remain pending. Nagad, cash collection and bank payout matching are not implemented. See [gateway payments](GATEWAY_PAYMENTS.md).
+
+| ID | Coverage / required outcome | Evidence boundary |
+|---|---|---|
+| PAY-01 | Disabled configuration refuses checkout without inserting an intent; approved positive assessment, current payload and role/tenant/ownership required | Real local API/PostgreSQL cases; not provider acceptance |
+| PAY-02 | Server amount/currency/invoice/merchant binding; no caller price or paid flag; exact environment checkout hostname | Adapter and API tests with controlled provider responses |
+| PAY-03 | Durable single create/execute claims; duplicate callbacks, retries, signature mismatch and concurrent requests cannot charge or confirm twice | Mock provider records call counts; no external transaction claimed |
+| PAY-04 | Query plus Search must match before atomic confirmation/receipt; transaction reuse and amount/currency/invoice/merchant mismatches rejected | Real database constraints with mock provider evidence |
+| PAY-05 | Stored receipt/PDF hash survives replay; confirmation and receipt roll back together on injected failure; citizen payment never grants SaaS credits | Local integration assertions, not a tax-invoice certification |
+| PAY-06 | Later decisive mismatch holds new issuance as REVIEW_REQUIRED; PENDING/ERROR cannot clear hold; fresh MATCHED restores eligibility; historical receipt unchanged | Separate reconciliation observations, no refund or receipt rewrite |
+| PAY-07 | Durable encrypted token cache, environment binding, restart sharing and token rate limits | Adapter tests do not prove the merchant's issued credentials work |
+| PAY-08 | Payment register, Dhaka-date summary/CSV, exact roles, tenant isolation, private receipt downloads and CSV escaping | Gateway records only; bank settlement explicitly NOT_CONNECTED |
+| PAY-09 | Forged success URL stays unpaid; unconfigured checkout disabled; Bangla/English mobile display; delayed checkout cannot redirect a departed view | Browser/API fixtures; no wallet PIN/OTP fields or fake public provider route |
+| PAY-10 | Provider sandbox approval, registered callback, exact receiving merchant and controlled real transaction | **PENDING external merchant/provider acceptance** |
+
+Coverage sources: [adapter tests](../apps/api/test/bkash.test.ts), [payment API tests](../apps/api/test/payments.test.ts), [payment browser tests](../apps/web/test/payments-browser.test.ts). Re-run all relevant suites after final source changes; do not add historical test counts to a new release total.
+
+## Historical release 0.4
+
+[Release 0.4 evidence](RELEASE_0_4.md) records its 162 local/CI tests, 11 local managed PostgreSQL groups and scoped hosted checks. Those results verify the prior fee-assessment milestone and are preserved separately from 0.5 provider work.
+
+## Historical release 0.2
+
+13 October 2026. The table below is the original release 0.2 record. PASS means that independently built local DEMO behavior was executed at that time; historical "unconfigured" limitations and counts are not the current 0.5 feature inventory. It never verifies Prottoyon's unseen server behavior or legal production authority. All tests use synthetic records.
 
 | ID | Current result | Executed evidence / limit |
 |---|---|---|

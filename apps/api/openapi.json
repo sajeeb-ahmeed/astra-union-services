@@ -2,8 +2,8 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Astra independently authored DEMO API",
-    "version": "0.4.0",
-    "description": "Independently authored DEMO contracts for all 47 services, including office-specific fee policies and immutable application assessments. These are not reference-site server contracts. Session and CSRF protect authenticated mutations. Citizen fees, processing charges and tenant SaaS credits remain separate. Real identity, official issuance and commercial payment providers are unconfigured. Source version is not evidence of hosted deployment or passing tests."
+    "version": "0.5.0",
+    "description": "Independently authored contracts for all 47 services, immutable office-specific fee assessments, and bKash v2 online checkout with provider verification, stored receipts and gateway reconciliation. These are not reference-site server contracts. Authenticated mutations require session and CSRF; the signed provider callback is separately public. Citizen fees and SaaS credits are separate. Production checkout defaults to disabled pending approved tenant merchant configuration; Nagad and bank payout reconciliation are not integrated. Official identity/signing remain unconfigured and certificates remain DEMO / NOT OFFICIAL. Source version does not establish hosted deployment or live merchant certification."
   },
   "servers": [
     {
@@ -852,7 +852,14 @@
             "description": "Server-calculated sum in BDT minor units (100 = BDT 1.00). Not a payment or a tenant credit amount."
           },
           "paymentStatus": {
-            "const": "NOT_COLLECTED"
+            "type": "string",
+            "enum": [
+              "NOT_COLLECTED",
+              "PENDING",
+              "COLLECTED",
+              "REVIEW_REQUIRED"
+            ],
+            "description": "Positive-fee financial state is derived from payment evidence when read; zero-fee snapshots retain their original NOT_COLLECTED value. GET /applications/{id}/payment reports zero-fee NOT_REQUIRED. Saved fee/preferences fields are never rewritten."
           },
           "createdAt": {
             "type": "string",
@@ -934,6 +941,964 @@
         "required": [
           "application",
           "certificate"
+        ]
+      },
+      "GatewayAvailability": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "provider": {
+            "const": "BKASH"
+          },
+          "environment": {
+            "type": "string",
+            "enum": [
+              "DISABLED",
+              "SANDBOX",
+              "LIVE"
+            ]
+          },
+          "configured": {
+            "type": "boolean"
+          },
+          "available": {
+            "type": "boolean"
+          },
+          "reason": {
+            "type": "string",
+            "enum": [
+              "MERCHANT_SETUP_REQUIRED",
+              "OFFICE_GATEWAY_NOT_CONFIGURED",
+              "LIVE_ACTIVATION_REQUIRED",
+              "GATEWAY_CONFIGURATION_INVALID",
+              "CONFIGURED",
+              "TEST_TRANSPORT"
+            ]
+          },
+          "bankSettlement": {
+            "const": "NOT_CONNECTED"
+          },
+          "nagad": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "configured": {
+                "const": false
+              },
+              "reason": {
+                "const": "NOT_INTEGRATED"
+              }
+            },
+            "required": [
+              "configured",
+              "reason"
+            ]
+          }
+        },
+        "required": [
+          "provider",
+          "environment",
+          "configured",
+          "available",
+          "reason",
+          "bankSettlement",
+          "nagad"
+        ],
+        "description": "Availability is evaluated for the current office. Production defaults to DISABLED; approved merchant credentials, office binding and explicit live activation are required. TEST_TRANSPORT exists only under NODE_ENV=test. No credentials or provider tokens are returned."
+      },
+      "GatewayPaymentStatus": {
+        "type": "string",
+        "enum": [
+          "CREATE_PENDING",
+          "CREATE_UNKNOWN",
+          "READY",
+          "EXECUTE_PENDING",
+          "VERIFYING",
+          "PAID",
+          "REVIEW_REQUIRED",
+          "FAILED"
+        ]
+      },
+      "GatewayPaymentAttempt": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "applicationId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "provider": {
+            "const": "BKASH"
+          },
+          "environment": {
+            "type": "string",
+            "enum": [
+              "SANDBOX",
+              "LIVE"
+            ]
+          },
+          "status": {
+            "$ref": "#/components/schemas/GatewayPaymentStatus"
+          },
+          "paymentStatus": {
+            "type": "string",
+            "enum": [
+              "PENDING",
+              "COLLECTED",
+              "REVIEW_REQUIRED"
+            ],
+            "description": "Current issuance eligibility projection. A historical PAID attempt can have REVIEW_REQUIRED after a later mismatch; original confirmation/receipt remain unchanged."
+          },
+          "lastReconciliation": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/GatewayLastReconciliation"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "amountMinor": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 400000000,
+            "description": "Integer BDT minor units; 100 = BDT 1.00. Separate from tenant SaaS credits."
+          },
+          "currency": {
+            "const": "BDT"
+          },
+          "invoice": {
+            "type": "string"
+          },
+          "checkoutUrl": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uri"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Only returned while status is READY. The provider adapter validates HTTPS and the exact environment-specific bKash checkout hostname. Not a client-supplied URL."
+          },
+          "lastError": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "receiptId": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "applicationId",
+          "provider",
+          "environment",
+          "status",
+          "paymentStatus",
+          "lastReconciliation",
+          "amountMinor",
+          "currency",
+          "invoice",
+          "checkoutUrl",
+          "lastError",
+          "createdAt",
+          "updatedAt",
+          "receiptId"
+        ],
+        "description": "One durable intent per application. Immutable requested amount, invoice, provider, environment and merchant binding. CREATE_UNKNOWN or expired/unresolved attempts require recovery; this release does not create replacement checkout attempts automatically."
+      },
+      "GatewayPaymentRegisterEntry": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "applicationId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "provider": {
+            "const": "BKASH"
+          },
+          "environment": {
+            "type": "string",
+            "enum": [
+              "SANDBOX",
+              "LIVE"
+            ]
+          },
+          "status": {
+            "$ref": "#/components/schemas/GatewayPaymentStatus"
+          },
+          "paymentStatus": {
+            "type": "string",
+            "enum": [
+              "PENDING",
+              "COLLECTED",
+              "REVIEW_REQUIRED"
+            ],
+            "description": "Current issuance eligibility projection. A historical PAID attempt can have REVIEW_REQUIRED after a later mismatch; original confirmation/receipt remain unchanged."
+          },
+          "lastReconciliation": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/GatewayLastReconciliation"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "amountMinor": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 400000000,
+            "description": "Integer BDT minor units; 100 = BDT 1.00. Separate from tenant SaaS credits."
+          },
+          "currency": {
+            "const": "BDT"
+          },
+          "invoice": {
+            "type": "string"
+          },
+          "checkoutUrl": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uri"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Only returned while status is READY. The provider adapter validates HTTPS and the exact environment-specific bKash checkout hostname. Not a client-supplied URL."
+          },
+          "lastError": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "receiptId": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "serviceNo": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 47
+          },
+          "applicantName": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "applicationId",
+          "provider",
+          "environment",
+          "status",
+          "paymentStatus",
+          "lastReconciliation",
+          "amountMinor",
+          "currency",
+          "invoice",
+          "checkoutUrl",
+          "lastError",
+          "createdAt",
+          "updatedAt",
+          "receiptId",
+          "serviceNo",
+          "applicantName"
+        ]
+      },
+      "GatewayPaymentInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "provider": {
+            "const": "BKASH"
+          },
+          "requestKey": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "provider",
+          "requestKey"
+        ]
+      },
+      "GatewayRequestKey": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "requestKey": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "requestKey"
+        ]
+      },
+      "GatewayReceiptSnapshot": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "verification": {
+            "const": "BKASH_QUERY_AND_SEARCH"
+          },
+          "environment": {
+            "type": "string",
+            "enum": [
+              "SANDBOX",
+              "LIVE"
+            ]
+          },
+          "provider": {
+            "const": "BKASH"
+          },
+          "bankSettlement": {
+            "const": "NOT_CONNECTED"
+          },
+          "officeName": {
+            "type": "string"
+          },
+          "officeNameBn": {
+            "type": "string"
+          },
+          "applicantName": {
+            "type": "string"
+          },
+          "applicantNameBn": {
+            "type": "string"
+          },
+          "applicationId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "serviceNo": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 47
+          },
+          "serviceName": {
+            "type": "string"
+          },
+          "transactionId": {
+            "type": "string"
+          },
+          "invoice": {
+            "type": "string"
+          },
+          "amountMinor": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 400000000,
+            "description": "Integer BDT minor units; 100 = BDT 1.00. Separate from tenant SaaS credits."
+          },
+          "currency": {
+            "const": "BDT"
+          },
+          "verifiedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "components": {
+            "type": "array",
+            "minItems": 4,
+            "maxItems": 4,
+            "items": {
+              "$ref": "#/components/schemas/OrderFeeComponent"
+            }
+          }
+        },
+        "required": [
+          "verification",
+          "environment",
+          "provider",
+          "bankSettlement",
+          "officeName",
+          "officeNameBn",
+          "applicantName",
+          "applicantNameBn",
+          "applicationId",
+          "serviceNo",
+          "serviceName",
+          "transactionId",
+          "invoice",
+          "amountMinor",
+          "currency",
+          "verifiedAt",
+          "components"
+        ]
+      },
+      "GatewayReceipt": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "receiptNumber": {
+            "type": "string"
+          },
+          "applicationId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "paymentId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "amountMinor": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 400000000,
+            "description": "Integer BDT minor units; 100 = BDT 1.00. Separate from tenant SaaS credits."
+          },
+          "currency": {
+            "const": "BDT"
+          },
+          "environment": {
+            "type": "string",
+            "enum": [
+              "SANDBOX",
+              "LIVE"
+            ]
+          },
+          "transactionId": {
+            "type": "string"
+          },
+          "issuedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "snapshot": {
+            "$ref": "#/components/schemas/GatewayReceiptSnapshot"
+          },
+          "pdfSha256": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "pdfUrl": {
+            "type": "string",
+            "pattern": "^/api/v1/receipts/[0-9a-f-]+/pdf$"
+          }
+        },
+        "required": [
+          "id",
+          "receiptNumber",
+          "applicationId",
+          "paymentId",
+          "amountMinor",
+          "currency",
+          "environment",
+          "transactionId",
+          "issuedAt",
+          "snapshot",
+          "pdfSha256",
+          "pdfUrl"
+        ],
+        "description": "Receipt and gateway confirmation commit atomically. PDF bytes and SHA-256 are stored permanently; retries return the original receipt. SANDBOX receipts are marked TEST PAYMENT / NO REAL MONEY COLLECTED. A payment receipt grants no certificate signing authority and is not bank payout evidence."
+      },
+      "ApplicationPaymentSummary": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "applicationId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "totalMinor": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 400000000,
+            "description": "Integer BDT minor units; 100 = BDT 1.00. Separate from tenant SaaS credits."
+          },
+          "currency": {
+            "const": "BDT"
+          },
+          "paymentStatus": {
+            "type": "string",
+            "enum": [
+              "NOT_COLLECTED",
+              "PENDING",
+              "COLLECTED",
+              "REVIEW_REQUIRED",
+              "NOT_REQUIRED",
+              "LEGACY"
+            ]
+          },
+          "eligible": {
+            "type": "boolean",
+            "description": "True when the stored order has a positive fee, application state is APPROVED, and the office gateway is available. POST checkout performs additional current-payload approval checks and idempotency checks."
+          },
+          "availability": {
+            "$ref": "#/components/schemas/GatewayAvailability"
+          },
+          "attempt": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/GatewayPaymentAttempt"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "receipt": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/GatewayReceipt"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "applicationId",
+          "totalMinor",
+          "currency",
+          "paymentStatus",
+          "eligible",
+          "availability",
+          "attempt",
+          "receipt"
+        ]
+      },
+      "GatewayReconciliation": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "result": {
+            "type": "string",
+            "enum": [
+              "MATCHED",
+              "MISMATCH",
+              "PENDING",
+              "ERROR"
+            ]
+          },
+          "reason": {
+            "type": "string"
+          },
+          "checkedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "bankSettlement": {
+            "const": "NOT_CONNECTED"
+          }
+        },
+        "required": [
+          "id",
+          "result",
+          "reason",
+          "checkedAt",
+          "bankSettlement"
+        ]
+      },
+      "GatewayReconciliationResult": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "attempt": {
+            "$ref": "#/components/schemas/GatewayPaymentAttempt"
+          },
+          "reconciliation": {
+            "$ref": "#/components/schemas/GatewayReconciliation"
+          },
+          "receipt": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/GatewayReceipt"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "attempt",
+          "reconciliation",
+          "receipt"
+        ]
+      },
+      "GatewayDailyReconciliation": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "businessDate": {
+            "type": "string",
+            "format": "date"
+          },
+          "currency": {
+            "const": "BDT"
+          },
+          "bankSettlement": {
+            "const": "NOT_CONNECTED"
+          },
+          "totalCount": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "paidCount": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "pendingCount": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "reviewCount": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "totalMinor": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "paidMinor": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "results": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "matched": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "mismatch": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "pending": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "error": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              }
+            },
+            "required": [
+              "matched",
+              "mismatch",
+              "pending",
+              "error"
+            ]
+          }
+        },
+        "required": [
+          "businessDate",
+          "currency",
+          "bankSettlement",
+          "totalCount",
+          "paidCount",
+          "pendingCount",
+          "reviewCount",
+          "totalMinor",
+          "paidMinor",
+          "results"
+        ],
+        "description": "Read-only totals; no daily cash closure or bank statement matching. Attempt counts/amounts use the selected Dhaka creation date; check counts use the verification date and may include repeated checks or earlier-created attempts. paidCount/paidMinor preserve historical verified payments. reviewCount also includes historically paid attempts with a later decisive mismatch, so review and paid categories can overlap. paidMinor is not bank-net payout."
+      },
+      "GatewayCheckDetails": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "expected": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "provider": {
+                "const": "BKASH"
+              },
+              "environment": {
+                "type": "string",
+                "enum": [
+                  "SANDBOX",
+                  "LIVE"
+                ]
+              },
+              "paymentId": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "invoice": {
+                "type": "string"
+              },
+              "amountMinor": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 400000000,
+                "description": "Integer BDT minor units; 100 = BDT 1.00. Separate from tenant SaaS credits."
+              },
+              "currency": {
+                "const": "BDT"
+              }
+            },
+            "required": [
+              "provider",
+              "environment",
+              "paymentId",
+              "invoice",
+              "amountMinor",
+              "currency"
+            ]
+          },
+          "checkedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "query": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "paymentId": {
+                "type": "string"
+              },
+              "status": {
+                "type": "string"
+              },
+              "transactionId": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "invoice": {
+                "type": "string"
+              },
+              "amountMinor": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "currency": {
+                "type": "string"
+              },
+              "intent": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "paymentId",
+              "status",
+              "transactionId",
+              "invoice",
+              "amountMinor",
+              "currency",
+              "intent"
+            ]
+          },
+          "search": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "transactionId": {
+                "type": "string"
+              },
+              "status": {
+                "type": "string"
+              },
+              "amountMinor": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "currency": {
+                "type": "string"
+              },
+              "merchantMatched": {
+                "type": "boolean"
+              },
+              "serviceFeeMinor": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "creditedAmountMinor": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              }
+            },
+            "required": [
+              "transactionId",
+              "status",
+              "amountMinor",
+              "currency",
+              "merchantMatched"
+            ]
+          }
+        },
+        "required": [],
+        "description": "Bounded expected/query/search financial fields recorded during a check. Query/search objects are absent if the earlier step could not complete. No credentials, wallet PIN, OTP or payer identity is exposed."
+      },
+      "GatewayLastReconciliation": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "result": {
+            "type": "string",
+            "enum": [
+              "MATCHED",
+              "MISMATCH",
+              "PENDING",
+              "ERROR"
+            ]
+          },
+          "reason": {
+            "type": "string"
+          },
+          "checkedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "details": {
+            "$ref": "#/components/schemas/GatewayCheckDetails"
+          }
+        },
+        "required": [
+          "result",
+          "reason",
+          "checkedAt",
+          "details"
+        ]
+      },
+      "GatewayReconciliationInProgress": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "attempt": {
+            "$ref": "#/components/schemas/GatewayPaymentAttempt"
+          },
+          "reconciliation": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "id": {
+                "type": "null"
+              },
+              "result": {
+                "const": "PENDING"
+              },
+              "reason": {
+                "const": "PAYMENT_CHECK_IN_PROGRESS"
+              },
+              "checkedAt": {
+                "type": "null"
+              },
+              "bankSettlement": {
+                "const": "NOT_CONNECTED"
+              }
+            },
+            "required": [
+              "id",
+              "result",
+              "reason",
+              "checkedAt",
+              "bankSettlement"
+            ]
+          },
+          "receipt": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/GatewayReceipt"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "attempt",
+          "reconciliation",
+          "receipt"
         ]
       }
     }
@@ -1552,7 +2517,7 @@
             }
           }
         ],
-        "description": "Authorized own/tenant application with immutable payload history, events and nullable order. POLICY orders return the creation-time fee/preferences snapshot; later policy changes never reprice it. LEGACY applications return order:null. No payment is asserted."
+        "description": "Authorized own/tenant application with immutable payload history, events and nullable order. POLICY orders return creation-time fee/preferences; later policies never reprice them. Positive order paymentStatus is computed from verified payment evidence without altering the accepted assessment. LEGACY applications return order:null. Full payment availability/attempt/receipt details use GET /applications/{id}/payment."
       },
       "patch": {
         "summary": "Append immutable edited payload version",
@@ -1738,7 +2703,7 @@
             }
           }
         },
-        "description": "Separate active approver with the service grant required. New issuance validates current approved payload, renewal eligibility, subscription and tenant credits. A POLICY order with totalMinor > 0 is blocked with ORDER_PAYMENT_REQUIRED: verified citizen payment collection is not implemented. Explicit zero-fee or historical legacy applications retain existing approval/credit rules. Existing certificate retries return the stored document without repricing or another debit."
+        "description": "Separate active approver with a service grant required. New issuance validates the current approved payload, renewal eligibility, subscription and tenant credits. A positive POLICY fee requires matching immutable confirmation/receipt and no unresolved later decisive mismatch; otherwise ORDER_PAYMENT_REQUIRED blocks new issuance before debit/document creation. A later MATCHED check clears REVIEW_REQUIRED without editing the receipt. Payment does not grant approval. Zero-fee/legacy rules remain separate. Existing certificate retries return stored bytes without repricing or another debit. Certificates remain DEMO / NOT OFFICIAL; sandbox receipts are explicit test evidence."
       }
     },
     "/api/v1/certificates/{id}/pdf": {
@@ -4841,7 +5806,7 @@
     "/api/v1/admin/services/{no}/order-policies": {
       "post": {
         "summary": "Publish an immutable office/service fee policy version",
-        "description": "Active tenant admin only. Explicit statutory, processing, urgency and delivery fees are integer BDT minor units; no default rate is inferred. expectedVersion is 0 initially, otherwise the current version. Publication serializes with other publishers and new order creation. Existing accepted snapshots and SaaS credits are unchanged. Publishing any positive payable total blocks that order's certificate issuance until verified collection is implemented.",
+        "description": "Active tenant admin only. Explicit statutory, processing, urgency and delivery fees are integer BDT minor units; no default rate is inferred. expectedVersion is 0 initially, otherwise the current version. Publication serializes with other publishers and new order creation. Existing accepted fee/preferences snapshots and SaaS credits are unchanged. A positive payable total requires independently verified gateway payment and a stored receipt before certificate issuance.",
         "security": [
           {
             "session": [],
@@ -5013,6 +5978,1498 @@
           },
           "404": {
             "description": "NOT_FOUND: unavailable in the caller's authorized scope.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/payments/configuration": {
+      "get": {
+        "summary": "Read current office online payment availability",
+        "description": "Active citizen (own application only), staff, admin, reviewer, approver or finance within the current office. The platform owner has no access through these tenant endpoints.",
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Credential-free gateway availability; Nagad and bank payouts are not connected.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "const": "no-store"
+                },
+                "description": "Payment and receipt responses are not cacheable."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GatewayAvailability"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "LOGIN_REQUIRED: session missing, expired or inactive.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "const": "no-store"
+                },
+                "description": "Payment and receipt responses are not cacheable."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Role, active office membership, CSRF or supplied Origin denied.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "const": "no-store"
+                },
+                "description": "Payment and receipt responses are not cacheable."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/applications/{id}/payment": {
+      "get": {
+        "summary": "Read verified application payment state",
+        "description": "Active citizen (own application only), staff, admin, reviewer, approver or finance within the current office. The platform owner has no access through these tenant endpoints. Read-only. COLLECTED requires an immutable matching provider confirmation and stored receipt; browser callback query flags are never payment proof. A zero-fee order is NOT_REQUIRED, no order snapshot is LEGACY, and any unconfirmed intent is PENDING even if it needs review.",
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current assessment, attempt, availability and receipt.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "const": "no-store"
+                },
+                "description": "Payment and receipt responses are not cacheable."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApplicationPaymentSummary"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "LOGIN_REQUIRED: session missing, expired or inactive.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "const": "no-store"
+                },
+                "description": "Payment and receipt responses are not cacheable."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Role, active office membership, CSRF or supplied Origin denied.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "const": "no-store"
+                },
+                "description": "Payment and receipt responses are not cacheable."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "NOT_FOUND: record unavailable in the caller's authorized scope.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "const": "no-store"
+                },
+                "description": "Payment and receipt responses are not cacheable."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "INPUT_INVALID: invalid UUID, strict JSON body, filter or calendar date.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "const": "no-store"
+                },
+                "description": "Payment and receipt responses are not cacheable."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/applications/{id}/payments": {
+      "post": {
+        "summary": "Create or replay an approved application's bKash checkout",
+        "description": "Citizen-own or current-office staff/admin only. Requires APPROVED current payload and a positive saved fee. The server supplies the amount, BDT currency, invoice, payer reference and callback URL; caller prices, status, tenant and redirect overrides are rejected. Same requestKey/actor/application replays; reuse for a different request conflicts. A second request key for the same application returns its existing intent. The durable create claim commits before the provider call; ambiguous outcomes become CREATE_UNKNOWN and never automatically trigger a second provider create. No wallet PIN or OTP is accepted. Unconfigured gateway fails before financial domain rows are inserted. This endpoint does not debit SaaS credits or issue a certificate.",
+        "security": [
+          {
+            "session": [],
+            "csrf": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "Origin",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uri"
+            },
+            "description": "When supplied on an authenticated mutation, must equal the configured PUBLIC_ORIGIN. X-CSRF-Token is required independently."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GatewayPaymentInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Existing durable attempt returned with replayed:true; no second provider create.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "const": "no-store"
+                },
+                "description": "Payment and receipt responses are not cacheable."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "attempt": {
+                      "$ref": "#/components/schemas/GatewayPaymentAttempt"
+                    },
+                    "replayed": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "attempt",
+                    "replayed"
+                  ]
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "New durable intent returned with replayed:false. READY supplies checkoutUrl; CREATE_UNKNOWN records an ambiguous create outcome. HTTP 201 does not establish payment success.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "const": "no-store"
+                },
+                "description": "Payment and receipt responses are not cacheable."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "attempt": {
+                      "$ref": "#/components/schemas/GatewayPaymentAttempt"
+                    },
+                    "replayed": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "attempt",
+                    "replayed"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "LOGIN_REQUIRED: session missing, expired or inactive.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "const": "no-store"
+                },
+                "description": "Payment and receipt responses are not cacheable."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Role, active office membership, CSRF or supplied Origin denied.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "const": "no-store"
+                },
+                "description": "Payment and receipt responses are not cacheable."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "NOT_FOUND: record unavailable in the caller's authorized scope.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "const": "no-store"
+                },
+                "description": "Payment and receipt responses are not cacheable."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "APPROVAL_REQUIRED, PAYMENT_NOT_REQUIRED or IDEMPOTENCY_CONFLICT.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "const": "no-store"
+                },
+                "description": "Payment and receipt responses are not cacheable."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "INPUT_INVALID: invalid UUID, strict JSON body, filter or calendar date.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "const": "no-store"
+                },
+                "description": "Payment and receipt responses are not cacheable."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "GATEWAY_NOT_CONFIGURED: current office lacks a valid enabled merchant configuration; no new payment intent is inserted.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "const": "no-store"
+                },
+                "description": "Payment and receipt responses are not cacheable."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/payments": {
+      "get": {
+        "summary": "List the current office's payment attempts",
+        "description": "Active admin, finance or staff only. Returns a minimal applicant name/service reference, not the full citizen/application payload. Ordered newest creation time then ID. Omitting businessDate includes all dates; filters are ANDed. REVIEW_REQUIRED includes both unconfirmed review attempts and historical PAID attempts held by a later decisive mismatch. PAID includes historical paid attempts even when held, so these filters overlap.",
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "schema": {
+              "$ref": "#/components/schemas/GatewayPaymentStatus"
+            }
+          },
+          {
+            "name": "businessDate",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+            },
+            "description": "Valid calendar date YYYY-MM-DD. Payment attempts are selected by created_at in Asia/Dhaka; verification counts use checked_at in Asia/Dhaka. No timezone is accepted from the client."
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100000,
+              "default": 1
+            }
+          },
+          {
+            "name": "pageSize",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Paginated tenant-scoped payment register.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "const": "no-store"
+                },
+                "description": "Payment and receipt responses are not cacheable."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/GatewayPaymentRegisterEntry"
+                      }
+                    },
+                    "page": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 100000
+                    },
+                    "pageSize": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 100
+                    },
+                    "total": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    }
+                  },
+                  "required": [
+                    "items",
+                    "page",
+                    "pageSize",
+                    "total"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "LOGIN_REQUIRED: session missing, expired or inactive.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "const": "no-store"
+                },
+                "description": "Payment and receipt responses are not cacheable."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Role, active office membership, CSRF or supplied Origin denied.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "const": "no-store"
+                },
+                "description": "Payment and receipt responses are not cacheable."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "NOT_FOUND: record unavailable in the caller's authorized scope.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "const": "no-store"
+                },
+                "description": "Payment and receipt responses are not cacheable."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "INPUT_INVALID: invalid UUID, strict JSON body, filter or calendar date.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "const": "no-store"
+                },
+                "description": "Payment and receipt responses are not cacheable."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/payments/{id}": {
+      "get": {
+        "summary": "Read an authorized payment attempt",
+        "description": "Active citizen (own application only), staff, admin, reviewer, approver or finance within the current office. The platform owner has no access through these tenant endpoints.",
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current stored attempt; no provider query is made.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "const": "no-store"
+                },
+                "description": "Payment and receipt responses are not cacheable."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GatewayPaymentAttempt"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "LOGIN_REQUIRED: session missing, expired or inactive.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "const": "no-store"
+                },
+                "description": "Payment and receipt responses are not cacheable."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Role, active office membership, CSRF or supplied Origin denied.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "const": "no-store"
+                },
+                "description": "Payment and receipt responses are not cacheable."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "NOT_FOUND: record unavailable in the caller's authorized scope.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "const": "no-store"
+                },
+                "description": "Payment and receipt responses are not cacheable."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "INPUT_INVALID: invalid UUID, strict JSON body, filter or calendar date.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "const": "no-store"
+                },
+                "description": "Payment and receipt responses are not cacheable."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/payments/{id}/reconcile": {
+      "post": {
+        "summary": "Reconcile one payment against bKash query and transaction search",
+        "description": "Citizen-own or current-office staff/admin/finance. Provider query/search only; never execute. A completed query must match payment ID, amount, currency, invoice and sale intent; search additionally matches transaction ID and merchant. Both Completed responses are required for atomic confirmation/receipt. A later decisive MISMATCH holds new issuance as paymentStatus REVIEW_REQUIRED even when historical attempt.status remains PAID; original receipt stays immutable. Only a later MATCHED clears that hold, not ERROR/PENDING. Replayed requestKey returns its saved check; a concurrent in-progress replay returns 202 without another query. After the 60-second reservation window, recovery can query the same intent. At most 20 new checks per payment per five minutes. This is not bank payout settlement, refund or replacement checkout.",
+        "security": [
+          {
+            "session": [],
+            "csrf": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "Origin",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uri"
+            },
+            "description": "When supplied on an authenticated mutation, must equal the configured PUBLIC_ORIGIN. X-CSRF-Token is required independently."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GatewayRequestKey"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Durable verification result including MATCHED, MISMATCH, PENDING or ERROR; inspect result rather than treating HTTP 200 as paid.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "const": "no-store"
+                },
+                "description": "Payment and receipt responses are not cacheable."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GatewayReconciliationResult"
+                }
+              }
+            }
+          },
+          "202": {
+            "description": "The same request key has a verification claim less than 60 seconds old. Retry that same key; no new provider query or receipt is implied.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "const": "no-store"
+                },
+                "description": "Payment and receipt responses are not cacheable."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GatewayReconciliationInProgress"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "LOGIN_REQUIRED: session missing, expired or inactive.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "const": "no-store"
+                },
+                "description": "Payment and receipt responses are not cacheable."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Role, active office membership, CSRF or supplied Origin denied.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "const": "no-store"
+                },
+                "description": "Payment and receipt responses are not cacheable."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "NOT_FOUND: record unavailable in the caller's authorized scope.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "const": "no-store"
+                },
+                "description": "Payment and receipt responses are not cacheable."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "IDEMPOTENCY_CONFLICT: this request key belongs to another payment.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "const": "no-store"
+                },
+                "description": "Payment and receipt responses are not cacheable."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "INPUT_INVALID: invalid UUID, strict JSON body, filter or calendar date.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "const": "no-store"
+                },
+                "description": "Payment and receipt responses are not cacheable."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "PAYMENT_CHECK_LIMIT: twenty recent new check requests already recorded; wait before a new query.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "const": "no-store"
+                },
+                "description": "Payment and receipt responses are not cacheable."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/payments/reconciliation": {
+      "get": {
+        "summary": "Read daily payment and gateway-check totals",
+        "description": "Active current-office admin or finance only. Read-only database report; fetching it does not contact bKash or automatically reconcile pending attempts. Bank payout feeds and statement matching are not implemented.",
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "businessDate",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+            },
+            "description": "Valid calendar date YYYY-MM-DD. Payment attempts are selected by created_at in Asia/Dhaka; verification counts use checked_at in Asia/Dhaka. No timezone is accepted from the client."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Dhaka-date totals and verification result counts.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "const": "no-store"
+                },
+                "description": "Payment and receipt responses are not cacheable."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GatewayDailyReconciliation"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "LOGIN_REQUIRED: session missing, expired or inactive.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "const": "no-store"
+                },
+                "description": "Payment and receipt responses are not cacheable."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Role, active office membership, CSRF or supplied Origin denied.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "const": "no-store"
+                },
+                "description": "Payment and receipt responses are not cacheable."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "NOT_FOUND: record unavailable in the caller's authorized scope.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "const": "no-store"
+                },
+                "description": "Payment and receipt responses are not cacheable."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "INPUT_INVALID: invalid UUID, strict JSON body, filter or calendar date.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "const": "no-store"
+                },
+                "description": "Payment and receipt responses are not cacheable."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/payments/reconciliation/export.csv": {
+      "get": {
+        "summary": "Export daily office payment reconciliation rows",
+        "description": "Active current-office admin or finance only. Selects attempts by created_at in Asia/Dhaka and joins stored confirmation/receipt evidence. UTF-8 BOM and CRLF CSV; quoted cells and formula-leading text escaped. Columns: payment_id, application_id, merchant_invoice, environment, status, payment_status, last_check_result, amount_minor, currency, transaction_id, receipt_number, created_at, bank_settlement. Historical status and current issuance hold are separate. bank_settlement is always NOT_CONNECTED. No provider API call is made.",
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "businessDate",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+            },
+            "description": "Valid calendar date YYYY-MM-DD. Payment attempts are selected by created_at in Asia/Dhaka; verification counts use checked_at in Asia/Dhaka. No timezone is accepted from the client."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "CSV attachment, including a header row when there are no attempts.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "const": "no-store"
+                },
+                "description": "Payment and receipt responses are not cacheable."
+              },
+              "Content-Disposition": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "attachment; filename=\"gateway-reconciliation-YYYY-MM-DD.csv\""
+              }
+            },
+            "content": {
+              "text/csv": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "LOGIN_REQUIRED: session missing, expired or inactive.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "const": "no-store"
+                },
+                "description": "Payment and receipt responses are not cacheable."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Role, active office membership, CSRF or supplied Origin denied.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "const": "no-store"
+                },
+                "description": "Payment and receipt responses are not cacheable."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "NOT_FOUND: record unavailable in the caller's authorized scope.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "const": "no-store"
+                },
+                "description": "Payment and receipt responses are not cacheable."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "INPUT_INVALID: invalid UUID, strict JSON body, filter or calendar date.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "const": "no-store"
+                },
+                "description": "Payment and receipt responses are not cacheable."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/receipts/{id}": {
+      "get": {
+        "summary": "Read a stored gateway payment receipt",
+        "description": "Active citizen (own application only), staff, admin, reviewer, approver or finance within the current office. The platform owner has no access through these tenant endpoints. Immutable verified fee breakdown and environment are returned. Sandbox receipts do not represent real money.",
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Persisted receipt metadata, snapshot and PDF hash.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "const": "no-store"
+                },
+                "description": "Payment and receipt responses are not cacheable."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GatewayReceipt"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "LOGIN_REQUIRED: session missing, expired or inactive.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "const": "no-store"
+                },
+                "description": "Payment and receipt responses are not cacheable."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Role, active office membership, CSRF or supplied Origin denied.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "const": "no-store"
+                },
+                "description": "Payment and receipt responses are not cacheable."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "NOT_FOUND: record unavailable in the caller's authorized scope.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "const": "no-store"
+                },
+                "description": "Payment and receipt responses are not cacheable."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "INPUT_INVALID: invalid UUID, strict JSON body, filter or calendar date.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "const": "no-store"
+                },
+                "description": "Payment and receipt responses are not cacheable."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/receipts/{id}/pdf": {
+      "get": {
+        "summary": "Download an authorized stored payment receipt PDF",
+        "description": "Active citizen (own application only), staff, admin, reviewer, approver or finance within the current office. The platform owner has no access through these tenant endpoints. Returns original stored PDF bytes, never a regenerated or public document. SANDBOX copies carry a no-real-money label.",
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Original PDF receipt bytes.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "const": "no-store"
+                },
+                "description": "Payment and receipt responses are not cacheable."
+              },
+              "Content-Disposition": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "attachment; filename=\"<stored receipt number>.pdf\""
+              }
+            },
+            "content": {
+              "application/pdf": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "LOGIN_REQUIRED: session missing, expired or inactive.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "const": "no-store"
+                },
+                "description": "Payment and receipt responses are not cacheable."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Role, active office membership, CSRF or supplied Origin denied.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "const": "no-store"
+                },
+                "description": "Payment and receipt responses are not cacheable."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "NOT_FOUND: record unavailable in the caller's authorized scope.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "const": "no-store"
+                },
+                "description": "Payment and receipt responses are not cacheable."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "INPUT_INVALID: invalid UUID, strict JSON body, filter or calendar date.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "const": "no-store"
+                },
+                "description": "Payment and receipt responses are not cacheable."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/payments/bkash/callback/{token}": {
+      "get": {
+        "summary": "Receive a provider-authenticated bKash browser callback",
+        "description": "Public provider return route, mounted before session authentication; neither session cookie nor CSRF header is required. Requires the unguessable callback token plus the exact paymentID and create-time provider signature, compared against the persisted intent. Only success can claim execution, and only once from READY; the durable claim commits before execute, which is never retried after an ambiguous result. failure/cancel do not themselves mark paid or reverse a payment. Every accepted callback uses independent query/search verification; status=success alone cannot create a receipt. Redirect target is the fixed PUBLIC_ORIGIN with server-derived application/attempt IDs. The frontend return URL remains navigation, not payment evidence. Do not log or publish callback credentials.",
+        "security": [],
+        "parameters": [
+          {
+            "name": "token",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$",
+              "minLength": 64,
+              "maxLength": 64
+            },
+            "x-sensitive": true
+          },
+          {
+            "name": "paymentID",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "success",
+                "failure",
+                "cancel"
+              ]
+            }
+          },
+          {
+            "name": "signature",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 500
+            },
+            "x-sensitive": true
+          }
+        ],
+        "responses": {
+          "303": {
+            "description": "Navigate to the fixed application payment return page after checking provider state; redirect is not proof of paid status.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "const": "no-store"
+                },
+                "description": "Payment and receipt responses are not cacheable."
+              },
+              "Location": {
+                "schema": {
+                  "type": "string",
+                  "format": "uri"
+                },
+                "description": "PUBLIC_ORIGIN/payments/return?applicationId=<server UUID>&attemptId=<server UUID>"
+              }
+            }
+          },
+          "403": {
+            "description": "CALLBACK_INVALID: payment ID or provider signature does not match the saved intent.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "const": "no-store"
+                },
+                "description": "Payment and receipt responses are not cacheable."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "NOT_FOUND: callback token does not resolve to a stored intent.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "const": "no-store"
+                },
+                "description": "Payment and receipt responses are not cacheable."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "INPUT_INVALID: invalid token or strict query parameters; additional query fields are rejected.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "const": "no-store"
+                },
+                "description": "Payment and receipt responses are not cacheable."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Callback or provider-check rate limit exceeded; no extra execution is authorized.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "const": "no-store"
+                },
+                "description": "Payment and receipt responses are not cacheable."
+              }
+            },
             "content": {
               "application/json": {
                 "schema": {

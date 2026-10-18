@@ -1,7 +1,7 @@
 {
-  "executedAt": "2026-10-17T09:02:51.252Z",
-  "database": "astra_managed_1792227771252_b33837",
-  "migrationRole": "astra_migrator_1792227771252_b33837",
+  "executedAt": "2026-10-17T09:47:07.926Z",
+  "database": "astra_managed_1792230427926_75fccd",
+  "migrationRole": "astra_migrator_1792230427926_75fccd",
   "checks": [
     "Migration owner is NOSUPERUSER NOBYPASSRLS with CREATEROLE.",
     "A non-superuser migration owner can create the restricted application-role shape.",
@@ -12,9 +12,12 @@
     "Exactly four SELECT policies name only the migration owner; astra_app has no membership.",
     "Unscoped astra_app direct reads return zero rows; FORCE RLS remains enabled.",
     "Order policies and snapshots retain forced RLS and append-only runtime grants on managed PostgreSQL.",
+    "All six gateway tables force tenant RLS; four history tables are append-only, token cache updates are scoped, and intent UPDATE grants cover only seven operational columns.",
+    "The callback SECURITY DEFINER has a fixed search path and app-only execution; its owner-only SELECT policy resolves a matching opaque digest to exactly two IDs and hides invalid digests.",
     "All four bounded public definer functions work; invalid token, draft, unpublished notice and expired recovery remain hidden.",
-    "Cross-tenant reads and writes are denied; managed-owner ledger lock/trigger works; direct wallet updates and owner SET ROLE are denied."
+    "Cross-tenant reads and writes are denied; managed-owner ledger lock/trigger works; direct wallet updates and owner SET ROLE are denied.",
+    "Scoped gateway reads hide the other office token row; cross-office token inserts and immutable invoice updates fail, while a permitted operational status field can be updated."
   ],
   "status": "PASS",
-  "migrations": 10
+  "migrations": 11
 }

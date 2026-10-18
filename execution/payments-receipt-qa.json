@@ -1,0 +1,12 @@
+{
+  "providerTestMode": "LOCAL_MOCK_NOT_PROVIDER_SANDBOX",
+  "bytes": 47719,
+  "sha256": "85dc7246fd0237921ca5a4e39474f9a14120138a7cf383e307269e8289e6c544",
+  "amountMinor": 12707,
+  "environment": "SANDBOX",
+  "realMoneyCollected": false,
+  "pages": 1,
+  "sandboxWatermark": true,
+  "banglaCodepoints": 165,
+  "visualReview": "PASS: one A4 page; Bangla/English, watermark, references, fee table and footer readable without clipping."
+}

@@ -2,6 +2,8 @@
 
 This is a new SaaS design, not a reconstruction of Prottoyon operator points. The software owner controls the independently authored product and future commercial configuration; each Union tenant has its own subscription and wallet. Official fees and authority to issue certificates remain separate.
 
+**0.5 source update:** a separate bKash v2 citizen-fee checkout, verified receipt and gateway reconciliation module is implemented. Hosted checkout remains disabled because merchant setup is absent; genuine provider acceptance, release QA and deployment are not asserted here. Nagad and bank payout reconciliation are not integrated. There is no cash collection or manual mark-paid endpoint. See [gateway payments](GATEWAY_PAYMENTS.md) for the current contract and activation requirements.
+
 ## Implemented commercial fixture
 
 | Item | Current executable behavior | Production decision |
@@ -13,7 +15,7 @@ This is a new SaaS design, not a reconstruction of Prottoyon operator points. Th
 | Issuance cost | Tenant service configuration; seeded 1 credit for each operational demo service | Approved commercial service credit costs |
 | Renewal | Settled plan order extends from `max(valid_until, now)` by configured plan days | Renewal cadence, cancellation and grace policy |
 | Credit retention | Balance persists; plan metadata includes rollover but no expiry worker/credit lots exist | Rollover/expiry policy and explicit expirations |
-| Settlement | Local HMAC sandbox and explicit synthetic settle action | Contracted live payment provider and reconciliation |
+| SaaS settlement | Local HMAC sandbox and explicit synthetic settle action | A separate approved commercial settlement integration; citizen bKash payments do not fund SaaS credits |
 
 These amounts/credits are engineering fixtures, not approved commercial prices or statutory fees. The seeded plan's configured price is copied into subscription orders; top-ups have an explicit zero-value fixture price. Monetary values never move through this local demo.
 
@@ -67,7 +69,7 @@ An outbox record proves durable enqueueing, not SMS/email delivery. No delivery 
 4. A serializable transaction locks the order, stores the event/body digest, appends the one grant, updates subscription when relevant, marks the order settled, inserts a separate SaaS invoice and audits the event.
 5. Same event/content is a safe replay. Reusing an event with changed content is rejected. A new event ID for an already settled order cannot grant again. Invoice uniqueness is `(tenant_id, order_id)`; grant key is `payment:<order_id>`.
 
-The explicit `demo-settle` UI action constructs and signs a local synthetic event and invokes the same settlement service. It is not evidence of a bank/gateway callback, actual cash movement, production signature scheme or statutory receipt. Current payment event rows retain accepted signed settlements; a comprehensive failed-event inbox, provider polling and reconciliation dashboard are future work.
+The explicit `demo-settle` UI action constructs and signs a local synthetic event and invokes the same settlement service. It is not evidence of a bank/gateway callback, actual cash movement, production signature scheme or statutory receipt. These legacy SaaS payment events retain accepted signed synthetic settlements. They remain separate from the 0.5 citizen-fee gateway events, query/search verification and reconciliation register.
 
 ## Adjustments, revocation and government fees
 
@@ -75,12 +77,16 @@ Only the SaaS owner can append a wallet `ADJUSTMENT` through `/owner/tenants/:id
 
 Revocation changes the certificate/public status and application history; it does **not** automatically reverse an issuance charge. A refund decision must create a separate compensating entry with reason and approval. General live refunds, chargebacks and gateway reversals are not implemented.
 
-`government_fee_assessments` has separate amounts, authority references and status. No official fee schedule, collection endpoint or statutory payment record is configured; billing reports return `NOT_CONFIGURED_SEPARATE_ACCOUNTING`. Government amounts cannot be posted as SaaS wallet money or a SaaS invoice by the implemented API. Production requires office-approved schedules, official payment types/receipts and reports separate from commercial credit usage.
+The older `government_fee_assessments` table and legacy billing report flag `NOT_CONFIGURED_SEPARATE_ACCOUNTING` are not the 0.5 citizen-payment source of truth. Since 0.4, versioned `service_order_policies` and `application_order_snapshots` preserve each office's accepted statutory, processing, urgency and delivery fees. The 0.5 gateway tables separately store checkout intent, provider confirmation, receipt and reconciliation observations. No statutory tariff is inferred from the reference invoice or code defaults.
+
+For an approved positive-fee application, checkout uses its exact saved total and one durable intent. The public bKash callback verifies the saved payment identity and provider signature before any execution claim; confirmation additionally requires matching Query Payment and Search Transaction responses. Immutable confirmation and PDF receipt commit together. No citizen-fee payment adds SaaS credits or creates a SaaS invoice. Issuance separately checks approval, subscription and available credits before its existing exactly-once debit.
+
+The current application payment state becomes `REVIEW_REQUIRED` if a later decisive gateway check mismatches an earlier confirmed payment. New issuance is held until a later `MATCHED` observation restores eligibility. The original receipt, confirmation and existing certificate are preserved; this is neither a refund nor an edited payment history. See [gateway payments](GATEWAY_PAYMENTS.md) for recovery limits and one-attempt semantics.
 
 ## Completion evidence and remaining gates
 
-Release 0.2 adds tenant-scoped finance reports at `GET /reports` with inclusive `from`/`to` calendar dates interpreted as UTC. JSON summaries and CSV/PDF exports use real ledger entries and application state counts, with bounded ranges and row counts. `GET /invoices/:id/pdf` renders the persisted sandbox invoice and order for authorized finance/administrator users. Every output is a demonstration document; no payment is collected and it is not a statutory tax invoice. The browser and API suites verify exports, date boundaries, roles and protected downloads.
+Historical release 0.2 added tenant-scoped finance reports at `GET /reports` with inclusive `from`/`to` calendar dates interpreted as UTC. JSON summaries and CSV/PDF exports use real ledger entries and application state counts, with bounded ranges and row counts. `GET /invoices/:id/pdf` renders the persisted sandbox SaaS invoice for authorized finance/administrator users. These outputs remain demonstration documents and are not statutory tax invoices. Their historical browser/API results do not establish 0.5 provider acceptance. The new citizen-payment register and daily gateway CSV use Asia/Dhaka dates and keep bank settlement explicitly `NOT_CONNECTED`.
 
 Sources: [API](../apps/api/src/app.ts), [DB transaction/retry](../apps/api/src/db.ts), [migrations](../db/migrations/), [OpenAPI](../apps/api/openapi.json). Tests WAL-01/02/03/04/05/06 and BILL-01/02 run against real PostgreSQL; [integration tests](../apps/api/test/integration.test.ts), [successful log](../execution/clean-bootstrap.log).
 
-Before production: approve prices/fees/taxes, credit expiry/rollover and refund terms; define a ledger reconciliation and discrepancy response; configure provider credentials and sandbox certification; add failed-event ingestion, expiry/grace handling, operational alerts, adjustment idempotency/dual control, immutable external audit protection and encrypted recovery. The local database administrator remains trusted and can bypass application privileges; administrator access must be separated and audited.
+Before real collection: obtain approved merchant credentials, complete genuine bKash sandbox acceptance, verify receiving-merchant and callback bindings, authorize controlled live acceptance, and resolve pending-attempt operations. Local mock-provider tests establish software behavior only. Also approve prices/fees/taxes, credit expiry/rollover and refund terms; configure bank payout reconciliation, operational alerts, adjustment idempotency/dual control, immutable external audit protection and encrypted recovery. The local database administrator remains trusted and can bypass application privileges; administrator access must be separated and audited.

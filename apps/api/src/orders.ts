@@ -3,6 +3,7 @@ import { z } from "zod";
 import { transaction, audit, type DB } from "./db.js";
 import { fail } from "./models.js";
 import type { Auth } from "./app.js";
+import { applicationPaymentState } from "./payments.js";
 
 const deliveryMode = z.enum(["office_collection", "digital_copy"]);
 const urgency = z.enum(["normal", "urgent"]);
@@ -226,7 +227,10 @@ export async function getApplicationOrder(db: DB, applicationId: string) {
       { code: "delivery_fee", amountMinor: row.delivery_fee_minor },
     ],
     totalMinor: row.total_minor,
-    paymentStatus: row.payment_status,
+    paymentStatus:
+      row.total_minor === 0
+        ? row.payment_status
+        : await applicationPaymentState(db, applicationId, row.total_minor),
     createdAt: row.created_at,
   };
 }
@@ -241,11 +245,11 @@ export async function validateApplicationOrder(
     fail(409, "ORDER_REQUIRED", "The application order snapshot is missing.");
   if (!order) return;
   if (payload) validateLanguage(payload, order.preferences);
-  if (issuing && order.totalMinor > 0)
+  if (issuing && order.totalMinor > 0 && order.paymentStatus !== "COLLECTED")
     fail(
       402,
       "ORDER_PAYMENT_REQUIRED",
-      "Application fees have not been collected. Fee collection is not yet configured; certificate issuance is blocked.",
+      "Application fees require a verified gateway payment and receipt before certificate issuance.",
     );
 }
 

@@ -1,0 +1,18 @@
+✔ BKASH-01: decimal amounts are exact minor units; invalid precision, signs and unsafe amounts fail closed (2.8947ms)
+✔ BKASH-02: fixed v2 endpoint, provider-returned checkout and exact order fields are used; no customer credentials (18.1479ms)
+✔ BKASH-03: durable encrypted cache is reused across instances and concurrent calls (2.9838ms)
+✔ BKASH-04: refresh uses current documented credentials and persists rotated cache before expiry (1.318ms)
+✔ BKASH-05: auth failures consume the durable rate budget and do not retry secrets on every call (0.7462ms)
+✔ BKASH-06: create response echo mismatches and malicious redirect origins never become checkout links (4.0081ms)
+✔ BKASH-07: execute and query map their distinct invoice fields and strip payer wallet data (1.1384ms)
+✔ BKASH-08: missing, conflicting or foreign provider identities are rejected (1.7986ms)
+✔ BKASH-09: execute transport failure is surfaced once with no implicit execute retry (0.6229ms)
+✔ BKASH-10: callbacks are bound to this application origin and production cannot enable test overrides (0.5487ms)
+ℹ tests 10
+ℹ suites 0
+ℹ pass 10
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 500.6747

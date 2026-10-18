@@ -8,6 +8,10 @@ The current live release runs on Render Free with PostgreSQL 17. It passed **162
 
 This release expands Phase 1 into **47 operational demonstration services**. Every service has been exercised through draft, submission, review, authorized approval, real PDF, QR lookup and exactly one credit debit. These tests prove this independently built implementation. Original reference-site success paths remain unverified. Documents remain DEMO / NOT OFFICIAL; live identity, legal authority and commercial payment-provider integrations are not configured.
 
+## 0.5 payment update
+
+Source now includes bKash v2 checkout, server verification, immutable payment receipts and transaction reconciliation. Merchant access is not available, so the hosted integration stays disabled; no real money or provider-sandbox transaction is claimed. Nagad and bank payout reconciliation are not connected. The release preserves independent approver authorization and SaaS credit accounting. See [0.5 implementation and verification](docs/RELEASE_0_5.md) and [gateway configuration and recovery limits](docs/GATEWAY_PAYMENTS.md).
+
 ## Live 0.4 order workflow
 
 Implemented source adds citizen-first blank applications, exact Astra application/certificate lookup, per-office/service statutory and processing fee policies, permitted language/delivery/urgency choices, and immutable server-calculated assessments. Existing separate approver authorization and SaaS credits remain in force. Positive citizen-fee totals block issuance until verified payment collection is implemented; a quote is not a payment receipt.

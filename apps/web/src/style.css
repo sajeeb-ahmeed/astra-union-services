@@ -2426,6 +2426,14 @@ html[lang="bn"] .hero-copy h1 {
   background: #fafcfb;
 }
 .order-summary { margin: 20px 0; }
+.application-payment { margin: 24px 0; padding: 22px; border: 1px solid #dce5e1; border-radius: 12px; background: #fafcfb; }
+.application-payment > button, .application-payment > a { margin: 0 10px 12px 0; }
+.payment-gateway-notice { margin: 16px 0; padding: 16px; background: #f0f5f2; border-radius: 8px; }
+.payment-gateway-notice p:last-child { margin-bottom: 0; }
+.payment-reference { overflow-wrap: anywhere; }
+.payment-receipt { padding: 16px 0; }
+.payments-workspace .table-wrap td { vertical-align: top; }
+.payments-workspace .table-wrap .button { margin-bottom: 8px; }
 .fee-breakdown { max-width: 560px; margin: 18px 0; }
 .fee-breakdown > div { display: flex; justify-content: space-between; gap: 18px; padding: 8px 0; }
 .fee-breakdown dd { margin: 0; white-space: nowrap; font-variant-numeric: tabular-nums; }

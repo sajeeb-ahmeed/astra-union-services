@@ -1,0 +1,90 @@
+# Citizen gateway payments, receipts and transaction reconciliation
+
+**Release 0.5 source implementation has passed local API and managed-PostgreSQL checks; local browser verification is complete; CI and deployment are pending.** The selected first adapter is **bKash tokenized checkout v2 without agreement**. The user has no configured merchant account yet. Hosted checkout must therefore remain disabled. **Nagad is not integrated.** No external sandbox or real-money payment has been tested.
+
+The integration collects the exact fee from an application's immutable office assessment. It is separate from Astra's existing zero-money SaaS subscription/top-up fixtures and credit ledger. Paying a citizen fee never grants SaaS credits. Certificate PDFs retain **DEMO / NOT OFFICIAL**; connecting a payment provider does not confer legal issuing authority.
+
+## Checkout and verification
+
+Checkout is available only for an **APPROVED** application with a positive policy-backed assessment. The server selects the tenant, merchant configuration, amount, BDT currency and unique invoice reference. Caller-supplied prices, paid flags and tenant overrides are rejected. An unresolved payment attempt must be recovered before another attempt can be started.
+
+bKash's v2 flow redirects the payer to its hosted page; wallet authentication takes place there. Astra must not collect a wallet PIN or OTP. The returned checkout URL is validated against the configured provider environment and used unchanged. A browser callback is a continuation signal, not proof of payment. These boundaries follow the [bKash checkout guide](https://developer.bka.sh/docs/tokenized-without-agreement).
+
+The Create response binds the local attempt to `paymentId`, its returned URL and callback `signature`. The browser callback uses `paymentID`, `status` and `signature`; the server checks them against the stored attempt. Provider field spelling differs between the v2 API and callback, so examples from older APIs must not be substituted. See [Create Payment v2](https://developer.bka.sh/docs/create-payment-3).
+
+Execution is recorded durably before the external call. A payment ID must not be executed twice, including after a timeout or restart. Recovery queries the existing attempt; no missing response is interpreted as failure or permission to recharge. bKash documents this one-execution rule and recovery through Query Payment in [Execute Payment v2](https://developer.bka.sh/docs/execute-payment-4).
+
+Before Astra confirms a payment, its server requires provider-confirmed completion and checks payment ID, invoice, exact amount, currency and sale intent. Query uses `merchantInvoice`, while Execute uses `merchantInvoiceNumber`. A matching transaction lookup additionally verifies the transaction ID and destination merchant account. These checks join the [Query Payment](https://developer.bka.sh/docs/query-payment) and [Search Transaction](https://developer.bka.sh/docs/search-transaction) responses; a receipt cannot be created from a user-entered transaction ID alone.
+
+Confirmation and the one receipt record commit atomically. Duplicate callbacks, status refreshes and concurrent requests return the same result. Unique provider transaction and application receipt constraints prevent a second receipt or settlement. Pending, failed verification and mismatched provider data do not satisfy issuance. Certificate issuance still performs the independent approver, service, subscription and exactly-once credit checks.
+
+## Receipts and finance access
+
+The receipt preserves the accepted fee components, total, office/application context, provider environment, transaction identity and verified completion time. It is distinct from a SaaS invoice. Protected downloads enforce tenant scope and applicant ownership; finance receives payment details without gaining access to raw service-form payloads or private uploads. Stored receipt bytes and identity remain stable across retries and later profile changes.
+
+Receipt and payment history are append-only financial records. There is no manual “mark paid” control, fabricated gateway response or cash-confirmation substitute in this release. Demonstration labeling remains explicit on documents and sandbox records.
+
+## Reconciliation scope
+
+Reconciliation rechecks a recorded payment against authenticated bKash Query/Search responses and records whether the transaction, amount, currency, invoice and merchant match. It does not infer success from a redirect or from Astra's own prior status. Repeated checks preserve their observations rather than editing the original receipt.
+
+A later decisive mismatch places the application's effective payment state on **REVIEW_REQUIRED** and blocks new issuance. The historical receipt and original paid record remain intact. An inconclusive error or pending response does not clear that hold; a subsequent verified match restores eligibility. This is an issuance safeguard, not a refund or an alteration of the original financial evidence.
+
+**Bank payout reconciliation is NOT CONNECTED.** Transaction completion, merchant fees, discounts, refundable amount and money deposited into a bank are different facts. Provider search exposes fee and coupon-related fields, but this release does not treat them as a bank statement or invent a net deposit calculation. Refunds, disputes, chargebacks and automatic financial corrections remain outside this milestone. [Provider transaction fields](https://developer.bka.sh/docs/search-transaction) are the basis for that distinction.
+
+The daily report groups payment attempts by their creation date in Asia/Dhaka; its check-result counts use each check's date. These are separate activity counts, not daily bank deposits. CSV exports include minor-unit amounts and distinguish the provider environment.
+
+## API and access
+
+Paths below are relative to `/api/v1`. Session-protected mutations require CSRF. Only the opaque-token callback is public, and it requires the stored provider payment/signature match.
+
+| Method and path | Purpose |
+| --- | --- |
+| `GET /payments/configuration` | Current office's provider availability; reports missing setup and Nagad's integration status. |
+| `GET /applications/:id/payment` | Authorized application's assessment, attempt, receipt and eligibility. |
+| `POST /applications/:id/payments` | Citizen-own/staff/admin checkout with `{ provider: "BKASH", requestKey }`; no caller price. |
+| `GET /payments/bkash/callback/:token` | Validates the provider return and claims execution at most once; redirects to the app's result screen. |
+| `GET /payments/:id` | Authorized attempt status; checkout URL is exposed only while ready. |
+| `POST /payments/:id/reconcile` | Citizen-own/staff/admin/finance provider status check using `{ requestKey }`. |
+| `GET /payments` | Staff/admin/finance tenant list with bounded pagination and optional status/date filters. |
+| `GET /payments/reconciliation` | Admin/finance daily summary using `businessDate=YYYY-MM-DD`. |
+| `GET /payments/reconciliation/export.csv` | Admin/finance CSV for that date. |
+| `GET /receipts/:id` and `GET /receipts/:id/pdf` | Tenant/application-authorized receipt metadata or stored PDF. |
+
+The migration adds `gateway_token_cache`, `gateway_payment_intents`, `gateway_payment_events`, `gateway_payment_confirmations`, `gateway_payment_receipts` and `gateway_payment_reconciliations`. The financial request and provider identity are immutable; operational status is controlled separately. Confirmation requires its receipt in the same commit. Forced RLS, tenant-composite relationships and restricted runtime privileges apply to the new tables.
+
+## Merchant setup and secret handling
+
+Activation requires a bKash-approved merchant account and the correct environment's username, password, application key and application secret, together with the expected receiving merchant identity and an HTTPS callback origin. The integration binds credentials to an explicitly configured tenant; one office cannot silently collect through another office's merchant account. Confirm the account's approved v2 endpoint/environment with bKash before enabling it.
+
+Credentials belong in deployment secrets, never source, browser code, chat, screenshots or public logs. Token storage is encrypted and keyed to the merchant environment; concurrent requests and restarts share its durable cache. Authentication calls are capped because bKash documents a two-calls-per-hour limit and an hour-long block when exceeded. See [Grant Token](https://developer.bka.sh/docs/grant-token) and [Refresh Token](https://developer.bka.sh/docs/refresh-token).
+
+Changing credentials, tenant binding, encryption key or environment is an operational change. Preserve the ability to resolve outstanding attempts under their original merchant configuration; do not switch their ownership or reinterpret sandbox records as live payments.
+
+The adapter configuration is server-only:
+
+| Setting | Purpose |
+| --- | --- |
+| `BKASH_ENVIRONMENT` | `disabled` by default; `sandbox` or `live` selects the approved environment. |
+| `BKASH_TENANT_ID` | The one office allowed to use this deployment's merchant credentials. |
+| `BKASH_USERNAME`, `BKASH_PASSWORD`, `BKASH_APP_KEY`, `BKASH_APP_SECRET` | Provider-issued credentials for that environment. |
+| `BKASH_MERCHANT_ACCOUNT` | Expected receiving merchant wallet, checked against provider transaction data. |
+| `BKASH_TOKEN_ENCRYPTION_KEY` | Separate 32-byte secret, represented by 64 hexadecimal characters, for stored token encryption. |
+| `BKASH_LIVE_ENABLED` | Explicit `true` is additionally required for the live environment. |
+| `PUBLIC_ORIGIN` | Exact HTTPS application origin used for callback construction. |
+
+Multiple unions do not share a merchant account implicitly. This first adapter supports one configured tenant per deployment; onboarding additional merchant accounts requires extending configuration and token isolation deliberately. Missing or invalid configuration leaves checkout unavailable.
+
+## Evidence and release limits
+
+The local [API execution](../execution/payments-api.log) passed **89 tests**, including ten bKash adapter tests and sixteen payment workflow tests. These use a local mock provider and real PostgreSQL to exercise amount/merchant mismatch, callback forgery, duplicate confirmation, single execution, timeout recovery, token persistence/rate limits, receipt immutability, tenant/role restrictions, mismatch holds and unchanged SaaS balances. They verify Astra's behavior against controlled responses; they do not certify bKash connectivity or merchant readiness.
+
+The isolated non-superuser [managed PostgreSQL check](../execution/payments-managed-postgres.log) passed **14 groups** over eleven migration files, including all six new tables' RLS/privileges and the restricted callback resolver. The [synthetic receipt evidence](../execution/payments-receipt-qa.json) records a one-page PDF, its hash, demonstration marker and Bengali text. Its explicit mode is `LOCAL_MOCK_NOT_PROVIDER_SANDBOX`, and `realMoneyCollected` is false.
+
+Before activation: obtain merchant approval and credentials, complete genuine provider-sandbox acceptance, verify the registered callback and receiving merchant, and authorize a controlled real transaction. Until then the live UI must say that bKash configuration is required and Nagad is unavailable. No receipt or real-money result is claimed from merely deploying the disabled integration.
+
+This first version keeps **one payment attempt per application**. A repeated checkout request returns that existing attempt. It does not automatically replace an unknown, cancelled, failed or expired checkout. When a provider payment ID is known, Query/Search can recover a completed transaction; an unknown creation outcome without a payment ID requires provider investigation. There is currently no operator reset, replacement-attempt or refund endpoint. These recovery limitations must be resolved and provider-tested before normal live collection is enabled.
+
+Browser and hosted evidence must be added to the final release record after those checks complete. Primary documentation above was read on 17 October 2026; this implementation targets its v2 contract, not the older v1.2 checkout examples.
+
+Local browser verification on 18 October: all four new payment cases passed. A legacy screenshot encountered a closed test browser; its four-case file passed on rerun. Evidence: [suite](../execution/payments-web.log), [rerun](../execution/payments-web-retry.log). Paid receipt counts retain historical facts; review counts and the REVIEW_REQUIRED filter also include paid applications under a later mismatch hold, so these groups can overlap.

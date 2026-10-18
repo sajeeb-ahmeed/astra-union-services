@@ -1,0 +1,70 @@
+
+> astra-union-services@0.5.0 test:web
+> tsx scripts/test-web.ts
+
+
+  VITE v7.3.7  ready in 268 ms
+
+  ➜  Local:   http://127.0.0.1:5173/
+5:10:49 PM [vite] http proxy error: /api/v1/health
+Error: connect ECONNREFUSED 127.0.0.1:3001
+    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1706:16)
+5:10:49 PM [vite] http proxy error: /api/v1/health
+Error: connect ECONNREFUSED 127.0.0.1:3001
+    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1706:16)
+Astra DEMO server on http://127.0.0.1:3001; PostgreSQL; official issuance disabled.
+✔ browser: citizen → staff visibility → correction → authorized approval → real PDF/QR → exactly-once debit (10585.0919ms)
+✔ browser: family/trade conditional validation, real private upload, finance settlement and mobile keyboard layout (3139.794ms)
+✔ browser: staff citizen registration and owner compensating adjustments persist with role boundaries (3190.7838ms)
+✔ expanded browser: public 47-service discovery, retained directory pagination, help, feedback and newsletter persistence (3803.0915ms)
+✔ expanded browser: owner onboarding, staff/service administration, explicit authorization and public notice controls (4430.119ms)
+✔ expanded browser: synthetic self-registration, new catalog application and secure password change (2816.2061ms)
+✖ expanded browser: trade renewal links a real issued source without charging, and public application tracking remains minimal (3332.2972ms)
+✔ FOR-01: actual React renderer renders all 47 captured service entries and all 48 initial form sections (82.9178ms)
+✔ operational labels switch languages and private upload accept rules render from the shared profile (13.0669ms)
+✔ nested family member rows expose local conditional guardian only for a minor (5.0144ms)
+✔ checkboxes use strict boolean semantics: false remains unchecked, true checks the declaration (8.1529ms)
+✔ conditional trade previous-license control is hidden until selected and has an associated label (10.0671ms)
+✔ field errors link bilingual error content to the exact nested input (4.0303ms)
+✔ repeatable group errors are focusable and programmatically linked to their fieldset (1.6155ms)
+✔ disabled application controls include nested add/remove and upload actions (2.4862ms)
+✔ language source: displayed literal translations cover all six public/workspace components (116.6484ms)
+✔ geography source: checksums, strict UTF-8/NFC, unique IDs, typed parents and all derived wards (813.227ms)
+✔ geography browser: mobile cascade uses parent IDs, clears descendants and handles a source coverage gap (1264.6634ms)
+✔ geography browser: failed child lookup exposes retry and a retry retrieves real districts (779.7897ms)
+✔ geography browser: mobile registration stores selected geography and server-generated reference (1652.0013ms)
+✔ language browser: preference persists across public pages and authenticated workspace (2244.514ms)
+✔ intake browser: citizen first, empty application, language retention and new citizen return (1943.8371ms)
+✔ intake browser: hosted hostname hides sample insertion and exact reference opens own application (1401.7168ms)
+✔ order browser: explicit office fees, citizen-first quote acceptance, bilingual/mobile state and immutable fee snapshot (3618.8242ms)
+✔ order browser: delayed policy load cannot populate another service's blank fee editor (954.0997ms)
+✔ payments browser: later mismatch preserves receipt, exposes recovery and remains visible to finance (3219.7676ms)
+✔ payments browser: late checkout response cannot redirect a departed application; ambiguous gateway failure stays uncertain (2472.8424ms)
+✔ payments browser: approved fee remains unpaid without merchant setup; forged return cannot show receipt; mobile Bangla persists (1513.1686ms)
+✔ payments browser: finance has scoped gateway register and real empty reconciliation CSV; staff cannot open reconciliation (3202.1482ms)
+✔ portal browser: responsive profile, searchable applicant and biodata/holding/witness private PDF copies (2900.7128ms)
+✔ portal browser: finance filters actual reports and downloads private CSV/PDF (2766.031ms)
+ℹ tests 31
+ℹ suites 0
+ℹ pass 30
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 67901.9772
+
+✖ failing tests:
+
+test at apps\web\test\expanded-browser.test.ts:1:18541
+✖ expanded browser: trade renewal links a real issued source without charging, and public application tracking remains minimal (3332.2972ms)
+  page.screenshot: Target page, context or browser has been closed
+  Browser logs:
+
+  <launching> C:\Users\USER\AppData\Local\ms-playwright\chromium-1248\chrome-win64\chrome.exe --disable-field-trial-config --disable-background-networking --disable-background-timer-throttling --disable-backgrounding-occluded-windows --disable-back-forward-cache --disable-breakpad --disable-client-side-phishing-detection --disable-component-extensions-with-background-pages --disable-component-update --no-default-browser-check --disable-default-apps --disable-dev-shm-usage --disable-extensions --disable-features=AvoidUnnecessaryBeforeUnloadCheckSync,BoundaryEventDispatchTracksNodeRemoval,DestroyProfileOnBrowserClose,DialMediaRouteProvider,GlobalMediaControls,HttpsUpgrades,LensOverlay,MediaRouter,PaintHolding,ThirdPartyStoragePartitioning,Translate,AutoDeElevate,RenderDocument,OptimizationHints --enable-features=CDPScreenshotNewSurface --allow-pre-commit-input --disable-hang-monitor --disable-ipc-flooding-protection --disable-popup-blocking --disable-prompt-on-repost --disable-renderer-backgrounding --force-color-profile=srgb --metrics-recording-only --no-first-run --password-store=basic --use-mock-keychain --no-service-autorun --export-tagged-pdf --disable-search-engine-choice-screen --unsafely-disable-devtools-self-xss-warnings --edge-skip-compat-layer-relaunch --enable-automation --disable-infobars --disable-search-engine-choice-screen --disable-sync --enable-unsafe-swiftshader --headless --hide-scrollbars --mute-audio --blink-settings=primaryHoverType=2,availableHoverTypes=2,primaryPointerType=4,availablePointerTypes=4 --no-sandbox --user-data-dir=C:\Users\USER\AppData\Local\Temp\playwright_chromiumdev_profile-vzvJOS --remote-debugging-pipe --no-startup-window
+  <launched> pid=30592
+  Call log:
+  [2m  - taking page screenshot[22m
+  [2m  - waiting for fonts to load...[22m
+  [2m  - fonts loaded[22m
+
+      at TestContext.<anonymous> (C:\Users\USER\Documents\ChatGPT\prottoyon  live\apps\web\test\expanded-browser.test.ts:708:19)

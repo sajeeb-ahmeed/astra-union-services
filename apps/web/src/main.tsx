@@ -45,6 +45,21 @@ const AdditionalWorkspace = lazy(() =>
     default: m.AdditionalWorkspace,
   })),
 );
+const ApplicationPayment = lazy(() =>
+  import("./OnlinePayments.js").then((m) => ({ default: m.ApplicationPayment })),
+);
+const PaymentsWorkspace = lazy(() =>
+  import("./OnlinePayments.js").then((m) => ({ default: m.PaymentsWorkspace })),
+);
+const returnedApplication = location.pathname === "/payments/return"
+  ? new URLSearchParams(location.search).get("applicationId")
+  : null;
+const paymentReturnApplication = returnedApplication && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(returnedApplication)
+  ? returnedApplication : null;
+if (location.pathname === "/payments/return") {
+  // A callback only selects an authenticated record. Query parameters never prove payment.
+  history.replaceState({}, "", "/login");
+}
 const localDemo = ["127.0.0.1", "localhost", "::1", "[::1]"].includes(
   location.hostname,
 );
@@ -68,6 +83,7 @@ const labels: Record<string, string> = {
   citizens: "Citizens",
   applications: "Applications",
   billing: "Subscription & credits",
+  payments: "Payments and receipts",
   owner: "Platform management",
   admin: "Office administration",
   security: "Account security",
@@ -83,6 +99,7 @@ const localized: Record<string, string> = {
   citizens: "নাগরিক",
   applications: "আবেদন",
   billing: "সাবস্ক্রিপশন ও ক্রেডিট",
+  payments: "পেমেন্ট ও রসিদ",
   owner: "প্ল্যাটফর্ম ব্যবস্থাপনা",
   admin: "অফিস ব্যবস্থাপনা",
   security: "অ্যাকাউন্ট নিরাপত্তা",
@@ -251,6 +268,16 @@ function App() {
   useEffect(() => {
     if (session) run(refresh);
   }, [session, filter, appQuery, appPage, appPageSize, citizenQuery]);
+  const paymentReturnHandled = useRef(false);
+  useEffect(() => {
+    if (!session || !paymentReturnApplication || paymentReturnHandled.current) return;
+    paymentReturnHandled.current = true;
+    void run(async () => {
+      await openApplication(paymentReturnApplication);
+      history.replaceState({}, "", "/");
+      setMessage(choose({ bn: "গেটওয়ে থেকে ফিরে এসেছেন। নিচে সার্ভারে যাচাইকৃত পেমেন্টের অবস্থা দেখুন।", en: "You returned from the gateway. Check the server-verified payment status below." }));
+    });
+  }, [session]);
   useEffect(() => {
     setPayload({});
     setPreview(false);
@@ -562,11 +589,13 @@ function App() {
                     (p !== "reports" || finance) &&
                     (p !== "prints" || staff || role === "citizen") &&
                     (p !== "billing" || finance) &&
+                    (p !== "payments" || ["staff", "admin", "finance"].includes(role)) &&
                     (role !== "finance" ||
                       [
                         "home",
                         "services",
                         "billing",
+                        "payments",
                         "security",
                         "profile",
                         "notifications",
@@ -1447,6 +1476,9 @@ function App() {
                 {detail.order && (
                   <>
                     <OrderSummary order={detail.order} />
+                    <Suspense fallback={<p role="status">{choose({ bn: "পেমেন্টের তথ্য লোড হচ্ছে…", en: "Loading payment details…" })}</p>}>
+                      <ApplicationPayment key={application.id} applicationId={application.id} role={role} revision={application.state} />
+                    </Suspense>
                     <p className="hint">
                       {choose({
                         bn: "সংরক্ষিত ভাষা, সনদ সংগ্রহের মাধ্যম ও ফি এই আবেদনে অপরিবর্তনীয়। এগুলো বদলাতে নতুন আবেদন শুরু করুন।",
@@ -1934,6 +1966,7 @@ function App() {
           ),
         )}
         <Suspense fallback={<p role="status">{t("Loading workspace…")}</p>}>
+          {page === "payments" && ["staff", "admin", "finance"].includes(role) && <PaymentsWorkspace role={role} />}
           {tx(page === "admin" && role === "admin" && <AdminWorkspace />)}
           {tx(page === "security" && <AccountSecurity />)}
           {tx(

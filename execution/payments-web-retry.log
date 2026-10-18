@@ -1,0 +1,12 @@
+✔ expanded browser: public 47-service discovery, retained directory pagination, help, feedback and newsletter persistence (3119.5946ms)
+✔ expanded browser: owner onboarding, staff/service administration, explicit authorization and public notice controls (5288.1335ms)
+✔ expanded browser: synthetic self-registration, new catalog application and secure password change (3125.1434ms)
+✔ expanded browser: trade renewal links a real issued source without charging, and public application tracking remains minimal (3693.5391ms)
+ℹ tests 4
+ℹ suites 0
+ℹ pass 4
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 15821.8531

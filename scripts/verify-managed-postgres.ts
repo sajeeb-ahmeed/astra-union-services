@@ -96,6 +96,10 @@ try {
   const tenantA = randomUUID(), tenantB = randomUUID(), userId = randomUUID();
   const citizenA = randomUUID(), citizenB = randomUUID(), applicationA = randomUUID(), applicationB = randomUUID();
   const draftA = randomUUID(), certificateA = randomUUID(), noticeA = randomUUID();
+  const gatewayApplicationA = randomUUID(), gatewayIntentA = randomUUID();
+  const callbackDigest = 'a'.repeat(64);
+  const gatewayTables = ['gateway_token_cache', 'gateway_payment_intents', 'gateway_payment_events', 'gateway_payment_confirmations', 'gateway_payment_receipts', 'gateway_payment_reconciliations'];
+  const gatewayHistoryTables = ['gateway_payment_events', 'gateway_payment_confirmations', 'gateway_payment_receipts', 'gateway_payment_reconciliations'];
   await owner.query(
     "INSERT INTO platform_users(id,email,display_name,password_hash) VALUES($1,'managed-fixture@example.test','Synthetic managed fixture','not-a-login-password')", [userId],
   );
@@ -122,6 +126,7 @@ try {
         [applicationId, tenantId, citizenId, schema.service_no, schema.version, schema.schema_hash, userId],
       );
       await client.query('INSERT INTO tenant_wallets(tenant_id) VALUES($1)', [tenantId]);
+      await client.query("INSERT INTO gateway_token_cache(tenant_id,credential_fingerprint) VALUES($1,'synthetic-managed-fixture')", [tenantId]);
       await client.query('COMMIT');
     } catch (error) { await client.query('ROLLBACK'); throw error; }
     finally { client.release(); }
@@ -146,11 +151,23 @@ try {
       "INSERT INTO password_recovery_tokens(token_hash,tenant_id,user_id,created_by,expires_at) VALUES('managed-recovery-valid',$1,$2,$2,now()+interval '15 minutes'),('managed-recovery-expired',$1,$2,$2,now()-interval '1 minute')",
       [tenantA, userId],
     );
+    await fixture.query("INSERT INTO staff_memberships(tenant_id,user_id,role) VALUES($1,$2,'staff')", [tenantA, userId]);
+    await fixture.query('INSERT INTO tenant_service_configuration(tenant_id,service_no,credit_cost) VALUES($1,45,1)', [tenantA]);
+    await fixture.query(`INSERT INTO service_order_policies(tenant_id,service_no,version,statutory_fee_minor,processing_fee_minor,emergency_surcharge_minor,office_collection_fee_minor,digital_copy_fee_minor,delivery_modes,urgencies,reason,created_by)
+      VALUES($1,45,1,200,50,0,0,0,ARRAY['office_collection'],ARRAY['normal'],'Synthetic managed gateway fixture',$2)`, [tenantA, userId]);
+    await fixture.query(`INSERT INTO applications(id,tenant_id,citizen_id,service_no,schema_version,schema_hash,state,created_by,approved_by,approved_version,order_mode)
+      VALUES($1,$2,$3,45,1,$4,'APPROVED',$5,$5,1,'POLICY')`, [gatewayApplicationA, tenantA, citizenA, schema.schema_hash, userId]);
+    await fixture.query(`INSERT INTO application_order_snapshots(tenant_id,application_id,service_no,policy_version,address_basis,certificate_language,delivery_mode,urgency,statutory_fee_minor,processing_fee_minor,emergency_surcharge_minor,delivery_fee_minor,total_minor,currency)
+      VALUES($1,$2,45,1,'registered_profile','en','office_collection','normal',200,50,0,0,250,'BDT')`, [tenantA, gatewayApplicationA]);
+    await fixture.query("SELECT set_config('astra.actor_id',$1,true)", [userId]);
+    await fixture.query(`INSERT INTO gateway_payment_intents(tenant_id,id,application_id,provider,environment,merchant_account,invoice,amount_minor,currency,created_by,request_key,request_hash,callback_hash,status)
+      VALUES($1,$2,$3,'BKASH','SANDBOX','01700000000',$4,250,'BDT',$5,$6,$7,$8,'CREATE_PENDING')`,
+      [tenantA, gatewayIntentA, gatewayApplicationA, `MANAGED-${gatewayIntentA}`, userId, randomUUID(), 'b'.repeat(64), callbackDigest]);
     await fixture.query('COMMIT');
   } catch (error) { await fixture.query('ROLLBACK'); throw error; }
   finally { fixture.release(); }
 
-  for (const table of ['certificates', 'applications', 'notices', 'password_recovery_tokens', 'citizens', 'service_order_policies', 'application_order_snapshots']) {
+  for (const table of ['certificates', 'applications', 'notices', 'password_recovery_tokens', 'citizens', 'service_order_policies', 'application_order_snapshots', ...gatewayTables]) {
     assert.equal((await app.query(`SELECT count(*)::int n FROM ${table}`)).rows[0].n, 0);
     assert.equal((await owner.query(
       'SELECT relrowsecurity AND relforcerowsecurity enabled FROM pg_class WHERE oid=$1::regclass', [table],
@@ -167,6 +184,33 @@ try {
     assert.deepEqual(permissions, {can_select:true,can_insert:true,can_update:false,can_delete:false});
   }
   checks.push('Order policies and snapshots retain forced RLS and append-only runtime grants on managed PostgreSQL.');
+  for (const table of gatewayTables) {
+    const permissions = (await app.query(`SELECT has_table_privilege(current_user,$1,'SELECT') can_select,
+      has_table_privilege(current_user,$1,'INSERT') can_insert,has_table_privilege(current_user,$1,'UPDATE') can_update,
+      has_table_privilege(current_user,$1,'DELETE') can_delete`, [table])).rows[0];
+    assert.deepEqual(permissions, {can_select:true,can_insert:true,can_update:table==='gateway_token_cache',can_delete:false});
+  }
+  const operationalColumns = ['status','payment_id','checkout_url','callback_signature','execute_started_at','updated_at','last_error'];
+  const gatewayColumns = (await app.query(`SELECT a.attname name,has_column_privilege(current_user,a.attrelid,a.attnum,'UPDATE') can_update
+    FROM pg_attribute a WHERE a.attrelid='gateway_payment_intents'::regclass AND a.attnum>0 AND NOT a.attisdropped ORDER BY a.attnum`)).rows;
+  for (const column of gatewayColumns) assert.equal(column.can_update, operationalColumns.includes(column.name), `Unexpected gateway UPDATE privilege: ${column.name}`);
+  const immutableTriggers = (await owner.query(`SELECT c.relname FROM pg_trigger t JOIN pg_class c ON c.oid=t.tgrelid
+    WHERE c.relname=ANY($1::text[]) AND NOT t.tgisinternal AND t.tgenabled='O'
+      AND t.tgfoid='immutable_record()'::regprocedure AND (t.tgtype::int & 27)=27 ORDER BY c.relname`, [gatewayHistoryTables])).rows;
+  assert.deepEqual(immutableTriggers.map(r=>r.relname), [...gatewayHistoryTables].sort());
+  checks.push('All six gateway tables force tenant RLS; four history tables are append-only, token cache updates are scoped, and intent UPDATE grants cover only seven operational columns.');
+
+  const callbackPolicy = (await owner.query("SELECT tablename,roles::text[] roles,cmd,qual FROM pg_policies WHERE policyname='callback_owner_read'")).rows;
+  assert.deepEqual(callbackPolicy, [{tablename:'gateway_payment_intents',roles:[migrationRole],cmd:'SELECT',qual:'true'}]);
+  const callbackFunction = (await owner.query(`SELECT p.prosecdef,p.proconfig,pg_get_function_result(p.oid) result,
+    has_function_privilege('astra_app',p.oid,'EXECUTE') app_execute,
+    EXISTS(SELECT 1 FROM aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) a WHERE a.grantee=0 AND a.privilege_type='EXECUTE') public_execute
+    FROM pg_proc p WHERE p.oid='resolve_gateway_callback(text)'::regprocedure`)).rows[0];
+  assert.deepEqual(callbackFunction, {prosecdef:true,proconfig:['search_path=public, pg_temp'],result:'TABLE(tenant_id uuid, intent_id uuid)',app_execute:true,public_execute:false});
+  assert.deepEqual((await app.query('SELECT * FROM resolve_gateway_callback($1)', [callbackDigest])).rows, [{tenant_id:tenantA,intent_id:gatewayIntentA}]);
+  for (const invalid of ['', 'a'.repeat(63), 'a'.repeat(65), 'c'.repeat(64)])
+    assert.deepEqual((await app.query('SELECT * FROM resolve_gateway_callback($1)', [invalid])).rows, []);
+  checks.push('The callback SECURITY DEFINER has a fixed search path and app-only execution; its owner-only SELECT policy resolves a matching opaque digest to exactly two IDs and hides invalid digests.');
   assert.equal((await app.query("SELECT * FROM public_verify('managed-certificate-digest')")).rows.length, 1);
   assert.equal((await app.query("SELECT * FROM public_verify('invalid-digest')")).rows.length, 0);
   assert.equal((await app.query('SELECT * FROM public_track($1)', [applicationA])).rows.length, 1);
@@ -181,7 +225,11 @@ try {
     await request.query('BEGIN');
     await request.query("SELECT set_config('astra.tenant_id',$1,true)", [tenantA]);
     assert.equal((await request.query('SELECT count(*)::int n FROM applications WHERE tenant_id=$1', [tenantB])).rows[0].n, 0);
-    assert.equal((await request.query('SELECT count(*)::int n FROM applications WHERE tenant_id=$1', [tenantA])).rows[0].n, 2);
+    assert.equal((await request.query('SELECT count(*)::int n FROM applications WHERE tenant_id=$1', [tenantA])).rows[0].n, 3);
+    assert.equal((await request.query('SELECT count(*)::int n FROM gateway_payment_intents')).rows[0].n, 1);
+    assert.equal((await request.query('SELECT count(*)::int n FROM gateway_token_cache')).rows[0].n, 1);
+    for (const table of gatewayTables)
+      assert.equal((await request.query(`SELECT count(*)::int n FROM ${table} WHERE tenant_id=$1`, [tenantB])).rows[0].n, 0);
     await request.query('SAVEPOINT denied_cross_tenant_write');
     await assert.rejects(request.query(
       "INSERT INTO notices(tenant_id,title_bn,title_en,body_bn,body_en,created_by) VALUES($1,'পরীক্ষা','Denied fixture','পরীক্ষা','Synthetic',$2)",
@@ -189,6 +237,14 @@ try {
     ), { code: '42501' });
     await request.query('ROLLBACK TO SAVEPOINT denied_cross_tenant_write');
     await request.query('RELEASE SAVEPOINT denied_cross_tenant_write');
+    await request.query('SAVEPOINT denied_gateway_write');
+    await assert.rejects(request.query("INSERT INTO gateway_token_cache(tenant_id,credential_fingerprint) VALUES($1,'forbidden-cross-office')", [tenantB]), {code:'42501'});
+    await request.query('ROLLBACK TO SAVEPOINT denied_gateway_write');
+    await assert.rejects(request.query("UPDATE gateway_payment_intents SET invoice='forbidden-reprice' WHERE id=$1", [gatewayIntentA]), {code:'42501'});
+    await request.query('ROLLBACK TO SAVEPOINT denied_gateway_write');
+    assert.equal((await request.query("UPDATE gateway_payment_intents SET last_error='MANAGED_PROBE' WHERE id=$1 RETURNING last_error", [gatewayIntentA])).rows[0].last_error, 'MANAGED_PROBE');
+    await request.query('ROLLBACK TO SAVEPOINT denied_gateway_write');
+    await request.query('RELEASE SAVEPOINT denied_gateway_write');
     assert.equal((await request.query('SELECT balance FROM lock_tenant_wallet()')).rows[0].balance, 0);
     await request.query(
       "INSERT INTO credit_ledger(tenant_id,delta,kind,idempotency_key,actor_id,reason,balance_after) VALUES($1,3,'TOPUP','managed-ledger-check',$2,'Synthetic regression',0)",
@@ -201,6 +257,7 @@ try {
   await assert.rejects(app.query('UPDATE tenant_wallets SET balance=999'), { code: '42501' });
   await assert.rejects(app.query(`SET ROLE ${migrationRole}`), { code: '42501' });
   checks.push('Cross-tenant reads and writes are denied; managed-owner ledger lock/trigger works; direct wallet updates and owner SET ROLE are denied.');
+  checks.push('Scoped gateway reads hide the other office token row; cross-office token inserts and immutable invoice updates fail, while a permitted operational status field can be updated.');
   evidence.status = 'PASS';
   evidence.migrations = (await owner.query('SELECT count(*)::int n FROM schema_migrations')).rows[0].n;
   fs.mkdirSync('execution', { recursive: true });

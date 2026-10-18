@@ -91,8 +91,8 @@ export function OrderSummary({ order }: { order: OrderQuote }) {
       {order.totalMinor > 0 && (
         <p className="notice">
           {label(
-            "পেমেন্ট গ্রহণ ও যাচাই এখনো সংযুক্ত হয়নি। ফি পরিশোধ যাচাইয়ের ব্যবস্থা চালু না হওয়া পর্যন্ত এই আবেদনের সনদ ইস্যু করা যাবে না।",
-            "Payment collection and verification are not connected yet. This application's certificate cannot be issued until verified fee settlement is supported.",
+            "ফি পরিশোধ সার্ভারে যাচাই না হওয়া পর্যন্ত এই আবেদনের সনদ ইস্যু করা যাবে না। আবেদন অনুমোদনের পরে চালু থাকা গেটওয়েতে পরিশোধ করা যাবে।",
+            "This application's certificate cannot be issued until verified fee settlement. An available gateway can collect payment after application approval.",
           )}
         </p>
       )}
