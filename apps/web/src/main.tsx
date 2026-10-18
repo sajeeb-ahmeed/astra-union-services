@@ -275,7 +275,7 @@ function App() {
     void run(async () => {
       await openApplication(paymentReturnApplication);
       history.replaceState({}, "", "/");
-      setMessage(choose({ bn: "গেটওয়ে থেকে ফিরে এসেছেন। নিচে সার্ভারে যাচাইকৃত পেমেন্টের অবস্থা দেখুন।", en: "You returned from the gateway. Check the server-verified payment status below." }));
+      setMessage("You returned from the gateway. Check the server-verified payment status below.");
     });
   }, [session]);
   useEffect(() => {

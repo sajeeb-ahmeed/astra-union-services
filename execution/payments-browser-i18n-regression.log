@@ -1,0 +1,12 @@
+✔ payments browser: later mismatch preserves receipt, exposes recovery and remains visible to finance (4123.2997ms)
+✔ payments browser: late checkout response cannot redirect a departed application; ambiguous gateway failure stays uncertain (2388.8719ms)
+✔ payments browser: approved fee remains unpaid without merchant setup; forged return cannot show receipt; mobile Bangla persists (1193.5574ms)
+✔ payments browser: finance has scoped gateway register and real empty reconciliation CSV; staff cannot open reconciliation (3101.5796ms)
+ℹ tests 4
+ℹ suites 0
+ℹ pass 4
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 11660.8417

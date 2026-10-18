@@ -1,17 +1,17 @@
 {
-  "measuredAt": "2026-10-17T09:51:10.557Z",
+  "measuredAt": "2026-10-18T11:55:51.043Z",
   "assets": [
     {
-      "name": "AdditionalWorkspace-CpXmPHIe.js",
+      "name": "AdditionalWorkspace-B71K8Dd2.js",
       "rawBytes": 13924,
-      "gzipBytes": 4152,
+      "gzipBytes": 4151,
       "brotliBytes": 3522
     },
     {
-      "name": "AdminWorkspace-CQ0YM01N.js",
+      "name": "AdminWorkspace-lP6WHZ3O.js",
       "rawBytes": 27759,
-      "gzipBytes": 7920,
-      "brotliBytes": 6736
+      "gzipBytes": 7919,
+      "brotliBytes": 6733
     },
     {
       "name": "index-7lagO9Mq.css",
@@ -20,16 +20,16 @@
       "brotliBytes": 6998
     },
     {
-      "name": "index-CRaW6-P0.js",
-      "rawBytes": 990538,
-      "gzipBytes": 143874,
-      "brotliBytes": 109050
+      "name": "index-BmrWSu1j.js",
+      "rawBytes": 990769,
+      "gzipBytes": 143977,
+      "brotliBytes": 108989
     },
     {
-      "name": "OnlinePayments-DAma-ZjM.js",
+      "name": "OnlinePayments-nhfSgwq5.js",
       "rawBytes": 23734,
-      "gzipBytes": 6557,
-      "brotliBytes": 5591
+      "gzipBytes": 6556,
+      "brotliBytes": 5586
     }
   ]
 }

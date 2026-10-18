@@ -607,6 +607,11 @@ test(
       });
       await banglaCard.getByText("ফি পরিশোধ হয়নি", { exact: true }).waitFor();
       assert.equal(
+        await page.locator(".notice.message").innerText(),
+        "গেটওয়ে থেকে ফিরে এসেছেন। নিচে সার্ভারে যাচাইকৃত পেমেন্টের অবস্থা দেখুন।",
+        "The gateway-return notice follows the current interface language",
+      );
+      assert.equal(
         await banglaCard
           .getByRole("button", { name: "bKash সেটআপ প্রয়োজন", exact: true })
           .isDisabled(),
@@ -624,6 +629,12 @@ test(
         path: "execution/screenshots/payments-unconfigured-mobile-bn.png",
         fullPage: true,
       });
+      await page.getByRole("button", { name: "English", exact: true }).click();
+      assert.equal(
+        await page.locator(".notice.message").innerText(),
+        "You returned from the gateway. Check the server-verified payment status below.",
+        "Switching back restores the English return notice without reloading",
+      );
       assert.deepEqual(errors, []);
     } finally {
       await context.close();
