@@ -1,6 +1,7 @@
 import { t, tx } from "./i18n.js";
 import React, { useEffect, useState } from "react";
 import { api, items } from "./api.js";
+import { AccountSessions } from "./AccountSessions.js";
 import {
   GeographyFields,
   geographyPayload,
@@ -58,6 +59,7 @@ export function AdditionalWorkspace({
   const [currentPassword, setCurrentPassword] = useState(""),
     [newPassword, setNewPassword] = useState(""),
     [confirmPassword, setConfirmPassword] = useState("");
+  const [securityRevision, setSecurityRevision] = useState(0);
   const [citizens, setCitizens] = useState<any[]>([]),
     [requests, setRequests] = useState<any[]>([]),
     [citizenId, setCitizenId] = useState("");
@@ -258,6 +260,7 @@ export function AdditionalWorkspace({
                     setCurrentPassword("");
                     setNewPassword("");
                     setConfirmPassword("");
+                    setSecurityRevision((value) => value + 1);
                     setMessage(
                       "Password changed. Other sessions have been signed out.",
                     );
@@ -296,6 +299,7 @@ export function AdditionalWorkspace({
                 <button disabled={busy}>{t("Change password")}</button>
               </form>
             </section>
+            <AccountSessions revision={securityRevision} />
           </>
         ),
       )}

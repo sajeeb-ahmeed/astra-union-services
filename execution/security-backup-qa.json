@@ -1,0 +1,36 @@
+{
+  "executedAt": "2026-10-19T04:19:30.314Z",
+  "scope": "Local synthetic PostgreSQL only; no hosted backup or disaster recovery claim.",
+  "status": "PASS",
+  "checks": [
+    "real pg_dump exported snapshot; tables=46, tenants=117, certificates=435.",
+    "encrypted AES-256-GCM archive (42757367 bytes); plaintext dump and identity values are not printed.",
+    "restored only a new isolated database astra_restore_20261019041935_5d2a3f7b; every table count/hash exactly matches the exported snapshot.",
+    "all 11 migrations, tenant rows, foreign-key definitions/validation, RLS flags/policies, function definitions/grants and append-only triggers preserved; orphan tenant references=0.",
+    "18 application routines, 7 column grants, 94 indexes, column definitions, views/enums/sequences, extensions and schema/default grants match.",
+    "117 tenant wallet balances equal append-only ledger sums; total credits=1330.",
+    "435 actual certificate PDFs retain SHA-256 hashes, %PDF- headers and one issuance debit each.",
+    "restored restricted application role sees zero unscoped rows across all 30 tenant-scoped RLS tables.",
+    "restored gateway allows operational status updates but denies amount/receipt edits; invalid callback token resolves no tenant or payment.",
+    "restored restricted application account sees no unscoped citizens; tenant A cannot read tenant B citizens.",
+    "restored tenant-context wallet helper locks only the active tenant; direct wallet UPDATE and direct trigger execution privileges remain revoked.",
+    "restored ledger still rejects modification through the real database trigger.",
+    "modified ciphertext rejected by actual restore path before plaintext/database creation.",
+    "wrong encryption key rejected by actual restore path before plaintext/database creation.",
+    "pre-existing restore scratch file remains byte-for-byte unchanged; collision creates no database and cleanup cannot remove an unowned file.",
+    "main database and existing restore targets cannot be overwritten or dropped.",
+    "no plaintext backup/restore dump files remain; failed authentication created no database."
+  ],
+  "snapshot": {
+    "tables": 46,
+    "tenants": 117,
+    "certificates": 435,
+    "migrationFiles": 11,
+    "applicationRoutines": 18,
+    "columnGrants": 7,
+    "indexes": 94,
+    "encryptedBytes": 42757367,
+    "archiveSha256": "7b30172313da76cd9d3f6cf0a90b0bfebd6561e8bf9de0ca977695a14a621bee"
+  },
+  "durationMs": 10296
+}

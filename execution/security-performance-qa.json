@@ -1,0 +1,32 @@
+{
+  "recordedAt": "2026-10-19T04:20:19.046Z",
+  "scope": "Build byte counts plus production-bundle browser tests. Not field Core Web Vitals or network latency.",
+  "beforeRelease": "0.5",
+  "before": {
+    "name": "index-BmrWSu1j.js",
+    "rawBytes": 990769,
+    "gzipBytes": 143977,
+    "brotliBytes": 108989
+  },
+  "after": {
+    "name": "index-CUmmq-ZU.js",
+    "rawBytes": 352929,
+    "gzipBytes": 96575,
+    "brotliBytes": 79883
+  },
+  "rawReductionPercent": 64.4,
+  "gzipReductionPercent": 32.9,
+  "authenticatedWorkspace": {
+    "name": "WorkspaceApp-7-19-n42.js",
+    "rawBytes": 646278,
+    "gzipBytes": 49561,
+    "brotliBytes": 34280
+  },
+  "tests": {
+    "publicCatalogParity": true,
+    "publicPageExcludesAuthenticatedChunks": true,
+    "languageAndLoginAndLogout": true,
+    "failedChunkBilingualRecovery": true
+  },
+  "limitation": "Authenticated schema/workspace chunk remains above 500KB; this is deferred loading, not removal of features."
+}

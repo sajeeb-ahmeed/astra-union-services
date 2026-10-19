@@ -1,0 +1,108 @@
+import type { Auth } from "./app.js";
+import { pool, audit, type DB } from "./db.js";
+import { fail } from "./models.js";
+import { createRateLimiter } from "./http-hardening.js";
+
+/** All credential writers and login hold this account lock before touching sessions. */
+export async function lockAccount(db: DB, userId: string) {
+  const user = (
+    await db.query("SELECT * FROM platform_users WHERE id=$1 FOR UPDATE", [
+      userId,
+    ])
+  ).rows[0];
+  if (!user || !user.active)
+    fail(401, "SESSION_INACTIVE", "This account is inactive.");
+  return user;
+}
+
+export async function accountTransaction<T>(
+  actor: Auth,
+  fn: (db: DB, user: any) => Promise<T>,
+): Promise<T> {
+  const db = await pool.connect();
+  try {
+    await db.query("BEGIN");
+    const user = await lockAccount(db, actor.userId);
+    // Middleware may have run before another request revoked this session.
+    const current = await db.query(
+      `SELECT s.expires_at FROM sessions s WHERE s.user_id=$1 AND s.csrf_token=$2
+       AND s.expires_at>clock_timestamp() AND (
+         (s.tenant_id IS NULL AND $3::text='owner') OR EXISTS (
+           SELECT 1 FROM staff_memberships m JOIN tenants t ON t.id=m.tenant_id
+           WHERE m.user_id=s.user_id AND m.tenant_id=s.tenant_id AND m.active AND t.status='ACTIVE'
+         ))`,
+      [actor.userId, actor.csrfToken, user.platform_role],
+    );
+    if (!current.rowCount)
+      fail(
+        401,
+        "SESSION_INACTIVE",
+        "This session or tenant membership is inactive.",
+      );
+    const result = await fn(db, user);
+    await db.query("COMMIT");
+    return result;
+  } catch (error) {
+    await db.query("ROLLBACK");
+    throw error;
+  } finally {
+    db.release();
+  }
+}
+
+export async function consumeAccountRecoveryLinks(db: DB, userId: string) {
+  // Recovery tokens are tenant scoped. Explicitly visit this account's memberships
+  // so a later password change invalidates every previously issued recovery link.
+  const memberships = await db.query(
+    "SELECT tenant_id FROM staff_memberships WHERE user_id=$1 ORDER BY tenant_id",
+    [userId],
+  );
+  for (const membership of memberships.rows) {
+    await db.query("SELECT set_config('astra.tenant_id',$1,true)", [
+      membership.tenant_id,
+    ]);
+    await db.query(
+      "UPDATE password_recovery_tokens SET consumed_at=now() WHERE user_id=$1 AND consumed_at IS NULL",
+      [userId],
+    );
+  }
+}
+
+export async function accountAudit(
+  db: DB,
+  actor: Auth,
+  action: "PASSWORD_CHANGED" | "OTHER_SESSIONS_REVOKED",
+  revokedSessions: number,
+) {
+  if (!actor.tenantId) return;
+  await db.query("SELECT set_config('astra.tenant_id',$1,true)", [
+    actor.tenantId,
+  ]);
+  await audit(db, actor.tenantId, actor.userId, action, actor.userId, {
+    revokedSessions,
+  });
+}
+
+/** Owner actions have no tenant audit destination; emit only after successful commit. */
+export function logOwnerAccountAction(
+  actor: Auth,
+  action: string,
+  revokedSessions: number,
+) {
+  if (!actor.tenantId)
+    console.info(
+      JSON.stringify({
+        event: "ACCOUNT_SECURITY",
+        action,
+        actorId: actor.userId,
+        revokedSessions,
+      }),
+    );
+}
+
+// Account key is taken exclusively from authenticated middleware, never request input.
+export const accountActionLimiter = createRateLimiter({
+  limit: 10,
+  windowMs: 60_000,
+  key: (req) => (req as typeof req & { auth: Auth }).auth.userId,
+});

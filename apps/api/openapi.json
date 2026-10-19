@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Astra independently authored DEMO API",
-    "version": "0.5.0",
+    "version": "0.6.0",
     "description": "Independently authored contracts for all 47 services, immutable office-specific fee assessments, and bKash v2 online checkout with provider verification, stored receipts and gateway reconciliation. These are not reference-site server contracts. Authenticated mutations require session and CSRF; the signed provider callback is separately public. Citizen fees and SaaS credits are separate. Production checkout defaults to disabled pending approved tenant merchant configuration; Nagad and bank payout reconciliation are not integrated. Official identity/signing remain unconfigured and certificates remain DEMO / NOT OFFICIAL. Source version does not establish hosted deployment or live merchant certification."
   },
   "servers": [
@@ -3617,7 +3617,7 @@
     "/api/v1/auth/password": {
       "post": {
         "summary": "Change own password and invalidate other sessions",
-        "description": "Keeps current session; verifies current password under row lock.",
+        "description": "Verify current password and session under account lock, change the password, invalidate pending trusted-channel recovery links and revoke all other sessions atomically. The current session remains active. Rate-limited; authenticated session, same origin and CSRF are required.",
         "security": [
           {
             "session": [],
@@ -7477,6 +7477,128 @@
                 }
               }
             }
+          }
+        }
+      }
+    },
+    "/api/v1/auth/sessions": {
+      "get": {
+        "summary": "Read aggregate active sessions for the authenticated account",
+        "description": "Returns counts and current expiry only. No session identifiers, cookies, tokens, IP addresses or user agents are exposed. Includes this account's active sessions across office memberships.",
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Own-account session summary",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "activeSessions",
+                    "otherSessions",
+                    "currentSessionExpiresAt"
+                  ],
+                  "properties": {
+                    "activeSessions": {
+                      "type": "integer",
+                      "minimum": 1
+                    },
+                    "otherSessions": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "currentSessionExpiresAt": {
+                      "type": "string",
+                      "format": "date-time"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, expired or revoked session."
+          },
+          "403": {
+            "description": "CSRF, origin or account access denied."
+          }
+        }
+      }
+    },
+    "/api/v1/auth/sessions/revoke-others": {
+      "post": {
+        "summary": "Password-confirmed sign out of all other own-account sessions",
+        "description": "Serializes with password change, recovery and login on the account row. Rechecks the current session and password inside the transaction; retains this session. Tenant actions append an immutable audit event; platform-owner actions emit sanitized operational logs, not a persistent global security audit.",
+        "security": [
+          {
+            "session": [],
+            "csrf": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "currentPassword"
+                ],
+                "properties": {
+                  "currentPassword": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200,
+                    "writeOnly": true
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Other sessions revoked",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "revoked",
+                    "remainingSessions"
+                  ],
+                  "properties": {
+                    "revoked": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "remainingSessions": {
+                      "type": "integer",
+                      "const": 1
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, expired or revoked session."
+          },
+          "403": {
+            "description": "CSRF, origin or account access denied."
+          },
+          "422": {
+            "description": "Invalid request or current password mismatch."
+          },
+          "429": {
+            "description": "Security mutation rate limit reached."
           }
         }
       }

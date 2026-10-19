@@ -15,5 +15,5 @@ export default defineConfig({
     strictPort: true,
     proxy: { "/api": "http://127.0.0.1:3001" },
   },
-  build: { outDir: "dist", emptyOutDir: true },
+  build: { outDir: "dist", emptyOutDir: true, manifest: true },
 });

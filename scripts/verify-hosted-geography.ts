@@ -1,6 +1,7 @@
 /** Read-only deployed geography checks. Set ASTRA_LIVE_URL to the authorized HTTPS origin. */
 import assert from "node:assert/strict";
 import fs from "node:fs";
+import { qaOutput } from "./qa-output.js";
 
 const supplied = process.env.ASTRA_LIVE_URL;
 assert.ok(supplied, "Set ASTRA_LIVE_URL to the deployed HTTPS origin.");
@@ -10,7 +11,7 @@ assert.equal(url.username + url.password + url.search + url.hash, "");
 assert.equal(url.pathname, "/");
 const base = url.origin;
 const evidence: any = { baseUrl: base, status: "RUNNING", startedAt: new Date().toISOString(), mutationScope: "None: all remote requests are unauthenticated GETs.", checks: [] };
-const output = "execution/geography-hosted-qa.json";
+const output = qaOutput("geography-hosted-qa.json");
 fs.mkdirSync("execution", { recursive: true });
 const save = () => fs.writeFileSync(output, JSON.stringify(evidence, null, 2));
 save();

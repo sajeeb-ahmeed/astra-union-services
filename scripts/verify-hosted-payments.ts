@@ -2,6 +2,7 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import { randomBytes, randomUUID, createHash } from 'node:crypto';
+import { qaOutput } from './qa-output.js';
 
 const origin = new URL(process.env.ASTRA_LIVE_URL ?? '');
 assert.equal(origin.protocol, 'https:');
@@ -21,7 +22,8 @@ assert.match(appId, /^[a-f0-9-]{36}$/);
 const evidence: any = { startedAt: new Date().toISOString(), baseUrl: base, sourceRunId: qa.runId,
   status: 'RUNNING', scope: 'Existing synthetic office. Sessions and denied requests only; no real payment, provider mock, or domain creation.', checks: [] };
 const sessions: Record<string, { cookie: string; csrf: string }> = {};
-const save = () => fs.writeFileSync('execution/payments-hosted-qa.json', JSON.stringify(evidence, null, 2));
+const output = qaOutput('payments-hosted-qa.json');
+const save = () => fs.writeFileSync(output, JSON.stringify(evidence, null, 2));
 const day = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Dhaka' }).format(new Date());
 async function request(method: string, route: string, role?: string, body?: any) {
   assert.ok(route.startsWith('/') && !route.startsWith('//'));

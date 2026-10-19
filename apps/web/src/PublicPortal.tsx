@@ -1,6 +1,7 @@
 import { t, tx, choose } from "./i18n.js";
 import React, { useEffect, useState } from "react";
-import { serviceCatalog } from "@astra/shared-schemas";
+// Public pages need names only; canonical metadata parity is checked by the web tests.
+import serviceCatalog from "./public-service-catalog.json" with { type: "json" };
 import { api, items } from "./api.js";
 import {
   GeographyFields,

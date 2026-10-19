@@ -1,0 +1,34 @@
+{
+  "recordedAt": "2026-10-19T04:20:19.048Z",
+  "status": "PASS",
+  "release": "0.6.0",
+  "environment": "Windows Node24 PostgreSQL17 real local synthetic database + Chromium",
+  "tests": {
+    "backup": 5,
+    "forms": 72,
+    "api": 97,
+    "web": 36,
+    "total": 210
+  },
+  "productionBuild": "PASS",
+  "audit": {
+    "info": 0,
+    "low": 0,
+    "moderate": 0,
+    "high": 0,
+    "critical": 0,
+    "total": 0
+  },
+  "finalFollowups": {
+    "accountApiFixtureCorrection": "8/8 PASS",
+    "accountBrowserBothNavigationLocations": "1/1 PASS",
+    "productionBundleBrowserTests": "4/4 PASS"
+  },
+  "notes": [
+    "Full suite startup briefly logged ECONNREFUSED until its API became ready; all groups passed.",
+    "First targeted UI rerun was invoked without its stopped local dev server and failed with ECONNREFUSED; after starting the stack the unchanged test passed.",
+    "Incomplete newly added security-test tenant fixtures were fixed to provision a zero wallet atomically before final restore verification."
+  ],
+  "databaseMigrationRequired": false,
+  "paymentCollectionEnabled": false
+}

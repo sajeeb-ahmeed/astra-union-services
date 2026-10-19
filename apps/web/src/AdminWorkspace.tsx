@@ -2,6 +2,7 @@ import { t, tx, choose } from "./i18n.js";
 import React, { useEffect, useState } from "react";
 import { api, items } from "./api.js";
 import { OrderPolicySettings } from "./OrderPolicySettings.js";
+import { AccountSessions } from "./AccountSessions.js";
 import {
   GeographyFields,
   geographyPayload,
@@ -13,60 +14,65 @@ const read = (o: any, a: string, b: string) => o?.[a] ?? o?.[b] ?? "";
 export function AccountSecurity() {
   const [message, setMessage] = useState(""),
     [busy, setBusy] = useState(false);
+  const [securityRevision, setSecurityRevision] = useState(0);
   return (
-    <section className="panel narrow">
-      <h2>{t("Account security")}</h2>
-      <p>
-        {t("Change your password. Other signed-in sessions will be expired.")}
-      </p>
-      <form
-        onSubmit={async (e) => {
-          e.preventDefault();
-          const form = e.currentTarget,
-            data = new FormData(form);
-          setBusy(true);
-          setMessage("");
-          try {
-            await api("/auth/password", "POST", {
-              currentPassword: data.get("currentPassword"),
-              newPassword: data.get("newPassword"),
-            });
-            form.reset();
-            setMessage("Password updated. Other sessions have been expired.");
-          } catch (e) {
-            setMessage((e as Error).message);
-          } finally {
-            setBusy(false);
-          }
-        }}
-      >
-        <label htmlFor="current-password">{t("Current password")}</label>
-        <input
-          id="current-password"
-          type="password"
-          name="currentPassword"
-          autoComplete="current-password"
-          required
-        />
-        <label htmlFor="new-password">{t("New password")}</label>
-        <input
-          id="new-password"
-          type="password"
-          name="newPassword"
-          minLength={12}
-          autoComplete="new-password"
-          required
-        />
-        <button disabled={busy}>{t("Update password")}</button>
-      </form>
-      {tx(
-        message && (
-          <p role="status" className="notice">
-            {tx(message)}
-          </p>
-        ),
-      )}
-    </section>
+    <>
+      <section className="panel narrow">
+        <h2>{t("Account security")}</h2>
+        <p>
+          {t("Change your password. Other signed-in sessions will be expired.")}
+        </p>
+        <form
+          onSubmit={async (e) => {
+            e.preventDefault();
+            const form = e.currentTarget,
+              data = new FormData(form);
+            setBusy(true);
+            setMessage("");
+            try {
+              await api("/auth/password", "POST", {
+                currentPassword: data.get("currentPassword"),
+                newPassword: data.get("newPassword"),
+              });
+              form.reset();
+              setSecurityRevision((value) => value + 1);
+              setMessage("Password updated. Other sessions have been expired.");
+            } catch (e) {
+              setMessage((e as Error).message);
+            } finally {
+              setBusy(false);
+            }
+          }}
+        >
+          <label htmlFor="current-password">{t("Current password")}</label>
+          <input
+            id="current-password"
+            type="password"
+            name="currentPassword"
+            autoComplete="current-password"
+            required
+          />
+          <label htmlFor="new-password">{t("New password")}</label>
+          <input
+            id="new-password"
+            type="password"
+            name="newPassword"
+            minLength={12}
+            autoComplete="new-password"
+            required
+          />
+          <button disabled={busy}>{t("Update password")}</button>
+        </form>
+        {tx(
+          message && (
+            <p role="status" className="notice">
+              {tx(message)}
+            </p>
+          ),
+        )}
+      </section>
+      <AccountSessions revision={securityRevision} />
+    </>
   );
 }
 export function AdminWorkspace() {
@@ -480,7 +486,10 @@ export function AdminWorkspace() {
           <section className="panel">
             <h2>{t("Enabled services and software credits")}</h2>
             <p className="hint">
-              {choose({ bn: "ক্রেডিট হলো সফটওয়্যার ব্যবহারের খরচ। আবেদন ফি নীতিতে সরকারি ফি ও প্রসেসিং ফি আলাদাভাবে নির্ধারিত হয়।", en: "Credits pay for software use. Statutory and processing fees are configured separately under Application fee policies." })}
+              {choose({
+                bn: "ক্রেডিট হলো সফটওয়্যার ব্যবহারের খরচ। আবেদন ফি নীতিতে সরকারি ফি ও প্রসেসিং ফি আলাদাভাবে নির্ধারিত হয়।",
+                en: "Credits pay for software use. Statutory and processing fees are configured separately under Application fee policies.",
+              })}
             </p>
             <div className="table-wrap">
               <table>

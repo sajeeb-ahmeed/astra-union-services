@@ -13,8 +13,20 @@ import {
 } from "./backup.mjs";
 
 const lines = [];
+const evidence = {
+  executedAt: new Date().toISOString(),
+  scope:
+    "Local synthetic PostgreSQL only; no hosted backup or disaster recovery claim.",
+  status: "RUNNING",
+  checks: [],
+};
+const evidencePrefix =
+  process.env.ASTRA_BACKUP_EVIDENCE_PREFIX ?? "security-backup";
+if (!/^[a-z][a-z0-9-]{0,60}$/.test(evidencePrefix))
+  throw new Error("Unsafe backup evidence filename prefix.");
 const record = (message) => {
   lines.push(message);
+  if (message.startsWith("PASS:")) evidence.checks.push(message.slice(6));
   console.log(message);
 };
 
@@ -24,7 +36,9 @@ async function drill() {
   );
   const configuration = await loadConfiguration();
   const backup = await createBackup(configuration);
-  const migrationCount = (await fs.readdir(path.join(root, 'db', 'migrations'))).filter(name => name.endsWith('.sql')).length;
+  const migrationCount = (
+    await fs.readdir(path.join(root, "db", "migrations"))
+  ).filter((name) => name.endsWith(".sql")).length;
   assert(
     backup.manifest.state.tenants.length >= 2,
     "Drill needs two populated synthetic tenants.",
@@ -48,11 +62,39 @@ async function drill() {
     `PASS: encrypted AES-256-GCM archive (${archive.length} bytes); plaintext dump and identity values are not printed.`,
   );
   const restored = await restoreBackup({ ...backup, configuration });
+  const primaryTenant = restored.state.tenants.find(
+    (tenant) => tenant.certificates > 0 && tenant.citizens > 0,
+  );
+  assert(
+    primaryTenant,
+    "Isolation/immutability probes need a tenant with actual issued records.",
+  );
+  const otherTenant = restored.state.tenants.find(
+    (tenant) => tenant.id !== primaryTenant.id && tenant.citizens > 0,
+  );
+  assert(
+    otherTenant,
+    "Isolation probe needs a distinct second tenant with citizen records.",
+  );
+  evidence.snapshot = {
+    tables: restored.state.tables.length,
+    tenants: restored.state.tenants.length,
+    certificates: restored.state.certificates.length,
+    migrationFiles: migrationCount,
+    applicationRoutines: restored.state.functionDefinitions.length,
+    columnGrants: restored.state.columnGrants.length,
+    indexes: restored.state.indexes.length,
+    encryptedBytes: archive.length,
+    archiveSha256: crypto.createHash("sha256").update(archive).digest("hex"),
+  };
   record(
     `PASS: restored only a new isolated database ${restored.targetName}; every table count/hash exactly matches the exported snapshot.`,
   );
   record(
     `PASS: all ${migrationCount} migrations, tenant rows, foreign-key definitions/validation, RLS flags/policies, function definitions/grants and append-only triggers preserved; orphan tenant references=${restored.state.orphanTenantReferences}.`,
+  );
+  record(
+    `PASS: ${restored.state.functionDefinitions.length} application routines, ${restored.state.columnGrants.length} column grants, ${restored.state.indexes.length} indexes, column definitions, views/enums/sequences, extensions and schema/default grants match.`,
   );
   const totalBalance = restored.state.tenants.reduce(
     (total, row) => total + row.balance,
@@ -76,6 +118,44 @@ async function drill() {
     ).rows[0];
     assert.equal(restricted.rolsuper, false);
     assert.equal(restricted.rolbypassrls, false);
+    const scopedTables = (
+      await app.query(
+        "SELECT c.relname AS name FROM pg_class c JOIN pg_attribute a ON a.attrelid=c.oid AND a.attname='tenant_id' WHERE c.relnamespace='public'::regnamespace AND c.relkind='r' AND c.relrowsecurity ORDER BY c.relname",
+      )
+    ).rows;
+    for (const { name } of scopedTables) {
+      assert.match(name, /^[a-z][a-z0-9_]*$/);
+      assert.equal(
+        (await app.query(`SELECT count(*)::integer AS count FROM "${name}"`))
+          .rows[0].count,
+        0,
+        `Unscoped access denied for ${name}`,
+      );
+    }
+    record(
+      `PASS: restored restricted application role sees zero unscoped rows across all ${scopedTables.length} tenant-scoped RLS tables.`,
+    );
+    const paymentPrivileges = (
+      await app.query(
+        "SELECT has_column_privilege(current_user,'gateway_payment_intents','status','UPDATE') AS status_update,has_column_privilege(current_user,'gateway_payment_intents','amount_minor','UPDATE') AS amount_update,has_table_privilege(current_user,'gateway_payment_receipts','UPDATE') AS receipt_update",
+      )
+    ).rows[0];
+    assert.deepEqual(paymentPrivileges, {
+      status_update: true,
+      amount_update: false,
+      receipt_update: false,
+    });
+    assert.equal(
+      (
+        await app.query(
+          "SELECT * FROM resolve_gateway_callback('invalid-backup-drill-token')",
+        )
+      ).rowCount,
+      0,
+    );
+    record(
+      "PASS: restored gateway allows operational status updates but denies amount/receipt edits; invalid callback token resolves no tenant or payment.",
+    );
     assert.equal(
       (await app.query("SELECT count(*)::integer AS count FROM citizens"))
         .rows[0].count,
@@ -83,17 +163,17 @@ async function drill() {
     );
     await app.query("BEGIN");
     await app.query("SELECT set_config('astra.tenant_id',$1,true)", [
-      restored.state.tenants[0].id,
+      primaryTenant.id,
     ]);
     const tenantRows = (
       await app.query("SELECT count(*)::integer AS count FROM citizens")
     ).rows[0].count;
-    assert.equal(tenantRows, restored.state.tenants[0].citizens);
+    assert.equal(tenantRows, primaryTenant.citizens);
     assert.equal(
       (
         await app.query(
           "SELECT count(*)::integer AS count FROM citizens WHERE tenant_id=$1",
-          [restored.state.tenants[1].id],
+          [otherTenant.id],
         )
       ).rows[0].count,
       0,
@@ -120,23 +200,21 @@ async function drill() {
     assert.equal(privileges.trigger_execute, false);
     await app.query("BEGIN");
     await app.query("SELECT set_config('astra.tenant_id',$1,true)", [
-      restored.state.tenants[0].id,
+      primaryTenant.id,
     ]);
     const lockedWallets = (
       await app.query("SELECT balance FROM lock_tenant_wallet()")
     ).rows;
-    assert.deepEqual(lockedWallets, [
-      { balance: restored.state.tenants[0].balance },
-    ]);
+    assert.deepEqual(lockedWallets, [{ balance: primaryTenant.balance }]);
     await app.query("ROLLBACK");
     await app.query("BEGIN");
     await app.query("SELECT set_config('astra.tenant_id',$1,true)", [
-      restored.state.tenants[0].id,
+      primaryTenant.id,
     ]);
     await assert.rejects(
       app.query(
         "UPDATE tenant_wallets SET balance=balance WHERE tenant_id=$1",
-        [restored.state.tenants[0].id],
+        [primaryTenant.id],
       ),
       /permission denied/,
     );
@@ -146,11 +224,11 @@ async function drill() {
     );
     await app.query("BEGIN");
     await app.query("SELECT set_config('astra.tenant_id',$1,true)", [
-      restored.state.tenants[0].id,
+      primaryTenant.id,
     ]);
     await assert.rejects(
       app.query("UPDATE credit_ledger SET reason=reason WHERE tenant_id=$1", [
-        restored.state.tenants[0].id,
+        primaryTenant.id,
       ]),
       /Append-only record/,
     );
@@ -216,6 +294,34 @@ async function drill() {
       }),
       /already exists/,
     );
+    const reservedTarget = generatedRestoreName();
+    const reservedPath = path.join(
+      backupDirectory,
+      `${reservedTarget}.restore.plaintext.dump`,
+    );
+    const sentinel = crypto.randomBytes(32);
+    await fs.writeFile(reservedPath, sentinel, { flag: "wx", mode: 0o600 });
+    try {
+      await assert.rejects(
+        restoreBackup({ ...backup, configuration, targetName: reservedTarget }),
+        /EEXIST/,
+      );
+      assert.deepEqual(await fs.readFile(reservedPath), sentinel);
+      assert.equal(
+        (
+          await administrator.query(
+            "SELECT 1 FROM pg_database WHERE datname=$1",
+            [reservedTarget],
+          )
+        ).rowCount,
+        0,
+      );
+      record(
+        "PASS: pre-existing restore scratch file remains byte-for-byte unchanged; collision creates no database and cleanup cannot remove an unowned file.",
+      );
+    } finally {
+      await fs.rm(reservedPath);
+    }
     record(
       "PASS: main database and existing restore targets cannot be overwritten or dropped.",
     );
@@ -238,6 +344,7 @@ async function drill() {
   record(
     "RESULT: OPS-02 local encrypted backup/restore drill PASS. Main astra received only snapshot SELECTs; no writes/drop/restore targeted it.",
   );
+  evidence.status = "PASS";
   record(
     "UNVERIFIED: offsite durability, independent KMS key custody, rotation/retention, production RPO/RTO and full infrastructure disaster recovery.",
   );
@@ -246,13 +353,20 @@ async function drill() {
 try {
   await drill();
 } catch (error) {
+  evidence.status = "FAIL";
   record(`RESULT: OPS-02 FAIL (${error.message}); no pass is claimed.`);
   process.exitCode = 1;
 } finally {
+  evidence.durationMs = Date.now() - Date.parse(evidence.executedAt);
   await fs.mkdir(path.join(root, "execution"), { recursive: true });
-  await fs.writeFile(
-    path.join(root, "execution", "backup-restore.log"),
+  await fs.appendFile(
+    path.join(root, "execution", `${evidencePrefix}-restore.log`),
     lines.join("\n") + "\n",
+    "utf8",
+  );
+  await fs.writeFile(
+    path.join(root, "execution", `${evidencePrefix}-qa.json`),
+    JSON.stringify(evidence, null, 2) + "\n",
     "utf8",
   );
 }

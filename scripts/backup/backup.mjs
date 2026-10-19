@@ -20,14 +20,49 @@ const quoteIdentifier = (name) => {
   return `"${name}"`;
 };
 
-function requireWorkspaceBackupPath(value) {
+export function requireWorkspaceBackupPath(value) {
   const candidate = path.resolve(value);
-  const prefix = backupDirectory + path.sep;
-  if (!candidate.toLowerCase().startsWith(prefix.toLowerCase()))
+  const normalize = (name) =>
+    process.platform === "win32" ? name.toLowerCase() : name;
+  if (normalize(path.dirname(candidate)) !== normalize(backupDirectory))
     throw new Error(
       "Backup artifact path must remain inside workspace .runtime/backups.",
     );
   return candidate;
+}
+
+async function validateBackupStorage() {
+  await fs.mkdir(path.dirname(backupDirectory), {
+    recursive: true,
+    mode: 0o700,
+  });
+  const [actualRoot, actualRuntime] = await Promise.all([
+    fs.realpath(root),
+    fs.realpath(path.dirname(backupDirectory)),
+  ]);
+  if (path.relative(actualRoot, actualRuntime) !== ".runtime")
+    throw new Error(
+      "Backup runtime storage must not traverse a symbolic link outside its workspace location.",
+    );
+  await fs.mkdir(backupDirectory, { recursive: true, mode: 0o700 });
+  const actualDirectory = await fs.realpath(backupDirectory);
+  if (
+    path.relative(actualRoot, actualDirectory) !==
+    path.join(".runtime", "backups")
+  )
+    throw new Error(
+      "Backup storage must not traverse a symbolic link outside its workspace location.",
+    );
+}
+
+async function readBackupArtifact(value) {
+  const filename = requireWorkspaceBackupPath(value);
+  const stat = await fs.lstat(filename);
+  if (!stat.isFile() || stat.isSymbolicLink())
+    throw new Error(
+      "Backup artifacts must be regular files, not symbolic links.",
+    );
+  return fs.readFile(filename);
 }
 
 async function removePlaintext(value) {
@@ -36,38 +71,62 @@ async function removePlaintext(value) {
 }
 
 export async function loadConfiguration() {
-  const local = JSON.parse(
-    (
-      await fs.readFile(path.join(root, ".runtime", "postgres.json"), "utf8")
-    ).replace(/^\uFEFF/, ""),
-  );
+  const local =
+    process.env.DATABASE_ADMIN_URL && process.env.DATABASE_URL
+      ? {}
+      : JSON.parse(
+          (
+            await fs.readFile(
+              path.join(root, ".runtime", "postgres.json"),
+              "utf8",
+            )
+          ).replace(/^\uFEFF/, ""),
+        );
   const admin = new URL(process.env.DATABASE_ADMIN_URL ?? local.adminUrl);
+  const app = new URL(process.env.DATABASE_URL ?? local.appUrl);
+  const bin =
+    process.env.PG_BINARY_DIRECTORY ??
+    (process.platform === "win32"
+      ? path.join(root, ".runtime", "pgsql", "bin")
+      : "");
+  return validateConfiguration({ admin, app, bin });
+}
+
+export function validateConfiguration(configuration) {
+  const { admin, app, bin } = configuration;
   if (
     !["postgres:", "postgresql:"].includes(admin.protocol) ||
     !["127.0.0.1", "localhost", "[::1]"].includes(admin.hostname) ||
     !["55432", "5432"].includes(admin.port) ||
-    decodeURIComponent(admin.pathname) !== "/astra"
+    decodeURIComponent(admin.pathname) !== "/astra" ||
+    admin.search ||
+    admin.hash
   ) {
     throw new Error(
       "Recovery scripts permit only the known loopback astra database on port 55432 or 5432.",
     );
   }
-  const app = new URL(local.appUrl);
   if (
+    !["postgres:", "postgresql:"].includes(app.protocol) ||
+    app.search ||
+    app.hash ||
     app.hostname !== admin.hostname ||
     app.port !== admin.port ||
-    decodeURIComponent(app.pathname) !== "/astra"
+    decodeURIComponent(app.pathname) !== "/astra" ||
+    app.username === admin.username
   )
     throw new Error("Local application/database connection contract mismatch.");
-  const bin =
-    process.env.PG_BINARY_DIRECTORY ??
-    path.join(root, ".runtime", "pgsql", "bin");
   return { admin, app, bin };
 }
 
 function environmentFor(url) {
   return {
-    ...process.env,
+    // Libpq service/host/options variables must not redirect the validated URL.
+    ...Object.fromEntries(
+      Object.entries(process.env).filter(
+        ([key]) => !key.toUpperCase().startsWith("PG"),
+      ),
+    ),
     PGHOST: url.hostname === "[::1]" ? "::1" : url.hostname,
     PGPORT: url.port,
     PGUSER: decodeURIComponent(url.username),
@@ -154,7 +213,7 @@ export async function captureState(client) {
   ).rows;
   const constraints = (
     await client.query(
-      "SELECT conrelid::regclass::text AS table_name,conname AS name,convalidated AS validated,pg_get_constraintdef(oid) AS definition FROM pg_constraint WHERE connamespace='public'::regnamespace ORDER BY conrelid::regclass::text,conname",
+      "SELECT conrelid::regclass::text AS table_name,conname AS name,convalidated AS validated,pg_get_constraintdef(oid,true) AS definition FROM pg_constraint WHERE connamespace='public'::regnamespace ORDER BY conrelid::regclass::text,conname",
     )
   ).rows;
   const policies = (
@@ -169,24 +228,47 @@ export async function captureState(client) {
   ).rows;
   const triggers = (
     await client.query(
-      "SELECT event_object_table AS table_name,trigger_name,event_manipulation,action_statement FROM information_schema.triggers WHERE trigger_schema='public' ORDER BY event_object_table,trigger_name,event_manipulation",
+      "SELECT c.relname AS table_name,t.tgname AS name,t.tgenabled AS enabled,pg_get_triggerdef(t.oid,true) AS definition FROM pg_trigger t JOIN pg_class c ON c.oid=t.tgrelid WHERE c.relnamespace='public'::regnamespace AND NOT t.tgisinternal ORDER BY c.relname,t.tgname",
     )
   ).rows;
   const functionDefinitions = (
     await client.query(
-      "SELECT p.proname AS name,pg_get_functiondef(p.oid) AS definition FROM pg_proc p WHERE p.pronamespace='public'::regnamespace AND p.proname IN ('immutable_record','apply_ledger','public_verify','lock_tenant_wallet') ORDER BY p.proname",
+      "SELECT p.proname AS name,pg_get_function_identity_arguments(p.oid) AS arguments,pg_get_functiondef(p.oid) AS definition FROM pg_proc p WHERE p.pronamespace='public'::regnamespace AND p.prokind IN ('f','p') AND NOT EXISTS (SELECT 1 FROM pg_depend d WHERE d.classid='pg_proc'::regclass AND d.objid=p.oid AND d.deptype='e') ORDER BY p.proname,pg_get_function_identity_arguments(p.oid)",
     )
   ).rows;
   const tableGrants = (
     await client.query(
-      "SELECT c.relname AS table_name,r.rolname AS grantee,a.privilege_type,a.is_grantable FROM pg_class c CROSS JOIN LATERAL aclexplode(coalesce(c.relacl,acldefault('r',c.relowner))) a LEFT JOIN pg_roles r ON r.oid=a.grantee WHERE c.relnamespace='public'::regnamespace AND c.relkind='r' ORDER BY c.relname,r.rolname,a.privilege_type",
+      "SELECT c.relname AS table_name,coalesce(r.rolname,'PUBLIC') AS grantee,a.privilege_type,a.is_grantable FROM pg_class c CROSS JOIN LATERAL aclexplode(coalesce(c.relacl,acldefault(CASE WHEN c.relkind='S' THEN 's'::\"char\" ELSE 'r'::\"char\" END,c.relowner))) a LEFT JOIN pg_roles r ON r.oid=a.grantee WHERE c.relnamespace='public'::regnamespace AND c.relkind IN ('r','p','v','m','S') ORDER BY c.relname,coalesce(r.rolname,'PUBLIC'),a.privilege_type",
     )
   ).rows;
   const functionGrants = (
     await client.query(
-      "SELECT p.proname AS name,coalesce(r.rolname,'PUBLIC') AS grantee,a.privilege_type,a.is_grantable FROM pg_proc p CROSS JOIN LATERAL aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) a LEFT JOIN pg_roles r ON r.oid=a.grantee WHERE p.pronamespace='public'::regnamespace AND p.proname IN ('immutable_record','apply_ledger','public_verify','lock_tenant_wallet') ORDER BY p.proname,coalesce(r.rolname,'PUBLIC'),a.privilege_type",
+      "SELECT p.proname AS name,pg_get_function_identity_arguments(p.oid) AS arguments,coalesce(r.rolname,'PUBLIC') AS grantee,a.privilege_type,a.is_grantable FROM pg_proc p CROSS JOIN LATERAL aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) a LEFT JOIN pg_roles r ON r.oid=a.grantee WHERE p.pronamespace='public'::regnamespace AND NOT EXISTS (SELECT 1 FROM pg_depend d WHERE d.classid='pg_proc'::regclass AND d.objid=p.oid AND d.deptype='e') ORDER BY p.proname,pg_get_function_identity_arguments(p.oid),coalesce(r.rolname,'PUBLIC'),a.privilege_type",
     )
   ).rows;
+  const catalogQueries = {
+    columns:
+      "SELECT c.relname AS table_name,a.attnum AS position,a.attname AS name,format_type(a.atttypid,a.atttypmod) AS type,a.attnotnull AS not_null,a.attidentity AS identity,a.attgenerated AS generated,pg_get_expr(d.adbin,d.adrelid) AS default_expression FROM pg_class c JOIN pg_attribute a ON a.attrelid=c.oid AND a.attnum>0 AND NOT a.attisdropped LEFT JOIN pg_attrdef d ON d.adrelid=c.oid AND d.adnum=a.attnum WHERE c.relnamespace='public'::regnamespace AND c.relkind IN ('r','p','v','m') ORDER BY c.relname,a.attnum",
+    columnGrants:
+      "SELECT c.relname AS table_name,b.attname AS column_name,coalesce(r.rolname,'PUBLIC') AS grantee,a.privilege_type,a.is_grantable FROM pg_attribute b JOIN pg_class c ON c.oid=b.attrelid CROSS JOIN LATERAL aclexplode(b.attacl) a LEFT JOIN pg_roles r ON r.oid=a.grantee WHERE c.relnamespace='public'::regnamespace AND b.attnum>0 AND NOT b.attisdropped ORDER BY c.relname,b.attname,coalesce(r.rolname,'PUBLIC'),a.privilege_type",
+    indexes:
+      "SELECT c.relname AS table_name,i.relname AS name,x.indisvalid AS valid,x.indisready AS ready,pg_get_indexdef(i.oid) AS definition FROM pg_index x JOIN pg_class c ON c.oid=x.indrelid JOIN pg_class i ON i.oid=x.indexrelid WHERE c.relnamespace='public'::regnamespace ORDER BY c.relname,i.relname",
+    extensions:
+      "SELECT extname AS name,extversion AS version FROM pg_extension ORDER BY extname",
+    views:
+      "SELECT c.relname AS name,c.relkind AS kind,pg_get_viewdef(c.oid,true) AS definition FROM pg_class c WHERE c.relnamespace='public'::regnamespace AND c.relkind IN ('v','m') ORDER BY c.relname",
+    enums:
+      "SELECT t.typname AS name,e.enumlabel AS label,e.enumsortorder AS position FROM pg_type t JOIN pg_enum e ON e.enumtypid=t.oid WHERE t.typnamespace='public'::regnamespace ORDER BY t.typname,e.enumsortorder",
+    schemaGrants:
+      "SELECT n.nspname AS schema_name,coalesce(r.rolname,'PUBLIC') AS grantee,a.privilege_type,a.is_grantable FROM pg_namespace n CROSS JOIN LATERAL aclexplode(coalesce(n.nspacl,acldefault('n',n.nspowner))) a LEFT JOIN pg_roles r ON r.oid=a.grantee WHERE n.nspname='public' ORDER BY coalesce(r.rolname,'PUBLIC'),a.privilege_type",
+    defaultGrants:
+      "SELECT pg_get_userbyid(d.defaclrole) AS owner,coalesce(n.nspname,'*') AS schema_name,d.defaclobjtype AS object_type,coalesce(r.rolname,'PUBLIC') AS grantee,a.privilege_type,a.is_grantable FROM pg_default_acl d LEFT JOIN pg_namespace n ON n.oid=d.defaclnamespace CROSS JOIN LATERAL aclexplode(d.defaclacl) a LEFT JOIN pg_roles r ON r.oid=a.grantee ORDER BY owner,schema_name,object_type,grantee,a.privilege_type",
+    sequences:
+      "SELECT sequencename AS name,data_type::text,start_value,min_value,max_value,increment_by,cycle,cache_size,last_value FROM pg_sequences WHERE schemaname='public' ORDER BY sequencename",
+  };
+  const catalog = {};
+  for (const [name, sql] of Object.entries(catalogQueries))
+    catalog[name] = (await client.query(sql)).rows;
   let orphanTenantReferences = 0;
   const tenantTables = (
     await client.query(
@@ -212,6 +294,7 @@ export async function captureState(client) {
     functionDefinitions,
     tableGrants,
     functionGrants,
+    ...catalog,
     orphanTenantReferences,
   };
 }
@@ -234,9 +317,13 @@ export function validateState(state) {
     );
   if (state.constraints.some((constraint) => !constraint.validated))
     throw new Error("Recovery consistency check: unvalidated constraints.");
+  if (state.indexes?.some((index) => !index.valid || !index.ready))
+    throw new Error(
+      "Recovery consistency check: invalid or unfinished indexes.",
+    );
 }
 
-function encryptPayload(payload, key) {
+export function encryptPayload(payload, key) {
   const iv = crypto.randomBytes(12);
   const cipher = crypto.createCipheriv("aes-256-gcm", key, iv);
   cipher.setAAD(MAGIC);
@@ -282,7 +369,8 @@ export function decryptPayload(archive, key) {
 
 export async function createBackup(configuration) {
   configuration ??= await loadConfiguration();
-  await fs.mkdir(backupDirectory, { recursive: true, mode: 0o700 });
+  validateConfiguration(configuration);
+  await validateBackupStorage();
   const label = `backup_${new Date().toISOString().replace(/[^0-9]/g, "")}_${crypto.randomBytes(4).toString("hex")}`;
   const dumpPath = requireWorkspaceBackupPath(
     path.join(backupDirectory, `${label}.plaintext.dump`),
@@ -295,13 +383,26 @@ export async function createBackup(configuration) {
   );
   const client = await openDatabase(configuration.admin);
   let began = false;
+  let ownsPlaintext = false;
   try {
+    const role = (
+      await client.query(
+        "SELECT rolsuper,rolbypassrls FROM pg_roles WHERE rolname=current_user",
+      )
+    ).rows[0];
+    if (!role.rolsuper && !role.rolbypassrls)
+      throw new Error(
+        "Full local snapshot requires an administrator that can read every forced-RLS tenant; partial exports are forbidden.",
+      );
     await client.query("BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY");
     began = true;
     const snapshot = (await client.query("SELECT pg_export_snapshot() AS id"))
       .rows[0].id;
     const state = await captureState(client);
     validateState(state);
+    const reserved = await fs.open(dumpPath, "wx", 0o600);
+    ownsPlaintext = true;
+    await reserved.close();
     await runPgTool(
       configuration,
       "pg_dump",
@@ -318,7 +419,7 @@ export async function createBackup(configuration) {
     began = false;
     const dump = await fs.readFile(dumpPath);
     const manifest = {
-      format: 1,
+      format: 2,
       createdAt: new Date().toISOString(),
       sourceDatabase: "astra",
       sourceServer: "loopback",
@@ -339,7 +440,7 @@ export async function createBackup(configuration) {
   } finally {
     if (began) await client.query("ROLLBACK").catch(() => {});
     await client.end();
-    await removePlaintext(dumpPath);
+    if (ownsPlaintext) await removePlaintext(dumpPath);
   }
 }
 
@@ -358,6 +459,7 @@ export async function restoreBackup({
   keyOverride,
 }) {
   configuration ??= await loadConfiguration();
+  validateConfiguration(configuration);
   if (
     !targetPattern.test(targetName) ||
     targetName.length > 63 ||
@@ -368,17 +470,23 @@ export async function restoreBackup({
     );
   archivePath = requireWorkspaceBackupPath(archivePath);
   keyPath = requireWorkspaceBackupPath(keyPath);
+  await validateBackupStorage();
   // Complete GCM authentication before writing plaintext or creating any database.
   const { manifest, dump } = decryptPayload(
-    await fs.readFile(archivePath),
-    keyOverride ?? (await fs.readFile(keyPath)),
+    await readBackupArtifact(archivePath),
+    keyOverride ?? (await readBackupArtifact(keyPath)),
   );
+  if (manifest.format !== 2)
+    throw new Error(
+      "This verifier requires a format-2 manifest. Keep older backups with their matching verifier; do not silently skip security checks.",
+    );
   const dumpPath = requireWorkspaceBackupPath(
     path.join(backupDirectory, `${targetName}.restore.plaintext.dump`),
   );
   const administrator = await openDatabase(configuration.admin);
   const restoredUrl = new URL(configuration.admin);
   restoredUrl.pathname = "/" + targetName;
+  let ownsPlaintext = false;
   try {
     if (
       (
@@ -391,10 +499,11 @@ export async function restoreBackup({
       throw new Error(
         "Restore target already exists; automatic overwrite/drop is forbidden.",
       );
+    await fs.writeFile(dumpPath, dump, { flag: "wx", mode: 0o600 });
+    ownsPlaintext = true;
     await administrator.query(
       `CREATE DATABASE ${quoteIdentifier(targetName)} WITH TEMPLATE template0 ENCODING 'UTF8'`,
     );
-    await fs.writeFile(dumpPath, dump, { flag: "wx", mode: 0o600 });
     await runPgTool(
       configuration,
       "pg_restore",
@@ -416,7 +525,7 @@ export async function restoreBackup({
     }
   } finally {
     await administrator.end();
-    await removePlaintext(dumpPath);
+    if (ownsPlaintext) await removePlaintext(dumpPath);
   }
 }
 

@@ -39,12 +39,14 @@ export function createRateLimiter(options: {
   windowMs: number;
   maxKeys?: number;
   clock?: () => number;
+  key?: (req: Request) => string;
 }) {
   const buckets = new Map<string, { count: number; until: number }>();
   const clock = options.clock ?? Date.now;
   return (req: Request, res: Response, next: NextFunction) => {
     const now = clock();
-    const key = req.ip ?? req.socket.remoteAddress ?? "unknown";
+    const key =
+      options.key?.(req) ?? req.ip ?? req.socket.remoteAddress ?? "unknown";
     let bucket = buckets.get(key);
     if (!bucket || bucket.until <= now) {
       if (buckets.size >= (options.maxKeys ?? 10_000)) {
@@ -53,11 +55,9 @@ export function createRateLimiter(options: {
         // Do not evict active limits: new clients wait until capacity is available.
         if (buckets.size >= (options.maxKeys ?? 10_000) && !bucket) {
           res.setHeader("Retry-After", Math.ceil(options.windowMs / 1000));
-          res
-            .status(429)
-            .json({
-              error: { code: "RATE_LIMIT", message: "Please retry shortly." },
-            });
+          res.status(429).json({
+            error: { code: "RATE_LIMIT", message: "Please retry shortly." },
+          });
           return;
         }
       }
@@ -69,14 +69,12 @@ export function createRateLimiter(options: {
         "Retry-After",
         Math.max(1, Math.ceil((bucket.until - now) / 1000)),
       );
-      res
-        .status(429)
-        .json({
-          error: {
-            code: "RATE_LIMIT",
-            message: "Too many requests. Please retry shortly.",
-          },
-        });
+      res.status(429).json({
+        error: {
+          code: "RATE_LIMIT",
+          message: "Too many requests. Please retry shortly.",
+        },
+      });
       return;
     }
     next();
@@ -107,14 +105,12 @@ export function httpHardening(req: Request, res: Response, next: NextFunction) {
       origin &&
       origin !== (process.env.PUBLIC_ORIGIN ?? "http://127.0.0.1:5173")
     ) {
-      res
-        .status(403)
-        .json({
-          error: {
-            code: "ORIGIN_DENIED",
-            message: "Request origin is not allowed.",
-          },
-        });
+      res.status(403).json({
+        error: {
+          code: "ORIGIN_DENIED",
+          message: "Request origin is not allowed.",
+        },
+      });
       return;
     }
     if (

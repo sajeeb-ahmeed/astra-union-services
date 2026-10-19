@@ -11,6 +11,14 @@ import {
 import { camelRow, fail } from "./models.js";
 import type { Auth } from "./app.js";
 import {
+  lockAccount,
+  accountTransaction,
+  consumeAccountRecoveryLinks,
+  accountAudit,
+  logOwnerAccountAction,
+  accountActionLimiter,
+} from "./account-security.js";
+import {
   geographyInput,
   geographyRow,
   geographyValues,
@@ -65,10 +73,11 @@ async function recoveryEligible(
   db: import("./db.js").DB,
   tenantId: string,
   userId: string,
+  lock = true,
 ) {
   const u = (
     await db.query(
-      "SELECT u.id FROM platform_users u JOIN staff_memberships m ON m.user_id=u.id WHERE u.id=$1 AND m.tenant_id=$2 AND u.active AND m.active AND u.platform_role IS NULL AND m.role<>'admin' AND NOT EXISTS(SELECT 1 FROM staff_memberships other WHERE other.user_id=u.id AND other.tenant_id<>$2) FOR SHARE OF u,m",
+      `SELECT u.id FROM platform_users u JOIN staff_memberships m ON m.user_id=u.id WHERE u.id=$1 AND m.tenant_id=$2 AND u.active AND m.active AND u.platform_role IS NULL AND m.role<>'admin' AND NOT EXISTS(SELECT 1 FROM staff_memberships other WHERE other.user_id=u.id AND other.tenant_id<>$2) ${lock ? "FOR SHARE OF u,m" : ""}`,
       [userId, tenantId],
     )
   ).rows[0];
@@ -89,6 +98,10 @@ managementRouter.post(
       .parse(req.body ?? {});
     const token = randomToken();
     const result = await transaction(a.tenantId!, async (db) => {
+      // Same ordering as login and password changes: account, then recovery token.
+      // An office admin cannot inspect another office's account via this check.
+      await recoveryEligible(db, a.tenantId!, id, false);
+      await lockAccount(db, id);
       await recoveryEligible(db, a.tenantId!, id);
       await db.query(
         "UPDATE password_recovery_tokens SET consumed_at=now() WHERE user_id=$1 AND consumed_at IS NULL",
@@ -131,9 +144,18 @@ publicManagementRouter.post(
     await transaction(
       found.tenant_id,
       async (db) => {
+        const candidate = (
+          await db.query(
+            "SELECT user_id FROM password_recovery_tokens WHERE token_hash=$1 AND consumed_at IS NULL AND expires_at>clock_timestamp()",
+            [hash],
+          )
+        ).rows[0];
+        if (!candidate)
+          fail(422, "RECOVERY_INVALID", "Recovery link is invalid or expired.");
+        await lockAccount(db, candidate.user_id);
         const r = (
           await db.query(
-            "SELECT * FROM password_recovery_tokens WHERE token_hash=$1 AND consumed_at IS NULL AND expires_at>now() FOR UPDATE",
+            "SELECT * FROM password_recovery_tokens WHERE token_hash=$1 AND consumed_at IS NULL AND expires_at>clock_timestamp() FOR UPDATE",
             [hash],
           )
         ).rows[0];
@@ -421,17 +443,16 @@ publicManagementRouter.post(
       );
       await audit(db, d.tenantId, user.id, "DEMO_SELF_REGISTRATION", user.id);
     });
-    res
-      .status(201)
-      .json({
-        registered: true,
-        verificationState: "SYNTHETIC_DEMO",
-        geography: d.geography ?? null,
-      });
+    res.status(201).json({
+      registered: true,
+      verificationState: "SYNTHETIC_DEMO",
+      geography: d.geography ?? null,
+    });
   }),
 );
 managementRouter.post(
   "/auth/password",
+  accountActionLimiter,
   wrap(async (req, res) => {
     const a = role(req, [
       "owner",
@@ -449,33 +470,77 @@ managementRouter.post(
       })
       .strict()
       .parse(req.body);
-    const db = await pool.connect();
-    try {
-      await db.query("BEGIN");
-      const user = (
-        await db.query(
-          "SELECT password_hash FROM platform_users WHERE id=$1 FOR UPDATE",
-          [a.userId],
-        )
-      ).rows[0];
+    const revoked = await accountTransaction(a, async (db, user) => {
       if (!checkPassword(d.currentPassword, user.password_hash))
         fail(422, "PASSWORD_MISMATCH", "Current password is incorrect.");
       await db.query("UPDATE platform_users SET password_hash=$2 WHERE id=$1", [
         a.userId,
         hashPassword(d.newPassword),
       ]);
-      await db.query(
-        "UPDATE sessions SET expires_at=now() WHERE user_id=$1 AND csrf_token<>$2",
+      const expired = await db.query(
+        "UPDATE sessions SET expires_at=clock_timestamp() WHERE user_id=$1 AND csrf_token<>$2 AND expires_at>clock_timestamp()",
         [a.userId, a.csrfToken],
       );
-      await db.query("COMMIT");
-    } catch (e) {
-      await db.query("ROLLBACK");
-      throw e;
-    } finally {
-      db.release();
-    }
+      await consumeAccountRecoveryLinks(db, a.userId);
+      await accountAudit(db, a, "PASSWORD_CHANGED", expired.rowCount ?? 0);
+      return expired.rowCount ?? 0;
+    });
+    logOwnerAccountAction(a, "PASSWORD_CHANGED", revoked);
     res.json({ changed: true });
+  }),
+);
+managementRouter.get(
+  "/auth/sessions",
+  wrap(async (req, res) => {
+    const a = req.auth!;
+    const summary = await accountTransaction(a, async (db, user) => {
+      const rows = (
+        await db.query(
+          `SELECT s.csrf_token=$2 AS current,s.expires_at FROM sessions s
+         WHERE s.user_id=$1 AND s.expires_at>clock_timestamp() AND (
+           (s.tenant_id IS NULL AND $3::text='owner') OR EXISTS (
+             SELECT 1 FROM staff_memberships m JOIN tenants t ON t.id=m.tenant_id
+             WHERE m.user_id=s.user_id AND m.tenant_id=s.tenant_id AND m.active AND t.status='ACTIVE'))`,
+          [a.userId, a.csrfToken, user.platform_role],
+        )
+      ).rows;
+      const current = rows.find((row) => row.current);
+      if (!current)
+        fail(
+          401,
+          "SESSION_INACTIVE",
+          "This session or tenant membership is inactive.",
+        );
+      return {
+        activeSessions: rows.length,
+        otherSessions: rows.filter((row) => !row.current).length,
+        currentSessionExpiresAt: current.expires_at,
+      };
+    });
+    res.json(summary);
+  }),
+);
+managementRouter.post(
+  "/auth/sessions/revoke-others",
+  accountActionLimiter,
+  wrap(async (req, res) => {
+    const a = req.auth!;
+    const d = z
+      .object({ currentPassword: z.string().min(1).max(200) })
+      .strict()
+      .parse(req.body);
+    const revoked = await accountTransaction(a, async (db, user) => {
+      if (!checkPassword(d.currentPassword, user.password_hash))
+        fail(422, "PASSWORD_MISMATCH", "Current password is incorrect.");
+      const result = await db.query(
+        "UPDATE sessions SET expires_at=clock_timestamp() WHERE user_id=$1 AND csrf_token<>$2 AND expires_at>clock_timestamp()",
+        [a.userId, a.csrfToken],
+      );
+      await accountAudit(db, a, "OTHER_SESSIONS_REVOKED", result.rowCount ?? 0);
+      return result.rowCount ?? 0;
+    });
+    logOwnerAccountAction(a, "OTHER_SESSIONS_REVOKED", revoked);
+    res.json({ revoked, remainingSessions: 1 });
   }),
 );
 managementRouter.get(

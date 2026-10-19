@@ -6,6 +6,7 @@
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import { createHash } from "node:crypto";
+import { qaOutput } from "./qa-output.js";
 
 const supplied = process.env.ASTRA_LIVE_URL;
 assert.ok(
@@ -70,7 +71,7 @@ const evidence: any = {
     "Login and logout sessions only; existing QA domain records are read-only.",
   checks: [],
 };
-const file = "execution/hosted-redeploy-qa.json";
+const file = qaOutput("hosted-redeploy-qa.json");
 const save = () => fs.writeFileSync(file, JSON.stringify(evidence, null, 2));
 save();
 async function request(
