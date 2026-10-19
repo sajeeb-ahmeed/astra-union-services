@@ -1,0 +1,21 @@
+{
+  "attempts": [
+    {
+      "runId": 39199004983,
+      "url": "https://github.com/sajeeb-ahmeed/astra-union-services/actions/runs/39199004983",
+      "commit": "1b8ab2daff0ab145a261a47fe92fe8970d77fd3c",
+      "result": "FAIL",
+      "dockerBuild": "PASS",
+      "tests": {
+        "backup": 5,
+        "forms": 72,
+        "api": 97,
+        "webPassed": 35,
+        "webFailed": 1
+      },
+      "cause": "CI supplied NODE_ENV=test to Vite build, selecting React development runtime. The public bundle measured 609106 bytes and correctly failed the 400000 byte budget.",
+      "deploymentTriggered": false,
+      "remediation": "Force production semantics for Vite build only; retain original performance budget and test backend mode."
+    }
+  ]
+}
