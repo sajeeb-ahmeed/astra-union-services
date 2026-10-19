@@ -2,6 +2,8 @@
 
 Release 0.5.0 · live with hosted API verification on 19 October 2026. Independently authored Bangla/English React frontend, Express/TypeScript backend and real PostgreSQL database. The commissioning user owns the original software; third-party licenses are retained separately.
 
+**পরে কাজ চালিয়ে যাওয়ার নোট:** [বর্তমান অবস্থা, সম্পন্ন কাজ, bKash onboarding ও পরবর্তী করণীয়](docs/STATUS_AND_NEXT_STEPS.md)। Engineering priorities and acceptance criteria: [current delivery backlog](docs/DELIVERY_BACKLOG.md).
+
 **Open:** [live demo](https://astra-union-services.onrender.com) or [local website](http://127.0.0.1:5173). **Read:** [hosted deployment and live test results](docs/HOSTED_DEPLOYMENT.md), [delivery report](docs/DELIVERY_REPORT.md), [deployment instructions](docs/DEPLOYMENT.md), [acceptance evidence](docs/TEST_MATRIX.md).
 
 The current live release runs on Render Free with PostgreSQL 17. It passed **192 CI tests**, the Docker build, **seven hosted payment groups**, **six historical-record readback groups** and **five geography groups**. Migration preserved all recorded domain fingerprints and PDFs; external database access is closed. Live JavaScript/CSS hashes match the tested build. Live browser checks passed for Bangla/English payment screens and mobile layout, with no console warnings or errors. Exact deployment and evidence are recorded in the hosted deployment document. The Free database expires on **12 November 2026**, and the web service can sleep when idle. Live identity and merchant payment collection remain unconfigured.
