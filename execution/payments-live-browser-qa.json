@@ -1,0 +1,47 @@
+{
+  "executedAt": "2026-10-19T02:54:56.446Z",
+  "baseUrl": "https://astra-union-services.onrender.com",
+  "runtimeCommit": "b86908b9a4654cc31cd1b517fc5e8ad3ae086878",
+  "status": "PASS",
+  "scope": "Existing synthetic office, read-only UI and login/logout only; no payments or new domain records.",
+  "checks": [
+    {
+      "name": "English register and reconciliation",
+      "status": "PASS",
+      "emptyRegister": true,
+      "verifiedTotalMinor": 0,
+      "merchantSetupRequired": true,
+      "nagadNotIntegrated": true,
+      "bankPayoutNotConnected": true
+    },
+    {
+      "name": "Bangla mobile reconciliation",
+      "status": "PASS",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "scrollWidth": 375,
+      "horizontalOverflow": false
+    },
+    {
+      "name": "Approved application payment card",
+      "status": "PASS",
+      "totalMinor": 15210,
+      "englishAndBangla": true,
+      "checkoutDisabled": true,
+      "noReceipt": true,
+      "horizontalOverflow": false
+    },
+    {
+      "name": "Browser cleanup",
+      "status": "PASS",
+      "consoleWarnings": 0,
+      "consoleErrors": 0,
+      "signedOut": true,
+      "loginInputsCleared": true,
+      "viewportReset": true
+    }
+  ],
+  "completedAt": "2026-10-19T02:55:32.664Z"
+}

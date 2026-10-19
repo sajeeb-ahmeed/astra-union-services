@@ -2,7 +2,7 @@
 
 This is a new SaaS design, not a reconstruction of Prottoyon operator points. The software owner controls the independently authored product and future commercial configuration; each Union tenant has its own subscription and wallet. Official fees and authority to issue certificates remain separate.
 
-**0.5 source update:** a separate bKash v2 citizen-fee checkout, verified receipt and gateway reconciliation module is implemented. Hosted checkout remains disabled because merchant setup is absent; genuine provider acceptance, release QA and deployment are not asserted here. Nagad and bank payout reconciliation are not integrated. There is no cash collection or manual mark-paid endpoint. See [gateway payments](GATEWAY_PAYMENTS.md) for the current contract and activation requirements.
+**0.5 live update · 19 October 2026:** the separate bKash v2 citizen-fee checkout, verified receipt and gateway reconciliation module is deployed. [Release evidence](RELEASE_0_5.md) records 192 passing CI tests and 18 hosted API regression groups; live Bangla/English and mobile browser checks also passed. Hosted checkout remains disabled because merchant setup is absent, and genuine provider acceptance is unverified. Nagad and bank payout reconciliation are not integrated. There is no cash collection or manual mark-paid endpoint. See [gateway payments](GATEWAY_PAYMENTS.md) for the current contract and activation requirements.
 
 ## Implemented commercial fixture
 

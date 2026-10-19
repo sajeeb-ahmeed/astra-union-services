@@ -1,0 +1,6 @@
+PASS 01 Metadata preserves counts and truthful data scope
+PASS 02 Eight divisions and all 64 districts match supplied bilingual records
+PASS 03 Full parent-filtered route in each division returns exact source children
+PASS 04 Missing, wrong-level and unknown parents are rejected; coverage gap remains empty
+PASS 05 Directory code filter does not invent a participating office for a geography record
+PASS: 5 geography checks passed; 0 failed. Evidence: execution/geography-hosted-qa.json

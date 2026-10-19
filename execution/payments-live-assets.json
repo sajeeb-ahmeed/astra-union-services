@@ -1,0 +1,22 @@
+{
+  "executedAt": "2026-10-19T02:53:58.891Z",
+  "origin": "https://astra-union-services.onrender.com",
+  "status": "PASS",
+  "checks": [
+    {
+      "asset": "index-7lagO9Mq.css",
+      "bytes": 34830,
+      "sha256": "db29a0b2c6965d45760058d555cb2b419e362e929c6735638e26f37940141531",
+      "matchesLocalBuild": true,
+      "cacheControl": "public, max-age=31536000, immutable"
+    },
+    {
+      "asset": "index-BmrWSu1j.js",
+      "bytes": 990769,
+      "sha256": "a328ba6a93d997f35af41cfdb844dde99c69d94a53cc972703acbf460d76fc1b",
+      "matchesLocalBuild": true,
+      "cacheControl": "public, max-age=31536000, immutable"
+    }
+  ],
+  "completedAt": "2026-10-19T02:53:59.292Z"
+}

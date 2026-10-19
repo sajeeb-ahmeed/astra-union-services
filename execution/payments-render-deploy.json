@@ -1,0 +1,14 @@
+{
+  "commit": {
+    "createdAt": "2026-10-18T11:56:47Z",
+    "id": "b86908b9a4654cc31cd1b517fc5e8ad3ae086878",
+    "message": "Keep payment return notice reactive to Bangla and English changes"
+  },
+  "createdAt": "2026-10-19T02:51:07.982754Z",
+  "finishedAt": "2026-10-19T02:53:25.665787Z",
+  "id": "dep-dbaob6s9v7es739a8j30",
+  "startedAt": "2026-10-19T02:51:07.957429Z",
+  "status": "live",
+  "trigger": "api",
+  "updatedAt": "2026-10-19T02:53:25.666043Z"
+}

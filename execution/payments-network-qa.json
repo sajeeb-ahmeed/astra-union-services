@@ -1,0 +1,16 @@
+{
+  "executedAt": "2026-10-19T02:51:02.124Z",
+  "externalConnectionBlocked": true,
+  "healthStatus": 200,
+  "healthBody": {
+    "status": "ok",
+    "database": "PostgreSQL",
+    "mode": "DEMO_ONLY"
+  },
+  "status": "PASS",
+  "scope": "Connection probe only; evaluate alongside fresh Render empty IP allowlist and dashboard evidence.",
+  "databaseId": "dpg-db6tr43ncjis73ercfsg-a",
+  "renderIpAllowList": [],
+  "dashboardEvidence": "execution/payments-database-private.png",
+  "renderVerificationDate": "2026-10-19"
+}

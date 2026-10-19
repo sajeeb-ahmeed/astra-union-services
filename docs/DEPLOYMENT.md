@@ -1,6 +1,6 @@
 # Deployment and reproducibility
 
-Updated for **0.5 source configuration · 17 October 2026**. Windows/Node 24/PostgreSQL 17.11 is the local development path. Historical 0.4 Linux CI and Render deployment evidence are recorded in [RELEASE_0_4.md](RELEASE_0_4.md) and [HOSTED_DEPLOYMENT.md](HOSTED_DEPLOYMENT.md); this guide does not claim that 0.5 QA/CI/deployment has completed. Certificate documents retain DEMO / NOT OFFICIAL semantics.
+Updated for **0.5 live deployment · 19 October 2026**. Windows/Node 24/PostgreSQL 17.11 is the local development path. [Release 0.5](RELEASE_0_5.md) records local verification, 192 passing Linux CI tests, Docker build, hosted migration, exact deployment and 18 passing hosted API regression groups; live Bangla/English and mobile browser checks also passed. [HOSTED_DEPLOYMENT.md](HOSTED_DEPLOYMENT.md) records the current runtime and preserved 0.4/0.3 history. Certificate documents retain DEMO / NOT OFFICIAL semantics.
 
 ## Local Windows
 
@@ -52,6 +52,8 @@ Production-mode startup rejects missing secrets, insecure/malformed origins and 
 
 Migration `012_gateway_payments.sql` adds the restricted gateway token/intent/event/confirmation/receipt/reconciliation tables. Apply migrations using the separate administrator role after backup/readback preparation, then deploy the compatible runtime. Preserve existing assessment snapshots, SaaS balances, certificates and stored PDF bytes. A source migration file is not evidence it ran on the hosted database.
 
+The current Render instance applied 012 with all 66 recorded domain fingerprints unchanged and a successful idempotent replay. External database access was verified closed before deploying `b86908b9a4654cc31cd1b517fc5e8ad3ae086878` as `dep-dbaob6s9v7es739a8j30`. Hosted API checks and entry-asset hashes passed; see the [deployment record](HOSTED_DEPLOYMENT.md) for exact evidence. Future deployments require their own migration and verification results.
+
 Keep `BKASH_ENVIRONMENT=disabled` while the approved merchant account and provider credentials are absent. The deployed UI must show **bKash setup required**, and checkout must refuse before saving a new intent. **Nagad is not integrated.** There is no manual cash substitute or mark-paid control. The local provider test adapter is available only in the test environment and is not a public route.
 
 Activation requires the server-only configuration documented in [GATEWAY_PAYMENTS.md](GATEWAY_PAYMENTS.md): explicit tenant binding, provider-issued credentials, expected receiving merchant, independent token-encryption key and exact HTTPS origin. Live mode additionally requires `BKASH_LIVE_ENABLED=true`. This initial configuration supports one merchant-bound office per deployment; it does not silently share a merchant across unions. Do not place secrets in source, frontend bundles, chat or screenshot evidence.
@@ -70,6 +72,6 @@ Preserve original merchant configuration and encryption-key custody while attemp
 
 ## CI
 
-`.github/workflows/qa.yml` provisions PostgreSQL 17, creates the restricted role, migrates/seeds, installs Chromium/fonts, builds, runs tests and audits dependencies. CI passwords are disposable isolated fixtures. The historical 0.4 workflow passed on GitHub; retain its pinned link in [RELEASE_0_4.md](RELEASE_0_4.md). The current release must receive its own recorded run and results; neither workflow configuration nor a prior pass proves current 0.5 success. Gateway mock tests verify application behavior, not merchant/provider acceptance.
+`.github/workflows/qa.yml` provisions PostgreSQL 17, creates the restricted role, migrates/seeds, installs Chromium/fonts, builds, runs tests and audits dependencies. CI passwords are disposable isolated fixtures. Final 0.5 candidate `b86908b9a4654cc31cd1b517fc5e8ad3ae086878` passed [run 39125266096](https://github.com/sajeeb-ahmeed/astra-union-services/actions/runs/39125266096): all 192 tests (72 forms, 89 API, 31 web), production build, separate Docker build and zero reported dependency vulnerabilities. See [metadata](../execution/payments-ci-qa.json) and [summary](../execution/payments-ci-summary.log). The historical 0.4 run remains separately recorded in [RELEASE_0_4.md](RELEASE_0_4.md). Gateway mock tests verify application behavior, not merchant/provider acceptance or a hosted deployment.
 
 The log-filter example follows [Caddy's field-filter documentation](https://caddyserver.com/docs/caddyfile/directives/log#filter), which supports deleting nested request fields. Runtime validation of the supplied Caddy configuration remains part of staging acceptance.

@@ -1,0 +1,94 @@
+{
+  "release": "0.5.0",
+  "recordedAt": "2026-10-19T02:56:14.075Z",
+  "status": "PASS",
+  "liveUrl": "https://astra-union-services.onrender.com/",
+  "repository": "https://github.com/sajeeb-ahmeed/astra-union-services",
+  "runtimeCommit": "b86908b9a4654cc31cd1b517fc5e8ad3ae086878",
+  "deployment": {
+    "id": "dep-dbaob6s9v7es739a8j30",
+    "status": "live",
+    "finishedAt": "2026-10-19T02:53:25.665787Z",
+    "autoDeploy": "off",
+    "servicePlan": "free"
+  },
+  "ci": {
+    "runId": 39125266096,
+    "tests": 192,
+    "passed": 192,
+    "failed": 0,
+    "dockerBuild": "PASS",
+    "productionBuild": "PASS",
+    "dependencyVulnerabilities": 0
+  },
+  "migration": {
+    "name": "012_gateway_payments.sql",
+    "status": "PASS",
+    "preservedTenants": 3,
+    "unchangedDomainFingerprints": 66,
+    "unchangedUsers": 12,
+    "unchangedCertificates": 2,
+    "idempotentReplay": true
+  },
+  "databaseSecurity": {
+    "externalIpAllowList": [],
+    "externalConnectionBlocked": true,
+    "runtimeRole": "astra_app",
+    "forcedRlsTablesAdded": 6
+  },
+  "hostedChecks": {
+    "payments": 7,
+    "originalReadback": 6,
+    "geography": 5,
+    "allPassed": true,
+    "domainRecordsCreated": 0
+  },
+  "browser": {
+    "status": "PASS",
+    "englishAndBangla": true,
+    "mobileViewport": {
+      "width": 390,
+      "height": 844
+    },
+    "horizontalOverflow": false,
+    "consoleWarnings": 0,
+    "consoleErrors": 0,
+    "signedOut": true,
+    "inputsCleared": true,
+    "viewportReset": true
+  },
+  "assets": {
+    "entryJavaScriptAndCssMatchTestedBuild": true,
+    "immutableCaching": true
+  },
+  "collection": {
+    "bkash": "DISABLED_MERCHANT_SETUP_REQUIRED",
+    "nagad": "NOT_INTEGRATED",
+    "bankPayoutReconciliation": "NOT_CONNECTED",
+    "realMoneyCollected": false,
+    "providerAcceptance": "NOT_PERFORMED",
+    "localProviderTests": "MOCKS_NOT_REAL_SANDBOX"
+  },
+  "limitations": [
+    "Genuine bKash merchant/sandbox acceptance is pending.",
+    "Nagad, provider IPN, refunds and operational recovery/replacement checkout remain pending.",
+    "Certificate output remains DEMO / NOT OFFICIAL; source-reference evidence limitations remain.",
+    "Render Free PostgreSQL expires on 2026-11-12."
+  ],
+  "operationalNotes": [
+    "Initial health checks did not respond; a later cold-start check returned HTTP 200 before deployment and all post-deploy checks passed.",
+    "Historical 0.4 readback/geography evidence was preserved; 0.5 reruns have payment-prefixed files."
+  ],
+  "evidence": {
+    "deploy": "payments-render-deploy.json",
+    "ci": "payments-ci-qa.json",
+    "migration": "payments-hosted-migration.json",
+    "network": "payments-network-qa.json",
+    "payments": "payments-hosted-qa.json",
+    "readback": "payments-hosted-readback.json",
+    "geography": "payments-hosted-geography.json",
+    "browser": "payments-live-browser-qa.json",
+    "assets": "payments-live-assets.json",
+    "receipt": "payments-receipt-qa.json"
+  }
+}

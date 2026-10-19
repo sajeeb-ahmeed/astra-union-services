@@ -1,8 +1,8 @@
 # Release 0.2 — execution results
 
-**Current work:** [Release 0.5 implementation and current evidence](RELEASE_0_5.md); merchant collection remains disabled.
+**Current release · 19 October 2026:** [Release 0.5 is live](RELEASE_0_5.md), with 192 passing CI tests, hosted migration and 7 payment + 6 historical readback + 5 geography groups. Live Bangla/English and mobile browser checks passed; merchant collection remains disabled.
 
-**History notice · 17 October 2026:** this page retains release 0.2 results. Release 0.4.0 is live: see [current release verification](RELEASE_0_4.md) for 162 tests, 11 separate local managed PostgreSQL groups, migration/deployment and hosted 9 order + 6 readback + 5 geography groups. [HOSTED_DEPLOYMENT.md](HOSTED_DEPLOYMENT.md) distinguishes current deployment from preserved 0.3 history.
+**History notice:** the body below retains release 0.2 results. [Release 0.4 verification](RELEASE_0_4.md) separately preserves its 162 tests, 11 local managed PostgreSQL groups and hosted 9 order + 6 readback + 5 geography groups from 17 October. [HOSTED_DEPLOYMENT.md](HOSTED_DEPLOYMENT.md) distinguishes the current 0.5 deployment from preserved 0.4/0.3 history.
 
 Executed on 13 October 2026, Windows, Node 24.18.0/npm 10.9.8, PostgreSQL 17.11 and Playwright Chromium. All records and payments are synthetic. Phase 0 was not repeated. Tests establish this independently authored system's behavior, not the reference website's unobserved server behavior.
 

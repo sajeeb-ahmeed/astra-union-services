@@ -1,8 +1,8 @@
 # Acceptance matrix and evidence boundaries
 
-## Release 0.5 source acceptance scope
+## Release 0.5 acceptance scope
 
-The bKash v2 citizen-payment implementation has local mock-provider/API/browser acceptance cases. **This section records coverage and required gates, not a passing 0.5 test run, CI result or live deployment.** Consult the separate 0.5 release evidence when available. Merchant credentials are absent; genuine bKash sandbox and live acceptance remain pending. Nagad, cash collection and bank payout matching are not implemented. See [gateway payments](GATEWAY_PAYMENTS.md).
+The bKash v2 citizen-payment implementation has local mock-provider/API/browser acceptance cases. **Release 0.5 is live: final Linux CI passed all 192 tests (72 forms, 89 API, 31 web), the Docker build and a zero-vulnerability dependency audit. Hosted migration and 7 payment + 6 historical readback + 5 geography groups passed; live Bangla/English and mobile browser checks also passed.** See [Release 0.5](RELEASE_0_5.md), [CI metadata](../execution/payments-ci-qa.json) and [CI summary](../execution/payments-ci-summary.log). Merchant credentials are absent; genuine bKash sandbox and live acceptance remain pending. Nagad, cash collection and bank payout matching are not implemented. See [gateway payments](GATEWAY_PAYMENTS.md).
 
 | ID | Coverage / required outcome | Evidence boundary |
 |---|---|---|
@@ -18,6 +18,8 @@ The bKash v2 citizen-payment implementation has local mock-provider/API/browser 
 | PAY-10 | Provider sandbox approval, registered callback, exact receiving merchant and controlled real transaction | **PENDING external merchant/provider acceptance** |
 
 Coverage sources: [adapter tests](../apps/api/test/bkash.test.ts), [payment API tests](../apps/api/test/payments.test.ts), [payment browser tests](../apps/web/test/payments-browser.test.ts). Re-run all relevant suites after final source changes; do not add historical test counts to a new release total.
+
+Hosted evidence: [payment checks](../execution/payments-hosted-qa.json), [readback](../execution/payments-hosted-readback.json), [geography](../execution/payments-hosted-geography.json), [migration](../execution/payments-hosted-migration.json), [network closure](../execution/payments-network-qa.json), [deployment](../execution/payments-render-deploy.json), [asset hashes](../execution/payments-live-assets.json) and [live browser](../execution/payments-live-browser-qa.json). The hosted payment checks used existing synthetic records and disabled configuration; no successful provider payment or paid receipt was fabricated online.
 
 ## Historical release 0.4
 

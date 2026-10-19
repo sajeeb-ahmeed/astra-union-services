@@ -1,0 +1,7 @@
+PASS 01 PostgreSQL is healthy after redeployment
+PASS 02 Existing citizen and finance accounts still authenticate securely
+PASS 03 Existing wallet retains 24 credits and one issuance debit
+PASS 04 Same issued application, certificate and audit transitions persist
+PASS 05 Stored PDF remains byte-for-byte identical
+PASS 06 Existing public QR verification and tracking remain minimal
+PASS: 6 post-redeploy checks passed; 0 failed. Evidence: execution/hosted-redeploy-qa.json

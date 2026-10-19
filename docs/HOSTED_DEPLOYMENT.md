@@ -1,8 +1,38 @@
 # Hosted deployment record
 
-**Updated 17 October 2026: release 0.4.0 is live and its hosted API checks passed.** Astra remains a synthetic DEMO application: certificate output is **DEMO / NOT OFFICIAL**. Citizen fee assessments are uncollected; positive totals block issuance. SaaS billing QA uses zero-money sandbox settlement. See [0.4 release evidence](RELEASE_0_4.md).
+**Updated 19 October 2026: release 0.5.0 is live and its hosted API checks passed; live Bangla/English and mobile browser checks also passed.** bKash checkout remains disabled because merchant setup is absent. Nagad and bank payout reconciliation are not integrated. No genuine provider sandbox transaction or real-money payment is claimed. Astra certificates remain **DEMO / NOT OFFICIAL**. See [0.5 release evidence](RELEASE_0_5.md).
 
-## Current 0.4 deployment and verification
+## Current 0.5 deployment and verification
+
+| Component | Verified result |
+| --- | --- |
+| Live URL | [astra-union-services.onrender.com](https://astra-union-services.onrender.com/) |
+| Runtime commit | `b86908b9a4654cc31cd1b517fc5e8ad3ae086878` |
+| Render deployment | `dep-dbaob6s9v7es739a8j30`, status `live`; completed `2026-10-19T02:53:25.665787Z` (08:53:25 Asia/Dhaka) |
+| CI | [Run 39125266096](https://github.com/sajeeb-ahmeed/astra-union-services/actions/runs/39125266096): **192/192 tests**, production/Docker builds and zero-vulnerability audit passed |
+| Database migration | `012_gateway_payments.sql` committed; eleven migration files installed; forced RLS/runtime privileges and idempotent replay passed |
+| Preservation | All 66 recorded domain fingerprints across three offices unchanged; counts remain 3 offices, 12 users and 2 certificates |
+| External database access | Empty database IP allowlist and blocked fresh connection verified on 19 October; application health HTTP 200 |
+| Hosted payment API | **7/7 groups passed** using existing synthetic records; checkout disabled before intent creation, no invented payments/receipts, role restrictions enforced |
+| Historical readback | **6/6 groups passed**; original PDF, 24-credit wallet, one three-credit issuance debit and five application events preserved |
+| Geography regression | **5/5 read-only groups passed** |
+| Frontend assets | Entry JavaScript and CSS hashes match the tested local build; immutable cache headers present |
+| Live UI browser inspection | Bangla/English register, reconciliation and disabled payment card passed; 390 × 844 layout has no horizontal overflow; zero console warnings/errors |
+| Hosting | Same Free Singapore service `srv-db6tvpou01pc73bjkpr0`; Auto-Deploy Off; Free PostgreSQL expiry **12 November 2026** |
+
+Evidence: [consolidated release metadata](../execution/payments-live-release.json), [deployment](../execution/payments-render-deploy.json), [CI](../execution/payments-ci-qa.json), [migration](../execution/payments-hosted-migration.json), [network closure](../execution/payments-network-qa.json), [database dashboard](../execution/payments-database-private.png), [payment checks](../execution/payments-hosted-qa.json), [historical readback](../execution/payments-hosted-readback.json), [geography](../execution/payments-hosted-geography.json) and [asset hashes](../execution/payments-live-assets.json).
+
+[Live browser verification](../execution/payments-live-browser-qa.json) passed for English/Bangla registers, reconciliation, setup messages and the approved BDT 152.10 application's disabled checkout/no-receipt state. Mobile inspection at 390 × 844 showed no horizontal overflow; console warning/error counts were zero. The browser ended signed out with blank login inputs and its viewport restored. Screenshots: [English reconciliation](../execution/payments-live-reconciliation-en.png), [Bangla mobile reconciliation](../execution/payments-live-reconciliation-mobile-bn.png), [Bangla mobile payment card](../execution/payments-live-application-mobile-bn.png), [final homepage](../execution/payments-live-home-bn.png).
+
+Migration completed on 18 October at 12:20:40.723 UTC and changed only schema 012 plus its migration marker. It created no tariff, account, application, payment or ledger records. Its preservation report covers every existing tenant dynamically and records matching before/after fingerprints. Token-cache and narrow intent-state updates are permitted; payment history remains immutable. Replaying migration skipped the SQL and retained the marker and domain fingerprints. Network closure was separately verified on 19 October before the runtime deployment.
+
+Hosted payment checks confirmed `DISABLED`/`MERCHANT_SETUP_REQUIRED`, Nagad `NOT_INTEGRATED`, and bank payouts `NOT_CONNECTED`. The existing BDT 152.10 approved application remained unpaid without an attempt or receipt. Checkout returned `503 GATEWAY_NOT_CONFIGURED`; register, reconciliation and CSV totals remained empty. Forged callbacks, nonexistent receipt access and unauthenticated requests were rejected. Existing PDFs, application history and balances stayed unchanged. All API test sessions were logged out; no provider mock or live payment was created online.
+
+The 0.5 readback and geography results use separate `payments-` filenames. Earlier shared 0.4 evidence was restored and remains preserved below. Documentation/evidence-only commits may be newer than the deployed runtime SHA because Auto-Deploy is off. Merchant acceptance and official issuing authority remain separate gates; this deployment does not establish either.
+
+## Release 0.4 history — 17 October 2026
+
+The following record preserves the previous deployment. Citizen assessments were uncollected and positive totals blocked issuance; SaaS billing QA used zero-money sandbox settlement. These are historical 0.4 results, not the current runtime identifiers or test counts. See [0.4 release evidence](RELEASE_0_4.md).
 
 | Component | Verified result |
 | --- | --- |
@@ -32,7 +62,7 @@ Original-fixture readback finished `2026-10-17T09:27:10.583Z`: its 114,286-byte 
 
 ## Release 0.3 history — 13 October 2026
 
-The following table and 13 October narrative retain the preceding deployment's evidence. They are not the current runtime identifiers or 0.4 test counts. Files reused for readback/geography evidence now contain the 17 October rerun; original 0.3 aggregate metadata remains in [geography-live-release.json](../execution/geography-live-release.json).
+The following table and 13 October narrative retain the preceding deployment's evidence. They are not the current runtime identifiers or test counts. The shared readback/geography evidence files preserve the 17 October 0.4 rerun; current 0.5 results use separate `payments-` files. Original 0.3 aggregate metadata remains in [geography-live-release.json](../execution/geography-live-release.json).
 
 | Component | Verified status |
 | --- | --- |
@@ -141,11 +171,11 @@ Separate browser inspection passed for the desktop homepage and a 390 by 844 mob
 
 The initial inspection found a masked password value remaining in React state after logout. The preceding release corrected this and clears both sign-in fields on logout. Browser testing performed login and logout without navigation on deployment `dep-db6u4dnf3r2c73chvk5g` and confirmed `emailEmpty=true` and `passwordEmpty=true`, with no warning or error logs. Those screenshots document the preceding release. A browser password manager may independently refill a login form; the application does not control that user preference.
 
-[The readback runner](../scripts/verify-hosted-readback.ts) passed all six groups again on release 0.3 at `2026-10-13T08:53:53.185Z`, recorded in [0.3 aggregate evidence](../execution/geography-live-release.json). Only login/logout session state changed. The same application, certificate and five audit transitions persisted; the wallet remained at 24 credits with one issuance debit of minus three; the PDF retained the identical SHA-256 above. The [current durability evidence](../execution/hosted-redeploy-qa.json) now records the successful 17 October rerun against 0.4.
+[The readback runner](../scripts/verify-hosted-readback.ts) passed all six groups again on release 0.3 at `2026-10-13T08:53:53.185Z`, recorded in [0.3 aggregate evidence](../execution/geography-live-release.json). Only login/logout session state changed. The same application, certificate and five audit transitions persisted; the wallet remained at 24 credits with one issuance debit of minus three; the PDF retained the identical SHA-256 above. The [preserved 0.4 durability evidence](../execution/hosted-redeploy-qa.json) now records the successful 17 October rerun against 0.4.
 
 ## Release 0.3 geography and interface verification
 
-The 0.3 geography API passed five read-only hosted groups at `2026-10-13T08:53:55.462Z`, recorded in [0.3 aggregate evidence](../execution/geography-live-release.json). The [current read-only report](../execution/geography-hosted-qa.json) now records the passing 17 October rerun against 0.4. Counts match the supplied 8 divisions, 64 districts, 495 upazilas, 4,586 unions and 41,274 derived wards. All eight divisions and all 64 districts were compared to source names and parents; a complete district/upazila/union/ward route was checked in each division. This is representative hosted route coverage, not an exhaustive request for every row. Missing, wrong-level and unknown parents were rejected, Shaistaganj remained an explicit empty coverage gap, and geography filters did not invent participating offices.
+The 0.3 geography API passed five read-only hosted groups at `2026-10-13T08:53:55.462Z`, recorded in [0.3 aggregate evidence](../execution/geography-live-release.json). The [preserved 0.4 read-only report](../execution/geography-hosted-qa.json) now records the passing 17 October rerun against 0.4. Counts match the supplied 8 divisions, 64 districts, 495 upazilas, 4,586 unions and 41,274 derived wards. All eight divisions and all 64 districts were compared to source names and parents; a complete district/upazila/union/ward route was checked in each division. This is representative hosted route coverage, not an exhaustive request for every row. Missing, wrong-level and unknown parents were rejected, Shaistaganj remained an explicit empty coverage gap, and geography filters did not invent participating offices.
 
 Browser inspection verified the minimal English/Bangla public interface, persisted language after reload, a Dhaka → Dhaka → Savar → Ashulia → Ward 3 cascade, retained selected geography and a draft display name across language changes, and the explicit preview-office fallback. The 390 × 844 registration viewport had no overall horizontal overflow. Owner login, translated navigation and management controls, and sign-out were exercised. Final checks confirmed translated owner metrics and bilingual office names. See [browser evidence](../execution/geography-live-browser-qa.json), [Bangla homepage](../execution/geography-live-home-bn.png), [mobile registration](../execution/geography-live-register-mobile.png) and [deployed Render release](../execution/geography-render-deployed.png).
 
@@ -155,7 +185,7 @@ The supplied dataset is community MIT data, not an official current national reg
 
 ## Owner handoff
 
-Unique hosted credentials are supplied in local ignored files `OWNER_LOGIN.txt` and `DEMO_ROLE_LOGINS.txt` under `.runtime/hosted/`. They are not part of the public source repository or this report. Use the owner login for platform administration; the role logins are synthetic QA accounts for inspecting the demonstrated workflow. Release 0.4 API QA invalidated its sessions, and the live browser inspection ended signed out with cleared login inputs. Keep these handoff files private and rotate credentials through the application's password controls when transferring access.
+Unique hosted credentials are supplied in local ignored files `OWNER_LOGIN.txt` and `DEMO_ROLE_LOGINS.txt` under `.runtime/hosted/`. They are not part of the public source repository or this report. Use the owner login for platform administration; the role logins are synthetic QA accounts for inspecting the demonstrated workflow. Release 0.5 API QA invalidated its sessions, and its live browser inspection ended signed out with cleared login inputs. Keep these handoff files private and rotate credentials through the application's password controls when transferring access.
 
 ## Free hosting limits and next operational milestone
 
