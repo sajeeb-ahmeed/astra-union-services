@@ -4,6 +4,8 @@
 
 ## এক নজরে
 
+- **0.8 প্রস্তুত; live acceptance এখনও বাকি:** optional authenticator login, একবার ব্যবহারযোগ্য recovery code, নিজের account-security history এবং encrypted managed backup/আলাদা restore tooling তৈরি হয়েছে। স্থানীয় ও Linux CI—দুই জায়গায় **২৫২/২৫২ পরীক্ষা**, production/Docker build ও zero-vulnerability audit পাস; স্বাধীন synthetic restore/application-startup rehearsal-এ আরও ২২টি check পাস। Source candidate `cd6b5c8a7deb8d4f5be4b6b7ee6eded8358b4479` GitHub-এ আছে। বর্তমান maintenance window-এর consent, hosted migration/export/restore ও deploy verification pending; পুরোনো 0.7-ই সর্বশেষ যাচাইকৃত live runtime। [সঠিক checkpoint ও পরবর্তী execution ধাপ](RELEASE_0_8.md)।
+
 - **0.7 usability live:** role অনুযায়ী কাজের shortcut, mobile page picker, সহজ search/filter, আবেদন ও সংশোধনের পরবর্তী ধাপ, field-error link, public tracking/verification এবং password দেখানো/লুকানোর control। বাংলা/ইংরেজি ও ৪৭টি সেবা অক্ষত।
 - **Release 0.7.0 live; hosted acceptance পাস:** [Astra ওয়েবসাইট](https://astra-union-services.onrender.com/)। [Release 0.7](RELEASE_0_7.md), [local evidence](../execution/usability-local-qa.json)।
 - **Source:** [GitHub repository](https://github.com/sajeeb-ahmeed/astra-union-services), branch: codex/initial-deployment।
@@ -71,6 +73,8 @@ Deployed runtime commit: `402903fb113799f5d7e5ec8d62307ba88f625318`; [CI 3919941
 | অফিসের ইনপুটসহ | ৪৭ সেবার official rules, identity/OTP, signatory/fees ও geography gaps                                          | দায়িত্বপ্রাপ্ত অফিস/প্রযোজ্য provider-এর অনুমোদিত rules ও acceptance; ততদিন DEMO সীমা বজায়।                                                                                                                 |
 
 বিস্তারিত owner/dependency ও definition of done: [বর্তমান backlog](DELIVERY_BACKLOG.md)।
+
+0.8-এর source-এ MFA ও managed recovery implementation/test সম্পন্ন হলেও ওপরের operational gates পুরোপুরি বন্ধ হয়নি। পরের engineering milestone: file quarantine, scan ব্যর্থ হলে download বন্ধ রাখা এবং পরীক্ষিত scan-state workflow; scanner/storage ও retention policy আলাদাভাবে নির্ধারণ করতে হবে। Offsite backup/key custody এবং ১২ নভেম্বরের আগে স্থায়ী hosting-ও বাকি।
 
 ## Deferred — payment gateway পরে যেভাবে শুরু হবে
 

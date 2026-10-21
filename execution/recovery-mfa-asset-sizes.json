@@ -1,0 +1,59 @@
+{
+  "measuredAt": "2026-10-21T06:50:41.390Z",
+  "assets": [
+    {
+      "name": "AccountMfa-C_-8H-Ge.js",
+      "rawBytes": 17583,
+      "gzipBytes": 5042,
+      "brotliBytes": 4329
+    },
+    {
+      "name": "AccountMfa-h2sy7EfO.css",
+      "rawBytes": 1428,
+      "gzipBytes": 609,
+      "brotliBytes": 471
+    },
+    {
+      "name": "AdditionalWorkspace-B_6vvqOq.js",
+      "rawBytes": 14072,
+      "gzipBytes": 4217,
+      "brotliBytes": 3583
+    },
+    {
+      "name": "AdminWorkspace-BXaCQhRR.js",
+      "rawBytes": 27942,
+      "gzipBytes": 7992,
+      "brotliBytes": 6825
+    },
+    {
+      "name": "index-B7pGVCJS.js",
+      "rawBytes": 362177,
+      "gzipBytes": 101484,
+      "brotliBytes": 82059
+    },
+    {
+      "name": "index-CH_yOoyZ.css",
+      "rawBytes": 36191,
+      "gzipBytes": 8171,
+      "brotliBytes": 7212
+    },
+    {
+      "name": "OnlinePayments-DE-nGUDJ.js",
+      "rawBytes": 23769,
+      "gzipBytes": 6579,
+      "brotliBytes": 5608
+    },
+    {
+      "name": "WorkspaceApp-Bo9g8BjM.js",
+      "rawBytes": 669783,
+      "gzipBytes": 55168,
+      "brotliBytes": 39064
+    },
+    {
+      "name": "WorkspaceApp-Bq3H9Rnx.css",
+      "rawBytes": 2778,
+      "gzipBytes": 982,
+      "brotliBytes": 771
+    }
+  ]
+}

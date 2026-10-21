@@ -1,5 +1,13 @@
 # Operations and verified local recovery
 
+## Release 0.8 managed recovery and account protection
+
+Use [MANAGED_RECOVERY.md](MANAGED_RECOVERY.md) for hosted logical exports when the migration owner cannot bypass forced RLS. It preserves original application object ownership while restoring fresh restricted database credentials to a separate local cluster. The independent synthetic rehearsal passed **22 checks**, including actual HTTP startup, 47-service catalog, password login, protected PDF bytes, public QR and negative access tests. This local result alone is not a hosted export or offsite recovery claim; current execution status is in [RELEASE_0_8.md](RELEASE_0_8.md).
+
+Optional MFA requires a stable, separately retained `MFA_ENCRYPTION_KEY`. Never reset the key or remove account factors to fix a deployment. An archive contains encrypted factor data but excludes environment secrets; independently escrow the matching key before enabling protected accounts for real operations. Own-account security history is durable but no privileged assisted-recovery/access-review procedure is implemented. Follow [ACCOUNT_SECURITY.md](ACCOUNT_SECURITY.md) and the [MFA-safe rollout and rollback procedure](DEPLOYMENT.md#08-recovery-and-authenticator-rollout).
+
+Payment collection remains disabled. After each hosted export, close temporary external database access before local restore validation. Offsite archive/key custody, scheduled backup/failure alerts, approved retention and durable hosting before **12 November 2026** remain operational gates; no paid hosting or cloud backup purchase is authorized by this release.
+
 ## Recovery tooling inherited from 0.6
 
 Release 0.7 is deployed on Render and retains the 0.6 recovery tooling with its local verification. Current hosted application acceptance is recorded in [0.7 release evidence](RELEASE_0_7.md); these application checks do not constitute a hosted backup/restore or a new recovery drill. Follow [BACKUP_AND_RECOVERY.md](BACKUP_AND_RECOVERY.md) for the current format-2 archive contract, complete commands, collision safeguards and evidence. The detailed runbook is authoritative for new backups; preserve older format-1 archives together with their matching 0.5 verifier.

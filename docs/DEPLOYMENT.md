@@ -2,7 +2,21 @@
 
 Updated for **0.7 live deployment · 21 October 2026**. Windows/Node 24/PostgreSQL 17.11 is the local development path. [Release 0.7](RELEASE_0_7.md) records 223 passing Linux CI tests, production/Docker builds and hosted verification. [HOSTED_DEPLOYMENT.md](HOSTED_DEPLOYMENT.md) records the exact runtime and preserved release history. Certificate documents retain DEMO / NOT OFFICIAL semantics.
 
-## 0.7 usability rollout
+## 0.8 recovery and authenticator rollout
+
+The execution state is recorded in [Release 0.8](RELEASE_0_8.md). A prepared migration or source push alone is not deployment acceptance.
+
+1. Require the exact candidate's full CI and Docker build. Keep gateway collection disabled.
+2. Review migrations 013/014. Run `scripts/migrate-hosted-security.mjs --apply-reviewed-security-migration <bundle-sha256>` only against the existing bound Render database with verified TLS and a narrowly scoped maintenance connection. The bundle hash covers each filename, newline and LF-normalized SQL in filename order. Existing business-table fingerprints and routine ownership must remain unchanged.
+3. Migration 014 validates `audit_events.tenant_id NOT NULL` using PostgreSQL's internal whole-table constraint check. This is a prerequisite to proving full logical export under forced RLS. A hidden NULL aborts the transaction; never bypass RLS or delete/rewrite history to force acceptance.
+4. Export the actual hosted data with the [managed recovery runbook](MANAGED_RECOVERY.md), then close temporary external access. Restore into a fresh, independent local cluster and verify exact rows/PDFs/ledger/schema/owners, restricted roles, RLS and actual application startup. The restore requires no continued hosted network opening.
+5. Set a separately generated `MFA_ENCRYPTION_KEY` as a deployment secret, merge it with existing configuration and retain a protected copy outside the database archive. Do not publish or replace an established key. Deploy the verified source and wait for the provider's live status.
+6. Run `scripts/verify-hosted-mfa.ts` against the authorized HTTPS origin. It creates one explicitly synthetic staff fixture, exercises the actual factor/recovery flow, disables its factor, deactivates it and closes its sessions. Resolve uncertain cleanup before declaring success. Other users must not be enrolled by deployment.
+7. Run existing account/payment/readback/geography checks with new `ASTRA_QA_OUTPUT` paths, then `scripts/verify-hosted-mfa-ui.ts` and asset verification with `ASTRA_ASSET_EVIDENCE_PREFIX=recovery-mfa`. Preserve previous release evidence. Record exact runtime, CI, migrations, backup snapshot, restore timings, firewall closure and limitations.
+
+**Rollback boundary:** after any account enables MFA, do not deploy 0.7 or older password-only authentication code. Those versions do not enforce the stored factor. Keep the schema and key; fix forward or use a verified MFA-aware compatible runtime. Never silently remove factors or replace the key as a recovery shortcut. Offsite archive/key custody and durable hosting before the free-database expiry remain separate required decisions.
+
+## 0.7 usability rollout — historical
 
 Runtime `56fb7f56bd77cfde2887a52384d3a9b4706a421e` passed [CI 39552222856](https://github.com/sajeeb-ahmeed/astra-union-services/actions/runs/39552222856) and is live as `dep-dbc596mi0phs73aeldug`. This frontend update needed no migration, database firewall opening or provider credentials. Eight live usability/browser groups, 22 API groups and eight JS/CSS hash checks passed. See [release metadata](../execution/usability-live-release.json).
 

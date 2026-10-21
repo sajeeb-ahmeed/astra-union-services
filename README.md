@@ -2,7 +2,11 @@
 
 Release 0.7.0 · live deployment and hosted acceptance verified on 21 October 2026. Independently authored Bangla/English React frontend, Express/TypeScript backend and real PostgreSQL database. The commissioning user owns the original software; third-party licenses are retained separately.
 
-## 0.7 usability update — live and verified
+## 0.8 recovery and authenticator candidate
+
+Optional authenticator sign-in, one-use recovery codes, durable own-account security history and protected managed-PostgreSQL backup/independent restore are implemented. **252 local and 252 CI tests passed**, with production/Docker builds and zero-vulnerability audits. A separate **22-check synthetic recovery rehearsal** includes actual application startup, PDF delivery and QR verification. The source is pushed; hosted maintenance/deployment acceptance is pending. [Release checkpoint](docs/RELEASE_0_8.md), [account protection](docs/ACCOUNT_SECURITY.md), [managed recovery](docs/MANAGED_RECOVERY.md). Payment collection remains disabled.
+
+## 0.7 usability update — current verified live baseline
 
 - Start from role-specific daily tasks; use the mobile page picker, simpler application search and clear filters.
 - Follow citizen/service/form steps, readable validation links and state-specific guidance for drafts, corrections, approval, fee verification and certificate downloads.

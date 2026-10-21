@@ -2,6 +2,16 @@
 
 **Current release · 21 October 2026:** [Release 0.7 is live](RELEASE_0_7.md), with 49 local web tests and **223 CI tests**, production/Docker builds and dependency audit passed. **22 hosted API groups, eight live browser groups and eight asset-hash checks passed.** Merchant collection remains disabled.
 
+## Release 0.8 — implemented and verified candidate
+
+Source `cd6b5c8a7deb8d4f5be4b6b7ee6eded8358b4479` passed **252/252 local and Linux CI tests**: 15 backup safety, 72 form-engine, 112 API and 53 web cases. Typecheck, production/Docker builds and dependency audits passed; no vulnerabilities were reported. [CI 39558153809](https://github.com/sajeeb-ahmeed/astra-union-services/actions/runs/39558153809), [local results](../execution/recovery-mfa-local-qa.json), [CI metadata](../execution/recovery-mfa-ci-qa.json), [test log](../execution/recovery-mfa-local-qa.log).
+
+The independent managed-owner recovery rehearsal passed **22 checks**, preserving 49 tables, two synthetic tenants and two PDF files. Its separate restored PostgreSQL cluster served the real application, all 47 services, valid/invalid QR lookup and authenticated byte-identical PDFs; unauthorized/cross-tenant reads were denied. This is synthetic local rehearsal evidence, not an actual hosted archive. [Recovery evidence](../execution/managed-recovery-local-qa.json).
+
+The first full local attempt was interrupted by a Vite reload during a concurrent frontend hardening edit. The existing account-security test and four MFA tests passed a focused rerun; source was frozen and the complete 252-test run passed without weakening assertions. Public JavaScript is **362,177 raw / 101,484 gzip bytes**; the authenticated workspace remains **669,783 raw bytes**. [Build sizes](../execution/recovery-mfa-asset-sizes.json).
+
+Hosted migration, archive/restore, deployment and acceptance remain pending the narrow maintenance window. The prepared database rule is unsaved; no firewall or live-runtime change is claimed. [Execution checkpoint](RELEASE_0_8.md).
+
 ## Release 0.7 — execution results
 
 Source `56fb7f56bd77cfde2887a52384d3a9b4706a421e` adds role-specific task entry, mobile navigation, easier search and validation, application next-step guidance, public shortcuts and password visibility controls. [Local evidence](../execution/usability-local-qa.json) and [web test log](../execution/usability-web-tests.log) record **49/49 web cases PASS**, with typecheck and production build PASS. The browser suite uses the existing local PostgreSQL-backed app for full workflows; production bundle tests retain their documented mocked-API boundary.

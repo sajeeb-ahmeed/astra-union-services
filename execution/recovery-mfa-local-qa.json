@@ -1,0 +1,51 @@
+{
+  "release": "0.8.0",
+  "runtimeCommit": "cd6b5c8a7deb8d4f5be4b6b7ee6eded8358b4479",
+  "completedAt": "2026-10-21T06:54:24.006Z",
+  "status": "PASS",
+  "tests": {
+    "backup": 15,
+    "forms": 72,
+    "api": 112,
+    "web": 53,
+    "total": 252,
+    "passed": 252,
+    "failed": 0
+  },
+  "productionBuild": "PASS",
+  "typecheck": "PASS",
+  "dependencyAudit": {
+    "total": 0,
+    "high": 0,
+    "critical": 0
+  },
+  "managedIndependentRecovery": {
+    "status": "PASS",
+    "checks": 22,
+    "source": "Synthetic managed-owner fixture; separate local cluster and actual HTTP startup"
+  },
+  "publicJavaScript": {
+    "rawBytes": 362177,
+    "gzipBytes": 101484,
+    "budgetRawBytes": 400000
+  },
+  "attemptHistory": [
+    {
+      "stage": "First full run",
+      "result": "One web failure during active development reload; remaining groups passed",
+      "diagnosis": "Vite page reload caused by concurrent frontend hardening interrupted account-session test",
+      "correction": "Freeze source during tests; existing account test and four MFA tests passed focused rerun; no assertions weakened"
+    },
+    {
+      "stage": "Final frozen-source full run",
+      "result": "252/252 PASS"
+    }
+  ],
+  "notEstablished": [
+    "Hosted deployment acceptance",
+    "Hosted archive and restore",
+    "Offsite archive and independent key custody",
+    "Durable hosting",
+    "Gateway merchant readiness"
+  ]
+}

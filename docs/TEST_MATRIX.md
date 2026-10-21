@@ -1,6 +1,19 @@
 # Acceptance matrix and evidence boundaries
 
-## Release 0.7 acceptance scope
+## Release 0.8 local acceptance scope
+
+Frozen-source local verification passed **252/252 cases** (15 backup, 72 forms, 112 API, 53 web), production build, typecheck and a zero-vulnerability dependency audit. An additional **22-check independent managed recovery rehearsal** restored 49 tables, two synthetic tenants and two actual PDFs, including real HTTP startup. These counts do not include duplicate focused reruns. [Local evidence](../execution/recovery-mfa-local-qa.json), [recovery rehearsal](../execution/managed-recovery-local-qa.json), [release status](RELEASE_0_8.md).
+
+| Area | Executed acceptance | Boundary |
+| --- | --- | --- |
+| MFA | Password-confirmed pending enrollment, real TOTP activation/login, no cookie before factor, wrong/expired/replayed code denial, one-use recovery, rotation/disable, concurrent redemption, account/office/revision rechecks | Synthetic PostgreSQL/API fixtures; no privileged assisted reset or compulsory enrollment |
+| Account history | Account-scoped reads, owner events, restricted grants and immutable history | Service-context RLS; no independent external audit store or cross-account review console |
+| Browser | Real factor/recovery journey, BN/EN mobile, keyboard labels, unavailable configuration, navigation and delayed-response/pagehide secret clearing | Local Chromium; not full WCAG/screen-reader certification |
+| Managed export | All tenant/account scopes, nullable global rows exactly once, source read-only, canonical-policy and completeness checks, encrypted authenticated archive | Strict supported schema; unknown security topology fails closed |
+| Restore | Tamper/wrong-key rejection before connection, new cluster, fresh restricted role passwords, exact data/security/owner/PDF/ledger match, real server/login/PDF/QR acceptance | Independent local cluster; not offsite or infrastructure/key-escrow recovery |
+| Audit completeness | Hidden NULL tenant audit rows cause migration 014 to fail; valid histories remain unchanged | Isolated temporary test tables; hosted migration needs its own execution evidence |
+
+## Release 0.7 acceptance scope — historical
 
 Runtime `56fb7f56bd77cfde2887a52384d3a9b4706a421e` passed **49/49 local web tests**, typecheck and the production build on 21 October 2026. [CI 39552222856](https://github.com/sajeeb-ahmeed/astra-union-services/actions/runs/39552222856) passed **223/223 cases** (5 backup, 72 forms, 97 API, 49 web), production/Docker builds and a zero-vulnerability audit. Render deployment `dep-dbc596mi0phs73aeldug` finished live at `2026-10-21T06:01:21.514444Z`; **22 hosted API groups, eight live browser groups and eight deployed JS/CSS asset hashes passed**. [Live acceptance](../execution/usability-live-release.json).
 
