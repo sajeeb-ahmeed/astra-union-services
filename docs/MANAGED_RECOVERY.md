@@ -2,6 +2,27 @@
 
 This operator tooling addresses the first merchant-independent preservation priority. It creates an encrypted, consistent logical snapshot under the existing **NOSUPERUSER / NOBYPASSRLS migration owner** and restores it to a new independent PostgreSQL 17 cluster. The application role is never elevated; no public backup endpoint exists.
 
+## Completed hosted recovery rehearsal — 21 October 2026
+
+The actual hosted database was exported successfully at **07:28:07 UTC / 13:28:07 Asia/Dhaka**: **49 tables, 3 tenants and 2 stored certificate PDFs**. The encrypted archive is 9,887,482 bytes. A fresh independent local cluster restored the same archive with exact data/PDF hashes, financial invariants, schema/security values and application object ownership preserved. **Eight SQL/runtime checks and six real HTTP checks passed — 14 combined acceptance groups.** These are completed recovery results, not a claim that a new application release has been deployed.
+
+The actual restored application passed PostgreSQL health, built frontend and 47-service availability, correct and invalid QR verification, existing QA citizen login, byte-identical protected PDF delivery, unauthorized access rejection, disabled payment configuration and logout. The recovery server and its owned cluster have been stopped; recovered files remain available. Restoring and testing this archive made no remote database connection or hosted business-data change. Temporary hosted external access was removed after export; the provider's empty external IP allowlist was verified at **07:28:31 UTC**.
+
+Private artifacts for this run:
+
+- Encrypted archive, relative to the project: `.runtime/managed-backups/managed_20261021072732629_da76544e.aes`.
+- Separate key file: `%USERPROFILE%\.astra-recovery\keys\managed_20261021072732629_da76544e.key`.
+- Private restored connection details: `.runtime/managed-backups/managed_20261021072732629_da76544e.recovered.json`.
+- Public archive integrity reference: SHA-256 `e9ac1f6f7c6a6076bbdad69a8403439cc2dd150ebce93cf363322639844d9d34`.
+
+Never commit or attach the archive, key, private connection details or raw diagnostic files. **The owner explicitly chose encrypted local storage for this run and postponed offsite storage.** Keeping the key in a different directory on this workstation does not establish independent custody. This is a manual point-in-time snapshot: no scheduled backup, retention service, guaranteed RPO or approved production RTO has been established. Records created after the snapshot are not included.
+
+Two initial restore attempts failed and were retained honestly. The first encountered a provider `postgres` default-ACL identity missing from the new cluster; the bounded, non-login catalog-role handling described below resolved it. The second encountered different catalog query ordering; exact unordered-collection comparison resolved it without relaxing any data/hash/security value check. Both failed clusters were stopped and their files retained; the original encrypted archive remained unchanged. A separate private HTTP wrapper initially selected a nonexistent QA account entry. Selecting the existing QA citizen credentials corrected that wrapper; it was not a product failure and required no recovered business-record change.
+
+This archive was created before database locale metadata was added to the exporter. Its **source locale is explicitly unknown**, while the rehearsal target reports `C`/`C`, UTF8. Catalog comparison preserves all values but does not prove identical locale-dependent runtime behavior. The result is **not a cutover approval**. Durable hosting, source locale compatibility, independent key escrow/offsite storage and recurring recovery operations remain open.
+
+Evidence: [hosted export](../execution/managed-hosted-backup.json), [independent restore](../execution/managed-independent-restore.json), [actual restored HTTP acceptance](../execution/recovery-mfa-restored-http.json), [attempt history](../execution/managed-hosted-restore-attempts.json), [external access closed](../execution/recovery-mfa-network-qa.json).
+
 ## Scope and safety contract
 
 `scripts/backup/managed-recovery.mjs` pins hosted access to Render database `dpg-db6tr43ncjis73ercfsg-a`, its Singapore external hostname and database `astra_uvug`. It reads the ignored `.runtime/hosted/render-database.json` internally. Node connections require certificate/hostname verification; PostgreSQL tools use `sslmode=verify-full` with an explicit temporary PEM bundle from Node's trusted root certificates, avoiding Windows OpenSSL default-path ambiguity. Invalid host, database, resource ID, application-role credentials, TLS downgrade, URL query override or fragment fail before connection. External network access must be managed separately by the authorized operator; the script never changes a firewall rule.
@@ -73,6 +94,9 @@ MFA and gateway ciphertext require the corresponding application encryption keys
 - `execution/managed-recovery-local-qa.json`: actual synthetic independent-cluster drill results.
 - `execution/managed-hosted-backup.json`: created only by an actual successful hosted export.
 - `execution/managed-independent-restore.json`: created by an actual successful CLI restore.
+- `execution/recovery-mfa-restored-http.json`: six passing application HTTP groups against the actual hosted archive restored locally.
+- `execution/managed-hosted-restore-attempts.json`: two failed restore attempts, the successful retry and unchanged archive integrity.
+- `execution/recovery-mfa-network-qa.json`: empty hosted external IP allowlist after export.
 - `.runtime/managed-backups/<name>.recovered.json`: private recovery credentials and target information; never publish it.
 
 A source commit or successful export alone does not prove recovery. Require completed restore comparison and runtime checks. Hosted offsite/key-custody and durable-hosting gates remain open until separately executed; the recorded free-database expiry still needs current provider verification and a hosting decision.

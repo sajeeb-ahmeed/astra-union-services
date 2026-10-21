@@ -1,12 +1,13 @@
 # Deployment and reproducibility
 
-Updated for **0.7 live deployment · 21 October 2026**. Windows/Node 24/PostgreSQL 17.11 is the local development path. [Release 0.7](RELEASE_0_7.md) records 223 passing Linux CI tests, production/Docker builds and hosted verification. [HOSTED_DEPLOYMENT.md](HOSTED_DEPLOYMENT.md) records the exact runtime and preserved release history. Certificate documents retain DEMO / NOT OFFICIAL semantics.
+Updated for **0.8 live deployment · 21 October 2026**. Windows/Node 24/PostgreSQL 17.11 is the local path. [Release 0.8](RELEASE_0_8.md) records 255 passing Linux CI tests, production/Docker builds and hosted acceptance. [HOSTED_DEPLOYMENT.md](HOSTED_DEPLOYMENT.md) identifies the exact runtime. Certificates remain DEMO / NOT OFFICIAL.
 
 ## 0.8 recovery and authenticator rollout
 
 The execution state is recorded in [Release 0.8](RELEASE_0_8.md). A prepared migration or source push alone is not deployment acceptance.
 
 1. Require the exact candidate's full CI and Docker build. Keep gateway collection disabled.
+   Environment-variable updates through the Render connector can start a deployment even when Git Auto-Deploy is off. Apply them only after CI passes, then inspect deploy history before triggering another build. If an early build starts, cancel it before replacement and record the attempt.
 2. Review migrations 013/014. Run `scripts/migrate-hosted-security.mjs --apply-reviewed-security-migration <bundle-sha256>` only against the existing bound Render database with verified TLS and a narrowly scoped maintenance connection. The bundle hash covers each filename, newline and LF-normalized SQL in filename order. Existing business-table fingerprints and routine ownership must remain unchanged.
 3. Migration 014 validates `audit_events.tenant_id NOT NULL` using PostgreSQL's internal whole-table constraint check. This is a prerequisite to proving full logical export under forced RLS. A hidden NULL aborts the transaction; never bypass RLS or delete/rewrite history to force acceptance.
 4. Export the actual hosted data with the [managed recovery runbook](MANAGED_RECOVERY.md), then close temporary external access. Restore into a fresh, independent local cluster and verify exact rows/PDFs/ledger/schema/owners, restricted roles, RLS and actual application startup. The restore requires no continued hosted network opening.

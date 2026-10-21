@@ -1,16 +1,22 @@
-# Execution results and release history
+# Execution results
 
-**Current release · 21 October 2026:** [Release 0.7 is live](RELEASE_0_7.md), with 49 local web tests and **223 CI tests**, production/Docker builds and dependency audit passed. **22 hosted API groups, eight live browser groups and eight asset-hash checks passed.** Merchant collection remains disabled.
+**Current release: 0.8, live and verified on 21 October 2026.** Payment collection remains disabled.
 
-## Release 0.8 — implemented and verified candidate
+## Release 0.8 — executed results
 
-Source `cd6b5c8a7deb8d4f5be4b6b7ee6eded8358b4479` passed **252/252 local and Linux CI tests**: 15 backup safety, 72 form-engine, 112 API and 53 web cases. Typecheck, production/Docker builds and dependency audits passed; no vulnerabilities were reported. [CI 39558153809](https://github.com/sajeeb-ahmeed/astra-union-services/actions/runs/39558153809), [local results](../execution/recovery-mfa-local-qa.json), [CI metadata](../execution/recovery-mfa-ci-qa.json), [test log](../execution/recovery-mfa-local-qa.log).
+Runtime `695942dff49f088ad7862718ba32192d0a8011c2` passed **255/255 Linux CI tests**: 18 backup safety, 72 forms, 112 API and 53 web cases. Production and Docker builds passed; the dependency audit reported zero vulnerabilities. [CI 39562961916](https://github.com/sajeeb-ahmeed/astra-union-services/actions/runs/39562961916), [CI evidence](../execution/recovery-mfa-ci-qa.json). The earlier frozen-source local run passed 252 tests; the three subsequent recovery regressions and all 18 backup tests passed locally. Those focused reruns are not additional full-suite executions.
 
-The independent managed-owner recovery rehearsal passed **22 checks**, preserving 49 tables, two synthetic tenants and two PDF files. Its separate restored PostgreSQL cluster served the real application, all 47 services, valid/invalid QR lookup and authenticated byte-identical PDFs; unauthorized/cross-tenant reads were denied. This is synthetic local rehearsal evidence, not an actual hosted archive. [Recovery evidence](../execution/managed-recovery-local-qa.json).
+Render deployment `dep-dbc6oq8n74is73fitgbg` finished **live at 2026-10-21T07:42:34.165139Z**. Post-deployment acceptance passed **29 API groups** (7 MFA, 4 existing account security, 7 disabled-payment, 6 historical readback, 5 geography), **6 Bangla/English/mobile browser groups**, and **9 exact JS/CSS asset hashes**. Existing PDF bytes, the original 24-credit wallet, one three-credit issuance debit and five application events were preserved. The new synthetic MFA fixture was deactivated and sessions closed. Real users were not automatically enrolled. [Consolidated live evidence](../execution/recovery-mfa-live-release.json).
 
-The first full local attempt was interrupted by a Vite reload during a concurrent frontend hardening edit. The existing account-security test and four MFA tests passed a focused rerun; source was frozen and the complete 252-test run passed without weakening assertions. Public JavaScript is **362,177 raw / 101,484 gzip bytes**; the authenticated workspace remains **669,783 raw bytes**. [Build sizes](../execution/recovery-mfa-asset-sizes.json).
+Migrations 013/014 passed four verification groups, preserving 45 existing tables, 105 fingerprints and 18 routines. The actual encrypted hosted snapshot contains **49 tables, three tenants and two PDFs**. Temporary external database access was closed after export. Independent restoration passed eight SQL/security groups and six actual application HTTP groups, with exact data, ownership, grants and PDF hashes. A separate synthetic rehearsal passed 22 checks. [Migration](../execution/recovery-mfa-hosted-migration.json), [backup](../execution/managed-hosted-backup.json), [restore](../execution/managed-independent-restore.json), [restored HTTP](../execution/recovery-mfa-restored-http.json), [network closure](../execution/recovery-mfa-network-qa.json).
 
-Hosted migration, archive/restore, deployment and acceptance remain pending the narrow maintenance window. The prepared database rule is unsaved; no firewall or live-runtime change is claimed. [Execution checkpoint](RELEASE_0_8.md).
+Two initial restore attempts exposed a missing provider default-ACL identity and collation-dependent catalog ordering. Bounded tooling fixes preserve a non-login, unprivileged provider identity and exact unordered catalog values; no data/hash/security assertions were relaxed. The original archive is unchanged. Its source locale was not captured; the local C/UTF8 recovery target is a rehearsal, not an approved cutover. [Attempt history](../execution/managed-hosted-restore-attempts.json).
+
+The owner requested a local encrypted copy and deferred offsite storage. Archive/key folders remain on the same workstation; this is not independent key custody or disaster recovery. The manual snapshot precedes the new live QA security events and provides no recurring RPO/SLA. See [managed recovery runbook](MANAGED_RECOVERY.md) for private locations and operational limits.
+
+The first environment-triggered build was canceled during build; final deployment occurred after CI passed. [Deployment attempts](../execution/recovery-mfa-deploy-attempts.json). The earlier local 252-case run and its Vite-reload retry history remain in [local evidence](../execution/recovery-mfa-local-qa.json); three later recovery regressions passed in the [18-case focused suite](../execution/recovery-mfa-backup-regression.json) and final 255-case CI.
+
+See [complete release notes](RELEASE_0_8.md) for limits, bundle sizes and the next milestone.
 
 ## Release 0.7 — execution results
 

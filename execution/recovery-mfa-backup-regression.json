@@ -1,0 +1,10 @@
+{
+  "status": "PASS",
+  "runtimeCommit": "695942dff49f088ad7862718ba32192d0a8011c2",
+  "executedAt": "2026-10-21T07:37:34.769Z",
+  "command": "npm run test:backup",
+  "tests": 18,
+  "passed": 18,
+  "failed": 0,
+  "scope": "Focused backup safety suite after three new provider ACL and catalog-order regressions; not a second full application test run."
+}

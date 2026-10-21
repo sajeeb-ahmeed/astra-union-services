@@ -1,12 +1,16 @@
-# Astra — working citizen-services website
+# Astra Union Services
 
-Release 0.7.0 · live deployment and hosted acceptance verified on 21 October 2026. Independently authored Bangla/English React frontend, Express/TypeScript backend and real PostgreSQL database. The commissioning user owns the original software; third-party licenses are retained separately.
+Release **0.8.0 is live**, verified 21 October 2026. Independently authored Bangla/English React frontend, Express/TypeScript backend and real PostgreSQL. The commissioning user owns the original software; third-party licenses are retained separately.
 
-## 0.8 recovery and authenticator candidate
+## Recovery and account protection
 
-Optional authenticator sign-in, one-use recovery codes, durable own-account security history and protected managed-PostgreSQL backup/independent restore are implemented. **252 local and 252 CI tests passed**, with production/Docker builds and zero-vulnerability audits. A separate **22-check synthetic recovery rehearsal** includes actual application startup, PDF delivery and QR verification. The source is pushed; hosted maintenance/deployment acceptance is pending. [Release checkpoint](docs/RELEASE_0_8.md), [account protection](docs/ACCOUNT_SECURITY.md), [managed recovery](docs/MANAGED_RECOVERY.md). Payment collection remains disabled.
+Optional authenticator login, ten one-use recovery codes and durable own-account security history are live. The actual encrypted hosted backup was independently restored and verified. **255 CI tests, 29 live API groups, 6 bilingual/mobile browser groups and 9 deployed asset hashes passed.** Production/Docker builds and a zero-vulnerability audit passed. Runtime `695942dff49f088ad7862718ba32192d0a8011c2`.
 
-## 0.7 usability update — current verified live baseline
+[Live website](https://astra-union-services.onrender.com/) · [Release results](docs/RELEASE_0_8.md) · [Bangla status and next steps](docs/STATUS_AND_NEXT_STEPS.md) · [Deployment instructions](docs/DEPLOYMENT.md) · [Recovery runbook](docs/MANAGED_RECOVERY.md).
+
+Payment collection remains disabled and certificates remain DEMO / NOT OFFICIAL. Backup is local-only by owner choice; offsite/key custody and durable hosting before **12 November 2026** remain open. The next unblocked milestone is attachment quarantine/scanning. Historical release sections below retain their original scope and measurements.
+
+## Release 0.7 usability — historical
 
 - Start from role-specific daily tasks; use the mobile page picker, simpler application search and clear filters.
 - Follow citizen/service/form steps, readable validation links and state-specific guidance for drafts, corrections, approval, fee verification and certificate downloads.
@@ -25,7 +29,7 @@ The first CI attempt caught an environment-dependent development React bundle ex
 
 **Open:** [live demo](https://astra-union-services.onrender.com) or [local website](http://127.0.0.1:5173). **Read:** [hosted deployment and live test results](docs/HOSTED_DEPLOYMENT.md), [delivery report](docs/DELIVERY_REPORT.md), [deployment instructions](docs/DEPLOYMENT.md), [acceptance evidence](docs/TEST_MATRIX.md).
 
-The 0.6 release ran on the same Render Free/PostgreSQL 17 service. Its hosted checks passed: **four account-security, seven payment, six historical-record readback and five geography groups**. Existing PDF bytes and credit records remained unchanged. Five live browser groups and seven JS/CSS asset hashes passed at that milestone. See [historical 0.6 live results](execution/security-live-release.json); current 0.7 acceptance is recorded above. The Free database expires on **12 November 2026**, and the web service can sleep when idle. Live identity and merchant payment collection remain unconfigured.
+The 0.6 release ran on the same Render Free/PostgreSQL 17 service. Its hosted checks passed: **four account-security, seven payment, six historical-record readback and five geography groups**. Existing PDF bytes and credit records remained unchanged. Five live browser groups and seven JS/CSS asset hashes passed at that milestone. See [historical 0.6 live results](execution/security-live-release.json); historical 0.7 acceptance is recorded above. The Free database expires on **12 November 2026**, and the web service can sleep when idle. Live identity and merchant payment collection remain unconfigured.
 
 This release expands Phase 1 into **47 operational demonstration services**. Every service has been exercised through draft, submission, review, authorized approval, real PDF, QR lookup and exactly one credit debit. These tests prove this independently built implementation. Original reference-site success paths remain unverified. Documents remain DEMO / NOT OFFICIAL; live identity, legal authority and commercial payment-provider integrations are not configured.
 
@@ -81,6 +85,8 @@ powershell -ExecutionPolicy Bypass -File scripts/runtime/start-postgres.ps1
 npm run db:migrate
 npm run db:seed
 npx playwright install chromium
+# Synthetic local development key only; never use this value on a hosted service.
+$env:MFA_ENCRYPTION_KEY = ('1' * 64)
 npm run dev
 ```
 
@@ -102,7 +108,10 @@ Equivalent tenant accounts exist at `@beta.demo.test`. Hosted setup uses `db:ini
 
 ## Verify
 
+Use the same synthetic key in the test terminal. If an API/dev stack is already running without it, stop that stack and restart it with the key before testing; the web runner reuses an existing local API. A hosted deployment requires its own stable secret and protected recovery copy.
+
 ```powershell
+$env:MFA_ENCRYPTION_KEY = ('1' * 64)
 npm run build
 npm test
 node --import tsx apps/api/scripts/verify-clean-bootstrap.ts

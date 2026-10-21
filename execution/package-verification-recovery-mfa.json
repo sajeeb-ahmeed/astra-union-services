@@ -1,0 +1,21 @@
+{
+  "release": "0.8.0",
+  "archive": "Astra_Fullstack_Website_Source.zip",
+  "sha256": "b4fe198c9306c1cc44fc2eee9726110acb54e53acf12d20d1b464df3e0419b03",
+  "bytes": 12947817,
+  "fileCount": 484,
+  "requiredDocs": 12,
+  "curatedHandoffFiles": 9,
+  "excluded": [
+    "private audit/ and audit.zip",
+    ".runtime/ credentials, encryption keys, backups and DB clusters",
+    "node_modules and downloaded runtime binaries",
+    ".git and built dist assets",
+    "superseded Phase 1 logs and orphaned PDF page renders"
+  ],
+  "runtimeSecretScan": "PASS",
+  "zipIntegrity": "PASS",
+  "manifestHashes": "PASS",
+  "hostedSecretSourcesScannedCount": 9,
+  "runtimeCommit": "695942dff49f088ad7862718ba32192d0a8011c2"
+}

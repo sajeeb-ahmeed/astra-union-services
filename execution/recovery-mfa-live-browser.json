@@ -1,0 +1,44 @@
+{
+  "startedAt": "2026-10-21T07:43:37.177Z",
+  "status": "PASS",
+  "scope": "Existing synthetic QA staff account, read-only MFA availability/state and own security activity in English/Bangla. Login/logout only; no setup, MFA activation, recovery-code generation, password or business-record mutations.",
+  "viewport": {
+    "width": 390,
+    "height": 844
+  },
+  "checks": [
+    {
+      "name": "01 Blank masked login and keyboard password visibility",
+      "status": "PASS"
+    },
+    {
+      "name": "02 Existing staff password sign-in remains usable before optional enrollment",
+      "status": "PASS"
+    },
+    {
+      "name": "03 English MFA readiness and private own-activity reads",
+      "status": "PASS"
+    },
+    {
+      "name": "04 Bangla mobile MFA description and activity are readable without overflow",
+      "status": "PASS"
+    },
+    {
+      "name": "05 Profile exposes the same optional protection with no stored secrets",
+      "status": "PASS"
+    },
+    {
+      "name": "06 Sign-out clears fields with zero page errors or unexpected writes",
+      "status": "PASS"
+    }
+  ],
+  "screenshots": [
+    "execution/recovery-mfa-live-security-en.png",
+    "execution/recovery-mfa-live-security-bn.png"
+  ],
+  "baseUrl": "https://astra-union-services.onrender.com",
+  "cleanup": "SIGNED_OUT",
+  "pageErrors": 0,
+  "blockedMutations": 0,
+  "finishedAt": "2026-10-21T07:43:40.849Z"
+}

@@ -1,0 +1,43 @@
+{
+  "recordedAt": "2026-10-21T07:36:37.121Z",
+  "environmentMerge": {
+    "key": "MFA_ENCRYPTION_KEY",
+    "secretSuppressed": true,
+    "otherVariablesPreserved": true
+  },
+  "attempts": [
+    {
+      "commit": {
+        "createdAt": "2026-10-21T07:34:37Z",
+        "id": "695942dff49f088ad7862718ba32192d0a8011c2",
+        "message": "Preserve managed provider ACLs and verify hosted archive recovery"
+      },
+      "createdAt": "2026-10-21T07:35:08.784565Z",
+      "finishedAt": "2026-10-21T07:35:58.4464Z",
+      "id": "dep-dbc6mb3rjlhs73b180ng",
+      "startedAt": "2026-10-21T07:35:08.756469Z",
+      "status": "canceled",
+      "trigger": "api",
+      "updatedAt": "2026-10-21T07:35:58.446895Z",
+      "reason": "Environment merge unexpectedly started deployment while new CI was running; canceled during build to preserve test-before-release gate.",
+      "liveRuntimeChanged": false
+    },
+    {
+      "commit": {
+        "createdAt": "2026-10-21T07:34:37Z",
+        "id": "695942dff49f088ad7862718ba32192d0a8011c2",
+        "message": "Preserve managed provider ACLs and verify hosted archive recovery"
+      },
+      "createdAt": "2026-10-21T07:40:25.236043Z",
+      "id": "dep-dbc6oq8n74is73fitgbg",
+      "startedAt": "2026-10-21T07:40:25.208658Z",
+      "status": "live",
+      "finishedAt": "2026-10-21T07:42:34.165139Z",
+      "trigger": "api",
+      "updatedAt": "2026-10-21T07:42:34.165343Z",
+      "reason": "Explicit release after final CI success",
+      "acceptance": "PASS"
+    }
+  ],
+  "nextAction": "Completed; see recovery-mfa-live-release.json"
+}

@@ -1,0 +1,14 @@
+{
+  "commit": {
+    "createdAt": "2026-10-21T07:34:37Z",
+    "id": "695942dff49f088ad7862718ba32192d0a8011c2",
+    "message": "Preserve managed provider ACLs and verify hosted archive recovery"
+  },
+  "createdAt": "2026-10-21T07:40:25.236043Z",
+  "id": "dep-dbc6oq8n74is73fitgbg",
+  "startedAt": "2026-10-21T07:40:25.208658Z",
+  "status": "live",
+  "finishedAt": "2026-10-21T07:42:34.165139Z",
+  "trigger": "api",
+  "updatedAt": "2026-10-21T07:42:34.165343Z"
+}

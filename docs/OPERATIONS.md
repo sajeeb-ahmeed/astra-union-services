@@ -1,8 +1,8 @@
-# Operations and verified local recovery
+# Operations and verified recovery
 
 ## Release 0.8 managed recovery and account protection
 
-Use [MANAGED_RECOVERY.md](MANAGED_RECOVERY.md) for hosted logical exports when the migration owner cannot bypass forced RLS. It preserves original application object ownership while restoring fresh restricted database credentials to a separate local cluster. The independent synthetic rehearsal passed **22 checks**, including actual HTTP startup, 47-service catalog, password login, protected PDF bytes, public QR and negative access tests. This local result alone is not a hosted export or offsite recovery claim; current execution status is in [RELEASE_0_8.md](RELEASE_0_8.md).
+Use [MANAGED_RECOVERY.md](MANAGED_RECOVERY.md) for hosted logical exports when the migration owner cannot bypass forced RLS. It preserves original application object ownership while restoring fresh restricted database credentials to a separate local cluster. The independent synthetic rehearsal passed **22 checks**, including actual HTTP startup, 47-service catalog, password login, protected PDF bytes, public QR and negative access tests. The separate actual hosted export restored 49 tables, three tenants and two PDFs, with eight SQL/security and six real HTTP acceptance groups passing. The local-only manual snapshot is not offsite disaster recovery or cutover approval; see [RELEASE_0_8.md](RELEASE_0_8.md).
 
 Optional MFA requires a stable, separately retained `MFA_ENCRYPTION_KEY`. Never reset the key or remove account factors to fix a deployment. An archive contains encrypted factor data but excludes environment secrets; independently escrow the matching key before enabling protected accounts for real operations. Own-account security history is durable but no privileged assisted-recovery/access-review procedure is implemented. Follow [ACCOUNT_SECURITY.md](ACCOUNT_SECURITY.md) and the [MFA-safe rollout and rollback procedure](DEPLOYMENT.md#08-recovery-and-authenticator-rollout).
 
@@ -10,7 +10,7 @@ Payment collection remains disabled. After each hosted export, close temporary e
 
 ## Recovery tooling inherited from 0.6
 
-Release 0.7 is deployed on Render and retains the 0.6 recovery tooling with its local verification. Current hosted application acceptance is recorded in [0.7 release evidence](RELEASE_0_7.md); these application checks do not constitute a hosted backup/restore or a new recovery drill. Follow [BACKUP_AND_RECOVERY.md](BACKUP_AND_RECOVERY.md) for the current format-2 archive contract, complete commands, collision safeguards and evidence. The detailed runbook is authoritative for new backups; preserve older format-1 archives together with their matching 0.5 verifier.
+Historical release 0.7 retained the 0.6 local recovery tooling; its application acceptance is recorded in [0.7 release evidence](RELEASE_0_7.md). The commands below and [BACKUP_AND_RECOVERY.md](BACKUP_AND_RECOVERY.md) describe that local format-2 archive contract. Current hosted exports and independent recovery use [MANAGED_RECOVERY.md](MANAGED_RECOVERY.md), with completed 0.8 evidence above. Preserve older format-1 archives together with their matching 0.5 verifier.
 
 Executed **19 October 2026**: five focused safety tests and **17 real local recovery checks passed**. The snapshot contained 46 public tables, 117 synthetic tenants, 435 demonstration PDFs, all 11 migration files (highest numbered 012), 18 application routines, 7 column grants and 94 indexes. All hashes, balances and database security comparisons matched; the restricted role saw no unscoped rows across 30 tenant RLS tables. See [current JSON](../execution/security-backup-qa.json) and [current log](../execution/security-backup-restore.log).
 
@@ -22,7 +22,7 @@ npm run db:recovery-drill
 
 Run the final recovery drill after synthetic fixture tests settle. It reads the source, restores only into a new local `astra_restore_*` database and preserves existing targets and scratch files. It includes narrow gateway column permissions and invalid-callback checks without contacting a payment provider. It does not require a merchant account, production network access or a schema migration.
 
-**Immediate operational priority remains hosted full export, independent protected restore and durable hosting before the recorded 12 November 2026 Free database expiry.** Reconfirm the provider's current expiry. Local encrypted archives/keys on one workstation do not close this priority. Offsite storage, separate key custody, scheduled backups/alerts and measured recovery objectives still need implementation and acceptance. See [prioritized backlog](DELIVERY_BACKLOG.md).
+**The actual hosted export and independent local restore are verified in 0.8. Remaining operational priorities are durable hosting before 12 November 2026, offsite storage, independent key custody and recurring recovery operations.** Reconfirm the provider's expiry before a future cutover. The owner deferred offsite storage; local archive/key folders do not establish workstation-loss protection, a locale-compatible cutover, scheduled backups/alerts or measured recovery objectives. See [prioritized backlog](DELIVERY_BACKLOG.md).
 
 ## Historical 13 October recovery record
 

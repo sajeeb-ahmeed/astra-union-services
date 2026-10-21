@@ -1,0 +1,39 @@
+{
+  "release": "0.8.0",
+  "baseUrl": "https://astra-union-services.onrender.com",
+  "startedAt": "2026-10-21T07:42:45.192Z",
+  "status": "PASS",
+  "scope": "One new synthetic staff account in an existing QA office; MFA setup/login/recovery/disable plus immutable security events. Account deactivated at cleanup; no applications, payments, fees, certificates or credits modified.",
+  "checks": [
+    {
+      "name": "01 Dedicated synthetic account and optional MFA baseline",
+      "status": "PASS"
+    },
+    {
+      "name": "02 Password, CSRF, missing-session and secret-cache boundaries",
+      "status": "PASS"
+    },
+    {
+      "name": "03 Activate with real TOTP and return recovery codes once",
+      "status": "PASS"
+    },
+    {
+      "name": "04 Password-only challenge grants no session; current TOTP completes login",
+      "status": "PASS"
+    },
+    {
+      "name": "05 Concurrent recovery-code use succeeds exactly once",
+      "status": "PASS"
+    },
+    {
+      "name": "06 Own-account security events disclose no secret material",
+      "status": "PASS"
+    },
+    {
+      "name": "07 Password plus recovery factor disables MFA and collection stays off",
+      "status": "PASS"
+    }
+  ],
+  "cleanup": "SYNTHETIC_ACCOUNT_DEACTIVATED_AND_SESSIONS_CLOSED",
+  "finishedAt": "2026-10-21T07:43:02.588Z"
+}

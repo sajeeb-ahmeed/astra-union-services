@@ -1,0 +1,108 @@
+{
+  "release": "0.8.0",
+  "status": "PASS",
+  "verifiedAt": "2026-10-21T07:44:20.605Z",
+  "baseUrl": "https://astra-union-services.onrender.com/",
+  "runtimeCommit": "695942dff49f088ad7862718ba32192d0a8011c2",
+  "deploymentId": "dep-dbc6oq8n74is73fitgbg",
+  "deployedAt": "2026-10-21T07:42:34.165139Z",
+  "ciRun": 39562961916,
+  "ciTests": 255,
+  "hostedApiGroups": 29,
+  "hostedBrowserGroups": 6,
+  "assetHashes": 9,
+  "tests": {
+    "backup": 18,
+    "forms": 72,
+    "api": 112,
+    "web": 53
+  },
+  "localEvidence": {
+    "frozenSourceFullSuite": 252,
+    "laterFocusedBackupSuite": 18,
+    "syntheticManagedRestore": 22
+  },
+  "hostedApiBreakdown": {
+    "mfa": 7,
+    "accountSecurity": 4,
+    "payment": 7,
+    "historicalReadback": 6,
+    "geography": 5
+  },
+  "migration": {
+    "files": [
+      "013_account_mfa.sql",
+      "014_audit_tenant_integrity.sql"
+    ],
+    "groups": 4,
+    "preservedTables": 45,
+    "preservedFingerprints": 105,
+    "preservedRoutines": 18
+  },
+  "hostedBackup": {
+    "name": "managed_20261021072732629_da76544e",
+    "tables": 49,
+    "tenants": 3,
+    "pdfs": 2,
+    "encrypted": true,
+    "offsite": false,
+    "sourceReadOnly": true
+  },
+  "independentRestore": {
+    "sqlSecurityGroups": 8,
+    "httpGroups": 6,
+    "exactDataSchemaOwnersGrantsAndPdfMatch": true,
+    "sourceLocale": "NOT_CAPTURED_IN_THIS_ARCHIVE",
+    "cutoverReady": false,
+    "clusterStopped": true
+  },
+  "database": {
+    "verifiedAt": "2026-10-21T07:43:59.457Z",
+    "status": "available",
+    "ipAllowList": [],
+    "expiresAt": "2026-11-12T07:28:16.203893Z",
+    "plan": "free"
+  },
+  "paymentCollection": "DISABLED",
+  "certificates": "DEMO / NOT OFFICIAL",
+  "originalRecords": {
+    "pdfByteIdentical": true,
+    "walletCredits": 24,
+    "issuanceDebitCount": 1,
+    "issuanceDebitCredits": 3,
+    "applicationEvents": 5
+  },
+  "cleanup": {
+    "mfaFixture": "DEACTIVATED",
+    "apiSessions": "SIGNED_OUT_OR_REVOKED",
+    "browser": "SIGNED_OUT",
+    "browserPageErrors": 0,
+    "browserUnexpectedWrites": 0
+  },
+  "attemptHistory": [
+    {
+      "kind": "RESTORE",
+      "evidence": "managed-hosted-restore-attempts.json",
+      "result": "Two initial failures corrected without archive modification or weakened data/security checks."
+    },
+    {
+      "kind": "DEPLOY",
+      "evidence": "recovery-mfa-deploy-attempts.json",
+      "result": "Environment update started early build; canceled before replacement; final build followed CI success."
+    },
+    {
+      "kind": "PAYMENT_QA",
+      "evidence": "recovery-mfa-hosted-payments-interrupted.json",
+      "result": "First check overlapped staff-session revocation, which revoked two sessions including the parallel fixture. Unchanged sequential rerun passed all seven groups; no collections or provider attempts created."
+    }
+  ],
+  "limits": [
+    "Local-only manual snapshot and same-workstation key custody; offsite storage deferred by owner.",
+    "Backup predates live QA security events; no recurring RPO/RTO or retention SLA.",
+    "Matching MFA runtime key retained privately but independent escrow and enabled-factor disaster recovery remain unverified.",
+    "No assisted privileged recovery, mandatory enrollment, cross-account access review, file malware scanning or general shared rate limiting.",
+    "Free database expires 2026-11-12; durable hosting still requires owner decision.",
+    "Merchant setup, genuine provider acceptance, official authority and documented reference-audit gaps remain open."
+  ],
+  "nextMilestone": "Attachment quarantine and fail-closed scan-state enforcement with tenant/owner isolation; scanner/retention acceptance."
+}

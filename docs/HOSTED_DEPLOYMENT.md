@@ -1,22 +1,38 @@
 # Hosted deployment record
 
-**Verified 21 October 2026: release 0.7.0 is live and post-deploy checks passed.** It makes daily tasks, application progress, search, validation and mobile navigation easier to use. Payment gateway work remains deferred. Collection is disabled; Nagad and bank payout reconciliation are not integrated. No genuine provider transaction or official issuing authority is claimed. Certificates remain **DEMO / NOT OFFICIAL**. See [0.7 release evidence](RELEASE_0_7.md).
+**Verified 21 October 2026: 0.8.0 is live and post-deployment checks passed.** Collection remains disabled, certificates DEMO / NOT OFFICIAL.
 
-## Current 0.7 deployment and verification
+## Current 0.8 deployment
 
-| Component | Verified result |
-| --- | --- |
-| Live URL | [astra-union-services.onrender.com](https://astra-union-services.onrender.com/) |
-| Runtime commit | `56fb7f56bd77cfde2887a52384d3a9b4706a421e` |
-| Render deployment | `dep-dbc596mi0phs73aeldug`, status `live`; completed `2026-10-21T06:01:21.514444Z` (12:01:21 Asia/Dhaka) |
-| CI | [Run 39552222856](https://github.com/sajeeb-ahmeed/astra-union-services/actions/runs/39552222856): **223/223 tests**, production/Docker builds and zero-vulnerability audit passed |
-| Live usability | **8/8 groups passed**: public task shortcuts, Bangla service-number search, selected-service focus/return, password visibility, role tasks, mobile page picker, empty search reset, fee-hold guidance, BN/EN retention and logout/privacy checks |
-| Live API regression | **22/22 groups passed**: 4 account security, 7 payment controls, 6 historical readback, 5 geography |
-| Preserved records | Original PDF byte-for-byte identical; original wallet 24 credits, one three-credit issuance debit and five application events; QR/tracking remain minimal |
-| Frontend assets | All **8 JS/CSS assets** match tested local SHA-256 hashes and immutable cache headers |
-| Public entry | 355,788 raw bytes; 99,454 gzip bytes; remains below the 400 KB raw budget |
-| Database | No schema change or external access opening; database available with empty external IP allowlist |
-| Hosting | Same Free Singapore service `srv-db6tvpou01pc73bjkpr0`; Auto-Deploy Off; Free PostgreSQL expiry **12 November 2026** |
+Runtime `695942dff49f088ad7862718ba32192d0a8011c2` passed **255/255 Linux CI tests**: 18 backup safety, 72 forms, 112 API and 53 web cases. Production and Docker builds passed; the dependency audit reported zero vulnerabilities. [CI 39562961916](https://github.com/sajeeb-ahmeed/astra-union-services/actions/runs/39562961916), [CI evidence](../execution/recovery-mfa-ci-qa.json). The earlier frozen-source local run passed 252 tests; the three subsequent recovery regressions and all 18 backup tests passed locally. Those focused reruns are not additional full-suite executions.
+
+Render deployment `dep-dbc6oq8n74is73fitgbg` finished **live at 2026-10-21T07:42:34.165139Z**. Post-deployment acceptance passed **29 API groups** (7 MFA, 4 existing account security, 7 disabled-payment, 6 historical readback, 5 geography), **6 Bangla/English/mobile browser groups**, and **9 exact JS/CSS asset hashes**. Existing PDF bytes, the original 24-credit wallet, one three-credit issuance debit and five application events were preserved. The new synthetic MFA fixture was deactivated and sessions closed. Real users were not automatically enrolled. [Consolidated live evidence](../execution/recovery-mfa-live-release.json).
+
+Same Free Singapore service `srv-db6tvpou01pc73bjkpr0`; Git Auto-Deploy off. Database `dpg-db6tr43ncjis73ercfsg-a` is available with an empty external IP allowlist and recorded expiry **12 November 2026**. Migrations 013/014 are applied; MFA key is stored as a deployment secret with a private local recovery copy. Secret values are excluded from source/evidence.
+
+Migrations 013/014 passed four verification groups, preserving 45 existing tables, 105 fingerprints and 18 routines. The actual encrypted hosted snapshot contains **49 tables, three tenants and two PDFs**. Temporary external database access was closed after export. Independent restoration passed eight SQL/security groups and six actual application HTTP groups, with exact data, ownership, grants and PDF hashes. A separate synthetic rehearsal passed 22 checks. [Migration](../execution/recovery-mfa-hosted-migration.json), [backup](../execution/managed-hosted-backup.json), [restore](../execution/managed-independent-restore.json), [restored HTTP](../execution/recovery-mfa-restored-http.json), [network closure](../execution/recovery-mfa-network-qa.json).
+
+Two initial restore attempts exposed a missing provider default-ACL identity and collation-dependent catalog ordering. Bounded tooling fixes preserve a non-login, unprivileged provider identity and exact unordered catalog values; no data/hash/security assertions were relaxed. The original archive is unchanged. Its source locale was not captured; the local C/UTF8 recovery target is a rehearsal, not an approved cutover. [Attempt history](../execution/managed-hosted-restore-attempts.json).
+
+The owner requested a local encrypted copy and deferred offsite storage. Archive/key folders remain on the same workstation; this is not independent key custody or disaster recovery. The manual snapshot precedes the new live QA security events and provides no recurring RPO/SLA. See [managed recovery runbook](MANAGED_RECOVERY.md) for private locations and operational limits.
+
+Evidence: [Render deployment](../execution/recovery-mfa-render-deploy.json), [MFA API](../execution/recovery-mfa-hosted-auth.json), [browser](../execution/recovery-mfa-live-browser.json), [assets](../execution/recovery-mfa-live-assets.json). Later documentation-only commits are not new deployed runtimes. [Environment-triggered canceled build and final release](../execution/recovery-mfa-deploy-attempts.json).
+
+## Release 0.7 history — 21 October 2026
+
+| Component           | Verified result                                                                                                                                                                                                                                  |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Live URL            | [astra-union-services.onrender.com](https://astra-union-services.onrender.com/)                                                                                                                                                                  |
+| Runtime commit      | `56fb7f56bd77cfde2887a52384d3a9b4706a421e`                                                                                                                                                                                                       |
+| Render deployment   | `dep-dbc596mi0phs73aeldug`, status `live`; completed `2026-10-21T06:01:21.514444Z` (12:01:21 Asia/Dhaka)                                                                                                                                         |
+| CI                  | [Run 39552222856](https://github.com/sajeeb-ahmeed/astra-union-services/actions/runs/39552222856): **223/223 tests**, production/Docker builds and zero-vulnerability audit passed                                                               |
+| Live usability      | **8/8 groups passed**: public task shortcuts, Bangla service-number search, selected-service focus/return, password visibility, role tasks, mobile page picker, empty search reset, fee-hold guidance, BN/EN retention and logout/privacy checks |
+| Live API regression | **22/22 groups passed**: 4 account security, 7 payment controls, 6 historical readback, 5 geography                                                                                                                                              |
+| Preserved records   | Original PDF byte-for-byte identical; original wallet 24 credits, one three-credit issuance debit and five application events; QR/tracking remain minimal                                                                                        |
+| Frontend assets     | All **8 JS/CSS assets** match tested local SHA-256 hashes and immutable cache headers                                                                                                                                                            |
+| Public entry        | 355,788 raw bytes; 99,454 gzip bytes; remains below the 400 KB raw budget                                                                                                                                                                        |
+| Database            | No schema change or external access opening; database available with empty external IP allowlist                                                                                                                                                 |
+| Hosting             | Same Free Singapore service `srv-db6tvpou01pc73bjkpr0`; Auto-Deploy Off; Free PostgreSQL expiry **12 November 2026**                                                                                                                             |
 
 Evidence: [consolidated release](../execution/usability-live-release.json), [Render](../execution/usability-render-deploy.json), [CI](../execution/usability-ci-qa.json), [live browser](../execution/usability-live-browser-qa.json), [security](../execution/usability-hosted-security.json), [payment](../execution/usability-hosted-payments.json), [historical readback](../execution/usability-hosted-readback.json), [geography](../execution/usability-hosted-geography.json), [assets](../execution/usability-live-assets.json), [database metadata](../execution/usability-network-qa.json).
 
@@ -28,22 +44,22 @@ Screenshots: [English daily tasks](../execution/usability-live-workspace-home-en
 
 The following preserves the previous runtime and its acceptance evidence. The current runtime and results are recorded above.
 
-| Component | Verified result |
-| --- | --- |
-| Live URL | [astra-union-services.onrender.com](https://astra-union-services.onrender.com/) |
-| Runtime commit | `402903fb113799f5d7e5ec8d62307ba88f625318` |
-| Render deployment | `dep-dbappb8m7kps739q5ivg`, status `live`; completed `2026-10-19T04:31:36.05317Z` (10:31:36 Asia/Dhaka), reconfirmed 21 October |
-| CI | [Run 39199410740](https://github.com/sajeeb-ahmeed/astra-union-services/actions/runs/39199410740): **210/210 tests**, production/Docker builds and zero-vulnerability audit passed |
-| Database | No migration required; existing eleven migration files unchanged; DB available, external IP allowlist empty, no external access opened for this release |
-| Hosted account/session safety | **4/4 groups passed**: self-session aggregate, CSRF/wrong-password denial, other-session revocation and current/other-account preservation |
-| Payment regression | **7/7 groups passed**; collection stays disabled and no payments or receipts are fabricated |
-| Historical readback | **6/6 groups passed**; original PDF, 24-credit wallet, one three-credit issuance debit, five application events and minimal public QR/tracking preserved |
-| Geography regression | **5/5 read-only groups passed** |
-| Live frontend assets | All **7 JavaScript/CSS files** have SHA-256 hashes matching the tested build and immutable cache headers |
-| Live browser | **5/5 groups passed**: public chunk loading, English profile, Bangla 390 × 844 layout, Account security navigation and clean sign-out; zero page errors |
-| Local recovery | **17 checks passed** on a real encrypted dump/isolated restore of synthetic local PostgreSQL; this is not a hosted backup |
-| Public loading | Entry JavaScript 990,769 → 352,929 raw bytes (**64.4% reduction**); gzip 143,977 → 96,575 bytes (**32.9% reduction**) |
-| Hosting | Same Free Singapore service `srv-db6tvpou01pc73bjkpr0`; Auto-Deploy Off; Free PostgreSQL expiry **12 November 2026** |
+| Component                     | Verified result                                                                                                                                                                    |
+| ----------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Live URL                      | [astra-union-services.onrender.com](https://astra-union-services.onrender.com/)                                                                                                    |
+| Runtime commit                | `402903fb113799f5d7e5ec8d62307ba88f625318`                                                                                                                                         |
+| Render deployment             | `dep-dbappb8m7kps739q5ivg`, status `live`; completed `2026-10-19T04:31:36.05317Z` (10:31:36 Asia/Dhaka), reconfirmed 21 October                                                    |
+| CI                            | [Run 39199410740](https://github.com/sajeeb-ahmeed/astra-union-services/actions/runs/39199410740): **210/210 tests**, production/Docker builds and zero-vulnerability audit passed |
+| Database                      | No migration required; existing eleven migration files unchanged; DB available, external IP allowlist empty, no external access opened for this release                            |
+| Hosted account/session safety | **4/4 groups passed**: self-session aggregate, CSRF/wrong-password denial, other-session revocation and current/other-account preservation                                         |
+| Payment regression            | **7/7 groups passed**; collection stays disabled and no payments or receipts are fabricated                                                                                        |
+| Historical readback           | **6/6 groups passed**; original PDF, 24-credit wallet, one three-credit issuance debit, five application events and minimal public QR/tracking preserved                           |
+| Geography regression          | **5/5 read-only groups passed**                                                                                                                                                    |
+| Live frontend assets          | All **7 JavaScript/CSS files** have SHA-256 hashes matching the tested build and immutable cache headers                                                                           |
+| Live browser                  | **5/5 groups passed**: public chunk loading, English profile, Bangla 390 × 844 layout, Account security navigation and clean sign-out; zero page errors                            |
+| Local recovery                | **17 checks passed** on a real encrypted dump/isolated restore of synthetic local PostgreSQL; this is not a hosted backup                                                          |
+| Public loading                | Entry JavaScript 990,769 → 352,929 raw bytes (**64.4% reduction**); gzip 143,977 → 96,575 bytes (**32.9% reduction**)                                                              |
+| Hosting                       | Same Free Singapore service `srv-db6tvpou01pc73bjkpr0`; Auto-Deploy Off; Free PostgreSQL expiry **12 November 2026**                                                               |
 
 Evidence: [release summary](../execution/security-live-release.json), [Render deployment](../execution/security-render-deploy.json), [CI](../execution/security-ci-qa.json), [database network metadata](../execution/security-network-qa.json), [account/session API](../execution/security-hosted-qa.json), [payment API](../execution/security-hosted-payments.json), [readback](../execution/security-hosted-readback.json), [geography](../execution/security-hosted-geography.json), [live browser](../execution/security-live-browser-qa.json), [asset hashes](../execution/security-live-assets.json), [local recovery](../execution/security-backup-qa.json). Screenshots: [English session panel](../execution/security-live-account-en.png), [Bangla mobile session panel](../execution/security-live-account-bn.png).
 
@@ -55,21 +71,21 @@ Hosted full export, independent offsite backup/key custody and cross-host restor
 
 The following is preserved historical deployment evidence. The current runtime and latest post-deploy results are recorded above.
 
-| Component | Verified result |
-| --- | --- |
-| Live URL | [astra-union-services.onrender.com](https://astra-union-services.onrender.com/) |
-| Runtime commit | `b86908b9a4654cc31cd1b517fc5e8ad3ae086878` |
-| Render deployment | `dep-dbaob6s9v7es739a8j30`, status `live`; completed `2026-10-19T02:53:25.665787Z` (08:53:25 Asia/Dhaka) |
-| CI | [Run 39125266096](https://github.com/sajeeb-ahmeed/astra-union-services/actions/runs/39125266096): **192/192 tests**, production/Docker builds and zero-vulnerability audit passed |
-| Database migration | `012_gateway_payments.sql` committed; eleven migration files installed; forced RLS/runtime privileges and idempotent replay passed |
-| Preservation | All 66 recorded domain fingerprints across three offices unchanged; counts remain 3 offices, 12 users and 2 certificates |
-| External database access | Empty database IP allowlist and blocked fresh connection verified on 19 October; application health HTTP 200 |
-| Hosted payment API | **7/7 groups passed** using existing synthetic records; checkout disabled before intent creation, no invented payments/receipts, role restrictions enforced |
-| Historical readback | **6/6 groups passed**; original PDF, 24-credit wallet, one three-credit issuance debit and five application events preserved |
-| Geography regression | **5/5 read-only groups passed** |
-| Frontend assets | Entry JavaScript and CSS hashes match the tested local build; immutable cache headers present |
-| Live UI browser inspection | Bangla/English register, reconciliation and disabled payment card passed; 390 × 844 layout has no horizontal overflow; zero console warnings/errors |
-| Hosting | Same Free Singapore service `srv-db6tvpou01pc73bjkpr0`; Auto-Deploy Off; Free PostgreSQL expiry **12 November 2026** |
+| Component                  | Verified result                                                                                                                                                                    |
+| -------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Live URL                   | [astra-union-services.onrender.com](https://astra-union-services.onrender.com/)                                                                                                    |
+| Runtime commit             | `b86908b9a4654cc31cd1b517fc5e8ad3ae086878`                                                                                                                                         |
+| Render deployment          | `dep-dbaob6s9v7es739a8j30`, status `live`; completed `2026-10-19T02:53:25.665787Z` (08:53:25 Asia/Dhaka)                                                                           |
+| CI                         | [Run 39125266096](https://github.com/sajeeb-ahmeed/astra-union-services/actions/runs/39125266096): **192/192 tests**, production/Docker builds and zero-vulnerability audit passed |
+| Database migration         | `012_gateway_payments.sql` committed; eleven migration files installed; forced RLS/runtime privileges and idempotent replay passed                                                 |
+| Preservation               | All 66 recorded domain fingerprints across three offices unchanged; counts remain 3 offices, 12 users and 2 certificates                                                           |
+| External database access   | Empty database IP allowlist and blocked fresh connection verified on 19 October; application health HTTP 200                                                                       |
+| Hosted payment API         | **7/7 groups passed** using existing synthetic records; checkout disabled before intent creation, no invented payments/receipts, role restrictions enforced                        |
+| Historical readback        | **6/6 groups passed**; original PDF, 24-credit wallet, one three-credit issuance debit and five application events preserved                                                       |
+| Geography regression       | **5/5 read-only groups passed**                                                                                                                                                    |
+| Frontend assets            | Entry JavaScript and CSS hashes match the tested local build; immutable cache headers present                                                                                      |
+| Live UI browser inspection | Bangla/English register, reconciliation and disabled payment card passed; 390 × 844 layout has no horizontal overflow; zero console warnings/errors                                |
+| Hosting                    | Same Free Singapore service `srv-db6tvpou01pc73bjkpr0`; Auto-Deploy Off; Free PostgreSQL expiry **12 November 2026**                                                               |
 
 Evidence: [consolidated release metadata](../execution/payments-live-release.json), [deployment](../execution/payments-render-deploy.json), [CI](../execution/payments-ci-qa.json), [migration](../execution/payments-hosted-migration.json), [network closure](../execution/payments-network-qa.json), [database dashboard](../execution/payments-database-private.png), [payment checks](../execution/payments-hosted-qa.json), [historical readback](../execution/payments-hosted-readback.json), [geography](../execution/payments-hosted-geography.json) and [asset hashes](../execution/payments-live-assets.json).
 
@@ -85,21 +101,21 @@ The 0.5 readback and geography results use separate `payments-` filenames. Earli
 
 The following record preserves the previous deployment. Citizen assessments were uncollected and positive totals blocked issuance; SaaS billing QA used zero-money sandbox settlement. These are historical 0.4 results, not the current runtime identifiers or test counts. See [0.4 release evidence](RELEASE_0_4.md).
 
-| Component | Verified result |
-| --- | --- |
-| Live URL | [astra-union-services.onrender.com](https://astra-union-services.onrender.com/) |
-| Runtime commit | `de8a0c335aa2315e8ff03faf2e9100fcf7492622` |
-| Render deployment | `dep-db9jt9m1egvs73fi5bbg`, status `live`; completed `2026-10-17T09:26:11.236745Z` (15:26:11 Asia/Dhaka) |
-| CI | [Run 39020055573](https://github.com/sajeeb-ahmeed/astra-union-services/actions/runs/39020055573): Docker build and **162 tests** passed; zero audit vulnerabilities |
-| Database migration | `011_application_orders.sql` committed after preservation checks; 10 migration files installed; runtime privileges/RLS and idempotent replay passed |
-| Existing data | At migration, two offices, eight users and one certificate preserved; recorded domain fingerprints, original PDF, 24-credit wallet, one debit and five fixture events unchanged |
-| External database access | Temporary approved single-IP rule removed; empty allowlist and fresh blocked connection probe, while app health remained HTTP 200 |
-| New order workflow | **9/9 hosted groups passed** in one new synthetic QA office; existing-office policies untouched |
-| Historical readback | **6/6 groups passed** after deployment; original PDF byte-for-byte unchanged |
-| Geography regression | **5/5 read-only hosted groups passed** |
-| Frontend assets | Entry JavaScript and CSS hashes match the tested local production build; immutable cache headers present |
-| Live UI browser inspection | Passed bilingual fee retention, 390 × 844 layout, blank citizen-first intake and quote/acceptance gating; no console warnings/errors |
-| Hosting | Same Free Singapore service `srv-db6tvpou01pc73bjkpr0`; Auto-Deploy Off; Free PostgreSQL expiry **12 November 2026** |
+| Component                  | Verified result                                                                                                                                                                 |
+| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Live URL                   | [astra-union-services.onrender.com](https://astra-union-services.onrender.com/)                                                                                                 |
+| Runtime commit             | `de8a0c335aa2315e8ff03faf2e9100fcf7492622`                                                                                                                                      |
+| Render deployment          | `dep-db9jt9m1egvs73fi5bbg`, status `live`; completed `2026-10-17T09:26:11.236745Z` (15:26:11 Asia/Dhaka)                                                                        |
+| CI                         | [Run 39020055573](https://github.com/sajeeb-ahmeed/astra-union-services/actions/runs/39020055573): Docker build and **162 tests** passed; zero audit vulnerabilities            |
+| Database migration         | `011_application_orders.sql` committed after preservation checks; 10 migration files installed; runtime privileges/RLS and idempotent replay passed                             |
+| Existing data              | At migration, two offices, eight users and one certificate preserved; recorded domain fingerprints, original PDF, 24-credit wallet, one debit and five fixture events unchanged |
+| External database access   | Temporary approved single-IP rule removed; empty allowlist and fresh blocked connection probe, while app health remained HTTP 200                                               |
+| New order workflow         | **9/9 hosted groups passed** in one new synthetic QA office; existing-office policies untouched                                                                                 |
+| Historical readback        | **6/6 groups passed** after deployment; original PDF byte-for-byte unchanged                                                                                                    |
+| Geography regression       | **5/5 read-only hosted groups passed**                                                                                                                                          |
+| Frontend assets            | Entry JavaScript and CSS hashes match the tested local production build; immutable cache headers present                                                                        |
+| Live UI browser inspection | Passed bilingual fee retention, 390 × 844 layout, blank citizen-first intake and quote/acceptance gating; no console warnings/errors                                            |
+| Hosting                    | Same Free Singapore service `srv-db6tvpou01pc73bjkpr0`; Auto-Deploy Off; Free PostgreSQL expiry **12 November 2026**                                                            |
 
 Evidence: [deployment](../execution/orders-render-deploy.json), [CI](../execution/orders-ci-qa.json), [migration](../execution/orders-hosted-migration.json), [network](../execution/orders-network-qa.json), [closed database access](../execution/orders-database-private.png), [order QA](../execution/hosted-orders-qa.json), [readback](../execution/hosted-redeploy-qa.json), [geography](../execution/geography-hosted-qa.json), [asset hashes](../execution/orders-live-assets.json).
 
@@ -115,26 +131,26 @@ Original-fixture readback finished `2026-10-17T09:27:10.583Z`: its 114,286-byte 
 
 The following table and 13 October narrative retain the preceding deployment's evidence. They are not the current runtime identifiers or test counts. The shared readback/geography evidence files preserve the 17 October 0.4 rerun; current 0.5 results use separate `payments-` files. Original 0.3 aggregate metadata remains in [geography-live-release.json](../execution/geography-live-release.json).
 
-| Component | Verified status |
-| --- | --- |
-| Source repository | [sajeeb-ahmeed/astra-union-services](https://github.com/sajeeb-ahmeed/astra-union-services), public with the owner's explicit approval |
-| Deployment branch | `codex/initial-deployment` |
-| Final release CI | [Astra verification run 38371905308](https://github.com/sajeeb-ahmeed/astra-union-services/actions/runs/38371905308): application verification and Docker build both passed |
-| Deployed release commit | `6b949baa7738b038a60ef41c4c30f4a0f5e6acb3` |
-| Automated CI tests | **142 passed**: 72 form tests, 47 API/security tests, 23 web tests; zero failures |
-| Dependency audit | Zero reported vulnerabilities in the final CI run |
-| Hosted database | Render Free PostgreSQL 17, Singapore; initialized and connection/privilege checks passed |
-| Database expiry | **12 November 2026** according to the provisioned Free database |
-| Web service | Live as `srv-db6tvpou01pc73bjkpr0` |
-| Current deployment | `dep-db6v2g6k1f9s73bm31vg` succeeded, deploying the final release commit above |
-| Web resources | Singapore, Free instance: 0.1 CPU and 512 MB RAM |
-| Deployment trigger | Public Git repository URL; Auto-Deploy explicitly Off |
-| Public URL | [astra-union-services.onrender.com](https://astra-union-services.onrender.com), live |
-| Health check | `/api/v1/health` returned HTTP 200 with `database: PostgreSQL` and `mode: DEMO_ONLY` |
-| Initial hosted workflow | **15 of 15 groups passed** on commit `72acccd5329e76bd29834eac39835adbab869c5b`, zero failures, at 07:43 UTC on 13 October 2026 |
-| Final release durability | **6 of 6 readback groups passed** after the final deployment, with existing records and PDF bytes unchanged |
-| Browser checks | English/Bangla public UI, registration cascade, retained draft name, language persistence, owner workspace and mobile layout verified |
-| Hosted geography | **5 of 5 groups passed**: source counts/names, parents, all eight division paths, invalid parents, coverage gap and office filters |
+| Component                | Verified status                                                                                                                                                             |
+| ------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Source repository        | [sajeeb-ahmeed/astra-union-services](https://github.com/sajeeb-ahmeed/astra-union-services), public with the owner's explicit approval                                      |
+| Deployment branch        | `codex/initial-deployment`                                                                                                                                                  |
+| Final release CI         | [Astra verification run 38371905308](https://github.com/sajeeb-ahmeed/astra-union-services/actions/runs/38371905308): application verification and Docker build both passed |
+| Deployed release commit  | `6b949baa7738b038a60ef41c4c30f4a0f5e6acb3`                                                                                                                                  |
+| Automated CI tests       | **142 passed**: 72 form tests, 47 API/security tests, 23 web tests; zero failures                                                                                           |
+| Dependency audit         | Zero reported vulnerabilities in the final CI run                                                                                                                           |
+| Hosted database          | Render Free PostgreSQL 17, Singapore; initialized and connection/privilege checks passed                                                                                    |
+| Database expiry          | **12 November 2026** according to the provisioned Free database                                                                                                             |
+| Web service              | Live as `srv-db6tvpou01pc73bjkpr0`                                                                                                                                          |
+| Current deployment       | `dep-db6v2g6k1f9s73bm31vg` succeeded, deploying the final release commit above                                                                                              |
+| Web resources            | Singapore, Free instance: 0.1 CPU and 512 MB RAM                                                                                                                            |
+| Deployment trigger       | Public Git repository URL; Auto-Deploy explicitly Off                                                                                                                       |
+| Public URL               | [astra-union-services.onrender.com](https://astra-union-services.onrender.com), live                                                                                        |
+| Health check             | `/api/v1/health` returned HTTP 200 with `database: PostgreSQL` and `mode: DEMO_ONLY`                                                                                        |
+| Initial hosted workflow  | **15 of 15 groups passed** on commit `72acccd5329e76bd29834eac39835adbab869c5b`, zero failures, at 07:43 UTC on 13 October 2026                                             |
+| Final release durability | **6 of 6 readback groups passed** after the final deployment, with existing records and PDF bytes unchanged                                                                 |
+| Browser checks           | English/Bangla public UI, registration cascade, retained draft name, language persistence, owner workspace and mobile layout verified                                       |
+| Hosted geography         | **5 of 5 groups passed**: source counts/names, parents, all eight division paths, invalid parents, coverage gap and office filters                                          |
 
 The repository and new Astra hosting resources are the deployment scope. Existing unrelated services are outside this scope.
 
@@ -170,20 +186,20 @@ The deployment uses the repository's Dockerfile for the React frontend, Express 
 
 Configure the new web service with:
 
-| Setting | Required value or rule |
-| --- | --- |
-| Runtime | Docker, using the repository root Dockerfile |
-| Compute plan | Free; no paid plan has been approved |
-| Region | Singapore, matching the database |
-| Host | `0.0.0.0` |
-| Port | The port selected for the Render service; the server reads `PORT` |
-| Health check | `/api/v1/health` |
-| `NODE_ENV` | `production` |
-| `PUBLIC_ORIGIN` | The exact generated HTTPS origin, without a trailing slash |
-| `DATABASE_URL` | Restricted application-role connection to the hosted database |
-| `DEMO_WEBHOOK_SECRET` | A unique secret of at least 32 characters |
-| `PDF_MAX_CONCURRENCY` | `1`, to constrain renderer memory use on the Free service |
-| Proxy trust | Leave unset until a specific trusted ingress peer has been verified; never broadly trust caller-supplied forwarding headers |
+| Setting               | Required value or rule                                                                                                      |
+| --------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| Runtime               | Docker, using the repository root Dockerfile                                                                                |
+| Compute plan          | Free; no paid plan has been approved                                                                                        |
+| Region                | Singapore, matching the database                                                                                            |
+| Host                  | `0.0.0.0`                                                                                                                   |
+| Port                  | The port selected for the Render service; the server reads `PORT`                                                           |
+| Health check          | `/api/v1/health`                                                                                                            |
+| `NODE_ENV`            | `production`                                                                                                                |
+| `PUBLIC_ORIGIN`       | The exact generated HTTPS origin, without a trailing slash                                                                  |
+| `DATABASE_URL`        | Restricted application-role connection to the hosted database                                                               |
+| `DEMO_WEBHOOK_SECRET` | A unique secret of at least 32 characters                                                                                   |
+| `PDF_MAX_CONCURRENCY` | `1`, to constrain renderer memory use on the Free service                                                                   |
+| Proxy trust           | Leave unset until a specific trusted ingress peer has been verified; never broadly trust caller-supplied forwarding headers |
 
 Administrator database credentials and the initial owner password belong only to setup and private credential custody. They are not required by the running app. Do not seed the public deployment with the documented local fixture accounts.
 
