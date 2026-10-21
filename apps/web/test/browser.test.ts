@@ -160,7 +160,7 @@ test(
         .click();
       assert.equal((await saved).status(), 200);
       await citizen
-        .getByText("New immutable payload version saved.", { exact: true })
+        .getByText("Changes saved.", { exact: true })
         .waitFor();
       await action(citizen, "Resubmit application");
       await reviewer.reload();
@@ -315,7 +315,7 @@ test(
         .click();
       assert.equal((await familyResponse).status(), 201);
       await page
-        .getByText("Draft saved to PostgreSQL.", { exact: true })
+        .getByText("Draft saved. Open the draft and submit it when ready.", { exact: true })
         .waitFor();
       await nav(page, "Service catalog");
       await page.getByRole("button", { name: /42.*Trade license/ }).click();
@@ -351,7 +351,7 @@ test(
         .click();
       assert.equal((await tradeResponse).status(), 201);
       await page
-        .getByText("Draft saved to PostgreSQL.", { exact: true })
+        .getByText("Draft saved. Open the draft and submit it when ready.", { exact: true })
         .waitFor();
       await page.screenshot({
         path: "execution/screenshots/mobile-trade.png",

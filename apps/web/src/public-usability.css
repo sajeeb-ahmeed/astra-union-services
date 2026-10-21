@@ -1,0 +1,87 @@
+.public-quick-tasks {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 24px;
+}
+.public-site .public-quick-task {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 16px;
+  text-align: left;
+  background: #fff;
+  color: #164f40;
+  border: 1px solid #d4e2db;
+  white-space: normal;
+}
+.public-site .public-quick-task:hover {
+  background: #edf5f0;
+  border-color: #155e4b;
+}
+.public-quick-task strong {
+  font-size: 16px;
+}
+.public-quick-task span {
+  font-size: 13px;
+  font-weight: 400;
+  color: #466157;
+}
+.public-search-summary {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin: -4px 0 20px;
+}
+.public-search-summary p {
+  margin: 0;
+  color: #466157;
+}
+.public-search-summary .text-button {
+  flex-shrink: 0;
+}
+.public-service-back {
+  margin-bottom: 12px;
+}
+.service-information {
+  scroll-margin-top: 20px;
+}
+.service-information:focus-visible {
+  outline: 3px solid #a15800;
+  outline-offset: 4px;
+}
+.password-control {
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
+  margin: 6px 0 16px;
+}
+.public-site .login-form .password-control input {
+  margin: 0;
+  min-width: 0;
+  flex: 1;
+}
+.public-site .login-form .password-control button {
+  flex: 0 0 auto;
+  width: auto;
+  max-width: 45%;
+  margin: 0;
+  padding-inline: 10px;
+  font-size: 13px;
+}
+@media (max-width: 700px) {
+  .public-quick-tasks {
+    grid-template-columns: 1fr;
+    gap: 8px;
+    margin-top: 18px;
+  }
+  .public-site .public-quick-task {
+    padding: 12px 14px;
+  }
+  .public-search-summary {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+}

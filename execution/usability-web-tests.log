@@ -1,0 +1,61 @@
+
+> astra-union-services@0.7.0 test:web
+> tsx scripts/test-web.ts
+
+✔ account security: password-confirmed session revocation, preserved current session and bilingual mobile UI (3504.0048ms)
+✔ browser: citizen → staff visibility → correction → authorized approval → real PDF/QR → exactly-once debit (9025.4211ms)
+✔ browser: family/trade conditional validation, real private upload, finance settlement and mobile keyboard layout (4187.5123ms)
+✔ browser: staff citizen registration and owner compensating adjustments persist with role boundaries (5074.3981ms)
+✔ expanded browser: public 47-service discovery, retained directory pagination, help, feedback and newsletter persistence (3191.8209ms)
+✔ expanded browser: owner onboarding, staff/service administration, explicit authorization and public notice controls (7552.6608ms)
+✔ expanded browser: synthetic self-registration, new catalog application and secure password change (4776.4219ms)
+✔ expanded browser: trade renewal links a real issued source without charging, and public application tracking remains minimal (5871.085ms)
+✔ FOR-01: actual React renderer renders all 47 captured service entries and all 48 initial form sections (89.3126ms)
+✔ operational labels switch languages and private upload accept rules render from the shared profile (13.5332ms)
+✔ nested family member rows expose local conditional guardian only for a minor (4.68ms)
+✔ checkboxes use strict boolean semantics: false remains unchecked, true checks the declaration (7.757ms)
+✔ conditional trade previous-license control is hidden until selected and has an associated label (10.343ms)
+✔ field errors link bilingual error content to the exact nested input (4.1315ms)
+✔ repeatable group errors are focusable and programmatically linked to their fieldset (1.7979ms)
+✔ disabled application controls include nested add/remove and upload actions (3.0477ms)
+✔ language source: displayed literal translations cover all six public/workspace components (84.3156ms)
+✔ geography source: checksums, strict UTF-8/NFC, unique IDs, typed parents and all derived wards (866.7085ms)
+✔ geography browser: mobile cascade uses parent IDs, clears descendants and handles a source coverage gap (1149.5976ms)
+✔ geography browser: failed child lookup exposes retry and a retry retrieves real districts (755.0006ms)
+✔ geography browser: mobile registration stores selected geography and server-generated reference (1510.3195ms)
+✔ language browser: preference persists across public pages and authenticated workspace (2764.2026ms)
+✔ guidance: saving a draft is not submission and only applicant roles get submission navigation (22.8888ms)
+✔ guidance: review and approval stay separate for each role (4.0835ms)
+✔ guidance: corrections require saved edits and resubmission rather than approval (0.8821ms)
+✔ guidance: provider PAID or unknown payment flags cannot imply settled application fees (8.774ms)
+✔ guidance: certificate links require the issued record and revocation overrides available state (1.0276ms)
+✔ guidance: closed and unknown applications do not promise a next workflow transition (0.8297ms)
+✔ guidance: Bangla copy preserves correction and fee holds without adding mutation controls (1.2555ms)
+✔ intake browser: citizen first, empty application, language retention and new citizen return (2612.0074ms)
+✔ intake browser: hosted hostname hides sample insertion and exact reference opens own application (2538.08ms)
+✔ order browser: explicit office fees, citizen-first quote acceptance, bilingual/mobile state and immutable fee snapshot (5880.3792ms)
+✔ order browser: delayed policy load cannot populate another service's blank fee editor (1683.8806ms)
+✔ payments browser: later mismatch preserves receipt, exposes recovery and remains visible to finance (5197.9993ms)
+✔ payments browser: late checkout response cannot redirect a departed application; ambiguous gateway failure stays uncertain (3065.2117ms)
+✔ payments browser: approved fee remains unpaid without merchant setup; forged return cannot show receipt; mobile Bangla persists (2334.5951ms)
+✔ payments browser: finance has scoped gateway register and real empty reconciliation CSV; staff cannot open reconciliation (4649.9531ms)
+✔ performance: compact public service names exactly match all 47 canonical reference rows (207.6551ms)
+✔ performance: public initial JavaScript stays under 400 KB without authenticated schema chunks (1195.997ms)
+✔ performance: login loads real workspace chunk once and preserves language and logout state (883.9028ms)
+✔ performance: delayed and failed workspace download has bilingual recovery and reload succeeds (1496.0678ms)
+✔ portal browser: responsive profile, searchable applicant and biodata/holding/witness private PDF copies (3617.7987ms)
+✔ portal browser: finance filters actual reports and downloads private CSV/PDF (3513.2647ms)
+✔ public usability: mobile quick tasks reach tracking and verification in both languages (1109.0305ms)
+✔ public usability: Bengali search, empty recovery and selected service replace the long catalog (997.5343ms)
+✔ public usability: show password never submits; successful login and sign-out return masked empty fields (1799.7796ms)
+✔ workspace usability: mobile task entry, bilingual search, actionable validation and draft-to-submit guidance (2367.136ms)
+✔ workspace usability: mobile page picker, empty search recovery and language retention (2265.8776ms)
+✔ workspace usability: role-specific tasks route to authorized queues without approving (4378.3503ms)
+ℹ tests 49
+ℹ suites 0
+ℹ pass 49
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 110540.7167

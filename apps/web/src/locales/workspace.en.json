@@ -276,5 +276,7 @@
   "This account is inactive.": "This account is inactive.",
   "This session or tenant membership is inactive.": "This session or tenant membership is inactive.",
   "Too many requests. Please retry shortly.": "Too many requests. Please retry shortly.",
-  "Please retry shortly.": "Please retry shortly."
+  "Please retry shortly.": "Please retry shortly.",
+  "Draft saved. Open the draft and submit it when ready.": "Draft saved. Open the draft and submit it when ready.",
+  "Changes saved.": "Changes saved."
 }

@@ -88,6 +88,7 @@ export function DynamicForm({
         };
         const shared = {
           id,
+          "data-field-path": key,
           disabled,
           "aria-required": required || undefined,
           "aria-invalid": !!error,

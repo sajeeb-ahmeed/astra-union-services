@@ -1,5 +1,6 @@
 import { t, tx, choose } from "./i18n.js";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
+import "./public-usability.css";
 // Public pages need names only; canonical metadata parity is checked by the web tests.
 import serviceCatalog from "./public-service-catalog.json" with { type: "json" };
 import { api, items } from "./api.js";
@@ -211,6 +212,7 @@ export function CivicIcon({ index = 0 }: { index?: number }) {
   );
 }
 export function PublicPortal({ login }: { login: React.ReactNode }) {
+  const serviceInformationRef = useRef<HTMLElement>(null);
   const initial = location.pathname.split("/")[1] || "home";
   const [page, setPage] = useState(initial),
     [search, setSearch] = useState(""),
@@ -386,12 +388,27 @@ export function PublicPortal({ login }: { login: React.ReactNode }) {
     signupSearch,
     signupOfficeRetry,
   ]);
+  const normalizedSearch = search
+    .trim()
+    .replace(/[০-৯]/g, (digit) => String("০১২৩৪৫৬৭৮৯".indexOf(digit)))
+    .toLowerCase();
   const services = serviceCatalog.filter((s) =>
     `${s.service_no} ${s.name_bn} ${s.name_en}`
       .toLowerCase()
-      .includes(search.toLowerCase()),
+      .includes(normalizedSearch),
   );
   const selected = serviceCatalog.find((s) => s.service_no === serviceNo);
+  useEffect(() => {
+    if (page === "services" && serviceNo !== null) {
+      serviceInformationRef.current?.focus({ preventScroll: true });
+      serviceInformationRef.current?.scrollIntoView({ block: "start" });
+    }
+  }, [page, serviceNo]);
+  function clearServiceSearch() {
+    setSearch("");
+    setServiceNo(null);
+    document.getElementById("public-service-search")?.focus();
+  }
   const servicesView = (compact = false) => (
     <>
       <div className="public-section-heading">
@@ -418,42 +435,80 @@ export function PublicPortal({ login }: { login: React.ReactNode }) {
               id="public-service-search"
               placeholder={t("সেবার নাম বা নম্বর লিখুন")}
               value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              onChange={(e) => {
+                setSearch(e.target.value);
+                setServiceNo(null);
+              }}
             />
+            <div className="public-search-summary">
+              <p role="status" aria-live="polite">
+                {choose({
+                  bn: `${services.length.toLocaleString("bn-BD")}টি সেবা পাওয়া গেছে`,
+                  en: `${services.length} services found`,
+                })}
+              </p>
+              {search && (
+                <button
+                  type="button"
+                  className="text-button"
+                  onClick={clearServiceSearch}
+                >
+                  {choose({
+                    bn: "খোঁজা মুছে সব সেবা দেখুন",
+                    en: "Clear search",
+                  })}
+                </button>
+              )}
+            </div>
           </>
         ),
       )}
-      <div className="public-service-grid">
-        {tx(
-          (compact
-            ? services.filter((s) =>
-                [1, 2, 3, 8, 42, 45, 46, 47].includes(s.service_no),
-              )
-            : services
-          ).map((s) => (
-            <button
-              className="public-service"
-              key={s.service_no}
-              onClick={() => {
-                setServiceNo(s.service_no);
-                if (compact) nav("services");
-              }}
-            >
-              <CivicIcon index={s.service_no} />
-              <strong>{choose({ bn: s.name_bn, en: s.name_en })}</strong>
-              <span>
-                {t("আবেদনের তথ্য দেখুন ")}
-                <b>{t("→")}</b>
-              </span>
-            </button>
-          )),
-        )}
-      </div>
+      {(!selected || compact) && (
+        <div className="public-service-grid">
+          {tx(
+            (compact
+              ? services.filter((s) =>
+                  [1, 2, 3, 8, 42, 45, 46, 47].includes(s.service_no),
+                )
+              : services
+            ).map((s) => (
+              <button
+                className="public-service"
+                key={s.service_no}
+                onClick={() => {
+                  setServiceNo(s.service_no);
+                  if (compact) nav("services");
+                }}
+              >
+                <CivicIcon index={s.service_no} />
+                <strong>{choose({ bn: s.name_bn, en: s.name_en })}</strong>
+                <span>
+                  {t("আবেদনের তথ্য দেখুন ")}
+                  <b>{t("→")}</b>
+                </span>
+              </button>
+            )),
+          )}
+        </div>
+      )}
       {tx(
         !services.length && (
-          <p role="status" className="empty-state">
-            {t("এই নামে কোনো সেবা পাওয়া যায়নি। No services match. ")}
-          </p>
+          <div className="empty-state">
+            <p>{t("এই নামে কোনো সেবা পাওয়া যায়নি। No services match. ")}</p>
+            <p>
+              {choose({
+                bn: "নামের ছোট অংশ বা সেবার নম্বর দিয়ে আবার খুঁজুন।",
+                en: "Try a shorter name or a service number.",
+              })}
+            </p>
+            <button
+              type="button"
+              className="secondary"
+              onClick={clearServiceSearch}
+            >
+              {choose({ bn: "সব সেবা দেখুন", en: "Show all services" })}
+            </button>
+          </div>
         ),
       )}
       {tx(
@@ -461,7 +516,22 @@ export function PublicPortal({ login }: { login: React.ReactNode }) {
           <section
             className="panel service-information"
             aria-label={t("Service information")}
+            ref={serviceInformationRef}
+            tabIndex={-1}
           >
+            <button
+              type="button"
+              className="text-button public-service-back"
+              onClick={() => {
+                setServiceNo(null);
+                document.getElementById("public-service-search")?.focus();
+              }}
+            >
+              {choose({
+                bn: "← অন্য সেবা বেছে নিন",
+                en: "← Choose another service",
+              })}
+            </button>
             <span className="eyebrow">
               {t("SERVICE ")}
               {tx(selected.service_no)}
@@ -587,19 +657,50 @@ export function PublicPortal({ login }: { login: React.ReactNode }) {
                         {t("আপনার অফিস খুঁজুন ")}
                       </button>
                     </div>
-                    <div className="hero-metrics">
-                      <span>
-                        <strong>{t("৪৭")}</strong>
-                        {t("সেবার ধরন ")}
-                      </span>
-                      <span>
-                        <strong>{t("১")}</strong>
-                        {t("সমন্বিত প্ল্যাটফর্ম ")}
-                      </span>
-                      <span>
-                        <strong>{t("QR")}</strong>
-                        {t("সনদ যাচাই ")}
-                      </span>
+                    <div
+                      className="public-quick-tasks"
+                      role="group"
+                      aria-label={choose({
+                        bn: "দ্রুত কাজ",
+                        en: "Quick tasks",
+                      })}
+                    >
+                      <button
+                        type="button"
+                        className="public-quick-task"
+                        onClick={() => nav("tracking")}
+                      >
+                        <strong>
+                          {choose({
+                            bn: "আবেদন কোথায় আছে?",
+                            en: "Check application progress",
+                          })}
+                        </strong>
+                        <span>
+                          {choose({
+                            bn: "রেফারেন্স নম্বর দিয়ে অবস্থা দেখুন →",
+                            en: "Use your application reference →",
+                          })}
+                        </span>
+                      </button>
+                      <button
+                        type="button"
+                        className="public-quick-task"
+                        onClick={() => nav("verify")}
+                      >
+                        <strong>
+                          {choose({
+                            bn: "সনদ যাচাই করুন",
+                            en: "Check a certificate",
+                          })}
+                        </strong>
+                        <span>
+                          {choose({
+                            bn: "সনদের যাচাই লিংক ব্যবহার করুন →",
+                            en: "Use its verification link →",
+                          })}
+                        </span>
+                      </button>
                     </div>
                   </div>
                   <div className="hero-login">{tx(login)}</div>

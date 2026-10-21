@@ -522,7 +522,7 @@ test(
       const application = await response.json();
       assert.equal(application.serviceNo, 1);
       await page
-        .getByText("Draft saved to PostgreSQL.", { exact: true })
+        .getByText("Draft saved. Open the draft and submit it when ready.", { exact: true })
         .waitFor();
       assert.equal(
         await page.evaluate(

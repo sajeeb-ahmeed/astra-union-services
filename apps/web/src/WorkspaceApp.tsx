@@ -18,6 +18,9 @@ import {
 import { api, items } from "./api.js";
 import { AsyncPanel } from "./AsyncPanel.js";
 import { DynamicForm } from "./DynamicForm.js";
+import { WorkspaceWelcome } from "./WorkspaceWelcome.js";
+import { ApplicationGuidance } from "./ApplicationGuidance.js";
+import "./workspace-usability.css";
 import {
   ApplicationOrder,
   OrderSummary,
@@ -117,7 +120,7 @@ export function WorkspaceApp({
   paymentReturnApplication: string | null;
   onPaymentReturnHandled: () => void;
 }) {
-  useLanguage();
+  const [language] = useLanguage();
   const [page, setPage] = useState("home"),
     [message, setMessage] = useState(""),
     [busy, setBusy] = useState(false);
@@ -254,6 +257,103 @@ export function WorkspaceApp({
     approver = role === "approver",
     finance = ["finance", "admin"].includes(role);
   const canApply = staff || role === "citizen";
+  const visiblePages = Object.keys(labels).filter((p) =>
+    role === "owner"
+      ? [
+          "home",
+          "services",
+          "owner",
+          "security",
+          "profile",
+          "support",
+        ].includes(p)
+      : !["owner", "support"].includes(p) &&
+        (p !== "admin" || role === "admin") &&
+        (p !== "reports" || finance) &&
+        (p !== "prints" || staff || role === "citizen") &&
+        (p !== "billing" || finance) &&
+        (p !== "payments" || ["staff", "admin", "finance"].includes(role)) &&
+        (role !== "finance" ||
+          [
+            "home",
+            "services",
+            "billing",
+            "payments",
+            "security",
+            "profile",
+            "notifications",
+            "reports",
+          ].includes(p)),
+  );
+  const normalizeSearch = (value: string) =>
+    value
+      .replace(/[০-৯]/g, (digit) => String(digit.charCodeAt(0) - 0x09e6))
+      .trim()
+      .toLowerCase();
+  const matchingServices = catalog.filter((service) =>
+    normalizeSearch(
+      `${service.service_no} ${service.name_bn} ${service.name_en}`,
+    ).includes(normalizeSearch(search)),
+  );
+  const errorSummary = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (issues.length) errorSummary.current?.focus();
+  }, [issues]);
+  function focusIssue(path: string) {
+    const field = Array.from(
+      document.querySelectorAll<HTMLElement>(
+        '[data-testid="service-application-form"] [data-field-path]',
+      ),
+    ).find((element) => element.dataset.fieldPath === path);
+    field?.focus();
+  }
+  function fieldLabel(path: string): string {
+    let definitions = schema.sections.flatMap((section) => [...section.fields]);
+    const labels: string[] = [];
+    for (const part of path.match(/[^.[\]]+/g) ?? []) {
+      if (/^\d+$/.test(part)) {
+        labels.push(
+          choose({ bn: "সারি", en: "Row" }) +
+            " " +
+            (Number(part) + 1).toLocaleString(
+              language === "bn" ? "bn-BD" : "en-GB",
+            ),
+        );
+        continue;
+      }
+      const field = definitions.find((field) => field.id === part);
+      if (!field) continue;
+      labels.push(choose(field.label));
+      definitions = [...(field.children ?? [])];
+    }
+    return (
+      labels.join(" → ") ||
+      choose({ bn: "তথ্য সংশোধন করুন", en: "Check this field" })
+    );
+  }
+  function applicationDate(raw: string) {
+    const date = new Date(raw);
+    return Number.isNaN(date.getTime())
+      ? "—"
+      : date.toLocaleDateString(language === "bn" ? "bn-BD" : "en-GB", {
+          day: "numeric",
+          month: "short",
+          year: "numeric",
+        });
+  }
+  function clearApplicationFilters() {
+    setFilter("");
+    setAppSearch("");
+    setAppQuery("");
+    setAppPage(1);
+  }
+  function openTask(next: string, state = "") {
+    if (next === "applications") {
+      clearApplicationFilters();
+      setFilter(state);
+    }
+    nav(next);
+  }
   const applicantChoices =
     selectedCitizen && !citizens.some((c) => c.id === selectedCitizen.id)
       ? [selectedCitizen, ...citizens]
@@ -308,7 +408,11 @@ export function WorkspaceApp({
   function certificatePanel(cert: any) {
     if (!cert) return null;
     return (
-      <div className="certificate-card">
+      <div
+        className="certificate-card"
+        id="application-certificate"
+        tabIndex={-1}
+      >
         <div>
           <span className="eyebrow">{t("DEMO CERTIFICATE")}</span>
           <h3>
@@ -382,47 +486,33 @@ export function WorkspaceApp({
             )}
           </small>
         </p>
+        <div className="workspace-jump">
+          <label htmlFor="workspace-jump">
+            {choose({ bn: "কোথায় যেতে চান?", en: "Go to a page" })}
+          </label>
+          <select
+            id="workspace-jump"
+            value={page}
+            onChange={(event) => nav(event.target.value)}
+          >
+            {visiblePages.map((key) => (
+              <option key={key} value={key}>
+                {choose({ bn: localized[key], en: labels[key] })}
+              </option>
+            ))}
+          </select>
+        </div>
         <nav aria-label={t("Workspace navigation")}>
           {tx(
-            Object.keys(labels)
-              .filter((p) =>
-                role === "owner"
-                  ? [
-                      "home",
-                      "services",
-                      "owner",
-                      "security",
-                      "profile",
-                      "support",
-                    ].includes(p)
-                  : !["owner", "support"].includes(p) &&
-                    (p !== "admin" || role === "admin") &&
-                    (p !== "reports" || finance) &&
-                    (p !== "prints" || staff || role === "citizen") &&
-                    (p !== "billing" || finance) &&
-                    (p !== "payments" ||
-                      ["staff", "admin", "finance"].includes(role)) &&
-                    (role !== "finance" ||
-                      [
-                        "home",
-                        "services",
-                        "billing",
-                        "payments",
-                        "security",
-                        "profile",
-                        "notifications",
-                        "reports",
-                      ].includes(p)),
-              )
-              .map((p) => (
-                <button
-                  key={p}
-                  aria-current={page === p ? "page" : undefined}
-                  onClick={() => nav(p)}
-                >
-                  <span>{choose({ bn: localized[p], en: labels[p] })}</span>
-                </button>
-              )),
+            visiblePages.map((p) => (
+              <button
+                key={p}
+                aria-current={page === p ? "page" : undefined}
+                onClick={() => nav(p)}
+              >
+                <span>{choose({ bn: localized[p], en: labels[p] })}</span>
+              </button>
+            )),
           )}
         </nav>
         <div className="sidebar-bottom">
@@ -494,93 +584,113 @@ export function WorkspaceApp({
             </p>
           ),
         )}
-        {tx(
-          page === "home" && (
-            <>
-              <div className="stats">
-                <div className="stat">
-                  <span>{t("REFERENCE CATALOG")}</span>
-                  <strong>{t("47")}</strong>
-                  <small>{t("48 observed entry forms")}</small>
-                </div>
-                <div className="stat">
-                  <span>{t("VALIDATED DEMO FORMS")}</span>
-                  <strong>{tx(operationalServiceNumbers.length)}</strong>
-                  <small>{t("Independent service workflows")}</small>
-                </div>
-                <div className="stat">
-                  <span>
-                    {tx(role === "owner" ? "TENANTS" : "APPLICATIONS")}
-                  </span>
-                  <strong>
-                    {tx(role === "owner" ? tenants.length : appTotal)}
-                  </strong>
-                  <small>{t("Persisted in PostgreSQL")}</small>
-                </div>
-                {tx(
-                  wallet && (
-                    <div className="stat">
-                      <span>{t("AVAILABLE CREDITS")}</span>
-                      <strong>
-                        {tx(wallet.balance ?? wallet.wallet?.balance ?? 0)}
-                      </strong>
-                      <small>{t("Append-only tenant ledger")}</small>
-                    </div>
-                  ),
+        {page === "home" && (
+          <>
+            <WorkspaceWelcome role={role} navigate={openTask} />
+            <section className="panel">
+              <h2>
+                {choose({
+                  bn: "যেভাবে আবেদন এগোয়",
+                  en: "How an application moves forward",
+                })}
+              </h2>
+              <ol className="intake-steps">
+                <li>
+                  <span>1</span>
+                  {choose({
+                    bn: "তথ্য দিয়ে আবেদন জমা",
+                    en: "Fill in and submit",
+                  })}
+                </li>
+                <li>
+                  <span>2</span>
+                  {choose({
+                    bn: "অফিসের পর্যালোচনা ও অনুমোদন",
+                    en: "Office review and approval",
+                  })}
+                </li>
+                <li>
+                  <span>3</span>
+                  {choose({
+                    bn: "শর্ত পূরণ হলে সনদ সংগ্রহ",
+                    en: "Receive the certificate when requirements are met",
+                  })}
+                </li>
+              </ol>
+              <p className="hint">
+                {choose({
+                  bn: "খসড়া সংরক্ষণ করলে আবেদন জমা হয় না। আবেদন খুলে “আবেদন জমা দিন” চাপতে হবে। ফি থাকলে যাচাইকৃত পরিশোধের পর অনুমোদনকারী সনদ ইস্যু করবেন।",
+                  en: "Saving a draft does not submit it. Open the draft and choose “Submit application”. Any assessed fee must be verified before an authorized approver issues a certificate.",
+                })}
+              </p>
+            </section>
+            <details className="panel workspace-information">
+              <summary>
+                {choose({
+                  bn: "সিস্টেমের বর্তমান সীমা ও সেবার তথ্য",
+                  en: "Current service availability and limitations",
+                })}
+              </summary>
+              <p>
+                {choose({
+                  bn: "৪৭টি সেবার ফর্ম ব্যবহার করা যায়। সনদগুলো DEMO / NOT OFFICIAL। পরিচয় যাচাই, সরকারি কর্তৃত্ব ও live payment collection চালু নেই।",
+                  en: "Forms are available for 47 services. Certificates are DEMO / NOT OFFICIAL. Identity verification, official issuing authority and live payment collection are not enabled.",
+                })}
+              </p>
+              <p>
+                {t(
+                  "All 47 services have independently authored operational demo forms. Original initial-field captures are separately available as read-only evidence previews. Original submission, payment and official issuance behavior remains unverified. ",
                 )}
-              </div>
-              <section className="panel">
-                <span className="eyebrow">{t("WORKSPACE")}</span>
-                <h2>{t("নাগরিক থেকে যাচাইযোগ্য সনদ")}</h2>
-                <p>
-                  {t(
-                    "Start with a synthetic citizen and a resident-certificate application. Staff submit, reviewers check, and an expressly authorized approver approves and issues. Issuance commits the PDF and one credit debit together. ",
-                  )}
-                </p>
-                <div className="actions">
-                  <button
-                    onClick={() =>
-                      nav(
-                        role === "owner"
-                          ? "owner"
-                          : role === "finance"
-                            ? "billing"
-                            : "applications",
-                      )
-                    }
-                  >
-                    {tx(
-                      role === "owner"
-                        ? "Manage offices"
-                        : role === "finance"
-                          ? "Manage subscription"
-                          : "View applications",
-                    )}
-                  </button>
-                  <button className="secondary" onClick={() => nav("services")}>
-                    {t("Explore services ")}
-                  </button>
-                </div>
-              </section>
-              <section className="panel">
-                <h2>{t("Evidence and readiness")}</h2>
-                <p>
-                  {t(
-                    "All 47 services have independently authored operational demo forms. Original initial-field captures are separately available as read-only evidence previews. Original submission, payment and official issuance behavior remains unverified. ",
-                  )}
-                </p>
-                <p>
-                  {t(
-                    "Identity verification and payment settlement use explicitly marked local demonstrations. No official authority, government seal or live gateway is represented. ",
-                  )}
-                </p>
-              </section>
-            </>
-          ),
+              </p>
+            </details>
+          </>
         )}
         {tx(
           page === "services" && (
             <>
+              {canApply && (
+                <ol
+                  className="intake-steps"
+                  aria-label={choose({
+                    bn: "আবেদনের ধাপ",
+                    en: "Application steps",
+                  })}
+                >
+                  <li aria-current={!citizenId ? "step" : undefined}>
+                    <a href="#intake-heading">
+                      <span>1</span>
+                      {choose({ bn: "নাগরিক বাছাই", en: "Choose citizen" })}
+                    </a>
+                  </li>
+                  <li
+                    aria-current={
+                      citizenId && !Object.keys(payload).length
+                        ? "step"
+                        : undefined
+                    }
+                  >
+                    <a href="#service-choice">
+                      <span>2</span>
+                      {choose({ bn: "সেবা বাছাই", en: "Choose service" })}
+                    </a>
+                  </li>
+                  <li
+                    aria-current={
+                      citizenId && Object.keys(payload).length
+                        ? "step"
+                        : undefined
+                    }
+                  >
+                    <a href="#service-form-panel">
+                      <span>3</span>
+                      {choose({
+                        bn: "তথ্য, ফি ও খসড়া",
+                        en: "Details, fees and draft",
+                      })}
+                    </a>
+                  </li>
+                </ol>
+              )}
               {canApply && (
                 <section
                   className="panel intake-panel"
@@ -663,7 +773,7 @@ export function WorkspaceApp({
                   )}
                 </section>
               )}
-              <section className="panel">
+              <section className="panel" id="service-choice">
                 <label htmlFor="service-search">{t("Search services")}</label>
                 <input
                   id="service-search"
@@ -671,41 +781,85 @@ export function WorkspaceApp({
                   onChange={(e) => setSearch(e.target.value)}
                   placeholder={t("Name or service number")}
                 />
-                <div className="catalog">
-                  {tx(
-                    catalog
-                      .filter((s) =>
-                        `${s.service_no} ${s.name_bn} ${s.name_en}`
-                          .toLowerCase()
-                          .includes(search.toLowerCase()),
-                      )
-                      .map((s) => (
-                        <button
-                          className={`service ${selectedService === s.service_no ? "selected" : ""}`}
-                          key={s.service_no}
-                          onClick={() => setSelectedService(s.service_no)}
-                        >
-                          <span className="service-number">
-                            {tx(String(s.service_no).padStart(2, "0"))}
-                          </span>
-                          <span>
-                            <strong>
-                              {choose({ bn: s.name_bn, en: s.name_en })}
-                            </strong>
-                            <em>
-                              {tx(
-                                operationalServiceNumbers.includes(s.service_no)
-                                  ? "Working demo"
-                                  : "Reference preview",
-                              )}
-                            </em>
-                          </span>
-                        </button>
-                      )),
+                <div className="application-filter-tools">
+                  <p className="hint" role="status">
+                    {matchingServices.length.toLocaleString(
+                      language === "bn" ? "bn-BD" : "en-GB",
+                    )}{" "}
+                    {choose({ bn: "টি সেবা পাওয়া গেছে", en: "services found" })}
+                  </p>
+                  {search && (
+                    <button
+                      className="text-button"
+                      onClick={() => setSearch("")}
+                    >
+                      {choose({ bn: "সার্চ মুছুন", en: "Clear search" })}
+                    </button>
                   )}
                 </div>
+                {!matchingServices.length && (
+                  <p className="service-empty">
+                    {choose({
+                      bn: "এই নামে সেবা পাওয়া যায়নি। নাম বা সেবার নম্বর দিয়ে আবার খুঁজুন।",
+                      en: "No matching service. Try a different name or service number.",
+                    })}
+                  </p>
+                )}
+                <div className="catalog">
+                  {tx(
+                    matchingServices.map((s) => (
+                      <button
+                        className={`service ${selectedService === s.service_no ? "selected" : ""}`}
+                        key={s.service_no}
+                        aria-pressed={selectedService === s.service_no}
+                        onClick={() => setSelectedService(s.service_no)}
+                      >
+                        <span className="service-number">
+                          {tx(String(s.service_no).padStart(2, "0"))}
+                        </span>
+                        <span>
+                          <strong>
+                            {choose({ bn: s.name_bn, en: s.name_en })}
+                          </strong>
+                          <em>
+                            {tx(
+                              operationalServiceNumbers.includes(s.service_no)
+                                ? "Working demo"
+                                : "Reference preview",
+                            )}
+                          </em>
+                        </span>
+                      </button>
+                    )),
+                  )}
+                </div>
+                <div className="selected-service-shortcut">
+                  <p>
+                    <small>
+                      {choose({ bn: "বাছাই করা সেবা", en: "Selected service" })}
+                    </small>
+                    <strong>{choose(schema.title)}</strong>
+                  </p>
+                  <a
+                    className="button secondary"
+                    href={
+                      canApply && !citizenId
+                        ? "#intake-heading"
+                        : "#service-form-panel"
+                    }
+                  >
+                    {choose(
+                      canApply && !citizenId
+                        ? {
+                            bn: "আগে নাগরিক বাছাই করুন",
+                            en: "Choose citizen first",
+                          }
+                        : { bn: "ফর্মে যান", en: "Go to form" },
+                    )}
+                  </a>
+                </div>
               </section>
-              <section className="panel">
+              <section className="panel" id="service-form-panel">
                 <div className="section-heading">
                   <div>
                     <span className="eyebrow">
@@ -738,7 +892,12 @@ export function WorkspaceApp({
                 )}
                 {tx(
                   issues.length > 0 && (
-                    <div role="alert" className="error-summary" tabIndex={-1}>
+                    <div
+                      ref={errorSummary}
+                      role="alert"
+                      className="error-summary"
+                      tabIndex={-1}
+                    >
                       <strong>
                         {t("Correct these fields / নিচের ঘরগুলো সংশোধন করুন ")}
                       </strong>
@@ -746,9 +905,13 @@ export function WorkspaceApp({
                         {tx(
                           issues.map((i) => (
                             <li key={i.path}>
-                              {tx(i.path)}
-                              {t(": ")}
-                              {choose(i.message)}
+                              <button
+                                className="text-button"
+                                type="button"
+                                onClick={() => focusIssue(i.path)}
+                              >
+                                {fieldLabel(i.path)}: {choose(i.message)}
+                              </button>
                             </li>
                           )),
                         )}
@@ -816,11 +979,6 @@ export function WorkspaceApp({
                               const result = validateForm(schema, payload);
                               setIssues(result.issues);
                               if (!result.valid) {
-                                document
-                                  .querySelector<HTMLElement>(
-                                    '[aria-invalid="true"]',
-                                  )
-                                  ?.focus();
                                 throw Error(
                                   "Please correct the highlighted fields.",
                                 );
@@ -844,7 +1002,9 @@ export function WorkspaceApp({
                               );
                               setPayload({});
                               setIssues([]);
-                              setMessage("Draft saved to PostgreSQL.");
+                              setMessage(
+                                "Draft saved. Open the draft and submit it when ready.",
+                              );
                             })
                           }
                         >
@@ -1120,6 +1280,8 @@ export function WorkspaceApp({
                     "APPROVED",
                     "ISSUED",
                     "REJECTED",
+                    "CANCELLED",
+                    "REVOKED",
                   ].map((s) => (
                     <option key={s} value={s}>
                       {tx(s)}
@@ -1127,6 +1289,22 @@ export function WorkspaceApp({
                   )),
                 )}
               </select>
+              <div className="application-filter-tools">
+                <p className="hint" role="status">
+                  {appTotal.toLocaleString(
+                    language === "bn" ? "bn-BD" : "en-GB",
+                  )}{" "}
+                  {choose({ bn: "টি আবেদন", en: "applications" })}
+                </p>
+                {(filter || appSearch) && (
+                  <button
+                    className="secondary"
+                    onClick={clearApplicationFilters}
+                  >
+                    {choose({ bn: "সব ফিল্টার মুছুন", en: "Clear filters" })}
+                  </button>
+                )}
+              </div>
               <div className="table-wrap">
                 <table>
                   <thead>
@@ -1143,7 +1321,9 @@ export function WorkspaceApp({
                         <tr key={a.id}>
                           <td>
                             <code>{tx(a.id.slice(0, 8))}</code>
-                            <small>{tx(a.createdAt || a.created_at)}</small>
+                            <small>
+                              {applicationDate(a.createdAt || a.created_at)}
+                            </small>
                           </td>
                           <td>
                             {t("#")}
@@ -1179,7 +1359,42 @@ export function WorkspaceApp({
                 </table>
                 {tx(
                   !applications.length && (
-                    <p>{t("No applications match this filter.")}</p>
+                    <div className="application-empty">
+                      <h3>
+                        {choose(
+                          filter || appSearch
+                            ? {
+                                bn: "মিলে এমন আবেদন নেই",
+                                en: "No matching applications",
+                              }
+                            : {
+                                bn: "এখনও কোনো আবেদন নেই",
+                                en: "No applications yet",
+                              },
+                        )}
+                      </h3>
+                      <p>
+                        {choose(
+                          filter || appSearch
+                            ? {
+                                bn: "অন্য নাম দিয়ে খুঁজুন অথবা ফিল্টার মুছে সব আবেদন দেখুন।",
+                                en: "Try another name or clear the filters to see all applications.",
+                              }
+                            : {
+                                bn: "নতুন আবেদন শুরু করলে এখানে সেটির অবস্থা দেখা যাবে।",
+                                en: "Applications will appear here with their progress.",
+                              },
+                        )}
+                      </p>
+                      {!filter && !appSearch && canApply && (
+                        <button onClick={() => nav("services")}>
+                          {choose({
+                            bn: "প্রথম আবেদন শুরু করুন",
+                            en: "Start your first application",
+                          })}
+                        </button>
+                      )}
+                    </div>
                   ),
                 )}
               </div>
@@ -1269,6 +1484,18 @@ export function WorkspaceApp({
                     </p>
                   ),
                 )}
+                <ApplicationGuidance
+                  state={application.state || application.status}
+                  role={role}
+                  hasCertificate={
+                    !!(detail.certificate || application.certificate)
+                  }
+                  revoked={
+                    application.state === "REVOKED" ||
+                    detail.certificate?.status === "REVOKED"
+                  }
+                  order={detail.order}
+                />
                 <label htmlFor="application-reference">
                   {t("Full application reference ")}
                 </label>
@@ -1350,7 +1577,7 @@ export function WorkspaceApp({
                               },
                             );
                             await openApplication(application.id);
-                            setMessage("New immutable payload version saved.");
+                            setMessage("Changes saved.");
                           })
                         }
                       >
@@ -1358,6 +1585,7 @@ export function WorkspaceApp({
                       </button>
                     ),
                 )}
+                <div id="application-actions" tabIndex={-1} />
                 <label htmlFor="reason">
                   {t("Review, approval or revocation reason ")}
                 </label>
@@ -1569,7 +1797,9 @@ export function WorkspaceApp({
                 )}
               </section>
               <section className="panel">
-                <h2>{t("Immutable audit timeline")}</h2>
+                <h2>
+                  {choose({ bn: "আবেদনের ইতিহাস", en: "Application history" })}
+                </h2>
                 <ol className="timeline">
                   {tx(
                     (detail.events || []).map((event: any, i: number) => (

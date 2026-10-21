@@ -147,6 +147,7 @@ function SignedOutPortal({
   );
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   async function run(action: () => Promise<void>) {
     setBusy(true);
     setMessage("");
@@ -167,6 +168,7 @@ function SignedOutPortal({
           <form
             onSubmit={(e) => {
               e.preventDefault();
+              setShowPassword(false);
               run(async () => {
                 const nextSession = await api("/auth/login", "POST", {
                   email,
@@ -195,14 +197,27 @@ function SignedOutPortal({
               )}
             </datalist>
             <label htmlFor="password">{t("Password")}</label>
-            <input
-              id="password"
-              type="password"
-              autoComplete="current-password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-            />
+            <div className="password-control">
+              <input
+                id="password"
+                type={showPassword ? "text" : "password"}
+                autoComplete="current-password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+              />
+              <button
+                type="button"
+                className="secondary"
+                aria-controls="password"
+                aria-pressed={showPassword}
+                onClick={() => setShowPassword(!showPassword)}
+              >
+                {showPassword
+                  ? choose({ bn: "লুকান", en: "Hide password" })
+                  : choose({ bn: "দেখুন", en: "Show password" })}
+              </button>
+            </div>
             {tx(
               message && (
                 <p role="alert" className="error">

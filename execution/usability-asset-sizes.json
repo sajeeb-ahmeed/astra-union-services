@@ -1,0 +1,53 @@
+{
+  "measuredAt": "2026-10-21T05:51:34.179Z",
+  "assets": [
+    {
+      "name": "AccountSessions-Bi0FSVgr.js",
+      "rawBytes": 3091,
+      "gzipBytes": 1350,
+      "brotliBytes": 1108
+    },
+    {
+      "name": "AdditionalWorkspace-BYKLcSU5.js",
+      "rawBytes": 14022,
+      "gzipBytes": 4197,
+      "brotliBytes": 3562
+    },
+    {
+      "name": "AdminWorkspace-C-7y1PlC.js",
+      "rawBytes": 27893,
+      "gzipBytes": 7972,
+      "brotliBytes": 6798
+    },
+    {
+      "name": "index-CH_yOoyZ.css",
+      "rawBytes": 36191,
+      "gzipBytes": 8171,
+      "brotliBytes": 7212
+    },
+    {
+      "name": "index-wMuuyuyz.js",
+      "rawBytes": 355788,
+      "gzipBytes": 99454,
+      "brotliBytes": 80522
+    },
+    {
+      "name": "OnlinePayments-CFwdb5RJ.js",
+      "rawBytes": 23769,
+      "gzipBytes": 6576,
+      "brotliBytes": 5594
+    },
+    {
+      "name": "WorkspaceApp-Bq3H9Rnx.css",
+      "rawBytes": 2778,
+      "gzipBytes": 982,
+      "brotliBytes": 771
+    },
+    {
+      "name": "WorkspaceApp-Bz0En8Fz.js",
+      "rawBytes": 669747,
+      "gzipBytes": 55157,
+      "brotliBytes": 38946
+    }
+  ]
+}

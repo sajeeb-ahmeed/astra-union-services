@@ -1,0 +1,18 @@
+{
+  "release": "0.7.0",
+  "date": "2026-10-21",
+  "status": "PASS",
+  "scope": "Frontend usability. Real local PostgreSQL browser workflows plus component render and production-asset tests. No hosted acceptance implied.",
+  "typecheck": "PASS",
+  "productionBuild": "PASS",
+  "webTests": { "total": 49, "passed": 49, "failed": 0, "skipped": 0, "durationMs": 110540.7167 },
+  "newCoverage": { "publicUsabilityBrowser": 3, "workspaceUsabilityBrowser": 3, "roleStateGuidance": 7 },
+  "regressions": ["Real draft, correction, review, authorized approval, PDF/QR and exactly-once ledger workflow", "Tenant roles, private uploads and form rules", "47-service catalog, geography, language retention", "Disabled payment checkout, forged callback, receipt/reconciliation restrictions", "Session controls and public production JavaScript budget"],
+  "publicEntryRawBytes": 355788,
+  "publicEntryGzipBytes": 99454,
+  "authenticatedWorkspaceRawBytes": 669747,
+  "screenshotsReviewed": ["screenshots/usability-workspace-home-en.png", "screenshots/usability-workspace-home-bn.png", "screenshots/usability-public-home-bn.png", "screenshots/usability-public-service-bn.png"],
+  "review": "Independent read-only integration review found no blocking role, state, validation or payment-guard regression.",
+  "setupNotes": ["Initial private before-screenshot login failed while local PostgreSQL was stopped. Existing local cluster was started; capture then passed without data reset.", "The first isolated public test attempt needed a wait for initial authentication hydration; 3/3 passed after test synchronization, and the final full web suite passed."],
+  "limitations": ["No real-office usability study or full screen-reader conformance claim", "Authenticated workspace chunk remains above 500 KB", "No new gateway, identity, official issuance or hosted backup capability"]
+}
