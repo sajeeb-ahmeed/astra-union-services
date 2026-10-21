@@ -1,5 +1,25 @@
 # Operations and verified local recovery
 
+## Current 0.6 recovery tooling
+
+Release 0.6 is deployed on Render; the recovery tooling has local verification. Hosted application acceptance passed on 21 October and is recorded separately in [release evidence](RELEASE_0_6.md); these application checks do not constitute a hosted backup/restore. Follow [BACKUP_AND_RECOVERY.md](BACKUP_AND_RECOVERY.md) for the current format-2 archive contract, complete commands, collision safeguards and evidence. The detailed runbook is authoritative for new backups; preserve older format-1 archives together with their matching 0.5 verifier.
+
+Executed **19 October 2026**: five focused safety tests and **17 real local recovery checks passed**. The snapshot contained 46 public tables, 117 synthetic tenants, 435 demonstration PDFs, all 11 migration files (highest numbered 012), 18 application routines, 7 column grants and 94 indexes. All hashes, balances and database security comparisons matched; the restricted role saw no unscoped rows across 30 tenant RLS tables. See [current JSON](../execution/security-backup-qa.json) and [current log](../execution/security-backup-restore.log).
+
+```powershell
+npm run test:backup
+npm run db:backup
+npm run db:recovery-drill
+```
+
+Run the final recovery drill after synthetic fixture tests settle. It reads the source, restores only into a new local `astra_restore_*` database and preserves existing targets and scratch files. It includes narrow gateway column permissions and invalid-callback checks without contacting a payment provider. It does not require a merchant account, production network access or a schema migration.
+
+**Immediate operational priority remains hosted full export, independent protected restore and durable hosting before the recorded 12 November 2026 Free database expiry.** Reconfirm the provider's current expiry. Local encrypted archives/keys on one workstation do not close this priority. Offsite storage, separate key custody, scheduled backups/alerts and measured recovery objectives still need implementation and acceptance. See [prioritized backlog](DELIVERY_BACKLOG.md).
+
+## Historical 13 October recovery record
+
+The sections below preserve the original seven-migration recovery result. Their evidence path and counts are historical; current execution writes `execution/security-backup-restore.log` and `execution/security-backup-qa.json` instead.
+
 ## Scope and execution
 
 This phase uses a real isolated PostgreSQL 17.11 instance on `127.0.0.1:55432`. Windows runtime setup/start/stop commands live in `scripts/runtime/README.md`. Credentials, cluster data, encrypted backups, key files and diagnostic stderr remain in ignored `.runtime/`; never publish that directory.
@@ -10,7 +30,7 @@ Run the meaningful recovery drill after migrations, seeding and certificate issu
 node scripts/backup/recovery-drill.mjs
 ```
 
-The script produces safe execution results in `execution/backup-restore.log`. It uses the isolated local PostgreSQL runtime and does not change a Windows service or a global setting.
+The original script produced safe execution results in `execution/backup-restore.log`. It used the isolated local PostgreSQL runtime and did not change a Windows service or a global setting. Current commands/output and stronger checks are described above and in the current runbook.
 
 Executed local result on 13 October 2026: **PASS**. The snapshot included all seven migrations, 32 public tables, 17 synthetic tenants and 184 issued demonstration PDFs. Every restored table matched the source snapshot. All tenant ledger sums matched their wallet balances (617 credits combined); all 184 certificate byte hashes and exactly-once issuance debits matched. Tenant-isolation, ledger-immutability and narrowed wallet-helper permission tests passed on the restored database. Corruption, wrong-key and unsafe/existing-target attempts were rejected. Later QA may add synthetic records; these counts describe the exact tested snapshot. See the concrete [execution log](../execution/backup-restore.log).
 

@@ -1,0 +1,12 @@
+{
+  "verifiedAt": "2026-10-21T04:53:25.456Z",
+  "status": "PASS",
+  "databaseId": "dpg-db6tr43ncjis73ercfsg-a",
+  "availability": "available",
+  "ipAllowList": [],
+  "expiresAt": "2026-11-12T07:28:16.203893Z",
+  "plan": "free",
+  "externalAccessOpenedThisRelease": false,
+  "migrationRequired": false,
+  "scope": "Read-only Render database metadata. Empty allowlist confirmed; no fresh external database connection probe was made for 0.6."
+}

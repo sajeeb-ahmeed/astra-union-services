@@ -1,0 +1,94 @@
+{
+  "startedAt": "2026-10-21T04:53:07.491Z",
+  "baseUrl": "https://astra-union-services.onrender.com",
+  "sourceRunId": "mvc6zn32-e0e60d",
+  "status": "PASS",
+  "scope": "Existing synthetic office. Sessions and denied requests only; no real payment, provider mock, or domain creation.",
+  "checks": [
+    {
+      "name": "01 Existing staff and admin authenticate with secure sessions",
+      "status": "PASS",
+      "evidence": {
+        "roles": [
+          "admin",
+          "staff"
+        ],
+        "secureCookies": true
+      },
+      "durationMs": 1126
+    },
+    {
+      "name": "02 Unconfigured bKash, Nagad and bank payouts are reported honestly",
+      "status": "PASS",
+      "evidence": {
+        "provider": "BKASH",
+        "environment": "DISABLED",
+        "configured": false,
+        "available": false,
+        "reason": "MERCHANT_SETUP_REQUIRED",
+        "bankSettlement": "NOT_CONNECTED",
+        "nagad": {
+          "configured": false,
+          "reason": "NOT_INTEGRATED"
+        }
+      },
+      "durationMs": 83
+    },
+    {
+      "name": "03 Approved positive-fee application remains unpaid without a receipt",
+      "status": "PASS",
+      "evidence": {
+        "totalMinor": 15210,
+        "paymentStatus": "NOT_COLLECTED",
+        "receipt": null
+      },
+      "durationMs": 99
+    },
+    {
+      "name": "04 Checkout fails closed before creating any provider attempt",
+      "status": "PASS",
+      "evidence": {
+        "http": 503,
+        "code": "GATEWAY_NOT_CONFIGURED",
+        "attemptCreated": false
+      },
+      "durationMs": 181
+    },
+    {
+      "name": "05 Payment register and reconciliation show no invented collections",
+      "status": "PASS",
+      "evidence": {
+        "totalPayments": 0,
+        "paidMinor": 0,
+        "csvRows": 0,
+        "staffReconciliationDenied": true
+      },
+      "durationMs": 326
+    },
+    {
+      "name": "06 Forged callback, receipt and unauthenticated requests cannot settle payments",
+      "status": "PASS",
+      "evidence": {
+        "forgedCallback": 404,
+        "nonexistentReceipt": 404,
+        "unauthenticated": 401
+      },
+      "durationMs": 239
+    },
+    {
+      "name": "07 Existing wallet, approval history and certificate PDF remain unchanged",
+      "status": "PASS",
+      "evidence": {
+        "unchangedWallet": true,
+        "unchangedApplication": true,
+        "unchangedPdf": true
+      },
+      "durationMs": 383
+    }
+  ],
+  "loggedOut": [
+    "admin",
+    "staff"
+  ],
+  "finishedAt": "2026-10-21T04:53:10.532Z"
+}

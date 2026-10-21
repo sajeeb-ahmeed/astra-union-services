@@ -1,0 +1,18 @@
+verify	Run npm run build	2026-10-19T04:26:51.0551138Z ^[[32m✓ built in 1.11s^[[39m
+verify	Run npm test	2026-10-19T04:26:52.3576839Z ℹ tests 5
+verify	Run npm test	2026-10-19T04:26:52.3577464Z ℹ pass 5
+verify	Run npm test	2026-10-19T04:26:52.3577925Z ℹ fail 0
+verify	Run npm test	2026-10-19T04:26:52.7702054Z ℹ tests 72
+verify	Run npm test	2026-10-19T04:26:52.7702577Z ℹ pass 72
+verify	Run npm test	2026-10-19T04:26:52.7702826Z ℹ fail 0
+verify	Run npm test	2026-10-19T04:27:22.5539830Z ℹ tests 97
+verify	Run npm test	2026-10-19T04:27:22.5541138Z ℹ pass 97
+verify	Run npm test	2026-10-19T04:27:22.5541721Z ℹ fail 0
+verify	Run npm test	2026-10-19T04:28:38.9030987Z ✔ performance: public initial JavaScript stays under 400 KB without authenticated schema chunks (854.944165ms)
+verify	Run npm test	2026-10-19T04:28:46.9890187Z ℹ tests 36
+verify	Run npm test	2026-10-19T04:28:46.9890778Z ℹ pass 36
+verify	Run npm test	2026-10-19T04:28:46.9890998Z ℹ fail 0
+verify	Run npm audit --audit-level=high	2026-10-19T04:28:48.1084582Z found 0 vulnerabilities
+docker-build	Build the deployable Docker image	2026-10-19T04:26:22.3948301Z #13 5.048 dist/assets/index-7lagO9Mq.css                34.83 kB │ gzip:  8.01 kB
+docker-build	Build the deployable Docker image	2026-10-19T04:26:22.3950019Z #13 5.048 dist/assets/index-CUmmq-ZU.js                352.93 kB │ gzip: 97.04 kB
+docker-build	Build the deployable Docker image	2026-10-19T04:26:22.3952853Z #13 5.048 ✓ built in 883ms

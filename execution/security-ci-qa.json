@@ -1,0 +1,33 @@
+{
+  "recordedAt": "2026-10-19T04:29:27.739Z",
+  "status": "PASS",
+  "runId": 39199410740,
+  "url": "https://github.com/sajeeb-ahmeed/astra-union-services/actions/runs/39199410740",
+  "commit": "402903fb113799f5d7e5ec8d62307ba88f625318",
+  "tests": {
+    "backup": 5,
+    "forms": 72,
+    "api": 97,
+    "web": 36,
+    "total": 210
+  },
+  "jobs": [
+    {
+      "name": "verify",
+      "status": "completed",
+      "conclusion": "success",
+      "startedAt": "2026-10-19T04:25:43Z",
+      "completedAt": "2026-10-19T04:28:52Z"
+    },
+    {
+      "name": "docker-build",
+      "status": "completed",
+      "conclusion": "success",
+      "startedAt": "2026-10-19T04:25:44Z",
+      "completedAt": "2026-10-19T04:26:31Z"
+    }
+  ],
+  "dependencyAudit": "PASS",
+  "firstAttempt": "39199004983 failed public bundle size; production build environment fixed without weakening budget.",
+  "annotations": "Non-blocking GitHub action Node20 deprecation and ubuntu-latest image migration notices."
+}

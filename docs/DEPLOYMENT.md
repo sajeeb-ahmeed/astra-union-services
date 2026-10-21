@@ -1,6 +1,20 @@
 # Deployment and reproducibility
 
-Updated for **0.5 live deployment · 19 October 2026**. Windows/Node 24/PostgreSQL 17.11 is the local development path. [Release 0.5](RELEASE_0_5.md) records local verification, 192 passing Linux CI tests, Docker build, hosted migration, exact deployment and 18 passing hosted API regression groups; live Bangla/English and mobile browser checks also passed. [HOSTED_DEPLOYMENT.md](HOSTED_DEPLOYMENT.md) records the current runtime and preserved 0.4/0.3 history. Certificate documents retain DEMO / NOT OFFICIAL semantics.
+Updated for **0.6 live deployment · 21 October 2026**. Windows/Node 24/PostgreSQL 17.11 is the local development path. [Release 0.6](RELEASE_0_6.md) records 210 passing Linux CI tests, Docker build, local recovery checks and current hosted verification. [HOSTED_DEPLOYMENT.md](HOSTED_DEPLOYMENT.md) records the exact runtime and preserved 0.5/0.4/0.3 history. Certificate documents retain DEMO / NOT OFFICIAL semantics.
+
+## 0.6 rollout
+
+Runtime `402903fb113799f5d7e5ec8d62307ba88f625318` adds account/session protection, lazy authenticated-workspace loading and expanded local recovery tools. It passed **210 local tests** (5 backup, 72 forms, 97 API, 36 web), production build, dependency audit and 17 separate full-recovery checks. [CI 39199410740](https://github.com/sajeeb-ahmeed/astra-union-services/actions/runs/39199410740) also passed all 210 tests, its Docker build and dependency audit. Render deployment `dep-dbappb8m7kps739q5ivg` began at `2026-10-19T04:29:33.740333Z` and finished live at `2026-10-19T04:31:36.05317Z`; its exact runtime was reconfirmed on 21 October, with **22 hosted API groups, five live browser groups and seven deployed asset-hash checks passing**. Existing PDF/credit records remained unchanged; the database allowlist is empty. See [live release evidence](../execution/security-live-release.json).
+
+This increment requires **no database migration, new service, merchant secret or public database access**. Keep the existing restricted runtime role and existing data. Payment merchant work is deferred at the owner's request; leave checkout disabled.
+
+1. Require the candidate's CI verification and Docker build to pass; record the exact tested commit and retain the compatible prior image.
+2. Deploy the exact verified runtime. Check health/version and built-asset hashes before claiming release completion.
+3. Run authorized synthetic account-session checks: own-session isolation, current-password/CSRF rejection, revoke-other-session behavior and current-session preservation. Confirm unchanged applications, PDFs, SaaS credit balances, disabled checkout and geography with separate readback evidence.
+4. Check Bangla/English profile-session controls, public/login/logout chunk behavior and mobile layout. Confirm no browser errors or exposed secrets.
+5. Record the deployment ID/time, runtime commit, CI outcomes and scoped hosted/browser evidence separately from local tests. A code push is not proof of deployment; Render Auto-Deploy remains off.
+
+See [account security](ACCOUNT_SECURITY.md), [backup/recovery runbook](BACKUP_AND_RECOVERY.md) and [local release evidence](../execution/security-local-qa.json). Hosted full export, independent offsite restore and durable hosting before the recorded **12 November 2026** database expiry remain operational work; no local drill resolves that expiry risk.
 
 ## Local Windows
 
@@ -48,7 +62,9 @@ Install Node 24, PostgreSQL 17, Chromium dependencies and a licensed Bangla font
 
 Production-mode startup rejects missing secrets, insecure/malformed origins and broad proxy trust. `TRUST_PROXY_IP` accepts one literal IPv4/IPv6 host address and rejects hostnames, lists, CIDRs and unspecified addresses. `TRUST_PROXY=loopback` optionally adds local loopback proxies; it does not trust Docker bridge peers by itself. Leave both unset for direct access without a proxy. Only the trusted immediate peer's forwarded chain can identify clients; an untrusted peer's forwarding headers are ignored. The public port remains bound to 127.0.0.1 and the DB remains unpublished. Multiple replicas need a shared limiter. Cookies are HttpOnly/SameSiteStrict and Secure in production mode.
 
-## Online payment deployment gate
+## Deferred online payment deployment gate
+
+The owner has deferred payment gateway work. These requirements are retained for a later authorized activation and do not block the merchant-independent 0.6 rollout.
 
 Migration `012_gateway_payments.sql` adds the restricted gateway token/intent/event/confirmation/receipt/reconciliation tables. Apply migrations using the separate administrator role after backup/readback preparation, then deploy the compatible runtime. Preserve existing assessment snapshots, SaaS balances, certificates and stored PDF bytes. A source migration file is not evidence it ran on the hosted database.
 
@@ -66,11 +82,15 @@ Preserve original merchant configuration and encryption-key custody while attemp
 
 - Back up and verify restore before migrations. Migrations are forward-only; rollback needs a database-compatible prior app release. Never rewrite issued PDFs/published schemas.
 - Preserve volume `astra_database`; destructive `docker compose down -v` is not part of deployment.
-- Local AES-256-GCM recovery uses consistent pg_dump and verifies table hashes, balances, PDFs, RLS, triggers and grants in a new DB. It is deliberately restricted to the known local database. See OPERATIONS.md for development-only key custody.
+- Local format-2 AES-256-GCM recovery uses consistent pg_dump and verifies table hashes, balances, PDFs, all application routines, narrow column grants, RLS, triggers, indexes and schema/default grants in a new DB. Run `npm run db:recovery-drill` after fixture mutations settle. It is deliberately restricted to the known local database; see [BACKUP_AND_RECOVERY.md](BACKUP_AND_RECOVERY.md) for key custody, archive compatibility and separate hosted recovery gates.
 - Hosted backup retention, offsite storage, separate keys, monitoring, incident procedures and restore objectives need operational configuration/acceptance.
 - Monitor HTTPS `/api/v1/health` and a synthetic authorized journey without logging tokens/PII. Local tests do not establish an uptime SLA.
 
 ## CI
+
+Release 0.6 adds five database-independent backup safety tests to `npm test`; its local and CI total is 210. The separate 17-check real recovery drill was executed locally, not added to that test count. A CI recovery drill additionally requires compatible `pg_dump`/`pg_restore` binaries and must run after synthetic issuance tests settle. [CI 39199410740](https://github.com/sajeeb-ahmeed/astra-union-services/actions/runs/39199410740) is **SUCCESS**: 210 tests, Docker build and dependency audit passed. Hosted deployment acceptance is separately recorded: 22 API groups, five browser groups and seven JS/CSS hash checks passed on 21 October. No migration or database firewall opening was required for 0.6.
+
+The first candidate's CI detected that `NODE_ENV=test` selected development React in a production build, violating the public bundle budget. Vite now selects deterministic production semantics for builds; the budget is unchanged. Four focused bundle tests passed under the same CI environment, with the 352,929-byte public bundle retained. Keep both [CI attempts](../execution/security-ci-attempts.json) in the release record; do not report the failed first attempt as a passing release gate.
 
 `.github/workflows/qa.yml` provisions PostgreSQL 17, creates the restricted role, migrates/seeds, installs Chromium/fonts, builds, runs tests and audits dependencies. CI passwords are disposable isolated fixtures. Final 0.5 candidate `b86908b9a4654cc31cd1b517fc5e8ad3ae086878` passed [run 39125266096](https://github.com/sajeeb-ahmeed/astra-union-services/actions/runs/39125266096): all 192 tests (72 forms, 89 API, 31 web), production build, separate Docker build and zero reported dependency vulnerabilities. See [metadata](../execution/payments-ci-qa.json) and [summary](../execution/payments-ci-summary.log). The historical 0.4 run remains separately recorded in [RELEASE_0_4.md](RELEASE_0_4.md). Gateway mock tests verify application behavior, not merchant/provider acceptance or a hosted deployment.
 

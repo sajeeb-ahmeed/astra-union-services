@@ -1,0 +1,123 @@
+{
+  "release": "0.6.0",
+  "verifiedAt": "2026-10-21T04:53:56.250Z",
+  "status": "PASS",
+  "liveUrl": "https://astra-union-services.onrender.com/",
+  "runtimeCommit": "402903fb113799f5d7e5ec8d62307ba88f625318",
+  "deploy": {
+    "id": "dep-dbappb8m7kps739q5ivg",
+    "status": "live",
+    "finishedAt": "2026-10-19T04:31:36.05317Z",
+    "serviceId": "srv-db6tvpou01pc73bjkpr0",
+    "autoDeploy": "no",
+    "plan": "free",
+    "region": "singapore"
+  },
+  "ci": {
+    "runId": 39199410740,
+    "url": "https://github.com/sajeeb-ahmeed/astra-union-services/actions/runs/39199410740",
+    "tests": {
+      "backup": 5,
+      "forms": 72,
+      "api": 97,
+      "web": 36,
+      "total": 210
+    },
+    "productionBuild": "PASS",
+    "dockerBuild": "PASS",
+    "dependencyAuditVulnerabilities": 0,
+    "evidence": "security-ci-qa.json"
+  },
+  "hostedVerification": {
+    "accountSecurity": {
+      "groups": 4,
+      "result": "PASS",
+      "evidence": "security-hosted-qa.json"
+    },
+    "payments": {
+      "groups": 7,
+      "result": "PASS",
+      "evidence": "security-hosted-payments.json"
+    },
+    "readback": {
+      "groups": 6,
+      "result": "PASS",
+      "evidence": "security-hosted-readback.json"
+    },
+    "geography": {
+      "groups": 5,
+      "result": "PASS",
+      "evidence": "security-hosted-geography.json"
+    },
+    "apiGroupTotal": 22,
+    "browser": {
+      "groups": 5,
+      "result": "PASS",
+      "pageErrors": 0,
+      "languages": [
+        "bn",
+        "en"
+      ],
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "evidence": "security-live-browser-qa.json"
+    },
+    "assets": {
+      "count": 7,
+      "result": "PASS",
+      "sha256MatchesLocalBuild": true,
+      "immutableCache": true,
+      "evidence": "security-live-assets.json"
+    },
+    "health": "PASS"
+  },
+  "database": {
+    "migrationRequired": false,
+    "externalAccessOpened": false,
+    "ipAllowList": [],
+    "expiry": "2026-11-12T07:28:16.203893Z",
+    "evidence": "security-network-qa.json"
+  },
+  "preservation": {
+    "originalCertificatePdfIdentical": true,
+    "originalWalletCredits": 24,
+    "originalIssuanceDebits": 1,
+    "originalIssuanceDelta": -3,
+    "originalApplicationEvents": 5
+  },
+  "localBackup": {
+    "scope": "Local synthetic PostgreSQL only; not hosted backup.",
+    "checks": 17,
+    "result": "PASS",
+    "tables": 46,
+    "tenants": 117,
+    "certificates": 435,
+    "evidence": "security-backup-qa.json"
+  },
+  "performance": {
+    "publicEntryRawBytesBefore": 990769,
+    "publicEntryRawBytesAfter": 352929,
+    "rawReductionPercent": 64.4,
+    "publicEntryGzipBytesBefore": 143977,
+    "publicEntryGzipBytesAfter": 96575,
+    "gzipReductionPercent": 32.9
+  },
+  "financialScope": {
+    "gatewayActivation": "DEFERRED_BY_USER",
+    "hostedCollectionEnabled": false,
+    "realProviderTransactions": 0,
+    "nagad": "NOT_INTEGRATED",
+    "bankPayouts": "NOT_CONNECTED",
+    "certificates": "DEMO / NOT OFFICIAL"
+  },
+  "limits": [
+    "Full hosted export, independent offsite storage/key custody and cross-host restore remain open.",
+    "Durable hosting is needed before the current Free PostgreSQL expiry.",
+    "MFA, verified identity/OTP, privileged recovery, private file scanning and durable global owner audit remain open.",
+    "Rate limiting is process-local; authenticated workspace still exceeds 500 KB.",
+    "No genuine bKash sandbox/live merchant transaction has been verified."
+  ],
+  "nextMilestone": "Protect hosted data with a full export and independent restore, then arrange durable hosting before 12 November 2026."
+}

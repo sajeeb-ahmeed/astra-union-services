@@ -1,8 +1,35 @@
 # Hosted deployment record
 
-**Updated 19 October 2026: release 0.5.0 is live and its hosted API checks passed; live Bangla/English and mobile browser checks also passed.** bKash checkout remains disabled because merchant setup is absent. Nagad and bank payout reconciliation are not integrated. No genuine provider sandbox transaction or real-money payment is claimed. Astra certificates remain **DEMO / NOT OFFICIAL**. See [0.5 release evidence](RELEASE_0_5.md).
+**Verified 21 October 2026: release 0.6.0 is live and post-deploy checks passed.** It adds account/session safety, stronger local backup verification and smaller public-page JavaScript. Payment gateway work is deferred by the product owner. Collection remains disabled; Nagad and bank payout reconciliation are not integrated. No genuine provider sandbox transaction or real-money payment is claimed. Astra certificates remain **DEMO / NOT OFFICIAL**. See [0.6 release evidence](RELEASE_0_6.md).
 
-## Current 0.5 deployment and verification
+## Current 0.6 deployment and verification
+
+| Component | Verified result |
+| --- | --- |
+| Live URL | [astra-union-services.onrender.com](https://astra-union-services.onrender.com/) |
+| Runtime commit | `402903fb113799f5d7e5ec8d62307ba88f625318` |
+| Render deployment | `dep-dbappb8m7kps739q5ivg`, status `live`; completed `2026-10-19T04:31:36.05317Z` (10:31:36 Asia/Dhaka), reconfirmed 21 October |
+| CI | [Run 39199410740](https://github.com/sajeeb-ahmeed/astra-union-services/actions/runs/39199410740): **210/210 tests**, production/Docker builds and zero-vulnerability audit passed |
+| Database | No migration required; existing eleven migration files unchanged; DB available, external IP allowlist empty, no external access opened for this release |
+| Hosted account/session safety | **4/4 groups passed**: self-session aggregate, CSRF/wrong-password denial, other-session revocation and current/other-account preservation |
+| Payment regression | **7/7 groups passed**; collection stays disabled and no payments or receipts are fabricated |
+| Historical readback | **6/6 groups passed**; original PDF, 24-credit wallet, one three-credit issuance debit, five application events and minimal public QR/tracking preserved |
+| Geography regression | **5/5 read-only groups passed** |
+| Live frontend assets | All **7 JavaScript/CSS files** have SHA-256 hashes matching the tested build and immutable cache headers |
+| Live browser | **5/5 groups passed**: public chunk loading, English profile, Bangla 390 × 844 layout, Account security navigation and clean sign-out; zero page errors |
+| Local recovery | **17 checks passed** on a real encrypted dump/isolated restore of synthetic local PostgreSQL; this is not a hosted backup |
+| Public loading | Entry JavaScript 990,769 → 352,929 raw bytes (**64.4% reduction**); gzip 143,977 → 96,575 bytes (**32.9% reduction**) |
+| Hosting | Same Free Singapore service `srv-db6tvpou01pc73bjkpr0`; Auto-Deploy Off; Free PostgreSQL expiry **12 November 2026** |
+
+Evidence: [release summary](../execution/security-live-release.json), [Render deployment](../execution/security-render-deploy.json), [CI](../execution/security-ci-qa.json), [database network metadata](../execution/security-network-qa.json), [account/session API](../execution/security-hosted-qa.json), [payment API](../execution/security-hosted-payments.json), [readback](../execution/security-hosted-readback.json), [geography](../execution/security-hosted-geography.json), [live browser](../execution/security-live-browser-qa.json), [asset hashes](../execution/security-live-assets.json), [local recovery](../execution/security-backup-qa.json). Screenshots: [English session panel](../execution/security-live-account-en.png), [Bangla mobile session panel](../execution/security-live-account-bn.png).
+
+The live checks used existing synthetic accounts. Only login/logout, session revocation and their security audit were mutated; no citizen/financial records, account passwords, actual provider payments or new certificates were created. Empty database allowlist was read through Render; no fresh external connection probe was needed or performed for 0.6. Documentation-only commits may be newer than the deployed runtime because Auto-Deploy is off.
+
+Hosted full export, independent offsite backup/key custody and cross-host restore remain the next operational priority, followed by durable hosting before database expiry. MFA, privileged recovery and private file scanning remain open; the local recovery drill does not close those items.
+
+## Release 0.5 history — 19 October 2026
+
+The following is preserved historical deployment evidence. The current runtime and latest post-deploy results are recorded above.
 
 | Component | Verified result |
 | --- | --- |

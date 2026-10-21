@@ -1,0 +1,17 @@
+{
+  "verifiedAt": "2026-10-21T04:53:25.454Z",
+  "workspaceId": "tea-cspv5f3tq21c73e2gvtg",
+  "serviceId": "srv-db6tvpou01pc73bjkpr0",
+  "commit": {
+    "createdAt": "2026-10-19T04:25:37Z",
+    "id": "402903fb113799f5d7e5ec8d62307ba88f625318",
+    "message": "Build production frontend deterministically under test environments"
+  },
+  "createdAt": "2026-10-19T04:29:33.765033Z",
+  "finishedAt": "2026-10-19T04:31:36.05317Z",
+  "id": "dep-dbappb8m7kps739q5ivg",
+  "startedAt": "2026-10-19T04:29:33.740333Z",
+  "status": "live",
+  "trigger": "api",
+  "updatedAt": "2026-10-21T04:52:04.894229Z"
+}

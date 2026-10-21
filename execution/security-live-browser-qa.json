@@ -1,0 +1,33 @@
+{
+  "startedAt": "2026-10-21T04:53:20.458Z",
+  "baseUrl": "https://astra-union-services.onrender.com",
+  "status": "PASS",
+  "scope": "Public page request graph, existing synthetic staff sign-in and read-only session UI. Login/logout are the only server mutations.",
+  "checks": [
+    {
+      "name": "Public mobile page avoids authenticated chunks",
+      "status": "PASS",
+      "scripts": [
+        "/assets/index-CUmmq-ZU.js"
+      ]
+    },
+    {
+      "name": "English authenticated profile has live own-session summary",
+      "status": "PASS"
+    },
+    {
+      "name": "Bangla 390x844 session controls and layout",
+      "status": "PASS"
+    },
+    {
+      "name": "Account security page also exposes own-session controls",
+      "status": "PASS"
+    },
+    {
+      "name": "Sign-out clears inputs; no page errors",
+      "status": "PASS"
+    }
+  ],
+  "pageErrors": 0,
+  "finishedAt": "2026-10-21T04:53:24.561Z"
+}

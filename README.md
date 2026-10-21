@@ -1,20 +1,32 @@
 # Astra — working citizen-services website
 
-Release 0.5.0 · live with hosted API verification on 19 October 2026. Independently authored Bangla/English React frontend, Express/TypeScript backend and real PostgreSQL database. The commissioning user owns the original software; third-party licenses are retained separately.
+Release 0.6.0 · live deployment and hosted acceptance verified on 21 October 2026. Independently authored Bangla/English React frontend, Express/TypeScript backend and real PostgreSQL database. The commissioning user owns the original software; third-party licenses are retained separately.
+
+**0.6 · merchant-independent work:** own-session controls, password/recovery race protection, lighter public-page loading and stronger encrypted local recovery are implemented. **210 local and 210 CI tests passed** (5 backup, 72 forms, 97 API, 36 web), plus 17 separate local database recovery checks. Runtime `402903fb113799f5d7e5ec8d62307ba88f625318` passed [CI run 39199410740](https://github.com/sajeeb-ahmeed/astra-union-services/actions/runs/39199410740), its Docker build and dependency audit. Render deployment `dep-dbappb8m7kps739q5ivg` finished live at `2026-10-19T04:31:36.05317Z`; the exact runtime was reconfirmed on 21 October. **22 hosted API groups, five live browser groups and all seven deployed JS/CSS asset hashes passed.** [Release evidence](docs/RELEASE_0_6.md). Payment onboarding/activation is deferred at the owner's request.
+
+The first CI attempt caught an environment-dependent development React bundle exceeding the public-size budget. Production-build configuration was corrected without weakening that budget; four focused tests passed with the same `NODE_ENV=test` environment. [CI attempt history](execution/security-ci-attempts.json) records the failed attempt and correction.
 
 **পরে কাজ চালিয়ে যাওয়ার নোট:** [বর্তমান অবস্থা, সম্পন্ন কাজ, bKash onboarding ও পরবর্তী করণীয়](docs/STATUS_AND_NEXT_STEPS.md)। Engineering priorities and acceptance criteria: [current delivery backlog](docs/DELIVERY_BACKLOG.md).
 
 **Open:** [live demo](https://astra-union-services.onrender.com) or [local website](http://127.0.0.1:5173). **Read:** [hosted deployment and live test results](docs/HOSTED_DEPLOYMENT.md), [delivery report](docs/DELIVERY_REPORT.md), [deployment instructions](docs/DEPLOYMENT.md), [acceptance evidence](docs/TEST_MATRIX.md).
 
-The current live release runs on Render Free with PostgreSQL 17. It passed **192 CI tests**, the Docker build, **seven hosted payment groups**, **six historical-record readback groups** and **five geography groups**. Migration preserved all recorded domain fingerprints and PDFs; external database access is closed. Live JavaScript/CSS hashes match the tested build. Live browser checks passed for Bangla/English payment screens and mobile layout, with no console warnings or errors. Exact deployment and evidence are recorded in the hosted deployment document. The Free database expires on **12 November 2026**, and the web service can sleep when idle. Live identity and merchant payment collection remain unconfigured.
+The service runs on Render Free with PostgreSQL 17. Current hosted checks passed: **four account-security, seven payment, six historical-record readback and five geography groups**. Existing PDF bytes and credit records remained unchanged. Five live browser groups passed for public/login/logout behavior, Bangla/English account controls and mobile layout, with no page errors. All seven JS/CSS asset hashes match the tested build and use immutable caching. No migration or external database access was needed; the database allowlist remains empty. See [live release results](execution/security-live-release.json). The Free database expires on **12 November 2026**, and the web service can sleep when idle. Live identity and merchant payment collection remain unconfigured.
 
 This release expands Phase 1 into **47 operational demonstration services**. Every service has been exercised through draft, submission, review, authorized approval, real PDF, QR lookup and exactly one credit debit. These tests prove this independently built implementation. Original reference-site success paths remain unverified. Documents remain DEMO / NOT OFFICIAL; live identity, legal authority and commercial payment-provider integrations are not configured.
 
-## 0.5 payment update
+## 0.6 security, performance and recovery
+
+- **My profile / Account security → Account sessions:** see own active-session counts and expiry; confirm the current password to sign out other sessions. Password changes also invalidate earlier recovery links across memberships. Account locks prevent stale-password and revoked-session races. Bangla/English controls work for citizen, office and owner accounts. [Account security](docs/ACCOUNT_SECURITY.md).
+- Public JavaScript falls from **990,769 to 352,929 bytes (64.4%)**; gzip falls from 143,977 to 96,575 bytes. All 47 public services remain available; the authenticated workspace/form schemas load after a valid session, with bilingual loading/error recovery. This measures build size, not field page-load time. [Performance evidence](execution/security-performance-qa.json).
+- Format-2 encrypted recovery verifies all application routines, narrow column grants, indexes and RLS behavior, plus real data/PDF/ledger hashes. The local drill restored 46 tables, 117 synthetic tenants and 435 PDFs into a new database. [Recovery runbook and limits](docs/BACKUP_AND_RECOVERY.md), [local test results](execution/security-local-qa.json).
+
+No database migration or merchant credentials are needed for this increment. **Hosted full export, independent offsite restore and durable hosting before the recorded 12 November expiry remain the next operational priority.** MFA, privileged-account recovery, file quarantine/scanning and external identity verification remain open. Local encrypted archives do not establish hosted disaster recovery.
+
+## Historical 0.5 payment update
 
 The deployed module includes bKash v2 checkout, server verification, immutable payment receipts and transaction reconciliation. Merchant access is not available, so checkout stays disabled; no real money or provider-sandbox transaction is claimed. Nagad and bank payout reconciliation are not connected. The release preserves independent approver authorization and SaaS credit accounting. See [0.5 implementation and verification](docs/RELEASE_0_5.md) and [gateway configuration and recovery limits](docs/GATEWAY_PAYMENTS.md).
 
-The final 0.5 runtime passed **192 Linux CI tests** (72 forms, 89 API, 31 web), its production and Docker builds, and a dependency audit with **zero vulnerabilities**. [Run 39125266096](https://github.com/sajeeb-ahmeed/astra-union-services/actions/runs/39125266096) tested commit `b86908b9a4654cc31cd1b517fc5e8ad3ae086878`, live as Render deployment `dep-dbaob6s9v7es739a8j30`. Hosted checks verified disabled checkout, empty collections, access restrictions and unchanged application/PDF/credit records.
+The final 0.5 runtime passed **192 Linux CI tests** (72 forms, 89 API, 31 web), its production and Docker builds, and a dependency audit with **zero vulnerabilities**. [Run 39125266096](https://github.com/sajeeb-ahmeed/astra-union-services/actions/runs/39125266096) tested commit `b86908b9a4654cc31cd1b517fc5e8ad3ae086878`, previously deployed as Render deployment `dep-dbaob6s9v7es739a8j30`. Hosted checks verified disabled checkout, empty collections, access restrictions and unchanged application/PDF/credit records.
 
 ## Historical 0.4 order workflow
 
@@ -33,7 +45,7 @@ The community dataset is not an official current national register. Ward numbers
 ## Delivered functionality
 
 - Civic-style responsive public homepage, 47-service discovery, office directory with retained filters/pagination, service availability, searchable notices, help, feedback inbox and saved update preferences.
-- Synthetic signup, sessions/logout, own profile/password, office-assisted single-use recovery, protected applications and minimal public status/QR verification.
+- Synthetic signup, sessions/logout, own profile/password, office-assisted single-use recovery, protected applications and minimal public status/QR verification; 0.6 adds deployed own-session controls and credential-race protection.
 - All 47 dynamic forms: bilingual fields, conditions, repeatable family/heir/correction rows and private uploads. Historical schema versions remain immutable.
 - Citizen/staff applications, search/pagination, corrections, review, approval, rejection, cancellation, issuance, reprint, renewal lineage and revocation.
 - Bangla/English/bilingual DEMO PDFs, family/trade tables, QR codes and tenant/citizen-protected downloads.
