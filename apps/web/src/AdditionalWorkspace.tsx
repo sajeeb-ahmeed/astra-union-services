@@ -2,6 +2,7 @@ import { t, tx } from "./i18n.js";
 import React, { useEffect, useState } from "react";
 import { api, items } from "./api.js";
 import { AccountSessions } from "./AccountSessions.js";
+import { AccountMfa } from "./AccountMfa.js";
 import {
   GeographyFields,
   geographyPayload,
@@ -300,6 +301,7 @@ export function AdditionalWorkspace({
               </form>
             </section>
             <AccountSessions revision={securityRevision} />
+            <AccountMfa revision={securityRevision} onChange={() => setSecurityRevision((value) => value + 1)} />
           </>
         ),
       )}

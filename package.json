@@ -1,6 +1,6 @@
 {
   "name": "astra-union-services",
-  "version": "0.7.0",
+  "version": "0.8.0",
   "private": true,
   "type": "module",
   "workspaces": [
@@ -18,7 +18,7 @@
     "test:forms": "node --import tsx --test packages/shared-schemas/test/*.test.ts",
     "test:api": "node --import tsx --test --test-concurrency=1 apps/api/test/*.test.ts",
     "test:web": "tsx scripts/test-web.ts",
-    "test:backup": "node --test scripts/backup/backup.test.mjs",
+    "test:backup": "node --test scripts/backup/*.test.mjs",
     "db:backup": "node scripts/backup/backup.mjs backup",
     "db:recovery-drill": "node scripts/backup/recovery-drill.mjs",
     "test": "npm run test:backup && npm run test:forms && npm run test:api && npm run test:web",

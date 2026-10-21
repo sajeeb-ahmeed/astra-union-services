@@ -1,0 +1,92 @@
+{
+  "executedAt": "2026-10-21T06:50:23.837Z",
+  "scope": "Synthetic managed-owner source on existing local cluster; fresh independent recovery cluster. No hosted connection.",
+  "status": "PASS",
+  "checks": [
+    "Synthetic source contains two populated tenant scopes, actual PDF bytes, issuance debits, account scopes and nullable global sessions.",
+    "NOSUPERUSER NOBYPASSRLS owner exports all tenants/accounts without source DDL, RLS changes or app-role changes.",
+    "Owner-wide SELECT policies do not duplicate rows; global and account-scoped records survive.",
+    "Actual restore rejects tampered archive and wrong key before contacting any database.",
+    "Fresh port-55433 cluster restores full data, exact schema/grants/RLS, original object owners and fresh restricted-role credentials.",
+    "Restricted recovered application role.",
+    "All tenant/account tables deny unscoped runtime reads.",
+    "MFA and durable account audit obey account isolation with restored account context.",
+    "Tenant A reads its rows and cannot read tenant B.",
+    "Wallet, payment amount and receipt modification privileges remain denied.",
+    "Ledger trigger rejects modification.",
+    "Every existing certificate resolves through bounded QR verification; invalid token is hidden.",
+    "Invalid gateway callback resolves no record.",
+    "A second restore refuses a nonempty cluster before role/database mutations.",
+    "Main port-55432 database cannot be selected as restore target.",
+    "Encrypted archive hides identity strings; key lives outside repository and backup directory.",
+    "Actual recovered HTTP server starts with restricted restored credentials and PostgreSQL health passes.",
+    "Recovery readiness serves the built frontend and all 47 public catalog entries.",
+    "Actual HTTP QR verification resolves every recovered certificate and rejects wrong/malformed tokens without PDF or citizen data.",
+    "Recovered real-password login delivers byte-identical authorized PDFs; anonymous, invalid-session and available cross-tenant PDF reads are denied.",
+    "Recovered application reports gateway collection disabled; no merchant configuration or source environment was inherited.",
+    "Recovery HTTP acceptance signs out its sessions; no certificate, ledger, fee or payment mutation is made."
+  ],
+  "backup": {
+    "status": "PASS",
+    "exportedAt": "2026-10-21T06:50:25.231Z",
+    "source": {
+      "mode": "local-managed",
+      "databaseId": "LOCAL_MANAGED_FIXTURE",
+      "serverVersion": "170011"
+    },
+    "name": "managed_20261021065024706_5fa22575",
+    "tables": 49,
+    "tenants": 2,
+    "certificates": 2,
+    "encryptedBytes": 791787,
+    "archiveSha256": "b3de64ab4923a17bdaab6c0bb62324bad4295bba93f97dc9ec4be0b417208f3c",
+    "sourceReadOnly": true,
+    "rlsPoliciesChanged": false,
+    "keyOutsideWorkspace": true,
+    "independentKeyCustody": false,
+    "offsiteReplication": false
+  },
+  "restore": {
+    "status": "PASS",
+    "restoredAt": "2026-10-21T06:50:31.974Z",
+    "name": "managed_20261021065024706_5fa22575",
+    "target": "astra_recovered_d5d1012349629739",
+    "independentClusterPort": 55433,
+    "tables": 49,
+    "tenants": 2,
+    "certificates": 2,
+    "exactStateMatch": true,
+    "ownershipPreserved": true,
+    "sourceCredentialsReused": false,
+    "sourceMembershipsRecreated": false,
+    "checks": [
+      "Restricted recovered application role.",
+      "All tenant/account tables deny unscoped runtime reads.",
+      "MFA and durable account audit obey account isolation with restored account context.",
+      "Tenant A reads its rows and cannot read tenant B.",
+      "Wallet, payment amount and receipt modification privileges remain denied.",
+      "Ledger trigger rejects modification.",
+      "Every existing certificate resolves through bounded QR verification; invalid token is hidden.",
+      "Invalid gateway callback resolves no record."
+    ],
+    "independentKeyCustody": false,
+    "offsiteReplication": false
+  },
+  "http": {
+    "status": "PASS",
+    "verifiedAt": "2026-10-21T06:50:33.788Z",
+    "origin": "http://127.0.0.1:54874",
+    "sourceAccess": false,
+    "databasePort": 55433,
+    "transport": "Loopback HTTP; production TLS proxy is outside this rehearsal",
+    "checks": [
+      "Actual recovered HTTP server starts with restricted restored credentials and PostgreSQL health passes.",
+      "Recovery readiness serves the built frontend and all 47 public catalog entries.",
+      "Actual HTTP QR verification resolves every recovered certificate and rejects wrong/malformed tokens without PDF or citizen data.",
+      "Recovered real-password login delivers byte-identical authorized PDFs; anonymous, invalid-session and available cross-tenant PDF reads are denied.",
+      "Recovered application reports gateway collection disabled; no merchant configuration or source environment was inherited.",
+      "Recovery HTTP acceptance signs out its sessions; no certificate, ledger, fee or payment mutation is made."
+    ]
+  },
+  "durationMs": 10893
+}

@@ -1,6 +1,39 @@
 # Account and session protection
 
-This merchant-independent increment addresses part of the P0 account-protection backlog. It uses the existing PostgreSQL schema and requires no migration, provider credentials, new service or paid infrastructure. Identity verification and MFA remain separate acceptance gates.
+This document covers the existing session controls and the optional authenticator protection introduced in release 0.8. The new controls require migration `013_account_mfa.sql` and a separate `MFA_ENCRYPTION_KEY` deployment secret. They require no merchant account, SMS provider or paid service. Runtime deployment and test results are recorded separately in [Release 0.8](RELEASE_0_8.md).
+
+## Authenticator protection — release 0.8
+
+Users may enable two-step sign-in from their account security panel. Setup requires the current password, a scan/manual entry in a compatible authenticator, and a correct six-digit code before it takes effect. The existing accounts are not automatically enrolled. A pending setup expires after ten minutes. After activation, ten recovery codes appear once: save them privately before closing the panel. Each code works only once and still requires the account password at login.
+
+An enrolled account receives a five-minute login challenge after the password succeeds; no session cookie or protected workspace is granted until a fresh authenticator code or an unused recovery code succeeds. TOTP uses RFC 6238 with SHA-1, six digits and 30-second steps, allowing one adjacent step in either direction. A successfully used counter cannot be reused, including between enrollment, sign-in and sensitive account actions. Wait for the next code if the current one was already used.
+
+MFA state and its attempt budget live in PostgreSQL. Five incorrect factor attempts within five minutes block further attempts for that window, across new challenges and application restarts. This is an account-specific MFA budget, not a replacement for the remaining process-local general login/IP limits. Account-row locking makes concurrent recovery-code use exactly once. Challenge redemption rechecks credentials, MFA revision, account activation, office membership and office status.
+
+Enabling MFA, rotating recovery codes or disabling MFA expires other sessions and invalidates pending login challenges and old password-recovery links. Disabling or rotating requires both current password and a valid second factor. Password changes retain MFA and invalidate pending setup/challenges. Existing password recovery is blocked for enrolled users: an office administrator cannot reset a password to bypass MFA. Assisted owner/admin or lost-password-plus-lost-factor recovery needs an approved identity and dual-control policy and is not implemented.
+
+| Route under `/api/v1` | Input / response |
+| --- | --- |
+| `GET /auth/mfa` | Own enabled/available flags, pending expiry and remaining recovery-code count; never secret material |
+| `POST /auth/mfa/enrollment` | Current password; returns pending manual key, local QR data URL and expiry |
+| `POST /auth/mfa/activate` | Six-digit code; returns the ten one-use recovery codes once |
+| `POST /auth/login` | Existing email/password; either existing login response or `mfaRequired`, opaque challenge and expiry |
+| `POST /auth/mfa/verify` | Challenge and authenticator/recovery code; returns session only after verification |
+| `POST /auth/mfa/recovery-codes` | Current password and second factor; replaces all old recovery codes |
+| `POST /auth/mfa/disable` | Current password and second factor; removes protection and revokes other sessions |
+| `GET /auth/security-events` | Latest 50 own security events; no arbitrary account selector |
+
+Authenticated mutations require the normal CSRF token and allowed Origin. All security responses use `Cache-Control: no-store`. Secret values remain only in short-lived browser component state and are cleared on unmount/sign-out; they are not URL parameters or local-storage entries. Passwords, authenticator seeds, recovery codes, challenge tokens and cookies must never be added to screenshots, public logs or support messages.
+
+## Keys and recovery operations
+
+`MFA_ENCRYPTION_KEY` is an independently generated 32-byte key represented as 64 hexadecimal characters. AES-256-GCM encrypts pending/active authenticator seeds with a fresh nonce and account-bound authenticated data. Recovery codes have 96 bits of randomness and only account-bound SHA-256 hashes are stored. Challenges are stored as hashes and bound to the current password digest and MFA revision.
+
+Configure the key through deployment secrets and retain a protected recovery copy separately from database archives. Losing the key prevents decryption of authenticator seeds; changing it is not a supported rotation procedure. Do not set a replacement key to make login work. Missing configuration disables new enrollment and enrolled password-login fails closed; it does not silently fall back to password-only access. A database recovery must retain the matching key and independently verify factor acceptance before a cutover. The software does not provide key escrow or an emergency MFA bypass.
+
+Security events now persist for every account, including the platform owner, in a forced-RLS, append-only account table. The logged metadata is limited to action, time and relevant counts. The account view shows its own latest events. This does not create a cross-account privileged access review console or independent external tamper-evident audit. Database administrators still have schema authority. Event/challenge retention cleanup is pending an approved retention policy.
+
+References: [RFC 6238](https://datatracker.ietf.org/doc/html/rfc6238), [OWASP MFA guidance](https://cheatsheetseries.owasp.org/cheatsheets/Multifactor_Authentication_Cheat_Sheet.html). Automated coverage lives in [MFA API tests](../apps/api/test/mfa.test.ts); release evidence distinguishes local and hosted acceptance.
 
 ## User behavior
 
@@ -31,7 +64,7 @@ Account actions recheck the requesting session after acquiring the lock. This pr
 
 Password changes invalidate recovery tokens under each account membership's tenant context; tenant RLS remains enforced. Password recovery acquires the account lock before locking its token, preventing credential-update/token lock-order inversion. Existing application, certificate, fee and credit records are not modified by these account actions.
 
-Tenant-bound password changes and session revocations append immutable `PASSWORD_CHANGED` / `OTHER_SESSIONS_REVOKED` audit events with only the number of revoked sessions. Passwords, cookies, recovery tokens and CSRF values are excluded. The platform owner has no tenant audit destination in the existing schema: successful owner actions emit a sanitized structured operational log after commit. **These logs are not a durable global owner-security audit trail**, and retention depends on hosting log configuration.
+Tenant-bound password changes and session revocations retain their immutable tenant audit events. Release 0.8 also writes durable own-account security events for all roles, including owners without a tenant. Only action/count metadata is recorded; passwords, cookies, recovery codes, tokens and CSRF values are excluded. The earlier 0.6 owner operational logs remain historical and were not backfilled as database events.
 
 ## Verification
 
@@ -50,8 +83,8 @@ Run `node --import tsx --test --test-concurrency=1 apps/api/test/account-securit
 
 ## Remaining limits
 
-- No MFA, external identity/OTP verification, SMS/email recovery, or owner/admin assisted recovery was added. Citizen identity remains `SYNTHETIC_DEMO`, and certificates remain **DEMO / NOT OFFICIAL**.
+- MFA is optional; mandatory enrollment, external identity/OTP verification, SMS/email recovery, and owner/admin assisted recovery remain open. Citizen identity remains `SYNTHETIC_DEMO`, and certificates remain **DEMO / NOT OFFICIAL**.
 - Revocation stops subsequent authenticated requests. A business operation already authorized and executing outside these account-security transactions may finish; this release does not cancel in-flight application or payment transactions.
-- No device inventory, individual-session revocation, idle-session timeout, security-event dashboard or global durable owner audit table exists. Sessions retain their existing eight-hour maximum lifetime.
-- Process-local attempt budgets reset on application restart and do not coordinate replicas. Shared rate limiting, privileged access reviews, MFA/recovery, file quarantine/scanning and production identity remain in the [delivery backlog](DELIVERY_BACKLOG.md).
+- No device inventory, individual-session revocation, idle timeout or cross-account privileged access review exists. Sessions retain their existing eight-hour maximum lifetime. The new history panel is own-account only.
+- General process-local attempt budgets reset on application restart and do not coordinate replicas; the new MFA factor budget is database-backed. Shared general throttling, privileged recovery/access reviews, file quarantine/scanning and production identity remain in the [delivery backlog](DELIVERY_BACKLOG.md).
 - All payment merchant/provider acceptance requirements remain unchanged; this release does not activate collection.

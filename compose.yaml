@@ -21,6 +21,7 @@ services:
       DATABASE_URL: postgresql://astra_app:${ASTRA_APP_PASSWORD:?Set a unique application password}@db:5432/astra
       PUBLIC_ORIGIN: ${PUBLIC_ORIGIN:?Set an HTTPS origin}
       DEMO_WEBHOOK_SECRET: ${DEMO_WEBHOOK_SECRET:?Set a unique webhook secret}
+      MFA_ENCRYPTION_KEY: ${MFA_ENCRYPTION_KEY:-}
       TRUST_PROXY_IP: ${ASTRA_PROXY_GATEWAY:-172.29.250.1}
     ports:
       - "127.0.0.1:3001:3001"

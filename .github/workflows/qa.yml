@@ -27,11 +27,13 @@ jobs:
       DATABASE_URL: postgresql://astra_app:ci-only-app-password-not-production@127.0.0.1:5432/astra
       ASTRA_APP_PASSWORD: ci-only-app-password-not-production
       NODE_ENV: test
+      # Synthetic CI-only key; hosted enrollment uses a separate deployment secret.
+      MFA_ENCRYPTION_KEY: "1111111111111111111111111111111111111111111111111111111111111111"
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: '24'
+          node-version: "24"
           cache: npm
       - run: npm ci --no-audit --no-fund
       - run: npx playwright install --with-deps chromium

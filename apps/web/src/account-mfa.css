@@ -1,0 +1,102 @@
+.account-mfa {
+  max-width: 920px;
+}
+.mfa-heading {
+  display: flex;
+  align-items: flex-start;
+  gap: 24px;
+  justify-content: space-between;
+}
+.mfa-heading .status {
+  flex-shrink: 0;
+  margin-top: 8px;
+}
+.account-mfa form {
+  max-width: 520px;
+}
+.mfa-enrollment,
+.mfa-confirm-action,
+.mfa-private-codes {
+  margin: 22px 0;
+  padding: 22px;
+  border: 1px solid #c8d8d0;
+  border-radius: 12px;
+  background: #f7faf8;
+}
+.mfa-enrollment img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  margin: 16px 0;
+  border-radius: 8px;
+}
+.mfa-enrollment summary,
+.mfa-history summary {
+  cursor: pointer;
+  font-weight: 600;
+  padding: 10px 0;
+}
+.mfa-setup-key {
+  display: block;
+  overflow-wrap: anywhere;
+  padding: 12px;
+  background: white;
+}
+.mfa-code-list {
+  list-style: none;
+  margin: 18px 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px 20px;
+}
+.mfa-code-list code {
+  overflow-wrap: anywhere;
+  font-size: 15px;
+}
+.mfa-private-codes:focus {
+  outline: 2px solid #256b4e;
+  outline-offset: 4px;
+}
+.mfa-history {
+  margin-top: 28px;
+  border-top: 1px solid #dce5e1;
+  padding-top: 12px;
+}
+.mfa-history ul {
+  list-style: none;
+  padding: 0;
+}
+.mfa-history li {
+  padding: 10px 0;
+  border-bottom: 1px solid #e7eeea;
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+}
+.mfa-history time {
+  font-size: 13px;
+  color: #52665b;
+  flex-shrink: 0;
+}
+@media (max-width: 600px) {
+  .mfa-heading {
+    flex-direction: column;
+    gap: 0;
+  }
+  .mfa-heading .status {
+    margin: 0 0 16px;
+  }
+  .mfa-enrollment,
+  .mfa-confirm-action,
+  .mfa-private-codes {
+    padding: 16px;
+  }
+  .mfa-code-list {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .mfa-history li {
+    flex-direction: column;
+    gap: 4px;
+  }
+}

@@ -2,6 +2,11 @@ import type { Auth } from "./app.js";
 import { pool, audit, type DB } from "./db.js";
 import { fail } from "./models.js";
 import { createRateLimiter } from "./http-hardening.js";
+import {
+  accountScope,
+  invalidateMfaChallenges,
+  securityAudit,
+} from "./security-audit.js";
 
 /** All credential writers and login hold this account lock before touching sessions. */
 export async function lockAccount(db: DB, userId: string) {
@@ -51,6 +56,12 @@ export async function accountTransaction<T>(
 }
 
 export async function consumeAccountRecoveryLinks(db: DB, userId: string) {
+  await accountScope(db, userId);
+  await invalidateMfaChallenges(db, userId);
+  await db.query(
+    "UPDATE account_mfa SET pending_secret=NULL,pending_expires_at=NULL WHERE user_id=$1",
+    [userId],
+  );
   // Recovery tokens are tenant scoped. Explicitly visit this account's memberships
   // so a later password change invalidates every previously issued recovery link.
   const memberships = await db.query(
@@ -74,6 +85,7 @@ export async function accountAudit(
   action: "PASSWORD_CHANGED" | "OTHER_SESSIONS_REVOKED",
   revokedSessions: number,
 ) {
+  await securityAudit(db, actor.userId, action, { revokedSessions });
   if (!actor.tenantId) return;
   await db.query("SELECT set_config('astra.tenant_id',$1,true)", [
     actor.tenantId,

@@ -28,6 +28,7 @@ import { publicManagementRouter, managementRouter } from "./management.js";
 import { publicToolsRouter, protectedToolsRouter } from "./portal-tools.js";
 import { httpHardening } from "./http-hardening.js";
 import { paymentsRouter, publicPaymentsRouter } from "./payments.js";
+import { mfaRouter, publicMfaRouter, passwordLogin, sendLogin } from "./mfa.js";
 import {
   ordersRouter,
   applicationOrderInput,
@@ -394,69 +395,12 @@ app.post(
       })
       .strict()
       .parse(req.body);
-    const token = randomToken();
-    const csrfToken = randomToken();
-    const db = await pool.connect();
-    let user: any, membership: any;
-    try {
-      await db.query("BEGIN");
-      // Serialize password verification plus session creation with every password
-      // change/recovery. A login cannot reuse a hash read before a concurrent reset.
-      user = (
-        await db.query(
-          "SELECT * FROM platform_users WHERE email=$1 FOR UPDATE",
-          [data.email.toLowerCase()],
-        )
-      ).rows[0];
-      if (
-        !user ||
-        !user.active ||
-        !checkPassword(data.password, user.password_hash)
-      )
-        fail(401, "INVALID_LOGIN", "Invalid sign-in credentials.");
-      membership = (
-        await db.query(
-          "SELECT m.*,t.status FROM staff_memberships m JOIN tenants t ON t.id=m.tenant_id WHERE m.user_id=$1 AND m.active AND t.status='ACTIVE' ORDER BY t.slug LIMIT 1 FOR SHARE OF m,t",
-          [user.id],
-        )
-      ).rows[0];
-      if (!membership && user.platform_role !== "owner")
-        fail(403, "MEMBERSHIP_INACTIVE", "No active tenant membership.");
-      await db.query(
-        "INSERT INTO sessions(token_hash,user_id,tenant_id,csrf_token,expires_at) VALUES($1,$2,$3,$4,clock_timestamp()+interval '8 hours')",
-        [digest(token), user.id, membership?.tenant_id ?? null, csrfToken],
-      );
-      await db.query("COMMIT");
-    } catch (error) {
-      await db.query("ROLLBACK");
-      throw error;
-    } finally {
-      db.release();
-    }
-    res.setHeader(
-      "Set-Cookie",
-      `astra_session=${token}; HttpOnly; SameSite=Strict; Path=/; Max-Age=28800${process.env.NODE_ENV === "production" ? "; Secure" : ""}`,
-    );
-    const tenantData = membership
-      ? (
-          await pool.query("SELECT * FROM tenants WHERE id=$1", [
-            membership.tenant_id,
-          ])
-        ).rows[0]
-      : null;
-    res.json({
-      user: {
-        id: user.id,
-        email: user.email,
-        displayName: user.display_name,
-        role: membership?.role ?? "owner",
-        tenantId: membership?.tenant_id ?? null,
-      },
-      tenant: camelRow(tenantData),
-      csrfToken,
-    });
+    const result = await passwordLogin(data.email, data.password);
+    if (result.challenge) res.json(result.challenge);
+    else sendLogin(res, result.session!);
   }),
 );
+app.use("/api/v1", publicMfaRouter);
 app.use(
   "/api/v1",
   (req: Req, res: express.Response, next: express.NextFunction) => {
@@ -502,6 +446,7 @@ app.use(
   },
 );
 app.use("/api/v1", managementRouter);
+app.use("/api/v1", mfaRouter);
 app.use("/api/v1", protectedToolsRouter);
 app.use("/api/v1", ordersRouter);
 app.use("/api/v1", paymentsRouter);

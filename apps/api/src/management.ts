@@ -19,6 +19,11 @@ import {
   accountActionLimiter,
 } from "./account-security.js";
 import {
+  accountScope,
+  invalidateMfaChallenges,
+  securityAudit,
+} from "./security-audit.js";
+import {
   geographyInput,
   geographyRow,
   geographyValues,
@@ -86,6 +91,20 @@ async function recoveryEligible(
       404,
       "RECOVERY_UNAVAILABLE",
       "Recovery is unavailable for this account.",
+    );
+  await accountScope(db, userId);
+  if (
+    (
+      await db.query(
+        "SELECT 1 FROM account_mfa WHERE user_id=$1 AND enabled_at IS NOT NULL",
+        [userId],
+      )
+    ).rowCount
+  )
+    fail(
+      409,
+      "MFA_RECOVERY_REQUIRED",
+      "Password reset is unavailable for authenticator-protected accounts. Assisted recovery requires an approved recovery policy, which is not yet configured.",
     );
 }
 managementRouter.post(
@@ -183,6 +202,8 @@ publicManagementRouter.post(
           "UPDATE password_recovery_tokens SET consumed_at=now() WHERE user_id=$1 AND consumed_at IS NULL",
           [r.user_id],
         );
+        await consumeAccountRecoveryLinks(db, r.user_id);
+        await securityAudit(db, r.user_id, "PASSWORD_RECOVERY_COMPLETED");
         await audit(
           db,
           found.tenant_id,
@@ -536,6 +557,7 @@ managementRouter.post(
         "UPDATE sessions SET expires_at=clock_timestamp() WHERE user_id=$1 AND csrf_token<>$2 AND expires_at>clock_timestamp()",
         [a.userId, a.csrfToken],
       );
+      await invalidateMfaChallenges(db, a.userId);
       await accountAudit(db, a, "OTHER_SESSIONS_REVOKED", result.rowCount ?? 0);
       return result.rowCount ?? 0;
     });

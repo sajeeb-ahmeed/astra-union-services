@@ -30,7 +30,7 @@ if secret_file.exists():add_secret(secret_file.read_text(encoding='utf-8-sig').s
 
 def sensitive_key(key):
     normalized=re.sub(r'[^a-z0-9]','',str(key).lower())
-    return normalized.endswith(('password','passwd','passphrase','secret','token','tokenhash','apikey','privatekey','encryptionkey','accesskey')) or normalized in ('authorization','cookie','setcookie')
+    return normalized.endswith(('password','passwd','passphrase','secret','token','tokenhash','apikey','privatekey','encryptionkey','accesskey')) or normalized in ('authorization','cookie','setcookie','recoverycodes')
 
 def collect_hosted_secrets(value,key=''):
     if isinstance(value,dict):
@@ -51,11 +51,22 @@ def collect_hosted_secrets(value,key=''):
                 add_secret(unquote(parsed.password))
 
 hosted_secret_files=[]
-for name in ('credentials.json','render-database.json','qa-credentials.json'):
-    private_file=root/'.runtime/hosted'/name
-    if private_file.exists():
+for private_file in sorted((root/'.runtime/hosted').glob('*.json')):
+    collect_hosted_secrets(json.loads(private_file.read_text(encoding='utf-8-sig')))
+    hosted_secret_files.append(private_file.name)
+# Independent recovery keys live outside the repository. Check their literal and
+# encoded forms without copying them into the archive or reporting their values.
+recovery_root=pathlib.Path.home()/'.astra-recovery'
+for private_file in recovery_root.rglob('*') if recovery_root.exists() else []:
+    if not private_file.is_file():continue
+    if private_file.suffix=='.json':
         collect_hosted_secrets(json.loads(private_file.read_text(encoding='utf-8-sig')))
-        hosted_secret_files.append(name)
+    elif private_file.suffix=='.key':
+        raw=private_file.read_bytes()
+        secrets.add(raw)
+        add_secret(raw.hex())
+        import base64
+        add_secret(base64.b64encode(raw).decode('ascii'))
 manifest=[]
 for p in files:
     name=p.relative_to(root).as_posix()

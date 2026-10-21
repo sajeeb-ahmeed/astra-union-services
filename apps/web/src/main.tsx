@@ -1,9 +1,10 @@
-import React, { lazy, useEffect, useState } from "react";
+import React, { lazy, useCallback, useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { api } from "./api.js";
 import { t, tx, choose, useLanguage, LanguageSwitcher } from "./i18n.js";
 import { PublicPortal } from "./PublicPortal.js";
 import { AsyncPanel, LoadingPanel } from "./AsyncPanel.js";
+import { MfaChallenge, type MfaLoginChallenge } from "./MfaChallenge.js";
 import "./style.css";
 
 // Authenticated workflows and form history are downloaded only after a valid session.
@@ -148,6 +149,22 @@ function SignedOutPortal({
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [challenge, setChallenge] = useState<MfaLoginChallenge | null>(null);
+  const loginAttempt = useRef(0);
+  const clearLoginSecrets = useCallback(() => {
+    loginAttempt.current++;
+    setPassword("");
+    setChallenge(null);
+    setShowPassword(false);
+    setMessage("");
+  }, []);
+  useEffect(() => {
+    addEventListener("pagehide", clearLoginSecrets);
+    return () => {
+      loginAttempt.current++;
+      removeEventListener("pagehide", clearLoginSecrets);
+    };
+  }, [clearLoginSecrets]);
   async function run(action: () => Promise<void>) {
     setBusy(true);
     setMessage("");
@@ -161,100 +178,131 @@ function SignedOutPortal({
   }
   return (
     <PublicPortal
+      onNavigate={clearLoginSecrets}
       login={
         <section className="login-form">
-          <h2>{t("স্বাগতম")}</h2>
-          <p>{t("Sign in to your workspace")}</p>
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              setShowPassword(false);
-              run(async () => {
-                const nextSession = await api("/auth/login", "POST", {
-                  email,
-                  password,
-                });
-                setPassword("");
+          {challenge ? (
+            <MfaChallenge
+              challenge={challenge}
+              onCancel={clearLoginSecrets}
+              onLogin={(nextSession) => {
+                clearLoginSecrets();
                 onLogin(nextSession);
-              });
-            }}
-          >
-            <label htmlFor="email">{t("Email")}</label>
-            <input
-              id="email"
-              type="email"
-              list="accounts"
-              autoComplete="username"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
+              }}
             />
-            <datalist id="accounts">
-              {tx(
-                (localDemo ? accounts : []).map((a) => (
-                  <option key={a} value={a} />
-                )),
-              )}
-            </datalist>
-            <label htmlFor="password">{t("Password")}</label>
-            <div className="password-control">
-              <input
-                id="password"
-                type={showPassword ? "text" : "password"}
-                autoComplete="current-password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-              />
-              <button
-                type="button"
-                className="secondary"
-                aria-controls="password"
-                aria-pressed={showPassword}
-                onClick={() => setShowPassword(!showPassword)}
+          ) : (
+            <>
+              <h2>{t("স্বাগতম")}</h2>
+              <p>{t("Sign in to your workspace")}</p>
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  setShowPassword(false);
+                  const attempt = ++loginAttempt.current;
+                  run(async () => {
+                    const nextSession = await api("/auth/login", "POST", {
+                      email,
+                      password,
+                    });
+                    setPassword("");
+                    if (attempt !== loginAttempt.current) return;
+                    if (nextSession.mfaRequired === true) {
+                      if (
+                        typeof nextSession.challengeToken !== "string" ||
+                        !nextSession.challengeToken ||
+                        !Number.isFinite(Date.parse(nextSession.expiresAt))
+                      )
+                        throw new Error(
+                          choose({
+                            bn: "লগইন যাচাই শুরু হয়নি। আবার চেষ্টা করুন।",
+                            en: "Sign-in verification could not start. Try again.",
+                          }),
+                        );
+                      setChallenge(nextSession);
+                    } else {
+                      onLogin(nextSession);
+                    }
+                  });
+                }}
               >
-                {showPassword
-                  ? choose({ bn: "লুকান", en: "Hide password" })
-                  : choose({ bn: "দেখুন", en: "Show password" })}
-              </button>
-            </div>
-            {tx(
-              message && (
-                <p role="alert" className="error">
-                  {tx(message)}
-                </p>
-              ),
-            )}
-            <button disabled={busy} type="submit">
-              {tx(busy ? "Signing in…" : "Sign in")}
-            </button>
-          </form>
-          <a className="login-recovery" href="/recover">
-            {t("Forgot password? Recover your account ")}
-          </a>
-          {tx(
-            localDemo && (
-              <details>
-                <summary>{t("Local demo accounts")}</summary>
-                <p>
-                  {t("Password: ")}
-                  <code>{t("Demo-Phase1!")}</code>
-                </p>
-                <div className="demo-accounts">
+                <label htmlFor="email">{t("Email")}</label>
+                <input
+                  id="email"
+                  type="email"
+                  list="accounts"
+                  autoComplete="username"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                />
+                <datalist id="accounts">
                   {tx(
                     (localDemo ? accounts : []).map((a) => (
-                      <button
-                        className="text-button"
-                        key={a}
-                        onClick={() => setEmail(a)}
-                      >
-                        {tx(a)}
-                      </button>
+                      <option key={a} value={a} />
                     )),
                   )}
+                </datalist>
+                <label htmlFor="password">{t("Password")}</label>
+                <div className="password-control">
+                  <input
+                    id="password"
+                    type={showPassword ? "text" : "password"}
+                    autoComplete="current-password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    required
+                  />
+                  <button
+                    type="button"
+                    className="secondary"
+                    aria-controls="password"
+                    aria-pressed={showPassword}
+                    onClick={() => setShowPassword(!showPassword)}
+                  >
+                    {showPassword
+                      ? choose({ bn: "লুকান", en: "Hide password" })
+                      : choose({ bn: "দেখুন", en: "Show password" })}
+                  </button>
                 </div>
-              </details>
-            ),
+                {tx(
+                  message && (
+                    <p role="alert" className="error">
+                      {tx(message)}
+                    </p>
+                  ),
+                )}
+                <button disabled={busy} type="submit">
+                  {tx(busy ? "Signing in…" : "Sign in")}
+                </button>
+              </form>
+              <a className="login-recovery" href="/recover">
+                {t("Forgot password? Recover your account ")}
+              </a>
+              {tx(
+                localDemo && (
+                  <details>
+                    <summary>{t("Local demo accounts")}</summary>
+                    <p>
+                      {t("Password: ")}
+                      <code>{t("Demo-Phase1!")}</code>
+                    </p>
+                    <div className="demo-accounts">
+                      {tx(
+                        (localDemo ? accounts : []).map((a) => (
+                          <button
+                            className="text-button"
+                            key={a}
+                            onClick={() => setEmail(a)}
+                          >
+                            {tx(a)}
+                          </button>
+                        )),
+                      )}
+                    </div>
+                  </details>
+                ),
+              )}
+            </>
           )}
         </section>
       }

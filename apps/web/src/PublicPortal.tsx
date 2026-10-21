@@ -30,6 +30,7 @@ function RecoveryForm() {
     [message, setMessage] = useState(""),
     [busy, setBusy] = useState(false),
     [done, setDone] = useState(false);
+  const [mfaRecoveryBlocked, setMfaRecoveryBlocked] = useState(false);
   useEffect(() => {
     if (location.search) history.replaceState({}, "", "/recover");
   }, []);
@@ -60,6 +61,7 @@ function RecoveryForm() {
               }
               setBusy(true);
               setMessage("");
+              setMfaRecoveryBlocked(false);
               try {
                 await api("/auth/recover", "POST", {
                   token,
@@ -68,7 +70,11 @@ function RecoveryForm() {
                 setDone(true);
                 setToken("");
               } catch (e) {
-                setMessage((e as Error).message);
+                if (
+                  (e as any)?.details?.error?.code === "MFA_RECOVERY_REQUIRED"
+                )
+                  setMfaRecoveryBlocked(true);
+                else setMessage((e as Error).message);
               } finally {
                 setBusy(false);
               }
@@ -112,6 +118,14 @@ function RecoveryForm() {
             {tx(message)}
           </p>
         ),
+      )}
+      {mfaRecoveryBlocked && (
+        <p className="notice error" role="alert">
+          {choose({
+            bn: "এই অ্যাকাউন্টে দুই ধাপের নিরাপত্তা চালু আছে। পাসওয়ার্ড জানা থাকলে authenticator বা সংরক্ষিত recovery code দিয়ে লগইন করুন। সহায়তাপ্রাপ্ত MFA reset এখনও চালু হয়নি; এই recovery link দিয়ে নিরাপত্তা এড়ানো যাবে না।",
+            en: "This account uses two-step security. If you know your password, sign in with your authenticator or a saved recovery code. Assisted MFA reset is not available yet; this recovery link cannot bypass that protection.",
+          })}
+        </p>
       )}
     </section>
   );
@@ -211,7 +225,13 @@ export function CivicIcon({ index = 0 }: { index?: number }) {
     </svg>
   );
 }
-export function PublicPortal({ login }: { login: React.ReactNode }) {
+export function PublicPortal({
+  login,
+  onNavigate,
+}: {
+  login: React.ReactNode;
+  onNavigate?: () => void;
+}) {
   const serviceInformationRef = useRef<HTMLElement>(null);
   const initial = location.pathname.split("/")[1] || "home";
   const [page, setPage] = useState(initial),
@@ -270,6 +290,7 @@ export function PublicPortal({ login }: { login: React.ReactNode }) {
     addressEn: "",
   });
   function nav(next: string) {
+    onNavigate?.();
     setPage(next);
     setOffice(null);
     setError("");
@@ -278,12 +299,13 @@ export function PublicPortal({ login }: { login: React.ReactNode }) {
   }
   useEffect(() => {
     const pop = () => {
+      onNavigate?.();
       setPage(location.pathname.split("/")[1] || "home");
       setOffice(null);
     };
     addEventListener("popstate", pop);
     return () => removeEventListener("popstate", pop);
-  }, []);
+  }, [onNavigate]);
   async function loadOffices(p = 1) {
     setWorking(true);
     setError("");
