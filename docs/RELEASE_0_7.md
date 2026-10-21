@@ -19,9 +19,15 @@ All new interactions have Bangla and English copy. DEMO / NOT OFFICIAL remains v
 
 ## Verification record
 
-Local browser and render checks, CI, exact runtime commit and post-deploy results are recorded in the release evidence when complete. A source commit is not proof of deployment. Focused new coverage includes public task routing, search recovery, password visibility, role-specific queues, mobile navigation, real draft/submission, validation focus and fee/authority guidance.
+On 21 October 2026, **49/49 local frontend tests** and the production build passed. The 13 new checks comprise three public browser tests, three workspace browser tests and seven role/state guidance render tests. Coverage includes public task routing, search recovery, password visibility, role-specific queues, mobile navigation, real draft/submission, validation focus and fee/authority guidance. [Local evidence](../execution/usability-local-qa.json), [full web test log](../execution/usability-web-tests.log).
 
-The browser tests use synthetic records and real local PostgreSQL. The guidance render tests cover role/state branches without provider calls. Live acceptance uses existing synthetic accounts and session changes only; it must not create payments, alter tariffs or issue certificates.
+GitHub [CI run 39552222856](https://github.com/sajeeb-ahmeed/astra-union-services/actions/runs/39552222856) passed **223/223 tests** (5 backup safety, 72 forms, 97 API, 49 frontend), production and Docker builds, and the dependency audit with zero vulnerabilities. It tested commit `56fb7f56bd77cfde2887a52384d3a9b4706a421e`. [CI evidence](../execution/usability-ci-qa.json).
+
+The same runtime is **live** at [Astra](https://astra-union-services.onrender.com/). Render deployment `dep-dbc596mi0phs73aeldug` finished on **21 October 2026 at 12:01:21 Asia/Dhaka**. No database migration or external database access was needed. [Deployment evidence](../execution/usability-render-deploy.json).
+
+Post-deploy acceptance passed **8 live usability/browser groups** and **22 API groups** (4 security, 7 payment, 6 historical readback and 5 geography). All **8 deployed JavaScript/CSS files** matched the tested local build and immutable cache headers. Live checks retained the original PDF bytes, 24-credit wallet, one three-credit issuance debit and five application events. The browser verified both languages at 390 × 844, logged out, and recorded zero page errors or unintended mutations. Payment collection stayed disabled. [Live browser](../execution/usability-live-browser-qa.json), [live API and preservation summary](../execution/usability-live-release.json), [asset hashes](../execution/usability-live-assets.json), [database metadata](../execution/usability-network-qa.json).
+
+The browser tests use synthetic records and real local PostgreSQL. The guidance render tests cover role/state branches without provider calls. Live acceptance used existing synthetic accounts; only sessions and their security audit changed. It created no payments, citizen/application records or certificates and changed no tariffs or passwords. Screenshots: [live English dashboard](../execution/usability-live-workspace-home-en.png), [live Bangla guidance](../execution/usability-live-guidance-bn.png), [desktop overview](../execution/screenshots/usability-workspace-home-en.png), [mobile Bangla overview](../execution/screenshots/usability-workspace-home-bn.png).
 
 ## Remaining limits and next work
 

@@ -1,0 +1,117 @@
+{
+  "release": "0.7.0",
+  "verifiedAt": "2026-10-21T06:02:11.264Z",
+  "status": "PASS",
+  "liveUrl": "https://astra-union-services.onrender.com/",
+  "runtimeCommit": "56fb7f56bd77cfde2887a52384d3a9b4706a421e",
+  "deploy": {
+    "id": "dep-dbc596mi0phs73aeldug",
+    "status": "live",
+    "finishedAt": "2026-10-21T06:01:21.514444Z",
+    "serviceId": "srv-db6tvpou01pc73bjkpr0",
+    "autoDeploy": "no",
+    "plan": "free",
+    "region": "singapore"
+  },
+  "ci": {
+    "runId": 39552222856,
+    "url": "https://github.com/sajeeb-ahmeed/astra-union-services/actions/runs/39552222856",
+    "tests": {
+      "backup": 5,
+      "forms": 72,
+      "api": 97,
+      "web": 49,
+      "total": 223,
+      "failed": 0
+    },
+    "productionBuild": "PASS",
+    "dockerBuild": "PASS",
+    "dependencyAuditVulnerabilities": 0,
+    "evidence": "usability-ci-qa.json"
+  },
+  "local": {
+    "frontendTests": 49,
+    "result": "PASS",
+    "evidence": "usability-local-qa.json"
+  },
+  "hosted": {
+    "accountSecurity": {
+      "groups": 4,
+      "status": "PASS",
+      "evidence": "usability-hosted-security.json"
+    },
+    "payments": {
+      "groups": 7,
+      "status": "PASS",
+      "evidence": "usability-hosted-payments.json"
+    },
+    "readback": {
+      "groups": 6,
+      "status": "PASS",
+      "evidence": "usability-hosted-readback.json"
+    },
+    "geography": {
+      "groups": 5,
+      "status": "PASS",
+      "evidence": "usability-hosted-geography.json"
+    },
+    "apiGroupTotal": 22,
+    "browser": {
+      "groups": 8,
+      "status": "PASS",
+      "pageErrors": 0,
+      "blockedMutations": 0,
+      "cleanup": "SIGNED_OUT",
+      "languages": [
+        "bn",
+        "en"
+      ],
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "evidence": "usability-live-browser-qa.json"
+    },
+    "assets": {
+      "count": 8,
+      "sha256MatchesTestedBuild": true,
+      "immutableCache": true,
+      "status": "PASS",
+      "evidence": "usability-live-assets.json"
+    }
+  },
+  "preservation": {
+    "originalCertificatePdfIdentical": true,
+    "originalWalletCredits": 24,
+    "originalIssuanceDebits": 1,
+    "originalIssuanceDelta": -3,
+    "originalApplicationEvents": 5
+  },
+  "database": {
+    "migrationRequired": false,
+    "externalAccessOpened": false,
+    "ipAllowList": [],
+    "expiresAt": "2026-11-12T07:28:16.203893Z",
+    "evidence": "usability-network-qa.json"
+  },
+  "paymentCollection": "DISABLED",
+  "certificates": "DEMO / NOT OFFICIAL",
+  "newFeatures": [
+    "Role-specific daily task dashboard",
+    "Mobile page picker",
+    "Citizen/service/details intake guidance",
+    "Readable error summary with field focus",
+    "State and role based next-step guidance with payment holds",
+    "Bangla-number search, clear filters, empty recovery and localized dates",
+    "Public tracking/verification shortcuts and focused service details",
+    "Accessible password visibility toggle"
+  ],
+  "limits": [
+    "No full accessibility conformance or real-office usability study claimed.",
+    "No new schema, authorization or payment settlement behavior.",
+    "Unsaved intake fields still clear on citizen/service change; no autosave added.",
+    "Hosted full backup/offsite independent restore and durable hosting before 12 November remain open.",
+    "MFA, privileged recovery, file scanning, external identity and official issuing authority remain open."
+  ],
+  "nextMilestone": "Protected hosted backup and independent restore, then durable hosting; office pilot feedback for further usability work."
+}

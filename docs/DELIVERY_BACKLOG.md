@@ -1,8 +1,10 @@
-# Delivery backlog — 0.6 release and deferred gateway work
+# Delivery backlog — 0.7 usability and deferred gateway work
 
 **Updated 21 October 2026.** Start with the Bangla [status and next steps](STATUS_AND_NEXT_STEPS.md) when resuming work. This backlog records the remaining work; it does not authorize account purchases, provider activation or official issuance.
 
-**Owner direction:** payment merchant onboarding/integration is deferred. Continue merchant-independent security, recovery and quality work. The confirmed 0.6 live runtime `402903fb113799f5d7e5ec8d62307ba88f625318` passed all 210 tests in [CI 39199410740](https://github.com/sajeeb-ahmeed/astra-union-services/actions/runs/39199410740), its Docker build and dependency audit. Render deployment `dep-dbappb8m7kps739q5ivg` finished live on 19 October and was reconfirmed on 21 October; **22 hosted API groups, five live browser groups and seven deployed JS/CSS hash checks passed**. [Current live evidence](../execution/security-live-release.json).
+**0.7 live:** role-specific task shortcuts, mobile page selection, clearer application steps/errors/status guidance, improved service/application search and public/login usability are implemented. Runtime `56fb7f56bd77cfde2887a52384d3a9b4706a421e` passed 49 local web tests, typecheck and production build. [CI 39552222856](https://github.com/sajeeb-ahmeed/astra-union-services/actions/runs/39552222856) passed **223/223 tests**, production/Docker builds and a zero-vulnerability audit. Render deploy `dep-dbc596mi0phs73aeldug` finished live on 21 October at 12:01:21 Asia/Dhaka. **22 hosted API groups, eight live browser groups and eight JS/CSS asset hashes passed.** [0.7 scope and limits](RELEASE_0_7.md), [live results](../execution/usability-live-release.json). This usability work does not close hosted recovery, MFA, file scanning, official authority or merchant-readiness gates.
+
+**Owner direction:** payment merchant onboarding/integration is deferred. Continue merchant-independent security, recovery and quality work. The previous 0.6 runtime `402903fb113799f5d7e5ec8d62307ba88f625318` passed all 210 tests in [CI 39199410740](https://github.com/sajeeb-ahmeed/astra-union-services/actions/runs/39199410740), its Docker build and dependency audit. Its **22 hosted API groups, five live browser groups and seven asset hashes** remain preserved as [historical 0.6 evidence](../execution/security-live-release.json).
 
 The first CI attempt caught an environment-dependent public bundle-size failure. Build configuration was corrected without weakening the budget; focused tests and the new full CI run passed. Preserve the [actual attempt history](../execution/security-ci-attempts.json).
 
@@ -17,7 +19,7 @@ The first CI attempt caught an environment-dependent public bundle-size failure.
 
 Evidence: [release 0.5](RELEASE_0_5.md), [live metadata](../execution/payments-live-release.json), [reference parity and gaps](PROCESS_PARITY.md). Runtime `b86908b9a4654cc31cd1b517fc5e8ad3ae086878` is the tested 0.5 release; later documentation commits do not imply a new deployment.
 
-## Deployed and verified 0.6 increment
+## Verified 0.6 increment — preserved baseline
 
 - Own-session summary and password-confirmed sign-out of other sessions; password changes consume previous recovery tokens across memberships. Account locking closes stale-password/session races. Bilingual citizen/office/owner UI and negative authorization tests are included. MFA, privileged recovery and durable owner-security audit remain open. See [account security](ACCOUNT_SECURITY.md).
 - Public JavaScript decreased **64.4%**, from 990,769 to 352,929 bytes; all 47 services remain discoverable. Authenticated workspace/schema loading is deferred until a valid session, with bilingual chunk-failure recovery. The roughly 646 KB authenticated chunk remains an optimization target. See [measured build results](../execution/security-performance-qa.json).

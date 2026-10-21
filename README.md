@@ -1,6 +1,17 @@
 # Astra — working citizen-services website
 
-Release 0.6.0 · live deployment and hosted acceptance verified on 21 October 2026. Independently authored Bangla/English React frontend, Express/TypeScript backend and real PostgreSQL database. The commissioning user owns the original software; third-party licenses are retained separately.
+Release 0.7.0 · live deployment and hosted acceptance verified on 21 October 2026. Independently authored Bangla/English React frontend, Express/TypeScript backend and real PostgreSQL database. The commissioning user owns the original software; third-party licenses are retained separately.
+
+## 0.7 usability update — live and verified
+
+- Start from role-specific daily tasks; use the mobile page picker, simpler application search and clear filters.
+- Follow citizen/service/form steps, readable validation links and state-specific guidance for drafts, corrections, approval, fee verification and certificate downloads.
+- Find services with Bangla or English names/numerals; open focused service details instead of scrolling past all 47 cards. Homepage shortcuts reach application tracking and certificate verification.
+- Show or hide the login password with a keyboard-accessible bilingual control; submission masks it and sign-out clears the fields.
+
+Runtime `56fb7f56bd77cfde2887a52384d3a9b4706a421e` passed **49/49 local web tests**, typecheck and the production build. [CI run 39552222856](https://github.com/sajeeb-ahmeed/astra-union-services/actions/runs/39552222856) passed **223/223 tests** (5 backup, 72 forms, 97 API, 49 web), production/Docker builds and a zero-vulnerability audit. Render deployment `dep-dbc596mi0phs73aeldug` finished live on **21 October 2026 at 12:01:21 Asia/Dhaka**. **22 hosted API groups, eight live browser groups and all eight deployed JS/CSS asset hashes passed**. See [0.7 release notes](docs/RELEASE_0_7.md), [local test evidence](execution/usability-local-qa.json) and [live acceptance](execution/usability-live-release.json). Gateway work remains deferred. Hosted backup/independent restore, MFA, file scanning and durable hosting before **12 November 2026** remain open.
+
+## Historical 0.6 baseline
 
 **0.6 · merchant-independent work:** own-session controls, password/recovery race protection, lighter public-page loading and stronger encrypted local recovery are implemented. **210 local and 210 CI tests passed** (5 backup, 72 forms, 97 API, 36 web), plus 17 separate local database recovery checks. Runtime `402903fb113799f5d7e5ec8d62307ba88f625318` passed [CI run 39199410740](https://github.com/sajeeb-ahmeed/astra-union-services/actions/runs/39199410740), its Docker build and dependency audit. Render deployment `dep-dbappb8m7kps739q5ivg` finished live at `2026-10-19T04:31:36.05317Z`; the exact runtime was reconfirmed on 21 October. **22 hosted API groups, five live browser groups and all seven deployed JS/CSS asset hashes passed.** [Release evidence](docs/RELEASE_0_6.md). Payment onboarding/activation is deferred at the owner's request.
 
@@ -10,7 +21,7 @@ The first CI attempt caught an environment-dependent development React bundle ex
 
 **Open:** [live demo](https://astra-union-services.onrender.com) or [local website](http://127.0.0.1:5173). **Read:** [hosted deployment and live test results](docs/HOSTED_DEPLOYMENT.md), [delivery report](docs/DELIVERY_REPORT.md), [deployment instructions](docs/DEPLOYMENT.md), [acceptance evidence](docs/TEST_MATRIX.md).
 
-The service runs on Render Free with PostgreSQL 17. Current hosted checks passed: **four account-security, seven payment, six historical-record readback and five geography groups**. Existing PDF bytes and credit records remained unchanged. Five live browser groups passed for public/login/logout behavior, Bangla/English account controls and mobile layout, with no page errors. All seven JS/CSS asset hashes match the tested build and use immutable caching. No migration or external database access was needed; the database allowlist remains empty. See [live release results](execution/security-live-release.json). The Free database expires on **12 November 2026**, and the web service can sleep when idle. Live identity and merchant payment collection remain unconfigured.
+The 0.6 release ran on the same Render Free/PostgreSQL 17 service. Its hosted checks passed: **four account-security, seven payment, six historical-record readback and five geography groups**. Existing PDF bytes and credit records remained unchanged. Five live browser groups and seven JS/CSS asset hashes passed at that milestone. See [historical 0.6 live results](execution/security-live-release.json); current 0.7 acceptance is recorded above. The Free database expires on **12 November 2026**, and the web service can sleep when idle. Live identity and merchant payment collection remain unconfigured.
 
 This release expands Phase 1 into **47 operational demonstration services**. Every service has been exercised through draft, submission, review, authorized approval, real PDF, QR lookup and exactly one credit debit. These tests prove this independently built implementation. Original reference-site success paths remain unverified. Documents remain DEMO / NOT OFFICIAL; live identity, legal authority and commercial payment-provider integrations are not configured.
 

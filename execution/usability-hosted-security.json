@@ -1,0 +1,49 @@
+{
+  "startedAt": "2026-10-21T06:01:22.441Z",
+  "baseUrl": "https://astra-union-services.onrender.com",
+  "sourceRunId": "mvc6zn32-e0e60d",
+  "status": "PASS",
+  "scope": "Existing synthetic QA staff session revocation and audit only. No password changes, citizen/financial records or provider calls.",
+  "checks": [
+    {
+      "name": "01 Secure login and aggregate self-session summary",
+      "status": "PASS",
+      "evidence": {
+        "secureCookies": true,
+        "aggregateOnly": true,
+        "multipleSyntheticSessions": true
+      }
+    },
+    {
+      "name": "02 Missing session, CSRF and wrong password denied",
+      "status": "PASS",
+      "evidence": {
+        "unauthenticated": 401,
+        "csrf": 403,
+        "wrongPassword": 422,
+        "otherSessionPreserved": true
+      }
+    },
+    {
+      "name": "03 Revoke others preserves current and different account sessions",
+      "status": "PASS",
+      "evidence": {
+        "revoked": 1,
+        "currentPreserved": true,
+        "otherAccountPreserved": true
+      }
+    },
+    {
+      "name": "04 Payment collection stays disabled",
+      "status": "PASS",
+      "evidence": {
+        "collectionEnabled": false
+      }
+    }
+  ],
+  "loggedOut": [
+    "staff",
+    "admin"
+  ],
+  "finishedAt": "2026-10-21T06:01:25.446Z"
+}

@@ -1,0 +1,63 @@
+{
+  "executedAt": "2026-10-21T06:01:31.497Z",
+  "baseUrl": "https://astra-union-services.onrender.com",
+  "status": "PASS",
+  "assets": [
+    {
+      "name": "AccountSessions-Bi0FSVgr.js",
+      "bytes": 3091,
+      "sha256": "882c33fed1fe972b4964ce0868520d1d024a2aaa46c58bb01849589e85565a36",
+      "matchesLocalBuild": true,
+      "immutableCache": true
+    },
+    {
+      "name": "AdditionalWorkspace-BYKLcSU5.js",
+      "bytes": 14022,
+      "sha256": "adfe2b98de9d2ad275d97d359897f7e8ef5224dfc96f5419e313231ef6504987",
+      "matchesLocalBuild": true,
+      "immutableCache": true
+    },
+    {
+      "name": "AdminWorkspace-C-7y1PlC.js",
+      "bytes": 27893,
+      "sha256": "47ba06f7436c5aae838a8106987e219bb4518794a3355445a02b17c271074a15",
+      "matchesLocalBuild": true,
+      "immutableCache": true
+    },
+    {
+      "name": "index-CH_yOoyZ.css",
+      "bytes": 36191,
+      "sha256": "671f1eb4f404b0caf252e04069013860b002c9c787963a53da17fb3726c8177b",
+      "matchesLocalBuild": true,
+      "immutableCache": true
+    },
+    {
+      "name": "index-wMuuyuyz.js",
+      "bytes": 355788,
+      "sha256": "18f91d289c7d46aebd9cfe61256c31b36ea8ec1e6f844956cc7a69e510af0560",
+      "matchesLocalBuild": true,
+      "immutableCache": true
+    },
+    {
+      "name": "OnlinePayments-CFwdb5RJ.js",
+      "bytes": 23769,
+      "sha256": "6e30ee9e255bfcbf3d43597c6ffc53918a8de58736239f63ef1ca041e760273a",
+      "matchesLocalBuild": true,
+      "immutableCache": true
+    },
+    {
+      "name": "WorkspaceApp-Bq3H9Rnx.css",
+      "bytes": 2778,
+      "sha256": "937c52ee58feac59f4894a0038f152b0918e4e6cee7951992317d2e1a0660527",
+      "matchesLocalBuild": true,
+      "immutableCache": true
+    },
+    {
+      "name": "WorkspaceApp-Bz0En8Fz.js",
+      "bytes": 669747,
+      "sha256": "e6fd4f71119bf8b76493aa3701a970681fb0883d7986c121f28f92618ff56511",
+      "matchesLocalBuild": true,
+      "immutableCache": true
+    }
+  ]
+}

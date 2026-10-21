@@ -1,8 +1,8 @@
 # Operations and verified local recovery
 
-## Current 0.6 recovery tooling
+## Recovery tooling inherited from 0.6
 
-Release 0.6 is deployed on Render; the recovery tooling has local verification. Hosted application acceptance passed on 21 October and is recorded separately in [release evidence](RELEASE_0_6.md); these application checks do not constitute a hosted backup/restore. Follow [BACKUP_AND_RECOVERY.md](BACKUP_AND_RECOVERY.md) for the current format-2 archive contract, complete commands, collision safeguards and evidence. The detailed runbook is authoritative for new backups; preserve older format-1 archives together with their matching 0.5 verifier.
+Release 0.7 is deployed on Render and retains the 0.6 recovery tooling with its local verification. Current hosted application acceptance is recorded in [0.7 release evidence](RELEASE_0_7.md); these application checks do not constitute a hosted backup/restore or a new recovery drill. Follow [BACKUP_AND_RECOVERY.md](BACKUP_AND_RECOVERY.md) for the current format-2 archive contract, complete commands, collision safeguards and evidence. The detailed runbook is authoritative for new backups; preserve older format-1 archives together with their matching 0.5 verifier.
 
 Executed **19 October 2026**: five focused safety tests and **17 real local recovery checks passed**. The snapshot contained 46 public tables, 117 synthetic tenants, 435 demonstration PDFs, all 11 migration files (highest numbered 012), 18 application routines, 7 column grants and 94 indexes. All hashes, balances and database security comparisons matched; the restricted role saw no unscoped rows across 30 tenant RLS tables. See [current JSON](../execution/security-backup-qa.json) and [current log](../execution/security-backup-restore.log).
 

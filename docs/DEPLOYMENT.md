@@ -1,8 +1,14 @@
 # Deployment and reproducibility
 
-Updated for **0.6 live deployment · 21 October 2026**. Windows/Node 24/PostgreSQL 17.11 is the local development path. [Release 0.6](RELEASE_0_6.md) records 210 passing Linux CI tests, Docker build, local recovery checks and current hosted verification. [HOSTED_DEPLOYMENT.md](HOSTED_DEPLOYMENT.md) records the exact runtime and preserved 0.5/0.4/0.3 history. Certificate documents retain DEMO / NOT OFFICIAL semantics.
+Updated for **0.7 live deployment · 21 October 2026**. Windows/Node 24/PostgreSQL 17.11 is the local development path. [Release 0.7](RELEASE_0_7.md) records 223 passing Linux CI tests, production/Docker builds and hosted verification. [HOSTED_DEPLOYMENT.md](HOSTED_DEPLOYMENT.md) records the exact runtime and preserved release history. Certificate documents retain DEMO / NOT OFFICIAL semantics.
 
-## 0.6 rollout
+## 0.7 usability rollout
+
+Runtime `56fb7f56bd77cfde2887a52384d3a9b4706a421e` passed [CI 39552222856](https://github.com/sajeeb-ahmeed/astra-union-services/actions/runs/39552222856) and is live as `dep-dbc596mi0phs73aeldug`. This frontend update needed no migration, database firewall opening or provider credentials. Eight live usability/browser groups, 22 API groups and eight JS/CSS hash checks passed. See [release metadata](../execution/usability-live-release.json).
+
+For future rollout verification, run `scripts/verify-hosted-usability.ts` only against the explicitly authorized HTTPS origin after deployment; it permits only login/logout writes using existing synthetic records. Set `ASTRA_ASSET_EVIDENCE_PREFIX` and `ASTRA_QA_OUTPUT` for the other asset/API scripts to new release-specific evidence paths. Preserve historical evidence. Session-revocation checks should finish before opening the same synthetic account's UI session.
+
+## Previous 0.6 rollout and retained security checks
 
 Runtime `402903fb113799f5d7e5ec8d62307ba88f625318` adds account/session protection, lazy authenticated-workspace loading and expanded local recovery tools. It passed **210 local tests** (5 backup, 72 forms, 97 API, 36 web), production build, dependency audit and 17 separate full-recovery checks. [CI 39199410740](https://github.com/sajeeb-ahmeed/astra-union-services/actions/runs/39199410740) also passed all 210 tests, its Docker build and dependency audit. Render deployment `dep-dbappb8m7kps739q5ivg` began at `2026-10-19T04:29:33.740333Z` and finished live at `2026-10-19T04:31:36.05317Z`; its exact runtime was reconfirmed on 21 October, with **22 hosted API groups, five live browser groups and seven deployed asset-hash checks passing**. Existing PDF/credit records remained unchanged; the database allowlist is empty. See [live release evidence](../execution/security-live-release.json).
 

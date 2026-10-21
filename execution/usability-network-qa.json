@@ -1,0 +1,12 @@
+{
+  "verifiedAt": "2026-10-21T06:00:53.085Z",
+  "status": "PASS",
+  "databaseId": "dpg-db6tr43ncjis73ercfsg-a",
+  "availability": "available",
+  "ipAllowList": [],
+  "expiresAt": "2026-11-12T07:28:16.203893Z",
+  "plan": "free",
+  "migrationRequired": false,
+  "externalAccessOpenedThisRelease": false,
+  "scope": "Read-only Render database metadata. No external database connection probe or migration required for this UI release."
+}

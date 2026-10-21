@@ -4,18 +4,25 @@
 
 ## এক নজরে
 
-- **Release 0.6.0 live; hosted acceptance পাস:** [Astra ওয়েবসাইট](https://astra-union-services.onrender.com/)।
+- **0.7 usability live:** role অনুযায়ী কাজের shortcut, mobile page picker, সহজ search/filter, আবেদন ও সংশোধনের পরবর্তী ধাপ, field-error link, public tracking/verification এবং password দেখানো/লুকানোর control। বাংলা/ইংরেজি ও ৪৭টি সেবা অক্ষত।
+- **Release 0.7.0 live; hosted acceptance পাস:** [Astra ওয়েবসাইট](https://astra-union-services.onrender.com/)। [Release 0.7](RELEASE_0_7.md), [local evidence](../execution/usability-local-qa.json)।
 - **Source:** [GitHub repository](https://github.com/sajeeb-ahmeed/astra-union-services), branch: codex/initial-deployment।
-- **Live runtime commit:** 402903fb113799f5d7e5ec8d62307ba88f625318। পরের documentation commit-কে নতুন deployed runtime ভাবা যাবে না; Render Auto-Deploy বন্ধ।
-- **Deploy:** dep-dbappb8m7kps739q5ivg; ১৯ অক্টোবর ২০২৬, সকাল ১০:৩১:৩৬ বাংলাদেশ সময়; ২১ অক্টোবর live status পুনরায় নিশ্চিত।
-- **CI:** ২১০/২১০ পরীক্ষা, production build ও Docker build পাস; dependency audit-এ তখন শূন্য vulnerability।
-- **Live verification:** ২১ অক্টোবর 0.6-এ account security ৪টি, payment ৭টি, readback ৬টি ও geography ৫টি—মোট **২২টি API group পাস**। আরও **৫টি বাংলা/ইংরেজি/mobile browser group** ও **৭টি JS/CSS hash** পাস; page error নেই। পুরোনো PDF ও credit records অপরিবর্তিত।
+- **Live runtime commit:** 56fb7f56bd77cfde2887a52384d3a9b4706a421e। পরের documentation commit-কে নতুন deployed runtime ভাবা যাবে না; Render Auto-Deploy বন্ধ।
+- **Deploy:** dep-dbc596mi0phs73aeldug; ২১ অক্টোবর ২০২৬, দুপুর ১২:০১:২১ বাংলাদেশ সময়।
+- **CI:** [39552222856](https://github.com/sajeeb-ahmeed/astra-union-services/actions/runs/39552222856)-এ **২২৩/২২৩ পরীক্ষা** (backup ৫, forms ৭২, API ৯৭, web ৪৯), production/Docker build ও zero-vulnerability audit পাস। স্থানীয় ৪৯/৪৯ web test, typecheck ও build-ও পাস।
+- **Live verification:** ২১ অক্টোবর 0.7-এ account security ৪টি, payment ৭টি, readback ৬টি ও geography ৫টি—মোট **২২টি API group পাস**। আরও **৮টি বাংলা/ইংরেজি/mobile browser group** ও **৮টি JS/CSS hash** পাস; page error নেই, browser শেষে signed out। পুরোনো PDF ও credit records অপরিবর্তিত। Database available, external IP allowlist খালি; migration বা access খোলা হয়নি।
 - **প্রকৃত payment collection বন্ধ।** bKash merchant account/API credentials এখনও পাওয়া যায়নি; Nagad ও bank payout reconciliation যুক্ত হয়নি।
 - **সনদ DEMO / NOT OFFICIAL।** Payment চালু করলেই সরকারি সনদ দেওয়ার কর্তৃত্ব তৈরি হয় না।
 
-প্রধান evidence: [Release 0.6](RELEASE_0_6.md), [deployment record](HOSTED_DEPLOYMENT.md), [CI ফলাফল](../execution/security-ci-qa.json), [live ফলাফল](../execution/security-live-release.json)। আগের [0.5 ফলাফল](../execution/payments-live-release.json) আলাদা ইতিহাস।
+প্রধান evidence: [Release 0.7](RELEASE_0_7.md), [deployment record](HOSTED_DEPLOYMENT.md), [CI ফলাফল](../execution/usability-ci-qa.json), [live ফলাফল](../execution/usability-live-release.json)। আগের [0.6 ফলাফল](../execution/security-live-release.json) ও [0.5 ফলাফল](../execution/payments-live-release.json) আলাদা ইতিহাস।
 
-## নতুন 0.6 কাজ — live ও যাচাইকৃত
+## 0.7 usability কাজ — live ও যাচাইকৃত
+
+ব্যবহার সহজ করার জন্য প্রথম পাতায় role অনুযায়ী প্রয়োজনীয় কাজ সামনে আনা হয়েছে। নতুন আবেদনে নাগরিক → সেবা → তথ্য/ফি/খসড়া ধাপ দেখানো হয়; ভুল field-এর নাম ধরে সরাসরি সংশোধনের ঘরে যাওয়া যায়। আবেদন খুললে খসড়া জমা দেওয়া, সংশোধন, যাচাই, অনুমোদন, প্রযোজ্য fee verification এবং PDF সংগ্রহের পরবর্তী করণীয় দেখা যায়। নির্দেশনাগুলো server-এর authorization বা payment/issuance শর্ত পরিবর্তন করে না।
+
+Public service search-এ বাংলা সংখ্যা ব্যবহার, না পাওয়া গেলে সব সেবায় ফেরা, বাছাই করা সেবার তথ্য সরাসরি দেখা এবং login password দেখানো/লুকানো যোগ হয়েছে। এটি usability increment; official authority, identity verification, merchant collection বা hosted backup চালু হয়নি। পূর্ণ hosted export/independent restore ও **১২ নভেম্বরের আগে durable hosting** এখনও জরুরি অগ্রাধিকার।
+
+## 0.6 ইতিহাস — live ও যাচাইকৃত baseline
 
 ব্যবহারকারীর সিদ্ধান্ত অনুযায়ী **payment gateway, merchant onboarding ও activation আপাতত স্থগিত**। Merchant account ছাড়া করা যায় এমন কাজের প্রথম increment তৈরি হয়েছে:
 

@@ -1,0 +1,17 @@
+{
+  "verifiedAt": "2026-10-21T06:01:41.168Z",
+  "workspaceId": "tea-cspv5f3tq21c73e2gvtg",
+  "serviceId": "srv-db6tvpou01pc73bjkpr0",
+  "commit": {
+    "createdAt": "2026-10-21T05:54:23Z",
+    "id": "56fb7f56bd77cfde2887a52384d3a9b4706a421e",
+    "message": "Guide daily tasks, simplify search and make application progress clear"
+  },
+  "createdAt": "2026-10-21T05:58:50.113208Z",
+  "finishedAt": "2026-10-21T06:01:21.514444Z",
+  "id": "dep-dbc596mi0phs73aeldug",
+  "startedAt": "2026-10-21T05:58:50.08665Z",
+  "status": "live",
+  "trigger": "api",
+  "updatedAt": "2026-10-21T06:01:21.514703Z"
+}

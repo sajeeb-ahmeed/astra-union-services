@@ -1,8 +1,18 @@
 # Execution results and release history
 
-**Current release · 21 October 2026:** [Release 0.6 is deployed](RELEASE_0_6.md), with 210 passing CI tests, Docker build and 17 separate local recovery checks. **22 hosted API groups, five live browser groups and seven deployed asset-hash checks passed**; merchant collection remains disabled.
+**Current release · 21 October 2026:** [Release 0.7 is live](RELEASE_0_7.md), with 49 local web tests and **223 CI tests**, production/Docker builds and dependency audit passed. **22 hosted API groups, eight live browser groups and eight asset-hash checks passed.** Merchant collection remains disabled.
 
-## Release 0.6 — execution results
+## Release 0.7 — execution results
+
+Source `56fb7f56bd77cfde2887a52384d3a9b4706a421e` adds role-specific task entry, mobile navigation, easier search and validation, application next-step guidance, public shortcuts and password visibility controls. [Local evidence](../execution/usability-local-qa.json) and [web test log](../execution/usability-web-tests.log) record **49/49 web cases PASS**, with typecheck and production build PASS. The browser suite uses the existing local PostgreSQL-backed app for full workflows; production bundle tests retain their documented mocked-API boundary.
+
+[CI run 39552222856](https://github.com/sajeeb-ahmeed/astra-union-services/actions/runs/39552222856) passed **223/223 cases** (5 backup, 72 forms, 97 API, 49 web), production/Docker builds and a zero-vulnerability audit for the exact source above. Render deploy `dep-dbc596mi0phs73aeldug` started at `2026-10-21T05:58:50.08665Z` and finished live at `2026-10-21T06:01:21.514444Z` (**12:01:21 Asia/Dhaka**). No schema migration or payment activation is part of 0.7. [CI evidence](../execution/usability-ci-qa.json), [deployment](../execution/usability-render-deploy.json).
+
+Post-deploy verification passed **22 API groups**: [security 4](../execution/usability-hosted-security.json), [payments 7](../execution/usability-hosted-payments.json), [readback 6](../execution/usability-hosted-readback.json) and [geography 5](../execution/usability-hosted-geography.json). Original PDF bytes, 24-credit wallet and its single three-credit issuance debit were preserved. [Eight live UI groups](../execution/usability-live-browser-qa.json) passed with no page errors, zero attempted blocked business mutations and signed-out cleanup. All [eight JS/CSS asset hashes](../execution/usability-live-assets.json) matched the build with immutable caching. [Database metadata](../execution/usability-network-qa.json) confirmed availability and an empty external IP allowlist; no access was opened. [Consolidated result](../execution/usability-live-release.json).
+
+The first new public-usability test attempt passed 2 of 3 cases; its catalog count ran before the signed-out portal finished loading. Adding an explicit wait for the visible search field corrected test synchronization, and all three cases passed. The existing public service/directory/help regression also passed. No assertion was weakened.
+
+## Historical release 0.6 — execution results
 
 Runtime `402903fb113799f5d7e5ec8d62307ba88f625318` passed [CI run 39199410740](https://github.com/sajeeb-ahmeed/astra-union-services/actions/runs/39199410740): **210/210 tests, Docker build and dependency audit PASS**. Render deployment `dep-dbappb8m7kps739q5ivg` finished live at `2026-10-19T04:31:36.05317Z`, after its accepted trigger at `2026-10-19T04:29:33.740333Z`. Exact runtime/live status and hosted acceptance were verified on 21 October. See [live release metadata](../execution/security-live-release.json), [deployment](../execution/security-render-deploy.json) and [database network status](../execution/security-network-qa.json).
 

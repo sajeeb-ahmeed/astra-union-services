@@ -1,8 +1,32 @@
 # Hosted deployment record
 
-**Verified 21 October 2026: release 0.6.0 is live and post-deploy checks passed.** It adds account/session safety, stronger local backup verification and smaller public-page JavaScript. Payment gateway work is deferred by the product owner. Collection remains disabled; Nagad and bank payout reconciliation are not integrated. No genuine provider sandbox transaction or real-money payment is claimed. Astra certificates remain **DEMO / NOT OFFICIAL**. See [0.6 release evidence](RELEASE_0_6.md).
+**Verified 21 October 2026: release 0.7.0 is live and post-deploy checks passed.** It makes daily tasks, application progress, search, validation and mobile navigation easier to use. Payment gateway work remains deferred. Collection is disabled; Nagad and bank payout reconciliation are not integrated. No genuine provider transaction or official issuing authority is claimed. Certificates remain **DEMO / NOT OFFICIAL**. See [0.7 release evidence](RELEASE_0_7.md).
 
-## Current 0.6 deployment and verification
+## Current 0.7 deployment and verification
+
+| Component | Verified result |
+| --- | --- |
+| Live URL | [astra-union-services.onrender.com](https://astra-union-services.onrender.com/) |
+| Runtime commit | `56fb7f56bd77cfde2887a52384d3a9b4706a421e` |
+| Render deployment | `dep-dbc596mi0phs73aeldug`, status `live`; completed `2026-10-21T06:01:21.514444Z` (12:01:21 Asia/Dhaka) |
+| CI | [Run 39552222856](https://github.com/sajeeb-ahmeed/astra-union-services/actions/runs/39552222856): **223/223 tests**, production/Docker builds and zero-vulnerability audit passed |
+| Live usability | **8/8 groups passed**: public task shortcuts, Bangla service-number search, selected-service focus/return, password visibility, role tasks, mobile page picker, empty search reset, fee-hold guidance, BN/EN retention and logout/privacy checks |
+| Live API regression | **22/22 groups passed**: 4 account security, 7 payment controls, 6 historical readback, 5 geography |
+| Preserved records | Original PDF byte-for-byte identical; original wallet 24 credits, one three-credit issuance debit and five application events; QR/tracking remain minimal |
+| Frontend assets | All **8 JS/CSS assets** match tested local SHA-256 hashes and immutable cache headers |
+| Public entry | 355,788 raw bytes; 99,454 gzip bytes; remains below the 400 KB raw budget |
+| Database | No schema change or external access opening; database available with empty external IP allowlist |
+| Hosting | Same Free Singapore service `srv-db6tvpou01pc73bjkpr0`; Auto-Deploy Off; Free PostgreSQL expiry **12 November 2026** |
+
+Evidence: [consolidated release](../execution/usability-live-release.json), [Render](../execution/usability-render-deploy.json), [CI](../execution/usability-ci-qa.json), [live browser](../execution/usability-live-browser-qa.json), [security](../execution/usability-hosted-security.json), [payment](../execution/usability-hosted-payments.json), [historical readback](../execution/usability-hosted-readback.json), [geography](../execution/usability-hosted-geography.json), [assets](../execution/usability-live-assets.json), [database metadata](../execution/usability-network-qa.json).
+
+The live UI used existing synthetic QA accounts and records; login/logout were its only writes. The separate session-security test revoked only another synthetic QA session and recorded its security audit. No citizen/financial records, tariffs, passwords or certificates changed. The browser finished signed out with blank credentials, zero page errors and zero unintended mutations. No migration or database firewall opening was required. Later documentation commits do not change the deployed runtime because Auto-Deploy is off.
+
+Screenshots: [English daily tasks](../execution/usability-live-workspace-home-en.png), [Bangla next-step guidance](../execution/usability-live-guidance-bn.png), [public shortcuts](../execution/usability-live-public-tasks.png). Hosted full backup, independent key custody/restore and durable hosting before database expiry remain open.
+
+## Release 0.6 history — 19 October deployment, 21 October verification
+
+The following preserves the previous runtime and its acceptance evidence. The current runtime and results are recorded above.
 
 | Component | Verified result |
 | --- | --- |

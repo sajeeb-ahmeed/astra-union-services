@@ -1,6 +1,21 @@
 # Acceptance matrix and evidence boundaries
 
-## Release 0.6 acceptance scope
+## Release 0.7 acceptance scope
+
+Runtime `56fb7f56bd77cfde2887a52384d3a9b4706a421e` passed **49/49 local web tests**, typecheck and the production build on 21 October 2026. [CI 39552222856](https://github.com/sajeeb-ahmeed/astra-union-services/actions/runs/39552222856) passed **223/223 cases** (5 backup, 72 forms, 97 API, 49 web), production/Docker builds and a zero-vulnerability audit. Render deployment `dep-dbc596mi0phs73aeldug` finished live at `2026-10-21T06:01:21.514444Z`; **22 hosted API groups, eight live browser groups and eight deployed JS/CSS asset hashes passed**. [Live acceptance](../execution/usability-live-release.json).
+
+| ID | Executed usability coverage | Evidence boundary |
+| --- | --- | --- |
+| UX-03 | Role-specific task entry, mobile page picker, bilingual search/filter retention, readable validation summary and field focus, draft-to-submit guidance | Real local browser/API/PostgreSQL workflows; navigation does not grant additional permissions |
+| UX-04 | Draft, correction, review, approval, fee-verification, issuance, revoked/rejected/cancelled guidance | Guidance uses server state and is read-only; approval is not payment or issuance |
+| UX-05 | Public tracking/verification shortcuts, Bangla-digit search, empty-result recovery, focused selected-service details and return to catalog | All 47 catalog entries retained; local mobile/bilingual browser checks |
+| UX-06 | Keyboard password visibility toggle does not submit; login and logout preserve masking/empty-field behavior | Local synthetic account; no account/authentication policy changed |
+
+Evidence: [local summary](../execution/usability-local-qa.json), [web test log](../execution/usability-web-tests.log), [release notes](RELEASE_0_7.md). The 49-test web suite includes earlier regressions; focused reruns are not extra unique tests. Local results alone do not prove hosted deployment. These checks are not a complete WCAG audit, user study or field-performance measurement.
+
+Hosted acceptance separately passed [four security groups](../execution/usability-hosted-security.json), [seven disabled-payment groups](../execution/usability-hosted-payments.json), [six preserved-record readback groups](../execution/usability-hosted-readback.json) and [five geography groups](../execution/usability-hosted-geography.json). [Eight live browser groups](../execution/usability-live-browser-qa.json) covered the public and authenticated usability changes in Bangla/English/mobile, with no page errors and signed-out cleanup. [Eight asset hashes](../execution/usability-live-assets.json) matched the tested build with immutable caching. [Database metadata](../execution/usability-network-qa.json) confirmed availability and an empty external IP allowlist; no migration or network opening occurred. Payment collection remains disabled and the original PDF/credit records remain unchanged.
+
+## Historical release 0.6 acceptance scope
 
 Merchant-independent increment, deployed runtime `402903fb113799f5d7e5ec8d62307ba88f625318`. **210 local and 210 CI tests passed**: 5 backup safety, 72 form/schema, 97 API/PostgreSQL and 36 web. The production build and dependency audit passed; 17 separate real local recovery checks also passed. [CI 39199410740](https://github.com/sajeeb-ahmeed/astra-union-services/actions/runs/39199410740) is **SUCCESS**, including its Docker build and audit. Render deployment `dep-dbappb8m7kps739q5ivg` finished live on 19 October and was reconfirmed on 21 October. **22 hosted API groups, five live browser groups and all seven deployed JS/CSS hashes passed on 21 October.** [Live release evidence](../execution/security-live-release.json).
 

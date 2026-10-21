@@ -1,0 +1,23 @@
+{
+  "release": "0.7.0",
+  "verifiedAt": "2026-10-21T05:59:09.596Z",
+  "status": "PASS",
+  "runId": 39552222856,
+  "url": "https://github.com/sajeeb-ahmeed/astra-union-services/actions/runs/39552222856",
+  "commit": "56fb7f56bd77cfde2887a52384d3a9b4706a421e",
+  "tests": {
+    "backup": 5,
+    "forms": 72,
+    "api": 97,
+    "web": 49,
+    "total": 223,
+    "failed": 0
+  },
+  "jobs": {
+    "verify": "success",
+    "docker-build": "success"
+  },
+  "productionBuild": "PASS",
+  "dependencyAuditVulnerabilities": 0,
+  "source": "Completed GitHub run metadata and its execution log; test totals read from four passing npm test stages."
+}
