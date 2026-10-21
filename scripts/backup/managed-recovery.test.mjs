@@ -11,6 +11,8 @@ import {
   archiveDirectory,
   keyDirectory,
   pgEnvironment,
+  auxiliaryRecoveryRoles,
+  canonicalRecoveryState,
 } from "./managed-recovery.mjs";
 
 const sha256 = (value) =>
@@ -300,4 +302,79 @@ test("authenticated payload cannot omit tables, corrupt schema, alter counts or 
       /authentication or structure/,
     );
   }
+});
+
+test("provider default ACL role is preserved only as a bounded auxiliary catalog identity", () => {
+  const archive = validPayload();
+  archive.state.defaultGrants = [
+    { owner: "postgres", grantee: "fixture_owner" },
+    { owner: "postgres", grantee: "postgres" },
+    { owner: "postgres", grantee: "PUBLIC" },
+  ];
+  assert.deepEqual(auxiliaryRecoveryRoles(archive), ["postgres"]);
+  archive.state.schemaGrants = [{ grantee: "pg_database_owner" }];
+  assert.deepEqual(auxiliaryRecoveryRoles(archive), ["postgres"]);
+});
+
+test("unknown provider roles fail before any restore role or database creation", () => {
+  const archive = validPayload();
+  archive.state.defaultGrants = [
+    { owner: "unreviewed_provider_role", grantee: "fixture_owner" },
+  ];
+  assert.throws(
+    () => auxiliaryRecoveryRoles(archive),
+    /reviewed recovery policy/,
+  );
+});
+
+test("cross-collation catalog comparison ignores row order but retains exact values and duplicate counts", () => {
+  const source = {
+    tables: [
+      { name: "tenant_wallets", rows: 2, sha256: "abc" },
+      { name: "tenant_service_configuration", rows: 3, sha256: "def" },
+    ],
+    columns: [
+      { name: "id", position: 1 },
+      { name: "name", position: 2 },
+    ],
+  };
+  const reordered = {
+    columns: [...source.columns].reverse(),
+    tables: [...source.tables].reverse(),
+  };
+  assert.deepEqual(
+    canonicalRecoveryState(source),
+    canonicalRecoveryState(reordered),
+  );
+  for (const changed of [
+    { ...source, tables: source.tables.slice(1) },
+    { ...source, tables: [...source.tables, source.tables[0]] },
+    {
+      ...source,
+      tables: [{ ...source.tables[0], sha256: "changed" }, source.tables[1]],
+    },
+    {
+      ...source,
+      columns: [{ ...source.columns[0], position: 2 }, source.columns[1]],
+    },
+  ])
+    assert.notDeepEqual(
+      canonicalRecoveryState(source),
+      canonicalRecoveryState(changed),
+    );
+  const nested = {
+    indexes: [{ name: "idx", definition: ["first_column", "second_column"] }],
+    unknownOrdered: ["first", "second"],
+  };
+  assert.notDeepEqual(
+    canonicalRecoveryState(nested),
+    canonicalRecoveryState({
+      ...nested,
+      indexes: [{ name: "idx", definition: ["second_column", "first_column"] }],
+    }),
+  );
+  assert.notDeepEqual(
+    canonicalRecoveryState(nested),
+    canonicalRecoveryState({ ...nested, unknownOrdered: ["second", "first"] }),
+  );
 });

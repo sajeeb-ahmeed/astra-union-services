@@ -1,0 +1,54 @@
+{
+  "recordedAt": "2026-10-21T07:33:50.394Z",
+  "status": "PASS",
+  "name": "managed_20261021072732629_da76544e",
+  "sourceArchiveUnchanged": true,
+  "remoteConnectionsDuringRestore": 0,
+  "sourceDatabaseModifiedDuringRestore": false,
+  "failedClustersPreserved": true,
+  "attempts": [
+    {
+      "attempt": 1,
+      "status": "FAIL",
+      "stage": "POST_DATA_SCHEMA",
+      "cause": "Provider postgres default-ACL identity was absent in independent cluster.",
+      "resolution": "Known catalog identity recreated as NOLOGIN with all administrative privileges disabled, no memberships/password; exact ACL comparison retained."
+    },
+    {
+      "attempt": 2,
+      "status": "FAIL",
+      "stage": "MANIFEST_COMPARISON",
+      "cause": "Complete catalog records compared in provider-collation query order against local C query order.",
+      "resolution": "Only reviewed unordered top-level collections use canonical multiset ordering; exact values, duplicate counts and nested order remain mandatory."
+    },
+    {
+      "attempt": 3,
+      "status": "PASS",
+      "stage": "INDEPENDENT_RESTORE_AND_RUNTIME",
+      "tables": 49,
+      "tenants": 3,
+      "certificates": 2,
+      "runtimeChecks": 8,
+      "auxiliaryRoleRestrictionsVerifiedAfterRestore": true
+    }
+  ],
+  "focusedTests": {
+    "managedRecovery": 13,
+    "failed": 0,
+    "syntheticIndependentDrill": 22
+  },
+  "locale": {
+    "source": "NOT_CAPTURED_IN_THIS_ARCHIVE",
+    "restored": {
+      "datcollate": "C",
+      "datctype": "C",
+      "encoding": "UTF8"
+    },
+    "cutoverReady": false
+  },
+  "limits": [
+    "Source database locale was not captured in this already-created archive.",
+    "No independent key custody/offsite replication is claimed.",
+    "Private HTTP application readback is a separate check."
+  ]
+}

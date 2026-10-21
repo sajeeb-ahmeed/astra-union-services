@@ -1,0 +1,20 @@
+{
+  "status": "PASS",
+  "exportedAt": "2026-10-21T07:28:07.226Z",
+  "source": {
+    "mode": "hosted",
+    "databaseId": "dpg-db6tr43ncjis73ercfsg-a",
+    "serverVersion": "170011"
+  },
+  "name": "managed_20261021072732629_da76544e",
+  "tables": 49,
+  "tenants": 3,
+  "certificates": 2,
+  "encryptedBytes": 9887482,
+  "archiveSha256": "e9ac1f6f7c6a6076bbdad69a8403439cc2dd150ebce93cf363322639844d9d34",
+  "sourceReadOnly": true,
+  "rlsPoliciesChanged": false,
+  "keyOutsideWorkspace": true,
+  "independentKeyCustody": false,
+  "offsiteReplication": false
+}

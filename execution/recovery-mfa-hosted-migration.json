@@ -1,0 +1,58 @@
+{
+  "release": "0.8.0",
+  "startedAt": "2026-10-21T07:26:51.488Z",
+  "status": "PASS",
+  "migrations": [
+    "013_account_mfa.sql",
+    "014_audit_tenant_integrity.sql"
+  ],
+  "mutationScope": "Migrations 013/014 and markers only: add authentication tables and validate audit tenant NOT NULL. No user enrollment, application, fee, payment, certificate or ledger changes.",
+  "checks": [
+    {
+      "name": "TLS and non-bypass identities",
+      "status": "PASS"
+    },
+    {
+      "name": "Existing global and tenant data preserved",
+      "status": "PASS",
+      "tables": 45,
+      "tenants": 3,
+      "fingerprints": 105,
+      "routines": 18
+    },
+    {
+      "name": "Schema and audit completeness guards committed",
+      "status": "PASS",
+      "applied": [
+        "013_account_mfa.sql",
+        "014_audit_tenant_integrity.sql"
+      ],
+      "securityTables": [
+        {
+          "name": "account_mfa",
+          "rls": true,
+          "forced": true,
+          "owner": "astra_admin"
+        },
+        {
+          "name": "account_security_events",
+          "rls": true,
+          "forced": true,
+          "owner": "astra_admin"
+        },
+        {
+          "name": "mfa_login_challenges",
+          "rls": false,
+          "forced": false,
+          "owner": "astra_admin"
+        }
+      ]
+    },
+    {
+      "name": "Runtime account isolation and immutable audit grants",
+      "status": "PASS"
+    }
+  ],
+  "sqlSha256": "6e3f500e193240dae802b9e85adf3fec0524a1fc5c812f1b32dacec6641193b2",
+  "finishedAt": "2026-10-21T07:27:28.792Z"
+}

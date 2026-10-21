@@ -1,0 +1,20 @@
+{
+  "release": "0.8.0",
+  "startedAt": "2026-10-21T07:34:24.537Z",
+  "source": "Actual encrypted hosted archive restored on independent local cluster",
+  "archiveName": "managed_20261021072732629_da76544e",
+  "status": "PASS",
+  "verifiedAt": "2026-10-21T07:34:26.042Z",
+  "origin": "http://127.0.0.1:52663",
+  "sourceAccess": false,
+  "databasePort": 55433,
+  "transport": "Loopback HTTP; production TLS proxy is outside this rehearsal",
+  "checks": [
+    "Actual recovered HTTP server starts with restricted restored credentials and PostgreSQL health passes.",
+    "Recovery readiness serves the built frontend and all 47 public catalog entries.",
+    "Actual HTTP QR verification resolves every recovered certificate and rejects wrong/malformed tokens without PDF or citizen data.",
+    "Recovered real-password login delivers byte-identical authorized PDFs; anonymous, invalid-session and available cross-tenant PDF reads are denied.",
+    "Recovered application reports gateway collection disabled; no merchant configuration or source environment was inherited.",
+    "Recovery HTTP acceptance signs out its sessions; no certificate, ledger, fee or payment mutation is made."
+  ]
+}

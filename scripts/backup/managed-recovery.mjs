@@ -616,6 +616,11 @@ export async function createManagedBackup(configuration) {
     const serverVersion = (
       await client.query("SELECT current_setting('server_version_num') version")
     ).rows[0].version;
+    const databaseLocale = (
+      await client.query(
+        "SELECT datcollate,datctype,pg_encoding_to_char(encoding) encoding FROM pg_database WHERE datname=current_database()",
+      )
+    ).rows[0];
     if (!/^17\d{4}$/.test(serverVersion))
       throw Error("Managed recovery requires PostgreSQL 17.");
     const security = await captureSecurity(client, owner);
@@ -711,6 +716,7 @@ export async function createManagedBackup(configuration) {
         databaseId:
           configuration.mode === "hosted" ? sourceId : "LOCAL_MANAGED_FIXTURE",
         serverVersion,
+        databaseLocale,
       },
       security,
       tables,
@@ -766,6 +772,116 @@ export async function readManagedArchive(name) {
   );
 }
 
+/** Provider default ACLs may name postgres even when the application's owner is
+ * a separate non-superuser. Preserve the catalog identity without reproducing
+ * provider privileges, logins, passwords or memberships. Unknown roles fail shut.
+ */
+export function auxiliaryRecoveryRoles(archive) {
+  const primary = new Set([
+    archive.security.owner,
+    archive.security.app,
+    "PUBLIC",
+    "pg_database_owner",
+  ]);
+  const referenced = new Set();
+  for (const key of [
+    "tableGrants",
+    "functionGrants",
+    "columnGrants",
+    "schemaGrants",
+    "defaultGrants",
+  ])
+    for (const grant of archive.state[key] ?? [])
+      for (const role of [grant.owner, grant.grantee])
+        if (role && !primary.has(role)) referenced.add(role);
+  if ([...referenced].some((role) => role !== "postgres"))
+    throw Error(
+      "Unknown auxiliary catalog role requires a reviewed recovery policy.",
+    );
+  return [...referenced].sort();
+}
+
+// PostgreSQL ORDER BY text uses the source database collation. Catalog arrays are
+// sets of complete rows, so compare a deterministic multiset ordering across
+// hosts while retaining duplicates and every value (including positions/flags).
+export function canonicalRecoveryState(state) {
+  const unordered = new Set([
+    "tables",
+    "tenants",
+    "certificates",
+    "constraints",
+    "policies",
+    "rowSecurity",
+    "triggers",
+    "functionDefinitions",
+    "tableGrants",
+    "functionGrants",
+    "columns",
+    "columnGrants",
+    "indexes",
+    "extensions",
+    "views",
+    "enums",
+    "schemaGrants",
+    "defaultGrants",
+    "sequences",
+    "objectOwners",
+  ]);
+  const stableKeys = (value) =>
+    Array.isArray(value)
+      ? value.map(stableKeys)
+      : value && typeof value === "object"
+        ? Object.fromEntries(
+            Object.keys(value)
+              .sort()
+              .map((key) => [key, stableKeys(value[key])]),
+          )
+        : value;
+  return Object.fromEntries(
+    Object.keys(state)
+      .sort()
+      .map((key) => {
+        const value = stableKeys(state[key]);
+        if (unordered.has(key) && Array.isArray(value))
+          value.sort((a, b) => {
+            const left = JSON.stringify(a),
+              right = JSON.stringify(b);
+            return left < right ? -1 : left > right ? 1 : 0;
+          });
+        return [key, value];
+      }),
+  );
+}
+
+async function verifyAuxiliaryRoles(client, roles) {
+  for (const role of roles) {
+    const attributes = (
+      await client.query(
+        "SELECT rolcanlogin,rolsuper,rolbypassrls,rolcreatedb,rolcreaterole,rolreplication,rolinherit FROM pg_roles WHERE rolname=$1",
+        [role],
+      )
+    ).rows[0];
+    assert.deepEqual(attributes, {
+      rolcanlogin: false,
+      rolsuper: false,
+      rolbypassrls: false,
+      rolcreatedb: false,
+      rolcreaterole: false,
+      rolreplication: false,
+      rolinherit: false,
+    });
+    assert.equal(
+      (
+        await client.query(
+          "SELECT count(*)::int n FROM pg_auth_members a JOIN pg_roles r ON r.oid=a.roleid OR r.oid=a.member WHERE r.rolname=$1",
+          [role],
+        )
+      ).rows[0].n,
+      0,
+    );
+  }
+}
+
 export async function restoreManagedArchive(name, recoveryUrl) {
   if (
     !(recoveryUrl instanceof URL) ||
@@ -779,6 +895,7 @@ export async function restoreManagedArchive(name, recoveryUrl) {
       "Independent restore permits only its separate loopback cluster on port 55433.",
     );
   const archive = await readManagedArchive(name); // Authenticate before any DB writes.
+  const auxiliaryRoles = auxiliaryRecoveryRoles(archive);
   const control = await connect(recoveryUrl);
   const target = `astra_recovered_${crypto.randomBytes(8).toString("hex")}`;
   const restoreUrl = new URL(recoveryUrl);
@@ -798,7 +915,11 @@ export async function restoreManagedArchive(name, recoveryUrl) {
       throw Error(
         "Recovery requires a fresh independent cluster; existing databases are preserved.",
       );
-    for (const role of [archive.security.owner, archive.security.app]) {
+    for (const role of [
+      archive.security.owner,
+      archive.security.app,
+      ...auxiliaryRoles,
+    ]) {
       identifier(role);
       if (
         (await control.query("SELECT 1 FROM pg_roles WHERE rolname=$1", [role]))
@@ -820,6 +941,11 @@ export async function restoreManagedArchive(name, recoveryUrl) {
       ).rows[0].sql;
       await control.query(sql);
     }
+    for (const role of auxiliaryRoles)
+      await control.query(
+        `CREATE ROLE ${identifier(role)} NOLOGIN NOSUPERUSER NOBYPASSRLS NOCREATEDB NOCREATEROLE NOREPLICATION NOINHERIT`,
+      );
+    await verifyAuxiliaryRoles(control, auxiliaryRoles);
     await control.query(
       `CREATE DATABASE ${identifier(target)} OWNER ${identifier(archive.security.owner)} TEMPLATE template0 ENCODING 'UTF8'`,
     );
@@ -875,17 +1001,23 @@ export async function restoreManagedArchive(name, recoveryUrl) {
       const state = await captureState(restored);
       validateState(state);
       assert.deepEqual(
-        state,
-        archive.state,
+        canonicalRecoveryState(state),
+        canonicalRecoveryState(archive.state),
         "Independent restore data/schema/security fingerprints differ.",
       );
       const owners = (await captureSecurity(restored, archive.security.owner))
         .owners;
       assert.deepEqual(
-        owners,
-        archive.security.owners,
+        canonicalRecoveryState({ objectOwners: owners }),
+        canonicalRecoveryState({ objectOwners: archive.security.owners }),
         "SECURITY DEFINER/object ownership changed.",
       );
+      await verifyAuxiliaryRoles(restored, auxiliaryRoles);
+      const restoredDatabaseLocale = (
+        await restored.query(
+          "SELECT datcollate,datctype,pg_encoding_to_char(encoding) encoding FROM pg_database WHERE datname=current_database()",
+        )
+      ).rows[0];
       await restored.query("COMMIT");
       const appUrl = new URL(restoreUrl);
       appUrl.username = archive.security.app;
@@ -916,8 +1048,20 @@ export async function restoreManagedArchive(name, recoveryUrl) {
         certificates: state.certificates.length,
         exactStateMatch: true,
         ownershipPreserved: true,
+        sourceDatabaseLocale:
+          archive.source.databaseLocale ?? "NOT_CAPTURED_IN_THIS_ARCHIVE",
+        restoredDatabaseLocale,
+        databaseLocaleMatchesSource: archive.source.databaseLocale
+          ? JSON.stringify(archive.source.databaseLocale) ===
+            JSON.stringify(restoredDatabaseLocale)
+          : null,
+        catalogComparison:
+          "Exact complete values; only reviewed unordered top-level collections sorted; duplicates and nested array order retained",
+        cutoverReady: false,
         sourceCredentialsReused: false,
         sourceMembershipsRecreated: false,
+        auxiliaryCatalogRoles: auxiliaryRoles.length,
+        auxiliaryRolesRestrictedNoLogin: true,
         checks,
         independentKeyCustody: false,
         offsiteReplication: false,

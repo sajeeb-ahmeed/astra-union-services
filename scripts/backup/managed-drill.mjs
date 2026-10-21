@@ -328,6 +328,13 @@ async function drill() {
       )
     ).rows[0].sql;
     await control.query(roleSql);
+    if (
+      !(await control.query("SELECT 1 FROM pg_roles WHERE rolname='postgres'"))
+        .rowCount
+    )
+      await control.query(
+        "CREATE ROLE postgres NOLOGIN NOSUPERUSER NOBYPASSRLS NOCREATEDB NOCREATEROLE NOREPLICATION NOINHERIT",
+      );
     await control.query(
       `CREATE DATABASE "${database}" OWNER "${owner}" TEMPLATE template0 ENCODING 'UTF8'`,
     );
@@ -337,6 +344,19 @@ async function drill() {
     url.pathname = `/${database}`;
     const fixture = new pg.Client({ connectionString: url.toString() });
     await fixture.connect();
+    const fixtureAdminUrl = new URL(adminUrl);
+    fixtureAdminUrl.pathname = `/${database}`;
+    const fixtureAdmin = new pg.Client({
+      connectionString: fixtureAdminUrl.toString(),
+    });
+    await fixtureAdmin.connect();
+    try {
+      await fixtureAdmin.query(
+        `ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public GRANT SELECT ON TABLES TO "${owner}"`,
+      );
+    } finally {
+      await fixtureAdmin.end();
+    }
     try {
       await fixture.query(
         "CREATE TABLE schema_migrations(name text PRIMARY KEY,applied_at timestamptz NOT NULL DEFAULT now())",
@@ -510,6 +530,8 @@ async function drill() {
       new URL(cluster.adminUrl),
     );
     evidence.restore = recovered;
+    assert.equal(recovered.auxiliaryCatalogRoles, 1);
+    assert.equal(recovered.auxiliaryRolesRestrictedNoLogin, true);
     record(
       "Fresh port-55433 cluster restores full data, exact schema/grants/RLS, original object owners and fresh restricted-role credentials.",
     );

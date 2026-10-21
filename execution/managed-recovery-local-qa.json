@@ -1,5 +1,5 @@
 {
-  "executedAt": "2026-10-21T06:50:23.837Z",
+  "executedAt": "2026-10-21T07:32:53.434Z",
   "scope": "Synthetic managed-owner source on existing local cluster; fresh independent recovery cluster. No hosted connection.",
   "status": "PASS",
   "checks": [
@@ -28,18 +28,23 @@
   ],
   "backup": {
     "status": "PASS",
-    "exportedAt": "2026-10-21T06:50:25.231Z",
+    "exportedAt": "2026-10-21T07:32:54.764Z",
     "source": {
       "mode": "local-managed",
       "databaseId": "LOCAL_MANAGED_FIXTURE",
-      "serverVersion": "170011"
+      "serverVersion": "170011",
+      "databaseLocale": {
+        "datcollate": "C",
+        "datctype": "C",
+        "encoding": "UTF8"
+      }
     },
-    "name": "managed_20261021065024706_5fa22575",
+    "name": "managed_20261021073254240_0461d05c",
     "tables": 49,
     "tenants": 2,
     "certificates": 2,
-    "encryptedBytes": 791787,
-    "archiveSha256": "b3de64ab4923a17bdaab6c0bb62324bad4295bba93f97dc9ec4be0b417208f3c",
+    "encryptedBytes": 792393,
+    "archiveSha256": "52fa8630cbd3f18d69061b46694ae74a2b011180071c8e59d092343c55c54399",
     "sourceReadOnly": true,
     "rlsPoliciesChanged": false,
     "keyOutsideWorkspace": true,
@@ -48,17 +53,32 @@
   },
   "restore": {
     "status": "PASS",
-    "restoredAt": "2026-10-21T06:50:31.974Z",
-    "name": "managed_20261021065024706_5fa22575",
-    "target": "astra_recovered_d5d1012349629739",
+    "restoredAt": "2026-10-21T07:33:00.709Z",
+    "name": "managed_20261021073254240_0461d05c",
+    "target": "astra_recovered_1c0523d1b3548e19",
     "independentClusterPort": 55433,
     "tables": 49,
     "tenants": 2,
     "certificates": 2,
     "exactStateMatch": true,
     "ownershipPreserved": true,
+    "sourceDatabaseLocale": {
+      "datcollate": "C",
+      "datctype": "C",
+      "encoding": "UTF8"
+    },
+    "restoredDatabaseLocale": {
+      "datcollate": "C",
+      "datctype": "C",
+      "encoding": "UTF8"
+    },
+    "databaseLocaleMatchesSource": true,
+    "catalogComparison": "Exact complete values; only reviewed unordered top-level collections sorted; duplicates and nested array order retained",
+    "cutoverReady": false,
     "sourceCredentialsReused": false,
     "sourceMembershipsRecreated": false,
+    "auxiliaryCatalogRoles": 1,
+    "auxiliaryRolesRestrictedNoLogin": true,
     "checks": [
       "Restricted recovered application role.",
       "All tenant/account tables deny unscoped runtime reads.",
@@ -74,8 +94,8 @@
   },
   "http": {
     "status": "PASS",
-    "verifiedAt": "2026-10-21T06:50:33.788Z",
-    "origin": "http://127.0.0.1:54874",
+    "verifiedAt": "2026-10-21T07:33:02.290Z",
+    "origin": "http://127.0.0.1:60053",
     "sourceAccess": false,
     "databasePort": 55433,
     "transport": "Loopback HTTP; production TLS proxy is outside this rehearsal",
@@ -88,5 +108,5 @@
       "Recovery HTTP acceptance signs out its sessions; no certificate, ledger, fee or payment mutation is made."
     ]
   },
-  "durationMs": 10893
+  "durationMs": 9661
 }
