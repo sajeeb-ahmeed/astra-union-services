@@ -20,6 +20,7 @@ jobs:
       DATABASE_URL: postgresql://astra_app:ci-only-app-password-not-production@127.0.0.1:5432/astra_attachment_ci
       ASTRA_APP_PASSWORD: ci-only-app-password-not-production
       NODE_ENV: test
+      TZ: Etc/UTC
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -27,11 +28,39 @@ jobs:
           node-version: "24"
           cache: npm
       - run: npm ci --no-audit --no-fund
-      - name: Start official ClamAV, with loopback-only host port
-        run: docker run -d --name astra-clamav -p 127.0.0.1:3310:3310 clamav/clamav:1.4.6
+      - name: Update official signatures before starting ClamAV
+        # The stock image starts FreshClam and ClamD concurrently when it has a
+        # preloaded database. Sequence them so ClamD cannot load stale image data.
+        run: |
+          docker run -d --name astra-clamav -p 127.0.0.1:3310:3310 \
+            -e TZ=Etc/UTC \
+            -e FRESHCLAM_CONF_TestDatabases=yes \
+            -e FRESHCLAM_CONF_ConnectTimeout=30 \
+            -e FRESHCLAM_CONF_ReceiveTimeout=120 \
+            -e FRESHCLAM_CONF_MaxAttempts=2 \
+            -e CLAMD_CONF_StreamMaxLength=2M \
+            -e CLAMD_CONF_MaxFileSize=2M \
+            -e CLAMD_CONF_MaxScanSize=16M \
+            -e CLAMD_CONF_MaxRecursion=10 \
+            -e CLAMD_CONF_MaxFiles=100 \
+            -e CLAMD_CONF_MaxScanTime=20000 \
+            -e CLAMD_CONF_AlertExceedsMax=yes \
+            -e CLAMD_CONF_AlertEncrypted=yes \
+            -e CLAMD_CONF_OfficialDatabaseOnly=yes \
+            clamav/clamav:1.4.6 sh -ec '
+              date -u
+              sed "/^[[:space:]]*NotifyClamd[[:space:]]/d" /etc/clamav/freshclam.conf > /tmp/freshclam-ci.conf
+              freshclam --stdout --config-file=/tmp/freshclam-ci.conf
+              date -u
+              exec clamd --foreground --fail-if-cvd-older-than=2
+            '
       - name: Wait for a real signature database and verify real detections
         run: |
           for attempt in $(seq 1 60); do
+            if [ "$(docker inspect --format '{{.State.Running}}' astra-clamav)" != "true" ]; then
+              docker logs astra-clamav
+              exit 1
+            fi
             if npm run scanner:check; then exit 0; fi
             sleep 10
           done
@@ -42,6 +71,23 @@ jobs:
       - run: npm run db:bootstrap-role && npm run db:migrate && npm run db:seed
       - name: Exercise real HTTP, PostgreSQL, malware detection and authorized issuance
         run: node --import tsx scripts/scanner/real-flow.ts
+      - name: Preserve real antivirus clocks, image and update diagnostics
+        if: always()
+        run: |
+          mkdir -p execution/clamav-ci
+          date -u +'%Y-%m-%dT%H:%M:%SZ' > execution/clamav-ci/runner-clock.txt
+          docker inspect --format '{{json .State}}' astra-clamav > execution/clamav-ci/container-state.json || true
+          docker inspect --format '{{.Image}}' astra-clamav > execution/clamav-ci/image-id.txt || true
+          docker logs --timestamps astra-clamav > execution/clamav-ci/container.log 2>&1 || true
+          docker cp astra-clamav:/var/log/clamav/freshclam.log execution/clamav-ci/freshclam.log || true
+          docker cp astra-clamav:/var/log/clamav/clamd.log execution/clamav-ci/clamd.log || true
+          docker exec astra-clamav sh -c '
+            date -u
+            clamd --version
+            for database in /var/lib/clamav/daily.cvd /var/lib/clamav/daily.cld; do
+              if [ -f "$database" ]; then sigtool --info "$database"; fi
+            done
+          ' > execution/clamav-ci/database-info.txt 2>&1 || true
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -49,6 +95,7 @@ jobs:
           path: |
             execution/attachment-real-engine.json
             execution/attachment-real-flow-2026-10-24.json
+            execution/clamav-ci/
           retention-days: 7
   docker-build:
     runs-on: ubuntu-latest

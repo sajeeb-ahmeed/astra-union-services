@@ -21,7 +21,11 @@ try {
   await assert.rejects(command("INSTREAM", Buffer.alloc(2_097_153)), /SIZE/);
   check("Client stream ceiling rejects more than 2 MiB");
   evidence.status = "PASS";
-} catch (error) { evidence.status = "FAIL"; evidence.error = error instanceof Error ? error.message : "REAL_ENGINE_FAILURE"; process.exitCode = 1; }
+} catch (error) {
+  evidence.status = "FAIL"; evidence.error = error instanceof Error ? error.message : "REAL_ENGINE_FAILURE"; process.exitCode = 1;
+  // Non-secret engine metadata makes stale/future-date failures diagnosable.
+  try { evidence.reportedVersion = await command("VERSIONCOMMANDS", undefined, { timeoutMs: 1000 }); } catch { /* daemon unavailable */ }
+}
 evidence.finishedAt = new Date().toISOString();
 fs.mkdirSync("execution", { recursive: true });
 fs.writeFileSync("execution/attachment-real-engine.json", JSON.stringify(evidence, null, 2));
