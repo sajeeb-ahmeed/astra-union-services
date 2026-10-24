@@ -1,0 +1,24 @@
+{
+  "release": "0.9.0",
+  "executedAt": "2026-10-24T07:00:02.069576+00:00",
+  "scope": "Windows local suites, updated dependencies; hosted deployment not yet performed",
+  "suites": {
+    "backup": 18,
+    "scanner_and_hosted_orchestration": 19,
+    "forms": 72,
+    "api": 121,
+    "web": 63
+  },
+  "total": 293,
+  "status": "PASS",
+  "realEngineChecks": 5,
+  "realFlowChecks": 8,
+  "build": "PASS",
+  "dependencyAudit": "0 vulnerabilities",
+  "caveats": [
+    "Real engine and full flow counts are separate acceptance checks, not added to unit/integration test total.",
+    "First web attempt lacked synthetic MFA key; rerun with required test configuration passed all63.",
+    "Naive PDF-shaped EICAR fixture was not a valid embedded-file test; replaced with valid PDF EmbeddedFile fixture, detected by actual engine.",
+    "Production workspace chunk remains above500KB raw; public bundle remains under400KB."
+  ]
+}

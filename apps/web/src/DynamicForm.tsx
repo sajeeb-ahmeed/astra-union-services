@@ -1,5 +1,5 @@
 import { t, tx, choose } from "./i18n.js";
-import { useId, useRef, useState, type ReactNode } from "react";
+import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import {
   evaluatePredicate,
   isFieldVisible,
@@ -8,6 +8,7 @@ import {
   type ValidationIssue,
 } from "@astra/shared-schemas";
 import { api } from "./api.js";
+import { AttachmentStatus } from "./AttachmentStatus.js";
 
 type Values = Record<string, any>;
 type Props = {
@@ -17,6 +18,7 @@ type Props = {
   issues?: readonly ValidationIssue[];
   disabled?: boolean;
   citizenId?: string;
+  contextKey?: string;
 };
 const tokens = (path: string) => path.match(/[^.[\]]+/g) ?? [];
 const atPath = (value: any, path: readonly string[]) =>
@@ -40,12 +42,24 @@ export function DynamicForm({
   issues = [],
   disabled = false,
   citizenId,
+  contextKey = "",
 }: Props) {
   const prefix = useId();
   const currentValue = useRef(value);
-  const context = `${schema.serviceNo}:${schema.version}:${citizenId ?? ""}`;
+  const currentOnChange = useRef(onChange);
+  const context = `${contextKey}:${schema.serviceNo}:${schema.version}:${citizenId ?? ""}`;
   const currentContext = useRef(context);
+  const lifetime = useRef(0);
+  useEffect(() => {
+    lifetime.current += 1;
+    setUploadErrors({});
+    setUploads({});
+    return () => {
+      lifetime.current += 1;
+    };
+  }, [context]);
   currentValue.current = value;
+  currentOnChange.current = onChange;
   currentContext.current = context;
   const [uploadErrors, setUploadErrors] = useState<Record<string, string>>({});
   const [uploads, setUploads] = useState<Record<string, boolean>>({});
@@ -84,7 +98,7 @@ export function DynamicForm({
             nextScope,
           );
           currentValue.current = next;
-          onChange(next);
+          currentOnChange.current(next);
         };
         const shared = {
           id,
@@ -102,6 +116,7 @@ export function DynamicForm({
           return (
             <fieldset
               {...shared}
+              disabled={undefined}
               tabIndex={-1}
               key={key}
               className="repeatable"
@@ -196,6 +211,10 @@ export function DynamicForm({
                 onChange={async (event) => {
                   const file = event.currentTarget.files?.[0];
                   if (!file) return;
+                  const epoch = lifetime.current;
+                  const current = () =>
+                    currentContext.current === context &&
+                    lifetime.current === epoch;
                   // Permit retrying the same file after a rejected upload without retaining browser-local file data.
                   event.currentTarget.value = "";
                   setUploadErrors((previous) => ({
@@ -246,7 +265,7 @@ export function DynamicForm({
                       binary += String.fromCharCode(
                         ...bytes.subarray(offset, offset + 16_384),
                       );
-                    if (currentContext.current !== context) return;
+                    if (!current()) return;
                     const result = await api("/attachments", "POST", {
                       citizenId,
                       mimeType: file.type,
@@ -255,20 +274,23 @@ export function DynamicForm({
                     const source = result.attachment ?? result;
                     if (
                       typeof source.attachmentId !== "string" ||
-                      typeof source.mimeType !== "string" ||
-                      typeof source.byteLength !== "number"
+                      !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+                        source.attachmentId,
+                      ) ||
+                      source.mimeType !== file.type ||
+                      source.byteLength !== file.size
                     )
                       throw new Error(
                         "Upload service returned an invalid private attachment handle.",
                       );
-                    if (currentContext.current === context)
+                    if (current())
                       update({
                         attachmentId: source.attachmentId,
                         mimeType: source.mimeType,
                         byteLength: source.byteLength,
                       });
                   } catch (uploadError) {
-                    if (currentContext.current === context)
+                    if (current())
                       setUploadErrors((previous) => ({
                         ...previous,
                         [uploadKey]:
@@ -277,10 +299,11 @@ export function DynamicForm({
                             : "Document upload failed.",
                       }));
                   } finally {
-                    setUploads((previous) => ({
-                      ...previous,
-                      [uploadKey]: false,
-                    }));
+                    if (current())
+                      setUploads((previous) => ({
+                        ...previous,
+                        [uploadKey]: false,
+                      }));
                   }
                 }}
               />
@@ -293,12 +316,12 @@ export function DynamicForm({
               </p>
               {tx(
                 scope[field.id] && (
-                  <p className="hint" role="status">
-                    {t("নথি সংরক্ষিত / Private upload saved:")}
-                    {tx(" ")}
-                    {tx(scope[field.id].byteLength)}
-                    {t(" bytes ")}
-                  </p>
+                  <AttachmentStatus
+                    key={`${context}:${scope[field.id].attachmentId}`}
+                    attachment={scope[field.id]}
+                    editable={!disabled && !uploadUnavailable && !uploading}
+                    inputId={id}
+                  />
                 ),
               )}
               {tx(

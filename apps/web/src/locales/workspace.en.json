@@ -278,5 +278,6 @@
   "Too many requests. Please retry shortly.": "Too many requests. Please retry shortly.",
   "Please retry shortly.": "Please retry shortly.",
   "Draft saved. Open the draft and submit it when ready.": "Draft saved. Open the draft and submit it when ready.",
-  "Changes saved.": "Changes saved."
+  "Changes saved.": "Changes saved.",
+  "Supporting documents must pass security scanning before this action.": "Supporting documents must pass the safety check before this action. Review the document status below."
 }

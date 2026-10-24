@@ -1,5 +1,7 @@
 # Astra Union Services
 
+Attachment quarantine / PC scanner implementation: [0.9 notes](docs/RELEASE_0_9.md) · [operator runbook](docs/ATTACHMENT_SCANNER_RUNTIME.md). Hosted status is recorded separately; source version alone does not establish deployment.
+
 Release **0.8.0 is live**, verified 21 October 2026. Independently authored Bangla/English React frontend, Express/TypeScript backend and real PostgreSQL. The commissioning user owns the original software; third-party licenses are retained separately.
 
 ## Recovery and account protection

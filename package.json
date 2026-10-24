@@ -1,6 +1,6 @@
 {
   "name": "astra-union-services",
-  "version": "0.8.0",
+  "version": "0.9.0",
   "private": true,
   "type": "module",
   "workspaces": [
@@ -21,10 +21,13 @@
     "test:backup": "node --test scripts/backup/*.test.mjs",
     "db:backup": "node scripts/backup/backup.mjs backup",
     "db:recovery-drill": "node scripts/backup/recovery-drill.mjs",
-    "test": "npm run test:backup && npm run test:forms && npm run test:api && npm run test:web",
+    "test": "npm run test:backup && npm run test:scanner && npm run test:forms && npm run test:api && npm run test:web",
     "start": "node --import tsx apps/api/src/server.ts",
     "db:bootstrap-role": "tsx scripts/bootstrap-db.ts",
-    "db:initialize": "npm run db:bootstrap-role && npm run db:migrate && tsx scripts/initialize.ts"
+    "db:initialize": "npm run db:bootstrap-role && npm run db:migrate && tsx scripts/initialize.ts",
+    "test:scanner": "node --import tsx --test scripts/scanner/*.test.ts scripts/verify-hosted-attachments.test.ts",
+    "scanner:check": "tsx scripts/scanner/real-engine.ts",
+    "scanner:run": "tsx scripts/scanner/run.ts"
   },
   "dependencies": {
     "express": "5.2.1",
@@ -33,7 +36,7 @@
     "qrcode": "1.5.4",
     "react": "19.2.8",
     "react-dom": "19.2.8",
-    "zod": "4.5.4"
+    "zod": "4.6.7"
   },
   "devDependencies": {
     "@types/express": "5.0.6",

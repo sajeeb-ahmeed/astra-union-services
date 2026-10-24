@@ -143,3 +143,14 @@ Hosted evidence: [payment checks](../execution/payments-hosted-qa.json), [readba
 | execution/screenshots                               | Synthetic desktop/mobile and workflow evidence                            |
 
 Repeated runs of the same cases on a new database are reproducibility evidence, not extra unique tests. Docker/CI configuration files do not count as executed hosted tests.
+
+
+## Attachment quarantine acceptance (0.9)
+
+- `ATT-01..09`, `apps/api/test/attachments.test.ts`: scanner auth/identity; immutable content; foreign ownership; leases/concurrency/replay/expiry; bounded retry; all workflow gates including final issuance race; fair tenant scheduling; FORCE RLS backfill under a non-bypass owner. Isolated generated test database only.
+- `scripts/scanner/*.test.ts`: complete/truncated/multiple clamd records, size/time limits, stale definitions, clean+EICAR readiness, exact hash/bytes/lease, redirects and changed engine identity. These are protocol simulations, distinct from real engine evidence.
+- `apps/web/test/attachment-browser.test.ts`: nine BN/EN lifecycle tests including polling, retry/CSRF, stale navigation responses, rejected replacement and readonly state. `form-render.test.ts` covers the rendered fail-closed handle.
+- `scripts/verify-hosted-attachments.test.ts`: offline rehearsal of phased hosted checks with synthetic state and fully replaced network requests.
+- `npm run scanner:check`: real official ClamAV definition identity, clean documents, standard EICAR and valid EmbeddedFile PDF rejection, client ceiling.
+- `scripts/scanner/real-flow.ts`: real API/PostgreSQL/worker/ClamAV upload, byte-identical download, threat blocking, role-controlled PDF/exactly-once credit and offline/resume behavior. Only isolated loopback `astra_attachment_*` databases accepted.
+- GitHub Actions runs unit/integration/browser suites, Docker build and a separate mandatory actual ClamAV+PostgreSQL flow. Hosted verification is a distinct post-deploy prepare/verify procedure; CI does not prove live rollout.

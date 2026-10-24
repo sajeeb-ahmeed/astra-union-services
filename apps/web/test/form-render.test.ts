@@ -257,3 +257,24 @@ test("disabled application controls include nested add/remove and upload actions
   assert.ok(buttons.length >= 4);
   assert.ok(buttons.every((attributes) => attributes.includes('disabled=""')));
 });
+
+test("saved private handles render fail-closed status without disabling readonly refresh", () => {
+  const payload = {
+    ...demoPayloads[42],
+    attachments: [{ description: "Synthetic evidence", file: {
+      attachmentId: "11111111-1111-4111-8111-111111111111",
+      mimeType: "application/pdf", byteLength: 16,
+    } }],
+  };
+  const html = render(getServiceSchema(42), payload, [], true);
+  assert.ok(html.includes('data-testid="attachment-status"'));
+  assert.ok(html.includes("Checking document safety status"));
+  assert.ok(!html.includes("Download document"));
+  assert.ok(controls(html).every(control => control.attributes.includes('disabled=""')));
+  const group = [...html.matchAll(/<fieldset\b([^>]*)>/g)].find(match => /id="[^"]*-attachments"/.test(match[1]));
+  assert.ok(group);
+  assert.ok(!group[1].includes('disabled=""'), "Readonly edit controls stay individually disabled while status remains accessible");
+  const refresh = html.match(/<button\b([^>]*)>Refresh status<\/button>/);
+  assert.ok(refresh);
+  assert.ok(!refresh[1].includes('disabled=""'));
+});

@@ -1,0 +1,30 @@
+
+> astra-union-services@0.9.0 test:backup
+> node --test scripts/backup/*.test.mjs
+
+✔ backup configuration only accepts the local source and distinct application role (1.1954ms)
+✔ artifact paths cannot escape backup directory or select nested link directories (1.7883ms)
+✔ encrypted archive authenticates metadata, nonce, tag and dump (1.8677ms)
+✔ authenticated but malformed manifest or changed dump hash cannot restore (0.4972ms)
+✔ recovery rejects corrupt financial, PDF and schema invariants (0.2946ms)
+✔ managed source pins resource, database and verified TLS; no URL redirection (1.2548ms)
+✔ local managed test source cannot silently select main database or remote host (0.2682ms)
+✔ libpq retains hostname verification and explicit trusted roots while discarding inherited redirects (1.7432ms)
+✔ tenant export rejects absent FK, nullable scope, unsupported ownership and unknown policies (0.6094ms)
+✔ owner-wide selectors are accepted only on bounded existing owner policy tables (0.2255ms)
+✔ account scopes require known tables, validated account FK and exact account policy (0.1805ms)
+✔ global nullable tenant columns may export once but never accept hidden RLS (0.1386ms)
+✔ archive names cannot escape storage; keys are outside workspace archive location (0.3431ms)
+✔ AES-GCM rejects changed bytes, wrong keys and authenticated malformed archives (3.0078ms)
+✔ authenticated payload cannot omit tables, corrupt schema, alter counts or duplicate rows (1.5256ms)
+✔ provider default ACL role is preserved only as a bounded auxiliary catalog identity (0.2621ms)
+✔ unknown provider roles fail before any restore role or database creation (0.1641ms)
+✔ cross-collation catalog comparison ignores row order but retains exact values and duplicate counts (0.5188ms)
+ℹ tests 18
+ℹ suites 0
+ℹ pass 18
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 129.9245

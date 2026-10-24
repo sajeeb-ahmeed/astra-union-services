@@ -2,8 +2,8 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Astra independently authored DEMO API",
-    "version": "0.6.0",
-    "description": "Independently authored contracts for all 47 services, immutable office-specific fee assessments, and bKash v2 online checkout with provider verification, stored receipts and gateway reconciliation. These are not reference-site server contracts. Authenticated mutations require session and CSRF; the signed provider callback is separately public. Citizen fees and SaaS credits are separate. Production checkout defaults to disabled pending approved tenant merchant configuration; Nagad and bank payout reconciliation are not integrated. Official identity/signing remain unconfigured and certificates remain DEMO / NOT OFFICIAL. Source version does not establish hosted deployment or live merchant certification."
+    "version": "0.9.0",
+    "description": "Independently authored contracts for all 47 services, immutable office-specific fee assessments, and bKash v2 online checkout with provider verification, stored receipts and gateway reconciliation. These are not reference-site server contracts. Authenticated mutations require session and CSRF; the signed provider callback is separately public. Citizen fees and SaaS credits are separate. Production checkout defaults to disabled pending approved tenant merchant configuration; Nagad and bank payout reconciliation are not integrated. Official identity/signing remain unconfigured and certificates remain DEMO / NOT OFFICIAL. Source version does not establish hosted deployment or live merchant certification. Private attachments enter quarantine and require a hash-bound fresh ClamAV result before download, submission, approval or new issuance. The independently authenticated outbound scanner runs on the owner-selected PC; outages fail closed."
   },
   "servers": [
     {
@@ -26,6 +26,11 @@
         "type": "apiKey",
         "in": "header",
         "name": "X-Demo-Signature"
+      },
+      "attachmentScanner": {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "Independent 256-bit scanner service secret. Cookie and Origin headers are forbidden. Never expose this credential to frontend/users."
       }
     },
     "schemas": {
@@ -3204,77 +3209,159 @@
     },
     "/api/v1/attachments": {
       "post": {
-        "summary": "Private base64 file upload with size/MIME signature checks; UNSCANNED",
+        "summary": "Upload private document into quarantine",
         "security": [
           {
             "session": [],
             "csrf": []
           }
         ],
-        "responses": {
-          "200": {
-            "description": "Success; see apps/api/src/app.ts response contract"
-          },
-          "201": {
-            "description": "Created; issuance may return200 on a safe retry."
-          },
-          "401": {
-            "description": "Authentication, suspension or signature failure"
-          },
-          "403": {
-            "description": "Role, authority or CSRF denied"
-          },
-          "404": {
-            "description": "Generic unavailable record"
-          },
-          "409": {
-            "description": "State, uniqueness or payment event conflict"
-          },
-          "422": {
-            "description": "Server validation failure"
-          }
-        },
-        "parameters": [],
         "requestBody": {
           "required": true,
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/AttachmentInput"
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "citizenId",
+                  "mimeType",
+                  "base64"
+                ],
+                "properties": {
+                  "citizenId": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "mimeType": {
+                    "type": "string",
+                    "enum": [
+                      "application/pdf",
+                      "image/png",
+                      "image/jpeg"
+                    ]
+                  },
+                  "base64": {
+                    "type": "string",
+                    "maxLength": 2796204,
+                    "description": "Canonical base64, actual MIME signature and end marker required"
+                  }
+                }
               }
             }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Quarantined immutable bytes and scan status",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "attachmentId",
+                    "mimeType",
+                    "byteLength",
+                    "scanState",
+                    "downloadAllowed",
+                    "retryAllowed",
+                    "retryAfter",
+                    "reasonCode",
+                    "scannedAt",
+                    "scannerAvailable"
+                  ],
+                  "properties": {
+                    "attachmentId": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "mimeType": {
+                      "type": "string",
+                      "enum": [
+                        "application/pdf",
+                        "image/png",
+                        "image/jpeg"
+                      ]
+                    },
+                    "byteLength": {
+                      "type": "integer",
+                      "minimum": 8,
+                      "maximum": 2097152
+                    },
+                    "scanState": {
+                      "type": "string",
+                      "enum": [
+                        "QUARANTINED",
+                        "SCANNING",
+                        "CLEAN",
+                        "REJECTED",
+                        "ERROR"
+                      ]
+                    },
+                    "downloadAllowed": {
+                      "type": "boolean"
+                    },
+                    "retryAllowed": {
+                      "type": "boolean"
+                    },
+                    "retryAfter": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "format": "date-time"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "reasonCode": {
+                      "type": "string"
+                    },
+                    "scannedAt": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "format": "date-time"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "scannerAvailable": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication missing/invalid"
+          },
+          "403": {
+            "description": "Role, CSRF or origin denied"
+          },
+          "404": {
+            "description": "Not found within caller ownership and tenant"
+          },
+          "409": {
+            "description": "Document quarantined, retry denied or scan lease unavailable"
+          },
+          "422": {
+            "description": "Invalid body or mismatched file reference"
+          },
+          "429": {
+            "description": "Bounded retry or rate limit"
           }
         }
       }
     },
     "/api/v1/attachments/{id}": {
       "get": {
-        "summary": "Authorized tenant-private attachment download",
-        "security": [
-          {
-            "session": []
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Success; see apps/api/src/app.ts response contract"
-          },
-          "401": {
-            "description": "Authentication, suspension or signature failure"
-          },
-          "403": {
-            "description": "Role, authority or CSRF denied"
-          },
-          "404": {
-            "description": "Generic unavailable record"
-          },
-          "409": {
-            "description": "State, uniqueness or payment event conflict"
-          },
-          "422": {
-            "description": "Server validation failure"
-          }
-        },
+        "summary": "Download only a clean hash-bound private attachment",
         "parameters": [
           {
             "name": "id",
@@ -3285,7 +3372,43 @@
               "format": "uuid"
             }
           }
-        ]
+        ],
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Exact uploaded bytes with attachment disposition; never inline HTML",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication missing/invalid"
+          },
+          "403": {
+            "description": "Role, CSRF or origin denied"
+          },
+          "404": {
+            "description": "Not found within caller ownership and tenant"
+          },
+          "409": {
+            "description": "Document quarantined, retry denied or scan lease unavailable"
+          },
+          "422": {
+            "description": "Invalid body or mismatched file reference"
+          },
+          "429": {
+            "description": "Bounded retry or rate limit"
+          }
+        }
       }
     },
     "/api/v1/offices": {
@@ -7599,6 +7722,538 @@
           },
           "429": {
             "description": "Security mutation rate limit reached."
+          }
+        }
+      }
+    },
+    "/api/v1/attachments/{id}/status": {
+      "get": {
+        "summary": "Read private scan status without transferring bytes",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Authorized metadata",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "attachmentId",
+                    "mimeType",
+                    "byteLength",
+                    "scanState",
+                    "downloadAllowed",
+                    "retryAllowed",
+                    "retryAfter",
+                    "reasonCode",
+                    "scannedAt",
+                    "scannerAvailable"
+                  ],
+                  "properties": {
+                    "attachmentId": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "mimeType": {
+                      "type": "string",
+                      "enum": [
+                        "application/pdf",
+                        "image/png",
+                        "image/jpeg"
+                      ]
+                    },
+                    "byteLength": {
+                      "type": "integer",
+                      "minimum": 8,
+                      "maximum": 2097152
+                    },
+                    "scanState": {
+                      "type": "string",
+                      "enum": [
+                        "QUARANTINED",
+                        "SCANNING",
+                        "CLEAN",
+                        "REJECTED",
+                        "ERROR"
+                      ]
+                    },
+                    "downloadAllowed": {
+                      "type": "boolean"
+                    },
+                    "retryAllowed": {
+                      "type": "boolean"
+                    },
+                    "retryAfter": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "format": "date-time"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "reasonCode": {
+                      "type": "string"
+                    },
+                    "scannedAt": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "format": "date-time"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "scannerAvailable": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication missing/invalid"
+          },
+          "403": {
+            "description": "Role, CSRF or origin denied"
+          },
+          "404": {
+            "description": "Not found within caller ownership and tenant"
+          },
+          "409": {
+            "description": "Document quarantined, retry denied or scan lease unavailable"
+          },
+          "422": {
+            "description": "Invalid body or mismatched file reference"
+          },
+          "429": {
+            "description": "Bounded retry or rate limit"
+          }
+        }
+      }
+    },
+    "/api/v1/attachments/{id}/retry": {
+      "post": {
+        "summary": "Request bounded retry of transient ERROR only",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "security": [
+          {
+            "session": [],
+            "csrf": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [],
+                "properties": {}
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Requeued status; no force-clean or rejected retry",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "attachmentId",
+                    "mimeType",
+                    "byteLength",
+                    "scanState",
+                    "downloadAllowed",
+                    "retryAllowed",
+                    "retryAfter",
+                    "reasonCode",
+                    "scannedAt",
+                    "scannerAvailable"
+                  ],
+                  "properties": {
+                    "attachmentId": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "mimeType": {
+                      "type": "string",
+                      "enum": [
+                        "application/pdf",
+                        "image/png",
+                        "image/jpeg"
+                      ]
+                    },
+                    "byteLength": {
+                      "type": "integer",
+                      "minimum": 8,
+                      "maximum": 2097152
+                    },
+                    "scanState": {
+                      "type": "string",
+                      "enum": [
+                        "QUARANTINED",
+                        "SCANNING",
+                        "CLEAN",
+                        "REJECTED",
+                        "ERROR"
+                      ]
+                    },
+                    "downloadAllowed": {
+                      "type": "boolean"
+                    },
+                    "retryAllowed": {
+                      "type": "boolean"
+                    },
+                    "retryAfter": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "format": "date-time"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "reasonCode": {
+                      "type": "string"
+                    },
+                    "scannedAt": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "format": "date-time"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "scannerAvailable": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication missing/invalid"
+          },
+          "403": {
+            "description": "Role, CSRF or origin denied"
+          },
+          "404": {
+            "description": "Not found within caller ownership and tenant"
+          },
+          "409": {
+            "description": "Document quarantined, retry denied or scan lease unavailable"
+          },
+          "422": {
+            "description": "Invalid body or mismatched file reference"
+          },
+          "429": {
+            "description": "Bounded retry or rate limit"
+          }
+        }
+      }
+    },
+    "/api/v1/internal/attachment-scans/claim": {
+      "post": {
+        "summary": "Trusted outbound scanner claims one immutable document",
+        "description": "Fresh definitions <=48 hours, future tolerance5minutes; 120-second lease and maximum3 attempts. Global bounded scheduling with per-tenant RLS.",
+        "security": [
+          {
+            "attachmentScanner": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "workerId",
+                  "engineVersion",
+                  "signatureVersion",
+                  "signatureUpdatedAt"
+                ],
+                "properties": {
+                  "workerId": {
+                    "type": "string",
+                    "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+                    "maxLength": 80
+                  },
+                  "engineVersion": {
+                    "type": "string",
+                    "maxLength": 100
+                  },
+                  "signatureVersion": {
+                    "type": "string",
+                    "maxLength": 100
+                  },
+                  "signatureUpdatedAt": {
+                    "type": "string",
+                    "format": "date-time"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "One leased job or empty queue",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "job"
+                  ],
+                  "properties": {
+                    "job": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "required": [
+                            "attachmentId",
+                            "tenantId",
+                            "mimeType",
+                            "byteLength",
+                            "sha256",
+                            "base64",
+                            "leaseToken",
+                            "leaseExpiresAt"
+                          ],
+                          "properties": {
+                            "attachmentId": {
+                              "type": "string",
+                              "format": "uuid"
+                            },
+                            "tenantId": {
+                              "type": "string",
+                              "format": "uuid"
+                            },
+                            "mimeType": {
+                              "type": "string",
+                              "enum": [
+                                "application/pdf",
+                                "image/png",
+                                "image/jpeg"
+                              ]
+                            },
+                            "byteLength": {
+                              "type": "integer",
+                              "minimum": 8,
+                              "maximum": 2097152
+                            },
+                            "sha256": {
+                              "type": "string",
+                              "pattern": "^[a-f0-9]{64}$"
+                            },
+                            "base64": {
+                              "type": "string",
+                              "maxLength": 2796204
+                            },
+                            "leaseToken": {
+                              "type": "string",
+                              "pattern": "^[a-f0-9]{64}$"
+                            },
+                            "leaseExpiresAt": {
+                              "type": "string",
+                              "format": "date-time"
+                            }
+                          }
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication missing/invalid"
+          },
+          "403": {
+            "description": "Role, CSRF or origin denied"
+          },
+          "404": {
+            "description": "Not found within caller ownership and tenant"
+          },
+          "409": {
+            "description": "Document quarantined, retry denied or scan lease unavailable"
+          },
+          "422": {
+            "description": "Invalid body or mismatched file reference"
+          },
+          "429": {
+            "description": "Bounded retry or rate limit"
+          }
+        }
+      }
+    },
+    "/api/v1/internal/attachment-scans/finish": {
+      "post": {
+        "summary": "Accept exact hash, engine identity and unexpired lease result once",
+        "security": [
+          {
+            "attachmentScanner": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "attachmentId",
+                  "tenantId",
+                  "leaseToken",
+                  "sha256",
+                  "verdict",
+                  "reasonCode",
+                  "engineVersion",
+                  "signatureVersion",
+                  "signatureUpdatedAt"
+                ],
+                "properties": {
+                  "attachmentId": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "tenantId": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "leaseToken": {
+                    "type": "string",
+                    "pattern": "^[a-f0-9]{64}$"
+                  },
+                  "sha256": {
+                    "type": "string",
+                    "pattern": "^[a-f0-9]{64}$"
+                  },
+                  "verdict": {
+                    "type": "string",
+                    "enum": [
+                      "CLEAN",
+                      "REJECTED",
+                      "ERROR"
+                    ]
+                  },
+                  "reasonCode": {
+                    "type": "string",
+                    "enum": [
+                      "OK",
+                      "UNSAFE_FILE",
+                      "SCAN_FAILED",
+                      "SCAN_LIMIT",
+                      "UNSUPPORTED_FILE",
+                      "SCANNER_UNAVAILABLE"
+                    ]
+                  },
+                  "engineVersion": {
+                    "type": "string",
+                    "maxLength": 100
+                  },
+                  "signatureVersion": {
+                    "type": "string",
+                    "maxLength": 100
+                  },
+                  "signatureUpdatedAt": {
+                    "type": "string",
+                    "format": "date-time"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Bound result and immutable scan event recorded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "accepted"
+                  ],
+                  "properties": {
+                    "accepted": {
+                      "type": "boolean",
+                      "const": true
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication missing/invalid"
+          },
+          "403": {
+            "description": "Role, CSRF or origin denied"
+          },
+          "404": {
+            "description": "Not found within caller ownership and tenant"
+          },
+          "409": {
+            "description": "Document quarantined, retry denied or scan lease unavailable"
+          },
+          "422": {
+            "description": "Invalid body or mismatched file reference"
+          },
+          "429": {
+            "description": "Bounded retry or rate limit"
           }
         }
       }

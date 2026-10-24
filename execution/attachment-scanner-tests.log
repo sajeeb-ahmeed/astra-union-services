@@ -1,0 +1,31 @@
+
+> astra-union-services@0.9.0 test:scanner
+> node --import tsx --test scripts/scanner/*.test.ts scripts/verify-hosted-attachments.test.ts
+
+✔ clamd streams all exact bytes in bounded chunks, with no filesystem commands (29.7764ms)
+✔ clamd never releases truncated response (6.4113ms)
+✔ clamd never releases multiple records response (3.4466ms)
+✔ clamd never releases embedded newline response (3.5902ms)
+✔ clamd never releases oversized response (3.3389ms)
+✔ clamd never releases empty response (2.5894ms)
+✔ clamd deadline and refused connection fail closed (53.7619ms)
+✔ clamd rejects zero, oversized streams and invalid endpoint options (0.3785ms)
+✔ only exact clean result passes; threats, limits and unknown results fail closed (0.3999ms)
+✔ definitions require identifiable fresh database and streaming support (1.3248ms)
+✔ readiness requires both clean and standard antivirus test outcomes (9.0065ms)
+✔ worker config cannot send credentials to HTTP, URL credentials or a path (3.2525ms)
+✔ worker binds exact canonical bytes, hash, length, lease and accepted MIME (3.4874ms)
+✔ worker clean goes through claim, exact scan and bound finish (71.0301ms)
+✔ worker threat goes through claim, exact scan and bound finish (19.4374ms)
+✔ worker does not follow API redirects or forward its credential (14.5867ms)
+✔ engine changes during scan produce ERROR tied to original lease identity (26.2007ms)
+✔ stale engine cannot claim files; malformed or rejected API responses cannot finish (16.0991ms)
+✔ hosted attachment verifier prepares and verifies only synthetic fixtures, preserves private IDs and refuses duplicate preparation (496.9379ms)
+ℹ tests 19
+ℹ suites 0
+ℹ pass 19
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 655.6632

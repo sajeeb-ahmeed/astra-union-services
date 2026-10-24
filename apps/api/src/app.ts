@@ -28,6 +28,11 @@ import { publicManagementRouter, managementRouter } from "./management.js";
 import { publicToolsRouter, protectedToolsRouter } from "./portal-tools.js";
 import { httpHardening } from "./http-hardening.js";
 import { paymentsRouter, publicPaymentsRouter } from "./payments.js";
+import {
+  attachmentsRouter,
+  attachmentScannerRouter,
+  validateAttachmentReferences,
+} from "./attachments.js";
 import { mfaRouter, publicMfaRouter, passwordLogin, sendLogin } from "./mfa.js";
 import {
   ordersRouter,
@@ -159,27 +164,7 @@ async function validatePayload(
       "Please correct the form fields.",
       validation.issues,
     );
-  const visit = async (v: any): Promise<void> => {
-    if (Array.isArray(v)) {
-      for (const item of v) await visit(item);
-    } else if (v && typeof v === "object") {
-      if (v.attachmentId) {
-        const r = (
-          await db.query(
-            "SELECT mime_type,byte_length FROM attachments WHERE id=$1 AND citizen_id=$2",
-            [uuid.parse(v.attachmentId), citizenId],
-          )
-        ).rows[0];
-        if (!r || r.mime_type !== v.mimeType || r.byte_length !== v.byteLength)
-          fail(
-            422,
-            "ATTACHMENT_INVALID",
-            "Private upload reference is not valid for this applicant and tenant.",
-          );
-      } else for (const value of Object.values(v)) await visit(value);
-    }
-  };
-  await visit(payload);
+  await validateAttachmentReferences(db, payload, citizenId ?? "");
   return validation;
 }
 async function event(
@@ -316,6 +301,7 @@ app.post(
   }),
 );
 app.use(express.json({ limit: "3mb" }));
+app.use("/api/v1", attachmentScannerRouter);
 app.use("/api/v1", publicManagementRouter);
 app.use("/api/v1", geographyRouter);
 app.use("/api/v1", publicToolsRouter);
@@ -450,6 +436,7 @@ app.use("/api/v1", mfaRouter);
 app.use("/api/v1", protectedToolsRouter);
 app.use("/api/v1", ordersRouter);
 app.use("/api/v1", paymentsRouter);
+app.use("/api/v1", attachmentsRouter);
 app.get(
   "/api/v1/auth/me",
   wrap(async (req, res) => {
@@ -1108,6 +1095,15 @@ app.post(
           next = "CANCELLED";
           break;
       }
+      if (["submit", "resubmit", "approve"].includes(data.action)) {
+        const payload = (
+          await db.query(
+            "SELECT payload FROM application_payload_versions WHERE application_id=$1 AND version=$2",
+            [r.id, r.latest_version],
+          )
+        ).rows[0].payload;
+        await validateAttachmentReferences(db, payload, r.citizen_id, true);
+      }
       const updated = (
         await db.query(
           "UPDATE applications SET state=$2,updated_at=now(),approved_by=CASE WHEN $2='APPROVED' THEN $3 ELSE approved_by END,approved_version=CASE WHEN $2='APPROVED' THEN latest_version ELSE approved_version END WHERE id=$1 RETURNING *",
@@ -1145,6 +1141,13 @@ app.post(
         );
       await validateApplicationOrder(db, r, undefined, true);
       await validateRenewalSource(db, r.id);
+      const payload = (
+        await db.query(
+          "SELECT payload FROM application_payload_versions WHERE application_id=$1 AND version=$2",
+          [id, r.latest_version],
+        )
+      ).rows[0].payload;
+      await validateAttachmentReferences(db, payload, r.citizen_id, true);
       return {
         r,
         tenant: (
@@ -1158,12 +1161,7 @@ app.post(
         citizen: (
           await db.query("SELECT * FROM citizens WHERE id=$1", [r.citizen_id])
         ).rows[0],
-        payload: (
-          await db.query(
-            "SELECT payload FROM application_payload_versions WHERE application_id=$1 AND version=$2",
-            [id, r.latest_version],
-          )
-        ).rows[0].payload,
+        payload,
         schema: (
           await db.query(
             "SELECT schema_json FROM service_versions WHERE service_no=$1 AND version=$2",
@@ -1215,6 +1213,18 @@ app.post(
           );
         await validateApplicationOrder(db, r, undefined, true);
         await validateRenewalSource(db, r.id);
+        const currentPayload = (
+          await db.query(
+            "SELECT payload FROM application_payload_versions WHERE application_id=$1 AND version=$2",
+            [id, r.latest_version],
+          )
+        ).rows[0].payload;
+        await validateAttachmentReferences(
+          db,
+          currentPayload,
+          r.citizen_id,
+          true,
+        );
         if (
           !(
             await db.query(
@@ -1562,117 +1572,6 @@ app.post(
       true,
     );
     res.status(201).json(result);
-  }),
-);
-app.post(
-  "/api/v1/attachments",
-  wrap(async (req, res) => {
-    const a = roles(req, ["citizen", "staff", "admin"]);
-    const data = z
-      .object({
-        citizenId: uuid,
-        mimeType: z.enum(["application/pdf", "image/png", "image/jpeg"]),
-        base64: z.string().max(2796204),
-      })
-      .strict()
-      .parse(req.body);
-    if (!/^[A-Za-z0-9+/]*={0,2}$/.test(data.base64))
-      fail(422, "UPLOAD_INVALID", "Malformed base64 upload.");
-    const bytes = Buffer.from(data.base64, "base64");
-    if (bytes.length < 8 || bytes.length > 2097152)
-      fail(422, "UPLOAD_SIZE", "Uploads must be between 8 bytes and 2 MiB.");
-    const valid =
-      data.mimeType === "application/pdf"
-        ? bytes.subarray(0, 5).toString() === "%PDF-" &&
-          bytes.subarray(-1024).includes(Buffer.from("%%EOF"))
-        : data.mimeType === "image/png"
-          ? bytes.length >= 45 &&
-            bytes
-              .subarray(0, 8)
-              .equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10])) &&
-            bytes.subarray(12, 16).toString() === "IHDR" &&
-            bytes.subarray(-8, -4).toString() === "IEND"
-          : bytes[0] === 255 &&
-            bytes[1] === 216 &&
-            bytes[2] === 255 &&
-            bytes.at(-2) === 255 &&
-            bytes.at(-1) === 217;
-    if (!valid)
-      fail(
-        422,
-        "UPLOAD_TYPE",
-        "File signature or end marker does not match its declared MIME type.",
-      );
-    const result = await transaction(tenant(req), async (db) => {
-      const c = (
-        await db.query(
-          `SELECT 1 FROM citizens WHERE id=$1 AND tenant_id=$2 ${a.role === "citizen" ? "AND user_id=$3" : ""}`,
-          a.role === "citizen"
-            ? [data.citizenId, a.tenantId, a.userId]
-            : [data.citizenId, a.tenantId],
-        )
-      ).rowCount;
-      if (!c) fail(404, "NOT_FOUND", "Citizen not found.");
-      const r = (
-        await db.query(
-          "INSERT INTO attachments(tenant_id,citizen_id,uploaded_by,mime_type,byte_length,bytes) VALUES($1,$2,$3,$4,$5,$6) RETURNING id,mime_type,byte_length,scan_state",
-          [
-            a.tenantId,
-            data.citizenId,
-            a.userId,
-            data.mimeType,
-            bytes.length,
-            bytes,
-          ],
-        )
-      ).rows[0];
-      await audit(
-        db,
-        a.tenantId!,
-        a.userId,
-        "PRIVATE_ATTACHMENT_UPLOADED",
-        r.id,
-      );
-      return {
-        attachmentId: r.id,
-        mimeType: r.mime_type,
-        byteLength: r.byte_length,
-        scanState: r.scan_state,
-      };
-    });
-    res.status(201).json(result);
-  }),
-);
-app.get(
-  "/api/v1/attachments/:id",
-  wrap(async (req, res) => {
-    const a = roles(req, [...staffRead, "citizen"]);
-    const result = await transaction(tenant(req), async (db) => {
-      const r = (
-        await db.query("SELECT * FROM attachments WHERE id=$1", [
-          uuid.parse(req.params.id),
-        ])
-      ).rows[0];
-      if (!r) fail(404, "NOT_FOUND", "Attachment not found.");
-      if (
-        a.role === "citizen" &&
-        !(
-          await db.query("SELECT 1 FROM citizens WHERE id=$1 AND user_id=$2", [
-            r.citizen_id,
-            a.userId,
-          ])
-        ).rowCount
-      )
-        fail(404, "NOT_FOUND", "Attachment not found.");
-      return r;
-    });
-    res
-      .type(result.mime_type)
-      .setHeader(
-        "Content-Disposition",
-        'attachment; filename="private-upload"',
-      );
-    res.send(result.bytes);
   }),
 );
 app.use("/api/v1", (_req, res) =>

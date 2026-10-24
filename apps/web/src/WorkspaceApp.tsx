@@ -925,6 +925,8 @@ export function WorkspaceApp({
                     data-testid="service-application-form"
                   >
                     <DynamicForm
+                      key={intakeContext}
+                      contextKey={intakeContext}
                       schema={
                         operational && orderConfigured
                           ? withoutOrderLanguage(schema)
@@ -1540,6 +1542,8 @@ export function WorkspaceApp({
                   </>
                 )}
                 <DynamicForm
+                  key={application.id}
+                  contextKey={application.id}
                   schema={(detail.order
                     ? withoutOrderLanguage
                     : (value: ReturnType<typeof getServiceSchema>) => value)(

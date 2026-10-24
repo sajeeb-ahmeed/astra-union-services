@@ -1,0 +1,27 @@
+
+> astra-union-services@0.9.0 build
+> tsc --noEmit && vite build --config apps/web/vite.config.ts && node scripts/compress-assets.mjs
+
+vite v7.3.7 building client environment for production...
+transforming...
+✓ 62 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                                0.67 kB │ gzip:   0.43 kB
+dist/.vite/manifest.json                       1.96 kB │ gzip:   0.42 kB
+dist/assets/AccountMfa-h2sy7EfO.css            1.43 kB │ gzip:   0.61 kB
+dist/assets/WorkspaceApp-Bq3H9Rnx.css          2.78 kB │ gzip:   0.98 kB
+dist/assets/index-CH_yOoyZ.css                36.19 kB │ gzip:   8.24 kB
+dist/assets/AdditionalWorkspace-CW_gpEAp.js   14.08 kB │ gzip:   4.22 kB
+dist/assets/AccountMfa-FV3TfdKw.js            17.58 kB │ gzip:   5.05 kB
+dist/assets/OnlinePayments-Bmol5681.js        23.77 kB │ gzip:   6.59 kB
+dist/assets/AdminWorkspace-BTZPVw_p.js        27.94 kB │ gzip:   8.00 kB
+dist/assets/index-Cl5sSP3K.js                362.67 kB │ gzip: 102.38 kB
+dist/assets/WorkspaceApp-X87Xkndp.js         678.00 kB │ gzip:  57.96 kB
+
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+✓ built in 1.13s
+[{"name":"AccountMfa-FV3TfdKw.js","rawBytes":17583,"gzipBytes":5042,"brotliBytes":4327},{"name":"AccountMfa-h2sy7EfO.css","rawBytes":1428,"gzipBytes":609,"brotliBytes":471},{"name":"AdditionalWorkspace-CW_gpEAp.js","rawBytes":14077,"gzipBytes":4217,"brotliBytes":3586},{"name":"AdminWorkspace-BTZPVw_p.js","rawBytes":27942,"gzipBytes":7991,"brotliBytes":6796},{"name":"index-CH_yOoyZ.css","rawBytes":36191,"gzipBytes":8171,"brotliBytes":7212},{"name":"index-Cl5sSP3K.js","rawBytes":362674,"gzipBytes":102059,"brotliBytes":82251},{"name":"OnlinePayments-Bmol5681.js","rawBytes":23774,"gzipBytes":6580,"brotliBytes":5610},{"name":"WorkspaceApp-Bq3H9Rnx.css","rawBytes":2778,"gzipBytes":982,"brotliBytes":771},{"name":"WorkspaceApp-X87Xkndp.js","rawBytes":677996,"gzipBytes":57466,"brotliBytes":40881}]

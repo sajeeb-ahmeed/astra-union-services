@@ -1,5 +1,7 @@
 # Astra — বর্তমান অবস্থা ও পরবর্তী কাজ
 
+**২৪ অক্টোবর ২০২৬ — 0.9 বাস্তবায়ন ও acceptance চলছে:** attachment quarantine, tenant-isolated scan queue, Bangla/English scan status ও PC-based ClamAV worker যোগ হয়েছে। পূর্ণ CI ও hosted acceptance শেষ না হওয়া পর্যন্ত নিচের 0.8-ই সর্বশেষ verified live release। [0.9 release notes](RELEASE_0_9.md), [PC scanner চালু/বন্ধ ও maintenance](ATTACHMENT_SCANNER_RUNTIME.md)। Payment gateway বন্ধ থাকবে।
+
 সর্বশেষ নোট: **২১ অক্টোবর ২০২৬, Asia/Dhaka**। এই নথি পরে কাজ চালু করার handoff। নিচের deployment ও test ফলাফলের নিজস্ব execution date সংরক্ষিত আছে; ভবিষ্যতে কাজ শুরুর সময় বর্তমান অবস্থা আবার যাচাই করতে হবে।
 
 ## এক নজরে

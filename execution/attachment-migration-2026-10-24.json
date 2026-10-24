@@ -1,0 +1,60 @@
+{
+  "recordedAt": "2026-10-24T06:52:47.264Z",
+  "scope": "local development database only; no hosted writes",
+  "migration": "015_attachment_quarantine.sql",
+  "unchangedBusinessTables": {
+    "applications": {
+      "count": 835,
+      "digest": "555676174f47d8eec524e2bd135e4fd0"
+    },
+    "application_payload_versions": {
+      "count": 876,
+      "digest": "6518c8b8cf043a893776b724f2848623"
+    },
+    "certificates": {
+      "count": 555,
+      "digest": "c8225c975916b82bc31a6d58882f5422"
+    },
+    "credit_ledger": {
+      "count": 724,
+      "digest": "640e3c47ace87d758eed71d3a04dc41b"
+    },
+    "tenant_wallets": {
+      "count": 174,
+      "digest": "4643a3d81c44e834f4456f7642b55042"
+    },
+    "payment_orders": {
+      "count": 82,
+      "digest": "9a59ef5c6673472aa15517e3402d0035"
+    },
+    "payment_events": {
+      "count": 95,
+      "digest": "a82540221e33736899f8ec4ae8e0139a"
+    },
+    "invoices": {
+      "count": 82,
+      "digest": "fa8cd966a69b132a6ffe3296f5254cf8"
+    },
+    "audit_events": {
+      "count": 6237,
+      "digest": "78f7d3a13fe865f945d30b0eb25c9476"
+    }
+  },
+  "attachments": {
+    "count": 35,
+    "content_digest": "5d41aee350456f62aeb37db44b442274"
+  },
+  "beforeStates": [
+    {
+      "scan_state": "UNSCANNED",
+      "count": 35
+    }
+  ],
+  "afterStates": [
+    {
+      "scan_state": "QUARANTINED",
+      "count": 35
+    }
+  ],
+  "passed": true
+}

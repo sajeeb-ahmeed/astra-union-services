@@ -341,7 +341,9 @@ test(
         buffer: fs.readFileSync("execution/browser-resident-demo.pdf"),
       });
       assert.equal((await uploadResponse).status(), 201);
-      await page.getByText(/Private upload saved:/).waitFor();
+      await page.getByTestId("attachment-status").waitFor();
+      await page.getByText("Waiting for safety check", { exact: true }).waitFor();
+      assert.equal(await page.getByRole("link", { name: "Download document", exact: true }).count(), 0);
       const tradeResponse = page.waitForResponse(
         (r) =>
           r.url().endsWith("/applications") && r.request().method() === "POST",

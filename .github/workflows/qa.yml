@@ -3,6 +3,53 @@ on: [push, pull_request]
 permissions:
   contents: read
 jobs:
+  real-antivirus:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:17-bookworm
+        env:
+          POSTGRES_DB: astra_attachment_ci
+          POSTGRES_USER: astra_admin
+          POSTGRES_PASSWORD: ci-only-admin-password
+        ports: ["5432:5432"]
+        options: --health-cmd "pg_isready -U astra_admin -d astra_attachment_ci" --health-interval 5s --health-timeout 5s --health-retries 20
+    env:
+      DATABASE_ADMIN_URL: postgresql://astra_admin:ci-only-admin-password@127.0.0.1:5432/astra_attachment_ci
+      DATABASE_URL: postgresql://astra_app:ci-only-app-password-not-production@127.0.0.1:5432/astra_attachment_ci
+      ASTRA_APP_PASSWORD: ci-only-app-password-not-production
+      NODE_ENV: test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - name: Start official ClamAV, with loopback-only host port
+        run: docker run -d --name astra-clamav -p 127.0.0.1:3310:3310 clamav/clamav:1.4.6
+      - name: Wait for a real signature database and verify real detections
+        run: |
+          for attempt in $(seq 1 60); do
+            if npm run scanner:check; then exit 0; fi
+            sleep 10
+          done
+          docker logs astra-clamav
+          exit 1
+      - run: npx playwright install --with-deps chromium
+      - run: sudo apt-get update && sudo apt-get install -y fonts-noto-core
+      - run: npm run db:bootstrap-role && npm run db:migrate && npm run db:seed
+      - name: Exercise real HTTP, PostgreSQL, malware detection and authorized issuance
+        run: node --import tsx scripts/scanner/real-flow.ts
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: real-antivirus-evidence
+          path: |
+            execution/attachment-real-engine.json
+            execution/attachment-real-flow-2026-10-24.json
+          retention-days: 7
   docker-build:
     runs-on: ubuntu-latest
     timeout-minutes: 15

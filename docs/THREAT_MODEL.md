@@ -86,3 +86,8 @@ After any account enrolls in MFA, do not roll back to the password-only runtime 
 Before real office use, complete the [documented backlog](DELIVERY_BACKLOG.md): protected hosted preservation and independent recovery, offsite/key custody and durable hosting; privileged recovery/access review; file quarantine/scanning; monitoring/shared throttling and recurring backups; capacity/accessibility/pilot acceptance; lawful identity, official rules/templates and signatories. Payment merchant work remains deferred at the owner's direction.
 
 The commissioning user owns the independent source. Third-party dependencies/fonts retain their licenses. Private reference code, government marks and captured citizen values are excluded.
+
+
+## 0.9 attachment boundary
+
+Uploads enter quarantine and remain private until an exact immutable hash has a trusted fresh-engine scan. Pending/error/rejected bytes cannot be downloaded or used for submission, approval or new issuance. A separately authenticated service lease, tenant RLS, immutable append-only results and final issuance locks defend against cross-tenant handles, stale/replayed verdicts and PDF-generation races. The scanner credential is intentionally privileged over queued uploads across active tenants; keep it outside source/browser state and rotate on compromise. The selected Windows PC is part of the trusted processing environment, and ClamD can spool private temporary files. Malware signatures do not detect every unknown threat; clean is not a universal safety guarantee. PC outage fails closed. Retention/disposal, always-on hosting, independent key custody and offsite backup remain policy/infrastructure decisions. See [runbook](ATTACHMENT_SCANNER_RUNTIME.md) and [release notes](RELEASE_0_9.md).

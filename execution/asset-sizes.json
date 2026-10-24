@@ -1,35 +1,59 @@
 {
-  "measuredAt": "2026-10-18T11:55:51.043Z",
+  "measuredAt": "2026-10-24T06:57:18.406Z",
   "assets": [
     {
-      "name": "AdditionalWorkspace-B71K8Dd2.js",
-      "rawBytes": 13924,
-      "gzipBytes": 4151,
-      "brotliBytes": 3522
+      "name": "AccountMfa-FV3TfdKw.js",
+      "rawBytes": 17583,
+      "gzipBytes": 5042,
+      "brotliBytes": 4327
     },
     {
-      "name": "AdminWorkspace-lP6WHZ3O.js",
-      "rawBytes": 27759,
-      "gzipBytes": 7919,
-      "brotliBytes": 6733
+      "name": "AccountMfa-h2sy7EfO.css",
+      "rawBytes": 1428,
+      "gzipBytes": 609,
+      "brotliBytes": 471
     },
     {
-      "name": "index-7lagO9Mq.css",
-      "rawBytes": 34830,
-      "gzipBytes": 7941,
-      "brotliBytes": 6998
+      "name": "AdditionalWorkspace-CW_gpEAp.js",
+      "rawBytes": 14077,
+      "gzipBytes": 4217,
+      "brotliBytes": 3586
     },
     {
-      "name": "index-BmrWSu1j.js",
-      "rawBytes": 990769,
-      "gzipBytes": 143977,
-      "brotliBytes": 108989
+      "name": "AdminWorkspace-BTZPVw_p.js",
+      "rawBytes": 27942,
+      "gzipBytes": 7991,
+      "brotliBytes": 6796
     },
     {
-      "name": "OnlinePayments-nhfSgwq5.js",
-      "rawBytes": 23734,
-      "gzipBytes": 6556,
-      "brotliBytes": 5586
+      "name": "index-CH_yOoyZ.css",
+      "rawBytes": 36191,
+      "gzipBytes": 8171,
+      "brotliBytes": 7212
+    },
+    {
+      "name": "index-Cl5sSP3K.js",
+      "rawBytes": 362674,
+      "gzipBytes": 102059,
+      "brotliBytes": 82251
+    },
+    {
+      "name": "OnlinePayments-Bmol5681.js",
+      "rawBytes": 23774,
+      "gzipBytes": 6580,
+      "brotliBytes": 5610
+    },
+    {
+      "name": "WorkspaceApp-Bq3H9Rnx.css",
+      "rawBytes": 2778,
+      "gzipBytes": 982,
+      "brotliBytes": 771
+    },
+    {
+      "name": "WorkspaceApp-X87Xkndp.js",
+      "rawBytes": 677996,
+      "gzipBytes": 57466,
+      "brotliBytes": 40881
     }
   ]
 }

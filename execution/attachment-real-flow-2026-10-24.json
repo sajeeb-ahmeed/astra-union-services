@@ -1,0 +1,60 @@
+{
+  "startedAt": "2026-10-24T06:58:08.815Z",
+  "kind": "REAL_CLAMAV_HTTP_POSTGRESQL",
+  "scope": "isolated loopback database; synthetic fixtures only",
+  "checks": [
+    {
+      "name": "Authenticated upload enters quarantine and authorized download is blocked before scan",
+      "status": "PASS"
+    },
+    {
+      "name": "Actual worker claims exact bytes, actual ClamAV returns clean, matching-hash bytes download privately",
+      "status": "PASS"
+    },
+    {
+      "name": "Clean scan does not weaken cross-tenant privacy",
+      "status": "PASS"
+    },
+    {
+      "name": "Actual ClamAV detects EICAR in a valid EmbeddedFile PDF and API keeps it unreadable",
+      "status": "PASS"
+    },
+    {
+      "name": "Real infected-file verdict blocks application submission without changing its draft",
+      "status": "PASS"
+    },
+    {
+      "name": "A real scanned file completes submit, review, authorized approval, PDF and exactly-once credit deduction",
+      "status": "PASS"
+    },
+    {
+      "name": "PC scanner unavailable leaves a new file waiting without claiming or releasing it",
+      "status": "PASS"
+    },
+    {
+      "name": "Resuming the actual scanner processes the waiting file",
+      "status": "PASS"
+    }
+  ],
+  "engine": {
+    "engineVersion": "ClamAV 1.4.6",
+    "signatureVersion": "28163",
+    "signatureUpdatedAt": "2026-10-24T06:26:10.000Z"
+  },
+  "events": [
+    {
+      "event": "CLAIMED",
+      "count": 3
+    },
+    {
+      "event": "CLEAN",
+      "count": 2
+    },
+    {
+      "event": "REJECTED",
+      "count": 1
+    }
+  ],
+  "status": "PASS",
+  "finishedAt": "2026-10-24T06:58:10.450Z"
+}

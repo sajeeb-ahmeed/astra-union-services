@@ -1,0 +1,17 @@
+✔ ATT-01: scanner requires configured bearer capability, refuses browser/session traffic and stale definitions (914.3882ms)
+✔ ATT-02: upload/status/download enforce tenant, applicant, role, CSRF and strict handles; files wait offline (491.4508ms)
+✔ ATT-03: atomic concurrent claims, exact hash/lease/engine binding, replay protection and clean-only bytes (425.9095ms)
+✔ ATT-04: failed and expired scans stay blocked; bounded cooldown/retry cannot resurrect rejected or exhausted files (220.8474ms)
+✔ ATT-05: pending handles save as drafts but block submit/resubmit/approval/issuance without credit or state changes (983.336ms)
+✔ ATT-06: final issuance transaction rechecks clean status after PDF generation and never debits on failure (498.5691ms)
+✔ ATT-07: restricted DB role cannot modify immutable bytes, bypass scan transitions, forge inserts or read another tenant's evidence (56.8037ms)
+✔ ATT-08: persisted fair scheduling serves both offices even with an earlier office backlog and concurrent workers (165.6991ms)
+✔ ATT-09: migration backfills every legacy tenant under a non-superuser owner with FORCE RLS and restores prior scope (59.335ms)
+ℹ tests 9
+ℹ suites 0
+ℹ pass 9
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 7710.0446

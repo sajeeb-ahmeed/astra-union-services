@@ -825,7 +825,19 @@ test("FOR-03: malformed/oversize uploads rejected, valid files remain tenant pri
     staff,
   );
   assert.equal(r.status, 201);
-  assert.equal(r.body.scanState, "UNSCANNED");
+  assert.equal(r.body.scanState, "QUARANTINED");
+  assert.equal(r.body.downloadAllowed, false);
+  assert.equal(
+    (
+      await request(
+        "GET",
+        `/attachments/${r.body.attachmentId}`,
+        undefined,
+        staff,
+      )
+    ).status,
+    409,
+  );
   assert.equal(
     (await request("GET", `/attachments/${r.body.attachmentId}`)).status,
     401,

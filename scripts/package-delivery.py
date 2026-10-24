@@ -68,6 +68,9 @@ for private_file in recovery_root.rglob('*') if recovery_root.exists() else []:
         import base64
         add_secret(base64.b64encode(raw).decode('ascii'))
 manifest=[]
+scanner_root=pathlib.Path.home()/'.astra-scanner'
+for private_file in scanner_root.glob('*.json') if scanner_root.exists() else []:
+    collect_hosted_secrets(json.loads(private_file.read_text(encoding='utf-8-sig')))
 for p in files:
     name=p.relative_to(root).as_posix()
     assert not {'audit','.runtime','.git','node_modules','deliverables'}.intersection(p.relative_to(root).parts)

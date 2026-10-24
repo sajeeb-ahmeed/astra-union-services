@@ -332,5 +332,6 @@
   "Too many requests. Please retry shortly.": "অনেকবার চেষ্টা করা হয়েছে। কিছুক্ষণ পরে আবার চেষ্টা করুন।",
   "Please retry shortly.": "কিছুক্ষণ পরে আবার চেষ্টা করুন।",
   "Draft saved. Open the draft and submit it when ready.": "খসড়া সংরক্ষিত হয়েছে। প্রস্তুত হলে খসড়া খুলে আবেদন জমা দিন।",
-  "Changes saved.": "পরিবর্তন সংরক্ষিত হয়েছে।"
+  "Changes saved.": "পরিবর্তন সংরক্ষিত হয়েছে।",
+  "Supporting documents must pass security scanning before this action.": "এই ধাপে যাওয়ার আগে সহায়ক নথির নিরাপত্তা পরীক্ষা সম্পন্ন হতে হবে। নথির পরীক্ষার অবস্থা দেখুন।"
 }
