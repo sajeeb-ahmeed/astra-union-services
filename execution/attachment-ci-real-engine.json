@@ -1,0 +1,33 @@
+{
+  "startedAt": "2026-10-24T07:10:15.659Z",
+  "kind": "REAL_CLAMAV",
+  "checks": [
+    {
+      "name": "Fresh official engine answers PING and supports INSTREAM; clean and EICAR readiness probes pass",
+      "status": "PASS"
+    },
+    {
+      "name": "synthetic PDF: no threat detected",
+      "status": "PASS"
+    },
+    {
+      "name": "synthetic PNG: no threat detected",
+      "status": "PASS"
+    },
+    {
+      "name": "Valid PDF containing EmbeddedFile antivirus fixture rejected by actual signatures",
+      "status": "PASS"
+    },
+    {
+      "name": "Client stream ceiling rejects more than 2 MiB",
+      "status": "PASS"
+    }
+  ],
+  "engine": {
+    "engineVersion": "ClamAV 1.4.6",
+    "signatureVersion": "28163",
+    "signatureUpdatedAt": "2026-10-24T06:26:10.000Z"
+  },
+  "status": "PASS",
+  "finishedAt": "2026-10-24T07:10:15.728Z"
+}

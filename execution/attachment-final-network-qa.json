@@ -1,0 +1,9 @@
+{
+  "databaseId": "dpg-db6tr43ncjis73ercfsg-a",
+  "databaseStatus": "available",
+  "ipAllowList": [],
+  "expiresAt": "2026-11-12T07:28:16.203893Z",
+  "checkedAt": "2026-10-24T07:25:53.406Z",
+  "status": "PASS",
+  "scope": "Read-only provider metadata after rollout; temporary migration access has been removed. No new external connection was attempted."
+}

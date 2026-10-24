@@ -1,6 +1,16 @@
 # Acceptance matrix and evidence boundaries
 
-## Release 0.8 acceptance scope
+## Release 0.9 acceptance scope — live
+
+Runtime `9aadc93b29cbc76a669db4ffa1c37a2f4f220528` became live on **24 October 2026 at 07:24:34Z**. Local suites and final [Linux CI 40073018586](https://github.com/sajeeb-ahmeed/astra-union-services/actions/runs/40073018586) passed **293/293 tests**: 18 backup, 19 scanner/orchestration, 72 forms, 121 API and 63 web. Production/Docker builds and a zero-vulnerability dependency audit passed. Five actual ClamAV checks and eight isolated HTTP/PostgreSQL/worker/ClamAV checks passed separately; these are not added to the 293-test total. [Release notes](RELEASE_0_9.md), [local evidence](../execution/attachment-local-qa.json), [CI evidence](../execution/attachment-ci-qa.json).
+
+Hosted migration 015 passed six verification groups, preserving 48 existing tables, three tenants, 14 accounts and 18 routines. Hosted acceptance passed **25 API groups, eight Bangla/English mobile browser groups and nine live asset hashes**. The real PC worker released a clean PDF and rejected a valid PDF containing the standard antivirus fixture; pending downloads and unauthorized access remained denied. Existing PDF bytes, 24 credits and one issuance debit were unchanged. Payment collection remains disabled. [Consolidated live evidence](../execution/attachment-live-release.json).
+
+Actual production worker startup and idempotent reuse passed. The optional negative Windows worker-wrapper lifecycle test was rejected before execution by automatic tool policy and is not claimed as passed. The initial CI scanner attempt loaded stale prepackaged definitions; final CI requires a successful official FreshClam update before starting ClamD, with no relaxed freshness gate. Detailed attachment coverage appears below; simulated protocol cases, real engine tests and hosted checks remain distinct.
+
+PC sleep/shutdown, stale definitions or an unavailable worker leave files quarantined. Retention, always-on scanning, offsite backup and independent keys are unresolved; the recorded encrypted backup predates migration 015. Recovery must preserve quarantine and MFA—0.8 or earlier is not an acceptable rollback target.
+
+## Release 0.8 acceptance scope — historical
 
 Frozen-source local verification passed **252/252 cases** (15 backup, 72 forms, 112 API, 53 web), production build, typecheck and a zero-vulnerability dependency audit. An additional **22-check independent managed recovery rehearsal** restored 49 tables, two synthetic tenants and two actual PDFs, including real HTTP startup. These counts do not include duplicate focused reruns. [Local evidence](../execution/recovery-mfa-local-qa.json), [recovery rehearsal](../execution/managed-recovery-local-qa.json), [release status](RELEASE_0_8.md).
 
@@ -76,7 +86,7 @@ Hosted evidence: [payment checks](../execution/payments-hosted-qa.json), [readba
 
 ## Historical release 0.2
 
-13 October 2026. The table below is the original release 0.2 record. PASS means that independently built local DEMO behavior was executed at that time; historical "unconfigured" limitations and counts are not the current 0.6 feature inventory. It never verifies Prottoyon's unseen server behavior or legal production authority. All tests use synthetic records.
+13 October 2026. The table below is the original release 0.2 record. PASS means that independently built local DEMO behavior was executed at that time; historical "unconfigured" and "unscanned" limitations and counts are not the current 0.9 feature inventory. It never verifies Prottoyon's unseen server behavior or legal production authority. All tests use synthetic records.
 
 | ID              | Current result        | Executed evidence / limit                                                                                                                                                                    |
 | --------------- | --------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |

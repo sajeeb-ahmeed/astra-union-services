@@ -85,6 +85,12 @@ The worker also validates engine identity, signature freshness and known clean/E
 
 The acceptance script generates antivirus fixtures in application memory and never saves an EICAR fixture to the repository. ClamD's internal temporary-file behavior remains as described above. Complete current application/worker test results are recorded separately in `execution/attachment-real-engine.json` and the release verification document; the runtime evidence alone is not proof of a hosted release.
 
+## Hosted runtime acceptance — 2026-10-24
+
+The production scanner credential was provisioned privately on the existing Render service and this PC. At `2026-10-24T07:25:10Z`, the hidden outbound worker started successfully after the five real-engine readiness checks. A repeated start reused the validated owned worker. Live acceptance verified a clean PDF became downloadable and the valid embedded antivirus-fixture PDF was rejected; pending files had first been verified inaccessible with the worker stopped. The worker log then reported IDLE. The worker, ClamD and FreshClam were left running, with ClamD listening only on `127.0.0.1:3310`. [Sanitized runtime evidence](../execution/attachment-pc-runtime-qa.json), [hosted results](../execution/attachments-hosted-qa.json).
+
+An optional negative outbound-wrapper lifecycle test was blocked before execution by automatic tool policy without a specific reason; no pass is claimed for that test. The engine lifecycle tests above and actual production worker startup/idempotency/live scanning were executed successfully. No startup persistence was added: run `start-attachment-worker.ps1` again after Windows restarts.
+
 ## Diagnosis and maintenance
 
 1. Inspect `.runtime/clamav/logs/freshclam.log` for update errors and `.runtime/clamav/logs/clamd.log` / `clamd.stderr.log` for engine errors. No attachment bodies or scanner credentials should be added to logs.

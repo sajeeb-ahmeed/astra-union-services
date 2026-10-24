@@ -1,0 +1,96 @@
+{
+  "release": "0.9.0",
+  "status": "PASS",
+  "verifiedAt": "2026-10-24T07:26:40.607276Z",
+  "url": "https://astra-union-services.onrender.com",
+  "runtimeCommit": "9aadc93b29cbc76a669db4ffa1c37a2f4f220528",
+  "renderDeployId": "dep-dbe5pabrjlhs7394ljug",
+  "liveAt": "2026-10-24T07:24:34.82211Z",
+  "gitAutoDeploy": "off",
+  "ci": {
+    "url": "https://github.com/sajeeb-ahmeed/astra-union-services/actions/runs/40073018586",
+    "total": 293,
+    "suites": {
+      "backup": 18,
+      "scanner_and_hosted_orchestration": 19,
+      "forms": 72,
+      "api": 121,
+      "web": 63
+    },
+    "realEngineChecks": 5,
+    "realHttpPostgresClamavChecks": 8,
+    "dependencyAudit": "0 vulnerabilities"
+  },
+  "hosted": {
+    "prepare": {
+      "checks": 7,
+      "evidence": "attachments-hosted-prepare.json",
+      "status": "PASS"
+    },
+    "actualScanner": {
+      "checks": 5,
+      "evidence": "attachments-hosted-qa.json",
+      "status": "PASS"
+    },
+    "payments": {
+      "checks": 7,
+      "evidence": "attachments-payments-regression.json",
+      "status": "PASS"
+    },
+    "historicalReadback": {
+      "checks": 6,
+      "evidence": "attachments-readback-regression.json",
+      "status": "PASS"
+    },
+    "browser": {
+      "checks": 8,
+      "evidence": "attachments-live-browser-qa.json",
+      "status": "PASS"
+    }
+  },
+  "hostedApiGroupTotal": 25,
+  "assetHashes": 9,
+  "migration": {
+    "file": "015_attachment_quarantine.sql",
+    "evidence": "attachment-hosted-migration.json",
+    "checks": 6,
+    "preservedTables": 48,
+    "preservedAccounts": 14,
+    "preservedRoutines": 18,
+    "legacyHostedAttachments": 0
+  },
+  "database": {
+    "databaseId": "dpg-db6tr43ncjis73ercfsg-a",
+    "databaseStatus": "available",
+    "ipAllowList": [],
+    "expiresAt": "2026-11-12T07:28:16.203893Z",
+    "checkedAt": "2026-10-24T07:25:53.406Z",
+    "status": "PASS",
+    "scope": "Read-only provider metadata after rollout; temporary migration access has been removed. No new external connection was attempted."
+  },
+  "pcScanner": {
+    "evidence": "attachment-pc-runtime-qa.json",
+    "running": true,
+    "noPublicListener": true,
+    "automaticStartup": false
+  },
+  "paymentGatewaysEnabled": false,
+  "syntheticRecordsAdded": {
+    "citizens": 1,
+    "privateUploads": 2,
+    "newApplications": 0,
+    "paymentAttempts": 0,
+    "certificates": 0,
+    "creditDebits": 0
+  },
+  "historicalRecords": "Existing issued PDF byte-identical; original wallet24credits and one3-credit issuance debit preserved.",
+  "limitations": [
+    "Clean signatures do not guarantee detection of every threat.",
+    "PC must remain awake, online and running engine/updater/worker; manual restart after Windows restart.",
+    "Rejected/error retention and deletion policy remain undecided.",
+    "Offsite backup and independent key custody deferred by owner; existing encrypted backup precedes migration015 and new synthetic scan evidence.",
+    "Free database expiry2026-11-12; durable hosting/cutover decision remains open.",
+    "Certificates remain DEMO / NOT OFFICIAL; reference audit evidence limitations remain unchanged."
+  ],
+  "nextMilestone": "Operational monitoring and incident handling, scanner queue-age alerts, shared rate limiting. Payment gateway remains deferred."
+}

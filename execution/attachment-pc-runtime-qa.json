@@ -1,0 +1,55 @@
+{
+  "status": "PASS",
+  "checkedAt": "2026-10-24T07:26:40.607276Z",
+  "kind": "ACTUAL_PRODUCTION_PC_WORKER",
+  "origin": "https://astra-union-services.onrender.com",
+  "workerStartedAt": "2026-10-24T07:25:10.8733968Z",
+  "checks": [
+    {
+      "name": "Actual ClamAV readiness checks passed before outbound worker start",
+      "status": "PASS"
+    },
+    {
+      "name": "Hidden outbound worker started and remained running",
+      "status": "PASS"
+    },
+    {
+      "name": "Repeated startup reused the validated owned worker process",
+      "status": "PASS"
+    },
+    {
+      "name": "ClamD listener restricted to 127.0.0.1:3310",
+      "status": "PASS"
+    },
+    {
+      "name": "FreshClam updater remains running",
+      "status": "PASS"
+    },
+    {
+      "name": "Real worker event log recorded one CLEAN, one REJECTED, then IDLE",
+      "status": "PASS"
+    }
+  ],
+  "processes": {
+    "clamd": 17356,
+    "freshclam": 3924,
+    "outboundWorker": 28080
+  },
+  "eventCounts": {
+    "CLEAN": 1,
+    "REJECTED": 1,
+    "IDLE": 1
+  },
+  "engine": {
+    "engineVersion": "ClamAV 1.4.6",
+    "signatureVersion": "28163",
+    "signatureUpdatedAt": "2026-10-24T06:26:10.000Z"
+  },
+  "leftRunning": true,
+  "automaticWindowsStartupInstalled": false,
+  "limitations": [
+    "PC sleep, shutdown, connectivity loss, stale definitions or worker/engine failure leaves uploads waiting in quarantine.",
+    "Process IDs are point-in-time evidence, not stable identifiers or permission to stop an arbitrary later process.",
+    "Optional negative outbound-wrapper lifecycle test was blocked before execution and is not claimed as passed."
+  ]
+}

@@ -1,0 +1,70 @@
+{
+  "executedAt": "2026-10-24T07:24:55.175Z",
+  "baseUrl": "https://astra-union-services.onrender.com",
+  "status": "PASS",
+  "assets": [
+    {
+      "name": "AccountMfa-FV3TfdKw.js",
+      "bytes": 17583,
+      "sha256": "eb9556f10f63169a13ce44566590e7b8e2eecde6f70aa6095386e3675aed5137",
+      "matchesLocalBuild": true,
+      "immutableCache": true
+    },
+    {
+      "name": "AccountMfa-h2sy7EfO.css",
+      "bytes": 1428,
+      "sha256": "b63f6c8486c0d1ffc5ad3168b10ed2901d6bb2602613c99134d7faf37fadf718",
+      "matchesLocalBuild": true,
+      "immutableCache": true
+    },
+    {
+      "name": "AdditionalWorkspace-CW_gpEAp.js",
+      "bytes": 14077,
+      "sha256": "fa9fc54afacc3d44a61d2ff78129eb51c9cb56b167a2de9d8ba44748a896954f",
+      "matchesLocalBuild": true,
+      "immutableCache": true
+    },
+    {
+      "name": "AdminWorkspace-BTZPVw_p.js",
+      "bytes": 27942,
+      "sha256": "3bee22503806d24d35628eb50424f06219bba0a503b128ac4f58cdfc55b1c460",
+      "matchesLocalBuild": true,
+      "immutableCache": true
+    },
+    {
+      "name": "index-CH_yOoyZ.css",
+      "bytes": 36191,
+      "sha256": "671f1eb4f404b0caf252e04069013860b002c9c787963a53da17fb3726c8177b",
+      "matchesLocalBuild": true,
+      "immutableCache": true
+    },
+    {
+      "name": "index-Cl5sSP3K.js",
+      "bytes": 362674,
+      "sha256": "60d089ee3a1446832d147f1326c212556d7dd387230686d8c141e8d56e61276a",
+      "matchesLocalBuild": true,
+      "immutableCache": true
+    },
+    {
+      "name": "OnlinePayments-Bmol5681.js",
+      "bytes": 23774,
+      "sha256": "901370c4f6d031356854dd29c55bfa9aefa01c1a280e7eb7667d240bc9cb51cb",
+      "matchesLocalBuild": true,
+      "immutableCache": true
+    },
+    {
+      "name": "WorkspaceApp-Bq3H9Rnx.css",
+      "bytes": 2778,
+      "sha256": "937c52ee58feac59f4894a0038f152b0918e4e6cee7951992317d2e1a0660527",
+      "matchesLocalBuild": true,
+      "immutableCache": true
+    },
+    {
+      "name": "WorkspaceApp-X87Xkndp.js",
+      "bytes": 677996,
+      "sha256": "654a0cb4a4fe3380d40c534466c083fffd9fdaa49f66fb6e410c97045b5b394a",
+      "matchesLocalBuild": true,
+      "immutableCache": true
+    }
+  ]
+}

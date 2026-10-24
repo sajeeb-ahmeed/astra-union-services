@@ -1,0 +1,55 @@
+{
+  "startedAt": "2026-10-24T07:25:44.639Z",
+  "status": "PASS",
+  "scope": "Public navigation and existing synthetic staff/application records. Login/logout only; no application, citizen, payment, certificate or approval changes.",
+  "viewport": {
+    "width": 390,
+    "height": 844
+  },
+  "checks": [
+    {
+      "name": "01 Public quick tasks open tracking and verification",
+      "status": "PASS"
+    },
+    {
+      "name": "02 Bangla-digit service search, focused details and return",
+      "status": "PASS"
+    },
+    {
+      "name": "03 Blank login and password visibility with existing staff sign-in",
+      "status": "PASS"
+    },
+    {
+      "name": "04 Staff task cards and mobile page picker reach working pages",
+      "status": "PASS"
+    },
+    {
+      "name": "05 Empty application search clears back to existing records",
+      "status": "PASS"
+    },
+    {
+      "name": "06 Exact reference shows approved fee hold without staff issuance authority",
+      "status": "PASS"
+    },
+    {
+      "name": "07 Bangla and English mobile guidance retains the same application",
+      "status": "PASS"
+    },
+    {
+      "name": "08 Sign-out clears credentials with no page errors or unintended mutations",
+      "status": "PASS"
+    }
+  ],
+  "screenshots": [
+    "execution/attachments-live-public-tasks.png",
+    "execution/attachments-live-catalog-bn.png",
+    "execution/attachments-live-workspace-home-en.png",
+    "execution/attachments-live-guidance-en.png",
+    "execution/attachments-live-guidance-bn.png"
+  ],
+  "baseUrl": "https://astra-union-services.onrender.com",
+  "cleanup": "SIGNED_OUT",
+  "pageErrors": 0,
+  "blockedMutations": 0,
+  "finishedAt": "2026-10-24T07:25:51.348Z"
+}

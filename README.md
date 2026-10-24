@@ -1,16 +1,18 @@
 # Astra Union Services
 
-Attachment quarantine / PC scanner implementation: [0.9 notes](docs/RELEASE_0_9.md) · [operator runbook](docs/ATTACHMENT_SCANNER_RUNTIME.md). Hosted status is recorded separately; source version alone does not establish deployment.
+Attachment quarantine and PC malware scanner: [0.9 notes](docs/RELEASE_0_9.md) · [operator runbook](docs/ATTACHMENT_SCANNER_RUNTIME.md). Hosted status is recorded separately; source version alone does not establish deployment.
 
-Release **0.8.0 is live**, verified 21 October 2026. Independently authored Bangla/English React frontend, Express/TypeScript backend and real PostgreSQL. The commissioning user owns the original software; third-party licenses are retained separately.
+Release **0.9.0 is live**, verified 24 October 2026. Independently authored Bangla/English React frontend, Express/TypeScript backend and real PostgreSQL. The commissioning user owns the original software; third-party licenses are retained separately.
 
-## Recovery and account protection
+## Attachment protection and verified release
 
-Optional authenticator login, ten one-use recovery codes and durable own-account security history are live. The actual encrypted hosted backup was independently restored and verified. **255 CI tests, 29 live API groups, 6 bilingual/mobile browser groups and 9 deployed asset hashes passed.** Production/Docker builds and a zero-vulnerability audit passed. Runtime `695942dff49f088ad7862718ba32192d0a8011c2`.
+Private uploads enter quarantine and cannot be downloaded or used for submission, approval or new issuance before a clean scan. The actual ClamAV worker on the owner’s PC released a clean test PDF and rejected the harmless antivirus fixture. Bangla/English scan status, authorized retry and tenant isolation are implemented. **293 CI tests, 25 live API groups, 8 bilingual/mobile browser groups and 9 deployed asset hashes passed.** Separate real-engine and full scanner-workflow checks passed 5/5 and 8/8; production/Docker builds and a zero-vulnerability audit passed. Runtime `9aadc93b29cbc76a669db4ffa1c37a2f4f220528`.
 
-[Live website](https://astra-union-services.onrender.com/) · [Release results](docs/RELEASE_0_8.md) · [Bangla status and next steps](docs/STATUS_AND_NEXT_STEPS.md) · [Deployment instructions](docs/DEPLOYMENT.md) · [Recovery runbook](docs/MANAGED_RECOVERY.md).
+**Keep the PC awake and online with the scanner/worker running.** Files wait quarantined while it is unavailable. After Windows restarts, run the startup command in the [operator runbook](docs/ATTACHMENT_SCANNER_RUNTIME.md); no automatic startup task was installed. Earlier optional MFA/account-security and verified encrypted backup/restore remain available. The existing backup predates migration 015 and the new scanner fixtures.
 
-Payment collection remains disabled and certificates remain DEMO / NOT OFFICIAL. Backup is local-only by owner choice; offsite/key custody and durable hosting before **12 November 2026** remain open. The next unblocked milestone is attachment quarantine/scanning. Historical release sections below retain their original scope and measurements.
+[Live website](https://astra-union-services.onrender.com/) · [Release results](docs/RELEASE_0_9.md) · [Bangla status and next steps](docs/STATUS_AND_NEXT_STEPS.md) · [Deployment instructions](docs/DEPLOYMENT.md) · [Recovery runbook](docs/MANAGED_RECOVERY.md).
+
+Payment collection remains disabled and certificates remain DEMO / NOT OFFICIAL. Backup is local-only by owner choice; offsite/key custody and durable hosting before **12 November 2026** remain open. The next unblocked milestone is operational monitoring, scanner queue-age alerts and shared rate limiting. Attachment retention and always-on scanner hosting remain owner decisions. Historical release sections below retain their original scope and measurements.
 
 ## Release 0.7 usability — historical
 
@@ -141,6 +143,6 @@ The Docker image was built and deployed successfully on Render. GitHub Actions a
 
 ## Limits
 
-This is working demonstration software, not an authorized government service. External OTP/NID/BRN, live payment settlement, official signatures/templates/fees, malware scanning, outbound email/SMS, production retention/key management and infrastructure acceptance remain integration work. Full WCAG/screen-reader and production load assessments are not claimed. See the delivery report for the next milestone.
+This is working demonstration software, not an authorized government service. External OTP/NID/BRN, live payment settlement, official signatures/templates/fees, always-on scanner operations and attachment retention, outbound email/SMS, production retention/key management and infrastructure acceptance remain integration work. Full WCAG/screen-reader and production load assessments are not claimed. See the delivery report for the next milestone.
 
 Ownership: [LICENSE](LICENSE). Dependencies/fonts: [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).

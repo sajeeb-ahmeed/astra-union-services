@@ -1,8 +1,20 @@
 # Hosted deployment record
 
-**Verified 21 October 2026: 0.8.0 is live and post-deployment checks passed.** Collection remains disabled, certificates DEMO / NOT OFFICIAL.
+**Current release: 0.9, live and verified on 24 October 2026.** Payment collection remains disabled; certificates remain DEMO / NOT OFFICIAL.
 
-## Current 0.8 deployment
+## Release 0.9 — current verified deployment
+
+Runtime `9aadc93b29cbc76a669db4ffa1c37a2f4f220528` is live at [Astra](https://astra-union-services.onrender.com/), deployment `dep-dbe5pabrjlhs7394ljug`, finished **2026-10-24T07:24:34.82211Z** (13:24:34 Bangladesh time). [CI 40073018586](https://github.com/sajeeb-ahmeed/astra-union-services/actions/runs/40073018586) passed **293/293 tests** (backup 18, scanner/orchestration 19, forms 72, API 121, web 63), production/Docker builds and a zero-vulnerability audit. Separate real ClamAV checks passed 5/5 and real HTTP/PostgreSQL/scanner workflow checks passed 8/8; those are not added to the suite total.
+
+Migration 015 passed **six preservation/security groups**, preserving 48 existing tables, three tenants, 14 accounts and 18 routines. There were zero legacy hosted attachments to backfill. Authorized temporary database access was removed before deployment; final provider readback confirms the database is available with an empty external IP allowlist. No paid resource was created. Free database expiry remains **12 November 2026**. [Migration](../execution/attachment-hosted-migration.json), [final network](../execution/attachment-final-network-qa.json).
+
+Hosted acceptance passed **25 API groups** (prepare 7, actual scanner 5, disabled payments 7, historical readback 6), **eight BN/EN mobile browser groups**, and **nine exact JS/CSS hashes**. The real PC scanner released a clean PDF and rejected a valid PDF containing the harmless standard antivirus fixture. Pending files were first proven inaccessible with the worker stopped; cross-tenant/unauthenticated requests remain denied. Existing PDF bytes, 24 credits and one issuance debit were preserved. One synthetic citizen and two private test uploads were retained; no new application, certificate, payment attempt or credit debit was created. The browser finished signed out with no page errors or unintended writes. Attachment UI races and scan-state rendering are covered by the 63-case local/CI web suite; live browser checks cover navigation/existing guidance. [Consolidated results](../execution/attachment-live-release.json), [release notes](RELEASE_0_9.md).
+
+The outbound PC worker, loopback-only ClamD and official updater were left running. Actual startup and idempotent reuse passed. PC sleep/shutdown, lost connectivity or scanner failure leaves uploads quarantined; restart manually after Windows restarts. [Runtime runbook](ATTACHMENT_SCANNER_RUNTIME.md). The scanner secret and original MFA key remain private. Git Auto-Deploy is off; later documentation commits are not deployed runtime changes. Never roll back to 0.8 or earlier, which can serve unscanned attachments. Preserve migration 015 and roll forward with a quarantine-aware compatible build.
+
+Attachment retention, always-on scanner uptime, offsite/key custody, durable database hosting and official service authority remain pending decisions. The existing encrypted backup predates 015 and these new scan fixtures; no new full hosted backup was claimed for this release. Payment gateways stay disabled. Next engineering milestone: operational monitoring, scanner queue-age alerts and shared rate limiting.
+
+## Release 0.8 history
 
 Runtime `695942dff49f088ad7862718ba32192d0a8011c2` passed **255/255 Linux CI tests**: 18 backup safety, 72 forms, 112 API and 53 web cases. Production and Docker builds passed; the dependency audit reported zero vulnerabilities. [CI 39562961916](https://github.com/sajeeb-ahmeed/astra-union-services/actions/runs/39562961916), [CI evidence](../execution/recovery-mfa-ci-qa.json). The earlier frozen-source local run passed 252 tests; the three subsequent recovery regressions and all 18 backup tests passed locally. Those focused reruns are not additional full-suite executions.
 

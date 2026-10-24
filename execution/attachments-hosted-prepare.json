@@ -1,0 +1,55 @@
+{
+  "release": "0.9.0",
+  "phase": "prepare",
+  "startedAt": "2026-10-24T07:24:57.161Z",
+  "status": "PREPARED",
+  "scope": "Existing synthetic QA offices only. One new synthetic citizen and two private test uploads; existing business records remain read-only. Real PC scanner results only; no payment provider call or scanner attestation override.",
+  "checks": [
+    {
+      "name": "Authenticate only existing synthetic QA staff, admin and foreign admin",
+      "status": "PASS"
+    },
+    {
+      "name": "Payment gateways remain disabled and no provider is called",
+      "status": "PASS"
+    },
+    {
+      "name": "Create exactly one named synthetic citizen",
+      "status": "PASS"
+    },
+    {
+      "name": "Upload clean and embedded antivirus PDFs directly into quarantine",
+      "status": "PASS"
+    },
+    {
+      "name": "Paused scanner leaves both private files quarantined and downloads denied",
+      "status": "PASS"
+    },
+    {
+      "name": "Unauthenticated, foreign-tenant and cookie-only scanner access are denied",
+      "status": "PASS"
+    },
+    {
+      "name": "Existing QA application, PDF and wallet remain unchanged",
+      "status": "PASS"
+    }
+  ],
+  "limitations": [
+    "The synthetic citizen, private uploads and immutable audit events are retained for inspection.",
+    "A harmless standard antivirus fixture tests detection; it does not prove detection of every possible threat.",
+    "Hosted checks exercise HTTP boundaries and actual PC scanning. Database tamper/concurrency and bilingual mobile component checks are covered by the local suite."
+  ],
+  "baseUrl": "https://astra-union-services.onrender.com",
+  "nextStep": "Start the authorized real PC scanner, then run this script with verify. No scanner capability is used by this verifier.",
+  "syntheticRecords": {
+    "citizens": 1,
+    "privateUploads": 2,
+    "newApplications": 0,
+    "paymentAttempts": 0,
+    "certificates": 0,
+    "creditDebits": 0
+  },
+  "sessionsClosed": 3,
+  "sessionsOpened": 3,
+  "finishedAt": "2026-10-24T07:25:02.187Z"
+}

@@ -1,8 +1,19 @@
 # Deployment and reproducibility
 
-Updated for **0.8 live deployment · 21 October 2026**. Windows/Node 24/PostgreSQL 17.11 is the local path. [Release 0.8](RELEASE_0_8.md) records 255 passing Linux CI tests, production/Docker builds and hosted acceptance. [HOSTED_DEPLOYMENT.md](HOSTED_DEPLOYMENT.md) identifies the exact runtime. Certificates remain DEMO / NOT OFFICIAL.
+Updated for **0.9 live deployment · 24 October 2026**. Runtime `9aadc93b29cbc76a669db4ffa1c37a2f4f220528` is live at [Astra](https://astra-union-services.onrender.com/). Windows/Node 24/PostgreSQL 17.11 remains the local path. [Release 0.9](RELEASE_0_9.md) and [consolidated evidence](../execution/attachment-live-release.json) record 293 passing CI tests, real ClamAV checks, Docker build and hosted acceptance. Certificates remain DEMO / NOT OFFICIAL; payment gateways remain disabled.
 
-## 0.8 recovery and authenticator rollout
+## 0.9 quarantine and PC scanner rollout
+
+1. Require the exact commit's complete CI, dependency audit, Docker build, five real-engine checks and eight isolated HTTP/PostgreSQL/ClamAV checks. CI updates official signatures before starting ClamD; a stale or unavailable engine cannot skip acceptance.
+2. Review migration 015 and its normalized filename/SQL SHA-256. Use `scripts/migrate-hosted-attachments.mjs --apply-reviewed-attachment-migration <sha256>` only for the existing authorized database, with verified TLS and narrowly scoped temporary maintenance access. It preserves original bytes/ownership and other data, quarantines legacy uploads, and verifies immutable content, tenant RLS and column grants. Close temporary external access before rollout. The live database currently has an empty external IP allowlist.
+3. Provision the separate scanner secret privately in the application's `ATTACHMENT_SCANNER_SECRET` and `%USERPROFILE%/.astra-scanner/worker.json`; preserve existing secrets when updating Render. Follow the [PC scanner runbook](ATTACHMENT_SCANNER_RUNTIME.md) for signed ClamAV installation, private ACLs, loopback binding and worker startup. Never expose port 3310 or publish credentials. Environment updates may start a deploy even with Git Auto-Deploy off; inspect deployment history before requesting another.
+4. Verify the exact deployment becomes live, pending downloads remain denied, and the actual PC worker releases a clean fixture and rejects the standard antivirus fixture. Recheck disabled payments, historical PDF/credits, bilingual/mobile navigation and live asset hashes. The 0.9 rollout passed 25 hosted API groups, eight browser groups and nine asset hashes; retain those artifacts separately from local tests.
+
+**Current rollback boundary:** never deploy 0.8 or earlier after migration 015; those binaries can serve unscanned uploads. Fix forward or deploy a verified quarantine-aware, MFA-aware compatible build. Preserve migrations 013–015, scan history and the matching MFA encryption key. Stopping the worker safely leaves documents waiting. A restored pre-015 archive must be upgraded and verified with compatible code before exposure.
+
+The PC engine, updater and outbound worker were running at acceptance; no automatic Windows startup task is installed. Sleep, shutdown, loss of connectivity or stale signatures leave files quarantined until service resumes. Rejected/error retention is undecided. Existing encrypted backup evidence predates migration 015 and the new scan fixtures; offsite storage, independent key custody, recurring backup acceptance and durable hosting before the recorded **12 November 2026** database expiry remain open.
+
+## 0.8 recovery and authenticator rollout — historical
 
 The execution state is recorded in [Release 0.8](RELEASE_0_8.md). A prepared migration or source push alone is not deployment acceptance.
 
@@ -15,11 +26,11 @@ The execution state is recorded in [Release 0.8](RELEASE_0_8.md). A prepared mig
 6. Run `scripts/verify-hosted-mfa.ts` against the authorized HTTPS origin. It creates one explicitly synthetic staff fixture, exercises the actual factor/recovery flow, disables its factor, deactivates it and closes its sessions. Resolve uncertain cleanup before declaring success. Other users must not be enrolled by deployment.
 7. Run existing account/payment/readback/geography checks with new `ASTRA_QA_OUTPUT` paths, then `scripts/verify-hosted-mfa-ui.ts` and asset verification with `ASTRA_ASSET_EVIDENCE_PREFIX=recovery-mfa`. Preserve previous release evidence. Record exact runtime, CI, migrations, backup snapshot, restore timings, firewall closure and limitations.
 
-**Rollback boundary:** after any account enables MFA, do not deploy 0.7 or older password-only authentication code. Those versions do not enforce the stored factor. Keep the schema and key; fix forward or use a verified MFA-aware compatible runtime. Never silently remove factors or replace the key as a recovery shortcut. Offsite archive/key custody and durable hosting before the free-database expiry remain separate required decisions.
+**Historical MFA boundary:** 0.8 introduced the prohibition on 0.7 or older password-only code after factor enrollment. The current 0.9 boundary above additionally excludes 0.8. Never silently remove factors or replace the key as a recovery shortcut. Offsite archive/key custody and durable hosting remain separate required decisions.
 
 ## 0.7 usability rollout — historical
 
-Runtime `56fb7f56bd77cfde2887a52384d3a9b4706a421e` passed [CI 39552222856](https://github.com/sajeeb-ahmeed/astra-union-services/actions/runs/39552222856) and is live as `dep-dbc596mi0phs73aeldug`. This frontend update needed no migration, database firewall opening or provider credentials. Eight live usability/browser groups, 22 API groups and eight JS/CSS hash checks passed. See [release metadata](../execution/usability-live-release.json).
+Runtime `56fb7f56bd77cfde2887a52384d3a9b4706a421e` passed [CI 39552222856](https://github.com/sajeeb-ahmeed/astra-union-services/actions/runs/39552222856) and was deployed as `dep-dbc596mi0phs73aeldug`. This frontend update needed no migration, database firewall opening or provider credentials. Eight live usability/browser groups, 22 API groups and eight JS/CSS hash checks passed. See [release metadata](../execution/usability-live-release.json).
 
 For future rollout verification, run `scripts/verify-hosted-usability.ts` only against the explicitly authorized HTTPS origin after deployment; it permits only login/logout writes using existing synthetic records. Set `ASTRA_ASSET_EVIDENCE_PREFIX` and `ASTRA_QA_OUTPUT` for the other asset/API scripts to new release-specific evidence paths. Preserve historical evidence. Session-revocation checks should finish before opening the same synthetic account's UI session.
 
@@ -85,7 +96,7 @@ Production-mode startup rejects missing secrets, insecure/malformed origins and 
 
 ## Deferred online payment deployment gate
 
-The owner has deferred payment gateway work. These requirements are retained for a later authorized activation and do not block the merchant-independent 0.6 rollout.
+The owner has deferred payment gateway work. These requirements are retained for a later authorized activation and do not block the merchant-independent 0.9 rollout.
 
 Migration `012_gateway_payments.sql` adds the restricted gateway token/intent/event/confirmation/receipt/reconciliation tables. Apply migrations using the separate administrator role after backup/readback preparation, then deploy the compatible runtime. Preserve existing assessment snapshots, SaaS balances, certificates and stored PDF bytes. A source migration file is not evidence it ran on the hosted database.
 
@@ -101,13 +112,15 @@ Preserve original merchant configuration and encryption-key custody while attemp
 
 ## Updates and recovery
 
-- Back up and verify restore before migrations. Migrations are forward-only; rollback needs a database-compatible prior app release. Never rewrite issued PDFs/published schemas.
+- Back up and verify restore before migrations. Migrations are forward-only; recovery requires a database-compatible, quarantine-aware and MFA-aware runtime. Never roll back to 0.8 or earlier, rewrite issued PDFs/published schemas, or remove scan/MFA history to force compatibility.
 - Preserve volume `astra_database`; destructive `docker compose down -v` is not part of deployment.
 - Local format-2 AES-256-GCM recovery uses consistent pg_dump and verifies table hashes, balances, PDFs, all application routines, narrow column grants, RLS, triggers, indexes and schema/default grants in a new DB. Run `npm run db:recovery-drill` after fixture mutations settle. It is deliberately restricted to the known local database; see [BACKUP_AND_RECOVERY.md](BACKUP_AND_RECOVERY.md) for key custody, archive compatibility and separate hosted recovery gates.
 - Hosted backup retention, offsite storage, separate keys, monitoring, incident procedures and restore objectives need operational configuration/acceptance.
 - Monitor HTTPS `/api/v1/health` and a synthetic authorized journey without logging tokens/PII. Local tests do not establish an uptime SLA.
 
 ## CI
+
+Current release 0.9 passed [CI 40073018586](https://github.com/sajeeb-ahmeed/astra-union-services/actions/runs/40073018586): 293 tests, production/Docker builds, zero reported dependency vulnerabilities, five real-engine checks and eight real HTTP/PostgreSQL/ClamAV checks. The antivirus job sequences successful FreshClam validation before ClamD startup and retains clocks, image identity, database metadata and logs. Hosted acceptance remains a separate post-deployment gate. The following paragraphs preserve earlier release history.
 
 Release 0.6 adds five database-independent backup safety tests to `npm test`; its local and CI total is 210. The separate 17-check real recovery drill was executed locally, not added to that test count. A CI recovery drill additionally requires compatible `pg_dump`/`pg_restore` binaries and must run after synthetic issuance tests settle. [CI 39199410740](https://github.com/sajeeb-ahmeed/astra-union-services/actions/runs/39199410740) is **SUCCESS**: 210 tests, Docker build and dependency audit passed. Hosted deployment acceptance is separately recorded: 22 API groups, five browser groups and seven JS/CSS hash checks passed on 21 October. No migration or database firewall opening was required for 0.6.
 

@@ -1,0 +1,66 @@
+{
+  "release": "0.9.0",
+  "startedAt": "2026-10-24T07:20:37.220Z",
+  "status": "PASS",
+  "migrations": [
+    "015_attachment_quarantine.sql"
+  ],
+  "mutationScope": "Migration 015 and marker only: quarantine every legacy attachment, add immutable content hashes, scan metadata, tenant-scoped scan events and heartbeats. Preserve original attachment bytes/identity/ownership and all other business/account data.",
+  "checks": [
+    {
+      "name": "Exact authorized database, verified TLS and non-bypass identities",
+      "status": "PASS"
+    },
+    {
+      "name": "All existing global, tenant and account data preserved",
+      "status": "PASS",
+      "tables": 48,
+      "tenants": 3,
+      "accounts": 14,
+      "routines": 18,
+      "originalAttachmentFieldsPreserved": true
+    },
+    {
+      "name": "All legacy attachments quarantined without pre-approved scan results",
+      "status": "PASS",
+      "attachments": 0,
+      "scanTables": [
+        {
+          "name": "attachment_scan_events",
+          "rls": true,
+          "forced": true,
+          "owner": "astra_admin"
+        },
+        {
+          "name": "attachment_scanner_heartbeats",
+          "rls": true,
+          "forced": true,
+          "owner": "astra_admin"
+        },
+        {
+          "name": "attachments",
+          "rls": true,
+          "forced": true,
+          "owner": "astra_admin"
+        }
+      ]
+    },
+    {
+      "name": "Column-scoped updates, immutable content and append-only scan audit grants",
+      "status": "PASS"
+    },
+    {
+      "name": "Reviewed migration committed",
+      "status": "PASS",
+      "applied": [
+        "015_attachment_quarantine.sql"
+      ]
+    },
+    {
+      "name": "Runtime unscoped reads reveal no attachment, scan event or heartbeat rows",
+      "status": "PASS"
+    }
+  ],
+  "sqlSha256": "c85b6e9231f83fd993f1f61f0084e41074886fb9744fdbc28c50d420659b083d",
+  "finishedAt": "2026-10-24T07:21:19.351Z"
+}

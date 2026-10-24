@@ -1,0 +1,9 @@
+{
+  "checkedAt": "2026-10-24T07:21:53.654Z",
+  "databaseId": "dpg-db6tr43ncjis73ercfsg-a",
+  "status": "PASS",
+  "ipAllowList": [],
+  "expiresAt": "2026-11-12T07:28:16.203893Z",
+  "temporaryWindow": "Authorized current single-IP /32 rule for migration 015; removed immediately after migration/data verification",
+  "scannerConfigurationUpdatedAt": "2026-10-24T07:22:18.807Z"
+}
