@@ -4,7 +4,7 @@ permissions:
   contents: read
 jobs:
   real-antivirus:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     services:
       postgres:
@@ -98,14 +98,14 @@ jobs:
             execution/clamav-ci/
           retention-days: 7
   docker-build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
       - name: Build the deployable Docker image
         run: docker build --tag astra:ci .
   verify:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     services:
       postgres:
