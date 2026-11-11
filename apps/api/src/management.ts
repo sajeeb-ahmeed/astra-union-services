@@ -29,6 +29,8 @@ import {
   geographyValues,
   validateGeography,
   validateOfficeJurisdiction,
+  presentAddressInput,
+  presentAddressValues,
 } from "./geography.js";
 const officeRow = (row: any) =>
   row ? { ...camelRow(row), geography: geographyRow(row) } : null;
@@ -417,6 +419,7 @@ publicManagementRouter.post(
           .regex(/^DEMO-[A-Za-z0-9-]{3,50}$/)
           .optional(),
         geography: geographyInput.optional(),
+        presentAddress: presentAddressInput.optional(),
       })
       .strict()
       .parse(req.body);
@@ -449,7 +452,7 @@ publicManagementRouter.post(
         [user.id, d.tenantId],
       );
       await db.query(
-        "INSERT INTO citizens(tenant_id,user_id,full_name_bn,full_name_en,date_of_birth,address_bn,address_en,synthetic_reference,division_code,district_code,upazila_code,union_code,ward_code) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)",
+        "INSERT INTO citizens(tenant_id,user_id,full_name_bn,full_name_en,date_of_birth,address_bn,address_en,synthetic_reference,division_code,district_code,upazila_code,union_code,ward_code,present_same_as_permanent,present_address_bn,present_address_en,present_division_code,present_district_code,present_upazila_code,present_union_code,present_ward_code) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21)",
         [
           d.tenantId,
           user.id,
@@ -460,6 +463,7 @@ publicManagementRouter.post(
           d.addressEn,
           d.syntheticReference ?? `DEMO-${randomUUID()}`,
           ...geographyValues(d.geography),
+          ...(await presentAddressValues(db, d.presentAddress)),
         ],
       );
       await audit(db, d.tenantId, user.id, "DEMO_SELF_REGISTRATION", user.id);

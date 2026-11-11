@@ -1,4 +1,4 @@
-import { geographyRow } from "./geography.js";
+import { geographyRow, presentAddressRow } from "./geography.js";
 export const camelRow = (row: any) =>
   row
     ? Object.fromEntries(
@@ -25,6 +25,7 @@ export const citizenRow = (r: any) =>
         syntheticReference: r.synthetic_reference,
         verificationState: r.verification_state,
         geography: geographyRow(r),
+        presentAddress: presentAddressRow(r),
         createdAt: r.created_at,
       }
     : null;

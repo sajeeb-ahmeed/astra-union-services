@@ -18,6 +18,12 @@ import {
 import { api, items } from "./api.js";
 import { AsyncPanel } from "./AsyncPanel.js";
 import { DynamicForm } from "./DynamicForm.js";
+import {
+  PresentAddressFields,
+  chosenCitizenAddress,
+  emptyPresentAddress,
+  presentAddressPayload,
+} from "./PresentAddressFields.js";
 import { WorkspaceWelcome } from "./WorkspaceWelcome.js";
 import { ApplicationGuidance } from "./ApplicationGuidance.js";
 import "./workspace-usability.css";
@@ -176,6 +182,9 @@ export function WorkspaceApp({
     addressEn: "",
   });
   const [citizenGeography, setCitizenGeography] = useState(emptyGeography);
+  const [citizenPresentAddress, setCitizenPresentAddress] = useState(
+    emptyPresentAddress(),
+  );
   useEffect(() => {
     setCitizenGeography(readGeography(session?.tenant));
   }, [session?.tenant?.id]);
@@ -957,10 +966,12 @@ export function WorkspaceApp({
                         serviceNo={selectedService}
                         certificateLanguage={payload.delivery_language}
                         officeName={recordName(session.tenant)}
-                        address={choose({
-                          bn: selectedCitizen?.addressBn,
-                          en: selectedCitizen?.addressEn,
-                        })}
+                        address={choose(
+                          chosenCitizenAddress(
+                            selectedCitizen,
+                            payload.address_source,
+                          ),
+                        )}
                         onLanguageChange={(language) =>
                           setPayload((current) => ({
                             ...current,
@@ -1118,8 +1129,12 @@ export function WorkspaceApp({
                           const created = await api("/citizens", "POST", {
                             ...citizenForm,
                             geography: geographyPayload(citizenGeography),
+                            presentAddress: presentAddressPayload(
+                              citizenPresentAddress,
+                            ),
                           });
                           await refresh();
+                          setCitizenPresentAddress(emptyPresentAddress());
                           setCitizenForm({
                             nameBn: "",
                             nameEn: "",
@@ -1183,6 +1198,11 @@ export function WorkspaceApp({
                         onChange={setCitizenGeography}
                         required
                         showCoverage
+                      />
+                      <PresentAddressFields
+                        prefix="citizen-present"
+                        value={citizenPresentAddress}
+                        onChange={setCitizenPresentAddress}
                       />
                       <button disabled={busy}>{t("Register citizen")}</button>
                     </form>
@@ -1742,10 +1762,12 @@ export function WorkspaceApp({
                           }
                           certificateLanguage={renewalLanguage}
                           officeName={recordName(session.tenant)}
-                          address={choose({
-                            bn: detail.citizen?.addressBn,
-                            en: detail.citizen?.addressEn,
-                          })}
+                          address={choose(
+                            chosenCitizenAddress(
+                              detail.citizen,
+                              detail.payload?.address_source,
+                            ),
+                          )}
                           onLanguageChange={(language) =>
                             setRenewalLanguageChoice({
                               id: application.id,

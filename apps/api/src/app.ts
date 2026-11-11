@@ -50,6 +50,8 @@ import {
   validateOfficeJurisdiction,
   validatePayloadGeography,
   payloadGeographyNames,
+  presentAddressInput,
+  presentAddressValues,
 } from "./geography.js";
 export type Auth = {
   userId: string;
@@ -533,6 +535,7 @@ app.post(
           .regex(/^DEMO-[A-Za-z0-9-]{3,50}$/)
           .optional(),
         geography: geographyInput.optional(),
+        presentAddress: presentAddressInput.optional(),
       })
       .strict()
       .parse(req.body);
@@ -558,7 +561,7 @@ app.post(
         fail(409, "PROFILE_EXISTS", "This demo account already has a profile.");
       const r = (
         await db.query(
-          "INSERT INTO citizens(tenant_id,user_id,full_name_bn,full_name_en,date_of_birth,address_bn,address_en,synthetic_reference,division_code,district_code,upazila_code,union_code,ward_code) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) RETURNING *",
+          "INSERT INTO citizens(tenant_id,user_id,full_name_bn,full_name_en,date_of_birth,address_bn,address_en,synthetic_reference,division_code,district_code,upazila_code,union_code,ward_code,present_same_as_permanent,present_address_bn,present_address_en,present_division_code,present_district_code,present_upazila_code,present_union_code,present_ward_code) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21) RETURNING *",
           [
             a.tenantId,
             a.role === "citizen" ? a.userId : null,
@@ -569,6 +572,7 @@ app.post(
             data.addressEn,
             data.syntheticReference ?? `DEMO-${randomUUID()}`,
             ...geographyValues(data.geography),
+            ...(await presentAddressValues(db, data.presentAddress)),
           ],
         )
       ).rows[0];

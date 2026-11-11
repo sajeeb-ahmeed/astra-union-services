@@ -6,7 +6,7 @@ import { pool, transaction, audit } from "./db.js";
 import { camelRow, citizenRow, fail } from "./models.js";
 import { digest } from "./security.js";
 import { renderHtmlPdf } from "./pdf.js";
-import { geographyInput, geographyRow, geographyValues, validateGeography, validateOfficeJurisdiction } from "./geography.js";
+import { geographyInput, geographyRow, geographyValues, validateGeography, validateOfficeJurisdiction, presentAddressInput, presentAddressRow, presentAddressValues, presentAddressColumns } from "./geography.js";
 
 type Req = express.Request & { auth?: Auth };
 const wrap = (fn: (req: Req, res: express.Response) => Promise<unknown>) => (req: Req, res: express.Response, next: express.NextFunction) => { Promise.resolve(fn(req, res)).catch(next); };
@@ -45,13 +45,13 @@ export const protectedToolsRouter = express.Router();
 protectedToolsRouter.get("/profile",wrap(async(req,res)=>{
   const a=identity(req);
   const r=await pool.query("SELECT id,email,display_name,name_bn,phone,address FROM platform_users WHERE id=$1",[a.userId]);
-  const geography = a.tenantId ? await transaction(a.tenantId,async(db)=>geographyRow((await db.query("SELECT division_code,district_code,upazila_code,union_code,ward_code FROM citizens WHERE tenant_id=$1 AND user_id=$2 LIMIT 1",[a.tenantId,a.userId])).rows[0])) : null;
-  res.json({...camelRow(r.rows[0]),role:a.role,geography});
+  const citizen = a.tenantId ? await transaction(a.tenantId,async(db)=>(await db.query(`SELECT division_code,district_code,upazila_code,union_code,ward_code,${presentAddressColumns} FROM citizens WHERE tenant_id=$1 AND user_id=$2 LIMIT 1`,[a.tenantId,a.userId])).rows[0]) : undefined;
+  res.json({...camelRow(r.rows[0]),role:a.role,geography:geographyRow(citizen),presentAddress:citizen?presentAddressRow(citizen):null});
 }));
 protectedToolsRouter.patch("/profile",wrap(async(req,res)=>{
   const a=identity(req);
-  const d=z.object({displayName:text(120,2),nameBn:text(120,0).optional(),phone:z.string().regex(/^(?:01\d{9})?$/).optional(),address:text(1000,0).optional(),geography:geographyInput.optional()}).strict().parse(req.body);
-  if(d.geography && (!a.tenantId || a.role!=="citizen")) fail(403,"GEOGRAPHY_PROFILE_UNAVAILABLE","Only citizen profiles can update an address hierarchy.");
+  const d=z.object({displayName:text(120,2),nameBn:text(120,0).optional(),phone:z.string().regex(/^(?:01\d{9})?$/).optional(),address:text(1000,0).optional(),geography:geographyInput.optional(),presentAddress:presentAddressInput.optional()}).strict().parse(req.body);
+  if((d.geography||d.presentAddress) && (!a.tenantId || a.role!=="citizen")) fail(403,"GEOGRAPHY_PROFILE_UNAVAILABLE","Only citizen profiles can update an address hierarchy.");
   const save=async(db:Pick<typeof pool,'query'>)=>{
     if(d.geography) {
       await validateGeography(db,d.geography,"citizen");
@@ -60,10 +60,14 @@ protectedToolsRouter.patch("/profile",wrap(async(req,res)=>{
       const updated=await db.query("UPDATE citizens SET division_code=$3,district_code=$4,upazila_code=$5,union_code=$6,ward_code=$7 WHERE tenant_id=$1 AND user_id=$2",[a.tenantId,a.userId,...geographyValues(d.geography)]);
       if(!updated.rowCount)fail(404,"PROFILE_NOT_FOUND","Citizen profile not found.");
     }
+    if(d.presentAddress) {
+      const updated=await db.query("UPDATE citizens SET present_same_as_permanent=$3,present_address_bn=$4,present_address_en=$5,present_division_code=$6,present_district_code=$7,present_upazila_code=$8,present_union_code=$9,present_ward_code=$10 WHERE tenant_id=$1 AND user_id=$2",[a.tenantId,a.userId,...await presentAddressValues(db,d.presentAddress)]);
+      if(!updated.rowCount)fail(404,"PROFILE_NOT_FOUND","Citizen profile not found.");
+    }
     const r=await db.query("UPDATE platform_users SET display_name=$1,name_bn=COALESCE($2,name_bn),phone=COALESCE($3,phone),address=COALESCE($4,address) WHERE id=$5 RETURNING id,email,display_name,name_bn,phone,address",[d.displayName,d.nameBn??null,d.phone??null,d.address??null,a.userId]);
     if(a.tenantId)await audit(db as any,a.tenantId,a.userId,"PROFILE_UPDATED",a.userId,{fields:Object.keys(d)});
-    const geography = a.tenantId ? geographyRow((await db.query("SELECT division_code,district_code,upazila_code,union_code,ward_code FROM citizens WHERE tenant_id=$1 AND user_id=$2 LIMIT 1",[a.tenantId,a.userId])).rows[0]) : null;
-    return {...camelRow(r.rows[0]),geography};
+    const citizen = a.tenantId ? (await db.query(`SELECT division_code,district_code,upazila_code,union_code,ward_code,${presentAddressColumns} FROM citizens WHERE tenant_id=$1 AND user_id=$2 LIMIT 1`,[a.tenantId,a.userId])).rows[0] : undefined;
+    return {...camelRow(r.rows[0]),geography:geographyRow(citizen),presentAddress:citizen?presentAddressRow(citizen):null};
   };
   res.json(a.tenantId?await transaction(a.tenantId,save):await save(pool));
 }));

@@ -162,6 +162,58 @@ export async function payloadGeographyNames(
   }
   return names;
 }
+/** PAR-06: present address. Omitted or `sameAsPermanent: true` keeps the single registered address. */
+export const presentAddressInput = z.discriminatedUnion("sameAsPermanent", [
+  z.object({ sameAsPermanent: z.literal(true) }).strict(),
+  z
+    .object({
+      sameAsPermanent: z.literal(false),
+      addressBn: z.string().trim().min(4).max(500),
+      addressEn: z.string().trim().min(4).max(500),
+      geography: geographyInput.optional(),
+    })
+    .strict(),
+]);
+export type PresentAddress = z.infer<typeof presentAddressInput>;
+/** Column values for present_same_as_permanent, present_address_bn/en and the five present_* codes. */
+export async function presentAddressValues(
+  db: Queryable,
+  present?: PresentAddress,
+): Promise<unknown[]> {
+  if (!present || present.sameAsPermanent)
+    return [true, null, null, ...geographyValues(null)];
+  // A present address may be outside the office area, so only the hierarchy is checked.
+  if (present.geography && !(await resolveGeographyNames(db, present.geography)))
+    fail(
+      400,
+      "GEOGRAPHY_MISMATCH",
+      "The selected present-address locations do not form a valid parent-child hierarchy.",
+    );
+  return [
+    false,
+    present.addressBn,
+    present.addressEn,
+    ...geographyValues(present.geography),
+  ];
+}
+export function presentAddressRow(row: any) {
+  if (!row || row.present_same_as_permanent !== false)
+    return { sameAsPermanent: true as const };
+  return {
+    sameAsPermanent: false as const,
+    addressBn: row.present_address_bn,
+    addressEn: row.present_address_en,
+    geography: geographyRow({
+      division_code: row.present_division_code,
+      district_code: row.present_district_code,
+      upazila_code: row.present_upazila_code,
+      union_code: row.present_union_code,
+      ward_code: row.present_ward_code,
+    }),
+  };
+}
+export const presentAddressColumns =
+  "present_same_as_permanent,present_address_bn,present_address_en,present_division_code,present_district_code,present_upazila_code,present_union_code,present_ward_code";
 export function validateOfficeJurisdiction(office: any, g: Geography) {
   if (!office.division_code) return; // A legacy preview office has no declared geographic jurisdiction.
   for (const [column, key] of [

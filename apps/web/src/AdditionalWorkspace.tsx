@@ -4,6 +4,11 @@ import { api, items } from "./api.js";
 import { AccountSessions } from "./AccountSessions.js";
 import { AccountMfa } from "./AccountMfa.js";
 import {
+  PresentAddressFields,
+  presentAddressPayload,
+  readPresentAddress,
+} from "./PresentAddressFields.js";
+import {
   GeographyFields,
   geographyPayload,
   readGeography,
@@ -185,6 +190,14 @@ export function AdditionalWorkspace({
                               ),
                             }
                           : {}),
+                        ...(session.user.role === "citizen" &&
+                        profile.presentAddress
+                          ? {
+                              presentAddress: presentAddressPayload(
+                                readPresentAddress(profile.presentAddress),
+                              ),
+                            }
+                          : {}),
                       }),
                     );
                     setMessage("Profile saved / প্রোফাইল সংরক্ষিত হয়েছে");
@@ -240,6 +253,15 @@ export function AdditionalWorkspace({
                       required={!!profile.geography?.divisionCode}
                     />
                   </fieldset>
+                )}
+                {session.user.role === "citizen" && profile.presentAddress && (
+                  <PresentAddressFields
+                    prefix="profile-present"
+                    value={readPresentAddress(profile.presentAddress)}
+                    onChange={(presentAddress) =>
+                      setProfile({ ...profile, presentAddress })
+                    }
+                  />
                 )}
                 <button disabled={busy}>{t("Save profile")}</button>
               </form>
