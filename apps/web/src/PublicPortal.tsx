@@ -11,6 +11,11 @@ import {
   readGeography,
 } from "./GeographyFields.js";
 import { LanguageSwitcher } from "./i18n.js";
+import {
+  PresentAddressFields,
+  emptyPresentAddress,
+  presentAddressPayload,
+} from "./PresentAddressFields.js";
 
 const publicPages: Record<string, [string, string]> = {
   home: ["হোম", "Home"],
@@ -289,6 +294,9 @@ export function PublicPortal({
     addressBn: "",
     addressEn: "",
   });
+  const [signupPresentAddress, setSignupPresentAddress] = useState(
+    emptyPresentAddress(),
+  );
   function nav(next: string) {
     onNavigate?.();
     setPage(next);
@@ -1222,6 +1230,8 @@ export function PublicPortal({
                               await api("/auth/signup", "POST", {
                                 ...registration,
                                 geography: geographyPayload(signupGeography),
+                                presentAddress:
+                                  presentAddressPayload(signupPresentAddress),
                               });
                               setRegistration((previous) => ({
                                 ...previous,
@@ -1530,6 +1540,11 @@ export function PublicPortal({
                                 )),
                             )}
                           </div>
+                          <PresentAddressFields
+                            prefix="signup-present"
+                            value={signupPresentAddress}
+                            onChange={setSignupPresentAddress}
+                          />
                           <div className="registration-actions">
                             <button
                               disabled={

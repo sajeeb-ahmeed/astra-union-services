@@ -1516,6 +1516,22 @@ code {
   margin: 14px 0 0;
   line-height: 1.7;
 }
+/* PAR-06 present address: same frame as the geography picker. */
+.present-address {
+  min-width: 0;
+  border: 1px solid #e1e8e5;
+  border-radius: 10px;
+  padding: 16px 20px 18px;
+  margin: 16px 0;
+}
+.present-address legend {
+  color: #30483c;
+  font-size: 14px;
+  padding: 0 8px;
+}
+.present-address .geography-fields {
+  margin-top: 12px;
+}
 /* Service-form location selector spans both form columns. */
 .form-grid > .geography-picker {
   grid-column: 1 / -1;

@@ -17,6 +17,10 @@ export interface PdfInput {
     full_name_en: string;
     address_bn: string;
     address_en: string;
+    /** PAR-06: present address; absent or true means the registered address is also the present one. */
+    present_same_as_permanent?: boolean;
+    present_address_bn?: string | null;
+    present_address_en?: string | null;
   };
   payload: Record<string, unknown>;
   schema?: FormSchema;
@@ -132,10 +136,36 @@ export function renderCertificateHtml(
     .map((lang) => {
       const bn = lang === "bn";
       const name = input.citizen[bn ? "full_name_bn" : "full_name_en"];
+      // The form's address_source chooses which registered citizen address the document states.
+      const source = input.payload.address_source;
+      const separatePresent = input.citizen.present_same_as_permanent === false;
+      const usePresent = source === "present" && separatePresent;
       const address = isResident
         ? input.payload[bn ? "permanent_address_bn" : "permanent_address_en"]
         : (input.payload[bn ? "business_address_bn" : "business_address_en"] ??
-          input.citizen[bn ? "address_bn" : "address_en"]);
+          (usePresent
+            ? input.citizen[bn ? "present_address_bn" : "present_address_en"]
+            : input.citizen[bn ? "address_bn" : "address_en"]));
+      const citizenAddressLabel =
+        source === "present"
+          ? usePresent
+            ? bn
+              ? "বর্তমান ঠিকানা"
+              : "Present address"
+            : bn
+              ? "বর্তমান ও স্থায়ী ঠিকানা"
+              : "Present and permanent address"
+          : source === "permanent"
+            ? separatePresent
+              ? bn
+                ? "স্থায়ী ঠিকানা"
+                : "Permanent address"
+              : bn
+                ? "স্থায়ী ও বর্তমান ঠিকানা"
+                : "Permanent and present address"
+            : bn
+              ? "নিবন্ধিত নাগরিকের ঠিকানা"
+              : "Registered citizen address";
       const row = (label: string, value: unknown, key: string) =>
         `<div class="field" data-field="${key}"><dt>${label}</dt><dd>${escape(value)}</dd></div>`;
       const approvedFields =
@@ -149,9 +179,7 @@ export function renderCertificateHtml(
               ? bn
                 ? "ব্যবসার ঠিকানা"
                 : "Business address"
-              : bn
-                ? "নিবন্ধিত নাগরিকের ঠিকানা"
-                : "Registered citizen address",
+              : citizenAddressLabel,
           address,
           `permanent_address_${lang}`,
         ) +

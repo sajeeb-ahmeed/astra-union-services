@@ -567,6 +567,133 @@ test("GEO-FORM: v3 location selectors reject cross-parent codes server-side and 
   assert.match(html, /Subil Union, Debidwar, Cumilla/);
   assert.doesNotMatch(html, /uni-0001|\[object Object\]/);
 });
+test("ADDR-06: present address is stored separately, may lie outside the office area and drives the certificate label", async () => {
+  // Outside the office: Dhamrai, Dhaka — only the hierarchy is checked, not jurisdiction.
+  const elsewhere = {
+    divisionCode: "div-01",
+    districtCode: "dis-01",
+    upazilaCode: "upa-001",
+  };
+  const present = {
+    sameAsPermanent: false,
+    addressBn: "ভাড়া বাসা, ধামরাই",
+    addressEn: "Rented house, Dhamrai",
+    geography: elsewhere,
+  };
+  const email = `present-${run}@synthetic.test`;
+  const body = {
+    email,
+    password,
+    displayName: "Present Address Citizen",
+    tenantId: office.id,
+    nameBn: "বর্তমান নাগরিক",
+    nameEn: "Present Citizen",
+    dateOfBirth: "1990-05-06",
+    addressBn: "স্থায়ী ঠিকানা গ্রাম",
+    addressEn: "Permanent village address",
+  };
+  // Invalid inputs are rejected before any account is created.
+  for (const bad of [
+    { ...present, geography: { ...elsewhere, districtCode: "dis-19" } },
+    { sameAsPermanent: false, addressBn: "ঠিকানা" },
+    { sameAsPermanent: true, addressBn: "stale text" },
+  ]) {
+    const r = await req("POST", "/auth/signup", { ...body, presentAddress: bad });
+    // Shape errors are 422 INPUT_INVALID; a broken hierarchy is 400 GEOGRAPHY_MISMATCH.
+    assert.ok([400, 422].includes(r.status), JSON.stringify(r.body));
+  }
+  const signup = await req("POST", "/auth/signup", {
+    ...body,
+    presentAddress: present,
+  });
+  assert.equal(signup.status, 201, JSON.stringify(signup.body));
+  await login("present", email);
+  const profile = await req("GET", "/profile", undefined, s.present);
+  assert.deepEqual(profile.body.presentAddress, present);
+  // Profile switches back to a single address, then to a new present address without geography.
+  const same = await req(
+    "PATCH",
+    "/profile",
+    {
+      displayName: "Present Address Citizen",
+      presentAddress: { sameAsPermanent: true },
+    },
+    s.present,
+  );
+  assert.equal(same.status, 200, JSON.stringify(same.body));
+  assert.deepEqual(same.body.presentAddress, { sameAsPermanent: true });
+  const moved = {
+    sameAsPermanent: false,
+    addressBn: "নতুন ভাড়া বাসা",
+    addressEn: "New rented flat",
+  };
+  const updated = await req(
+    "PATCH",
+    "/profile",
+    { displayName: "Present Address Citizen", presentAddress: moved },
+    s.present,
+  );
+  assert.equal(updated.status, 200, JSON.stringify(updated.body));
+  assert.deepEqual(updated.body.presentAddress, { ...moved, geography: null });
+  // Staff can only use the citizen address fields through the citizen record, not the profile.
+  assert.equal(
+    (
+      await req(
+        "PATCH",
+        "/profile",
+        { displayName: "Test staff", presentAddress: { sameAsPermanent: true } },
+        s.staff,
+      )
+    ).status,
+    403,
+  );
+  const staffEntry = await req(
+    "POST",
+    "/citizens",
+    {
+      nameBn: "সহায়তাপ্রাপ্ত নাগরিক",
+      nameEn: "Assisted Citizen",
+      dateOfBirth: "1985-01-02",
+      addressBn: "স্থায়ী ঠিকানা",
+      addressEn: "Permanent address",
+      presentAddress: present,
+    },
+    s.staff,
+  );
+  assert.equal(staffEntry.status, 201, JSON.stringify(staffEntry.body));
+  assert.deepEqual(staffEntry.body.presentAddress, present);
+  // The database itself refuses half-filled present addresses.
+  await assert.rejects(
+    transaction(office.id, (c) =>
+      c.query(
+        "UPDATE citizens SET present_same_as_permanent=true,present_address_bn='stale' WHERE id=$1",
+        [staffEntry.body.id],
+      ),
+    ),
+    /citizens_present_address_complete/,
+  );
+  // Certificate states the address chosen in the form.
+  const row = await transaction(office.id, async (c) =>
+    (await c.query("SELECT * FROM citizens WHERE id=$1", [staffEntry.body.id]))
+      .rows[0],
+  );
+  const html = (source: string) =>
+    renderCertificateHtml(
+      {
+        number: "DEMO-ADDR",
+        verificationUrl: "https://astra.example.test/verify/x",
+        tenant: { name_bn: "অফিস", name_en: "Office" },
+        service: { service_no: 3, name_bn: "সেবা", name_en: "Service" },
+        citizen: row,
+        payload: { address_source: source, delivery_language: "en" },
+        schema: getServiceSchema(3),
+      } as any,
+      "data:image/png;base64,",
+    );
+  assert.match(html("present"), /Present address<\/dt><dd>Rented house, Dhamrai/);
+  assert.match(html("permanent"), /Permanent address<\/dt><dd>Permanent address/);
+  assert.doesNotMatch(html("permanent"), /Rented house/);
+});
 test("CER-RENEW: trade renewal preserves lineage, applicant and authority; concurrent creation/issue deduplicate", async () => {
   const source = issued.get(42);
   assert.equal(
