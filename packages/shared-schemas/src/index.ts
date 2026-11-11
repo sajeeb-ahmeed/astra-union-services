@@ -7,7 +7,12 @@ import type {
   ReferenceService,
 } from "./types.js";
 import { deepFreeze, validateForm } from "./engine.js";
-import { operationalSchemas, tradeLicenseV1, familyV1 } from "./schemas.js";
+import {
+  operationalSchemas,
+  tradeLicenseV1,
+  familyV1,
+  geographySupersededSchemas,
+} from "./schemas.js";
 
 export * from "./types.js";
 export * from "./engine.js";
@@ -37,6 +42,7 @@ export const allServiceSchemaVersions: readonly FormSchema[] = deepFreeze([
   ...legacyOperationalSchemas,
   tradeLicenseV1,
   familyV1,
+  ...geographySupersededSchemas,
   ...operationalSchemas,
 ]);
 

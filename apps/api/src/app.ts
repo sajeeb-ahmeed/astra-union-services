@@ -48,6 +48,8 @@ import {
   geographyValues,
   validateGeography,
   validateOfficeJurisdiction,
+  validatePayloadGeography,
+  payloadGeographyNames,
 } from "./geography.js";
 export type Auth = {
   userId: string;
@@ -163,6 +165,18 @@ async function validatePayload(
       "FORM_INVALID",
       "Please correct the form fields.",
       validation.issues,
+    );
+  const geographyIssues = await validatePayloadGeography(
+    db,
+    stored.schema_json,
+    payload,
+  );
+  if (geographyIssues.length)
+    throw new ApiError(
+      422,
+      "FORM_INVALID",
+      "Please correct the form fields.",
+      geographyIssues,
     );
   await validateAttachmentReferences(db, payload, citizenId ?? "");
   return validation;
@@ -1148,6 +1162,12 @@ app.post(
         )
       ).rows[0].payload;
       await validateAttachmentReferences(db, payload, r.citizen_id, true);
+      const schema = (
+        await db.query(
+          "SELECT schema_json FROM service_versions WHERE service_no=$1 AND version=$2",
+          [r.service_no, r.schema_version],
+        )
+      ).rows[0].schema_json;
       return {
         r,
         tenant: (
@@ -1162,12 +1182,8 @@ app.post(
           await db.query("SELECT * FROM citizens WHERE id=$1", [r.citizen_id])
         ).rows[0],
         payload,
-        schema: (
-          await db.query(
-            "SELECT schema_json FROM service_versions WHERE service_no=$1 AND version=$2",
-            [r.service_no, r.schema_version],
-          )
-        ).rows[0].schema_json,
+        schema,
+        geographyNames: await payloadGeographyNames(db, schema, payload),
         renewal: (
           await db.query(
             "SELECT c.number FROM renewal_links l JOIN certificates c ON c.id=l.source_certificate_id AND c.tenant_id=l.tenant_id WHERE l.application_id=$1",
@@ -1192,6 +1208,7 @@ app.post(
       citizen: prepared.citizen,
       payload: prepared.payload,
       schema: prepared.schema,
+      geographyNames: prepared.geographyNames,
       renewalNumber: prepared.renewal,
     });
     const result = await transaction(

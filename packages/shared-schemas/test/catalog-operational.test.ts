@@ -13,8 +13,10 @@ import {
   serviceCatalog,
   stableSchemaJson,
   validateServicePayload,
+  validateForm,
   type FieldDefinition,
 } from "../src/index.js";
+import { createSyntheticPayload } from "../src/expanded-schemas.js";
 
 function descend(
   fields: readonly FieldDefinition[],
@@ -119,14 +121,15 @@ test("the original three version-one contracts retain their exact published cano
 
 test("published historical versions remain pinned while new applications select current versions", () => {
   assert.equal(legacyOperationalSchemas.length, 44);
-  assert.equal(allServiceSchemaVersions.length, 93);
+  // 44 legacy v1 + trade/family v1 + 3 superseded v2 (geography release) + 47 current.
+  assert.equal(allServiceSchemaVersions.length, 96);
   assert.equal(
     new Set(
       allServiceSchemaVersions.map(
         (schema) => `${schema.serviceNo}:${schema.version}`,
       ),
     ).size,
-    93,
+    96,
   );
   for (const historical of legacyOperationalSchemas) {
     assert.equal(historical.version, 1);
@@ -134,10 +137,13 @@ test("published historical versions remain pinned while new applications select 
       stableSchemaJson(getServiceSchema(historical.serviceNo, 1)),
       stableSchemaJson(historical),
     );
-    assert.equal(getServiceSchema(historical.serviceNo).version, 2);
+    assert.equal(
+      getServiceSchema(historical.serviceNo).version,
+      [36, 41].includes(historical.serviceNo) ? 3 : 2,
+    );
     assert.throws(() => getServiceSchema(historical.serviceNo, 99), RangeError);
   }
-  assert.equal(getServiceSchema(42).version, 2);
+  assert.equal(getServiceSchema(42).version, 3);
   assert.equal(getServiceSchema(2).version, 2);
   assert.equal(getServiceSchema(45).version, 1);
 });
@@ -455,25 +461,96 @@ test("license address branches reject stale union values and require the selecte
     [36, "noc_org_add_type"],
     [41, "primises_license_org_add_type"],
   ] as const) {
-    const payload = getDemoPayload(no);
-    assert.equal(payload[selector], "union");
-    const changed = { ...payload, [selector]: "municipality" };
-    const failures = validateServicePayload(no, changed).issues;
+    // Historical v2 keeps its free-text union branch byte-for-byte.
+    const v2 = getServiceSchema(no, 2);
+    const v2Changed: Record<string, unknown> = {
+      ...createSyntheticPayload(v2),
+      [selector]: "municipality",
+    };
+    const v2Failures = validateForm(v2, v2Changed).issues;
     assert.ok(
-      failures.some(
+      v2Failures.some(
         (issue) => issue.path === "union_id" && issue.code === "inactive_field",
       ),
     );
+    delete v2Changed.union_id;
+    v2Changed.municipality_id = "Demo Municipality";
+    assert.equal(validateForm(v2, v2Changed).valid, true);
+
+    // Current v3: municipality still needs its text reference; union lives inside org_location.
+    const payload = getDemoPayload(no);
+    assert.equal(payload[selector], "union");
+    const changed = { ...payload, [selector]: "municipality" };
     assert.ok(
-      failures.some(
+      validateServicePayload(no, changed).issues.some(
         (issue) =>
           issue.path === "municipality_id" && issue.code === "required",
       ),
     );
-    delete changed.union_id;
     changed.municipality_id = "Demo Municipality";
+    const { unionCode: _union, ...upazilaOnly } = payload.org_location as Record<
+      string,
+      string
+    >;
+    changed.org_location = upazilaOnly;
     assert.equal(validateServicePayload(no, changed).valid, true);
   }
+});
+
+test("PAR-05 geography selector versions replace free-text locations without changing v2", () => {
+  for (const no of [36, 41, 42]) {
+    const current = getServiceSchema(no);
+    assert.equal(current.version, 3);
+    assert.equal(getServiceSchema(no, 2).version, 2);
+    const ids = current.sections.flatMap((section) =>
+      section.fields.map((field) => field.id),
+    );
+    for (const gone of ["division_id", "noc_org_division", "trade_license_org_division", "district_id", "thana_id", "union_id"])
+      assert.ok(!ids.includes(gone), `${no} still has ${gone}`);
+    for (const kept of ["post_office_id", "municipality_id", "city_corporation_id", "additional_thana_id"])
+      assert.ok(ids.includes(kept), `${no} lost ${kept}`);
+    const location = current.sections
+      .flatMap((section) => section.fields)
+      .find((field) => field.id === "org_location")!;
+    assert.equal(location.type, "geography");
+    assert.ok(location.evidence?.fieldNames?.includes("district_id"));
+  }
+  const payload = getDemoPayload(36);
+  const location = payload.org_location as Record<string, string>;
+  const issueFor = (value: unknown) =>
+    validateServicePayload(36, { ...payload, org_location: value }).issues.find(
+      (issue) => issue.path === "org_location",
+    )?.code;
+  assert.equal(issueFor(location), undefined);
+  // Union address type requires the union level.
+  const { unionCode: _u, ...noUnion } = location;
+  assert.equal(issueFor(noUnion), "geography_incomplete");
+  // Ward without union is a hierarchy gap.
+  assert.equal(issueFor({ ...noUnion, wardCode: "uni-0001-w01" }), "geography_incomplete");
+  // Free text, extra claims and malformed codes are rejected.
+  assert.equal(issueFor("Cumilla"), "geography");
+  assert.equal(issueFor({ ...location, nameEn: "Cumilla" }), "geography");
+  assert.equal(issueFor({ ...location, districtCode: "DIS 19" }), "geography");
+  assert.equal(issueFor(undefined), "required");
+  // A union left over after switching to a municipality address is rejected like other stale data.
+  const municipal = {
+    ...payload,
+    noc_org_add_type: "municipality",
+    municipality_id: "Demo Municipality",
+  };
+  assert.equal(
+    validateServicePayload(36, municipal).issues.find(
+      (issue) => issue.path === "org_location",
+    )?.code,
+    "geography_union_inactive",
+  );
+  assert.equal(
+    validateServicePayload(36, { ...municipal, org_location: noUnion }).valid,
+    true,
+  );
+  // Trade licence keeps the optional policy of its v2 additions.
+  const trade = getDemoPayload(42);
+  assert.equal(validateServicePayload(42, trade).valid, true);
 });
 
 test("service-specific financial/vehicle numbers, holding year, dates and private attachment handles are validated", () => {

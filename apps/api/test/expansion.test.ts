@@ -15,6 +15,7 @@ import {
   renderCertificateHtml,
   DEMO_TEMPLATE_VERSION,
 } from "../src/pdf.js";
+import { payloadGeographyNames } from "../src/geography.js";
 const db = new pg.Pool({ connectionString: adminConnectionString });
 const run = randomUUID().slice(0, 8),
   password = "Synthetic-Test-Pass!";
@@ -471,6 +472,100 @@ test("ALL47-01: every service validates, persists, submits, reviews, authorizes 
       2,
     ),
   );
+});
+test("GEO-FORM: v3 location selectors reject cross-parent codes server-side and documents print dataset names", async () => {
+  for (const no of [36, 41, 42]) {
+    assert.equal(getServiceSchema(no).version, 3);
+    // Trade v3 leaves the address type optional; a union applies only to a union address.
+    const payload =
+      no === 42
+        ? { ...getDemoPayload(no), trade_license_org_add_type: "union" }
+        : getDemoPayload(no);
+    // Shape-valid codes from two different districts: only the database can catch this.
+    const crossParent = {
+      ...payload,
+      org_location: {
+        divisionCode: "div-02",
+        districtCode: "dis-19",
+        upazilaCode: "upa-001",
+        unionCode: "uni-0001",
+      },
+    };
+    const rejected = await req(
+      "POST",
+      "/applications",
+      { citizenId: citizen.id, serviceNo: no, payload: crossParent },
+      s.citizen,
+    );
+    assert.equal(rejected.status, 422, JSON.stringify(rejected.body));
+    assert.ok(
+      rejected.body.error.issues.some(
+        (issue: any) =>
+          issue.path === "org_location" && issue.code === "geography_mismatch",
+      ),
+      JSON.stringify(rejected.body),
+    );
+    const unknownUnion = {
+      ...payload,
+      org_location: {
+        divisionCode: "div-02",
+        districtCode: "dis-19",
+        upazilaCode: "upa-089",
+        unionCode: "uni-9999",
+      },
+    };
+    const unknown = await req(
+      "POST",
+      "/applications",
+      { citizenId: citizen.id, serviceNo: no, payload: unknownUnion },
+      s.citizen,
+    );
+    assert.equal(unknown.status, 422);
+    assert.equal(unknown.body.error.issues[0].code, "geography_mismatch");
+    // The genuine hierarchy is accepted for the same service.
+    const valid = await req(
+      "POST",
+      "/applications",
+      {
+        citizenId: citizen.id,
+        serviceNo: no,
+        payload: {
+          ...payload,
+          org_location: { ...unknownUnion.org_location, unionCode: "uni-0001" },
+        },
+      },
+      s.citizen,
+    );
+    assert.equal(valid.status, 201, JSON.stringify(valid.body));
+  }
+  const schema = getServiceSchema(36),
+    payload = getDemoPayload(36);
+  const names = await transaction(office.id, (c) =>
+    payloadGeographyNames(c, schema, payload),
+  );
+  assert.deepEqual(Object.keys(names), ["org_location"]);
+  assert.match(names.org_location!.en, /Subil Union, Debidwar, Cumilla/);
+  assert.match(names.org_location!.bn, /সুবিল ইউনিয়ন/);
+  const html = renderCertificateHtml(
+    {
+      number: "DEMO-GEO",
+      verificationUrl: "https://astra.example.test/verify/x",
+      tenant: { name_bn: "অফিস", name_en: "Office" },
+      service: { service_no: 36, name_bn: "অনাপত্তি", name_en: "NOC" },
+      citizen: {
+        full_name_bn: "নাগরিক",
+        full_name_en: "Citizen",
+        address_bn: "ঠিকানা",
+        address_en: "Address",
+      },
+      payload: { ...payload, delivery_language: "en" },
+      schema,
+      geographyNames: names,
+    } as any,
+    "data:image/png;base64,",
+  );
+  assert.match(html, /Subil Union, Debidwar, Cumilla/);
+  assert.doesNotMatch(html, /uni-0001|\[object Object\]/);
 });
 test("CER-RENEW: trade renewal preserves lineage, applicant and authority; concurrent creation/issue deduplicate", async () => {
   const source = issued.get(42);

@@ -1154,6 +1154,86 @@ export function buildFamilyV2(v1: FormSchema): FormSchema {
   });
 }
 
+/** Synthetic but dataset-valid rural location (Subil Union, Debidwar, Cumilla). Not an applicant's real address. */
+export const syntheticGeography = deepFreeze({
+  divisionCode: "div-02",
+  districtCode: "dis-19",
+  upazilaCode: "upa-089",
+  unionCode: "uni-0001",
+});
+
+/** Services whose v3 replaces free-text division/district/upazila/union references with parent-validated selectors. */
+export const geographySelectorServices: readonly number[] = deepFreeze([
+  36, 41, 42,
+]);
+const replacedLocationIds =
+  /^(division_id|noc_org_division|trade_license_org_division|district_id|thana_id|union_id)$/;
+
+/**
+ * PAR-05: publish a new version instead of editing v2, so applications pinned to v2 keep their exact schema.
+ * Urban municipality/city-corporation, post office and additional thana fields stay as text: the supplied
+ * dataset has no urban wards or postal directory.
+ */
+export function buildGeographySelectorVersion(previous: FormSchema): FormSchema {
+  if (!geographySelectorServices.includes(previous.serviceNo))
+    throw new RangeError(`Service ${previous.serviceNo} has no selector version.`);
+  let inserted = false;
+  const sections = previous.sections.map((section) => {
+    const fields: FieldDefinition[] = [];
+    for (const field of section.fields) {
+      if (!replacedLocationIds.test(field.id)) {
+        fields.push(field);
+        continue;
+      }
+      if (inserted) continue;
+      inserted = true;
+      const addressKind = section.fields.find((item) =>
+        item.id.endsWith("org_add_type"),
+      );
+      fields.push({
+        id: "org_location",
+        type: "geography",
+        label: t("প্রতিষ্ঠানের প্রশাসনিক এলাকা", "Organization administrative area"),
+        description: t(
+          "বিভাগ থেকে উপজেলা নির্বাচন করুন; ইউনিয়ন ঠিকানার ক্ষেত্রে ইউনিয়নও নির্বাচন করুন। পৌরসভা/সিটি কর্পোরেশনের নাম নিচে লিখুন।",
+          "Select division through upazila; also select the union for a union address. Enter municipality or city corporation names below.",
+        ),
+        constraints: {
+          required: field.constraints?.required ?? false,
+          geographyDepth: "upazila",
+          ...(addressKind
+            ? {
+                geographyUnionWhen: {
+                  field: addressKind.id,
+                  equals: "union",
+                },
+              }
+            : {}),
+        },
+        evidence: {
+          status: "inferred",
+          source: `audit/evidence/s-${String(previous.serviceNo).padStart(2, "0")}.json`,
+          fieldNames: section.fields
+            .filter((item) => replacedLocationIds.test(item.id))
+            .flatMap((item) => item.evidence?.fieldNames ?? [item.id]),
+        },
+      });
+    }
+    return { ...section, fields };
+  });
+  if (!inserted)
+    throw new Error(`Service ${previous.serviceNo} has no location fields to replace.`);
+  return deepFreeze({
+    ...previous,
+    version: previous.version + 1,
+    evidence: {
+      ...previous.evidence,
+      limitation: `${previous.evidence.limitation} Version ${previous.version + 1} selects division, district, upazila and (for union addresses) union from the supplied community geography dataset; it is not an official current register, and urban, postal and additional-thana references remain free text.`,
+    },
+    sections,
+  });
+}
+
 /** A deliberately synthetic fixture builder. Optional uploads are omitted because only the API can create authorized handles. */
 export function createSyntheticPayload(
   schema: FormSchema,
@@ -1179,6 +1259,8 @@ export function createSyntheticPayload(
         throw new Error(
           `Required attachment ${field.id} requires a real API upload.`,
         );
+      else if (field.type === "geography")
+        result[field.id] = { ...syntheticGeography };
       else if (field.type === "checkbox")
         result[field.id] = !!field.constraints?.mustBeTrue;
       else if (field.type === "select")
