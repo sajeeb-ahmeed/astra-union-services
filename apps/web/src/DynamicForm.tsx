@@ -9,6 +9,11 @@ import {
 } from "@astra/shared-schemas";
 import { api } from "./api.js";
 import { AttachmentStatus } from "./AttachmentStatus.js";
+import {
+  GeographyFields,
+  geographyPayload,
+  readGeography,
+} from "./GeographyFields.js";
 
 type Values = Record<string, any>;
 type Props = {
@@ -89,9 +94,27 @@ export function DynamicForm({
           const parentPath = tokens(key).slice(0, -1);
           const currentScope = atPath(currentValue.current, parentPath) ?? {};
           const nextScope = { ...currentScope, [field.id]: nextValue };
-          for (const sibling of definitions)
+          for (const sibling of definitions) {
             if (sibling.visibleWhen && !isFieldVisible(sibling, nextScope))
               delete nextScope[sibling.id];
+            // A union picked for a union address must not linger after switching to a municipality/city address.
+            const location = nextScope[sibling.id];
+            if (
+              sibling.type === "geography" &&
+              location &&
+              (sibling.constraints?.geographyDepth ?? "upazila") ===
+                "upazila" &&
+              sibling.constraints?.geographyUnionWhen &&
+              !evaluatePredicate(
+                sibling.constraints.geographyUnionWhen,
+                nextScope,
+              ) &&
+              (location.unionCode || location.wardCode)
+            ) {
+              const { unionCode: _union, wardCode: _ward, ...rest } = location;
+              nextScope[sibling.id] = rest;
+            }
+          }
           const next = replaceScope(
             currentValue.current,
             parentPath,
@@ -183,6 +206,51 @@ export function DynamicForm({
                 ),
               )}
             </fieldset>
+          );
+        }
+
+        if (field.type === "geography") {
+          const rules = field.constraints ?? {};
+          const through =
+            rules.geographyDepth === "ward"
+              ? "ward"
+              : rules.geographyDepth === "union" ||
+                  (rules.geographyUnionWhen &&
+                    evaluatePredicate(rules.geographyUnionWhen, scope))
+                ? "union"
+                : "upazila";
+          return (
+            <div
+              className="field geography-picker"
+              key={key}
+              data-field-path={key}
+              aria-invalid={!!error}
+            >
+              <GeographyFields
+                prefix={id}
+                legend={`${choose(field.label)}${required ? " *" : ""}`}
+                through={through}
+                required={required}
+                disabled={disabled}
+                value={readGeography(scope[field.id])}
+                onChange={(next) => {
+                  const payload = geographyPayload(next);
+                  update(Object.keys(payload).length ? payload : undefined);
+                }}
+              />
+              {tx(
+                field.description && (
+                  <p className="hint">{choose(field.description)}</p>
+                ),
+              )}
+              {tx(
+                error && (
+                  <p id={`${id}-error`} className="field-error">
+                    {choose(error.message)}
+                  </p>
+                ),
+              )}
+            </div>
           );
         }
 

@@ -27,6 +27,19 @@ export interface FieldConstraints {
   /** Compare within the same object/repeatable row, never another tenant's data. */
   readonly differentFrom?: string;
   readonly uniqueBy?: string;
+  /** Geography fields: deepest administrative level that must be selected. */
+  readonly geographyDepth?: GeographyDepth;
+  /** Geography fields: additionally require a union when this predicate holds. */
+  readonly geographyUnionWhen?: Predicate;
+}
+export type GeographyDepth = "upazila" | "union" | "ward";
+/** Codes only. Names are resolved from the stored geography dataset, never trusted from the client. */
+export interface GeographyReference {
+  readonly divisionCode: string;
+  readonly districtCode: string;
+  readonly upazilaCode: string;
+  readonly unionCode?: string;
+  readonly wardCode?: string;
 }
 export interface FieldDefinition {
   readonly id: string;
@@ -38,6 +51,7 @@ export interface FieldDefinition {
     | "select"
     | "checkbox"
     | "attachment"
+    | "geography"
     | "repeatable";
   readonly label: LocalizedText;
   readonly description?: LocalizedText;

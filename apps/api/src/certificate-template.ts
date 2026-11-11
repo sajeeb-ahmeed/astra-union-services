@@ -20,6 +20,8 @@ export interface PdfInput {
   };
   payload: Record<string, unknown>;
   schema?: FormSchema;
+  /** Dataset names for geography fields keyed by payload path; codes alone never reach the document. */
+  geographyNames?: Record<string, { bn: string; en: string }>;
   renewalNumber?: string;
 }
 const escape = (value: unknown) =>
@@ -37,12 +39,14 @@ function approvedSchemaData(
   schema: FormSchema,
   payload: Record<string, unknown>,
   lang: string,
+  geographyNames: Record<string, { bn: string; en: string }> = {},
 ) {
   const bn = lang === "bn";
   function fields(
     items: readonly FieldDefinition[],
     values: Record<string, unknown>,
     root: Record<string, unknown>,
+    prefix = "",
   ): string {
     return items
       .filter(
@@ -63,12 +67,16 @@ function approvedSchemaData(
         const value = values[f.id],
           label = f.label[bn ? "bn" : "en"];
         if (f.type === "repeatable")
-          return `<section class="repeatable"><h4>${escape(label)}</h4>${(value as Record<string, unknown>[]).map((row, i) => `<div class="member"><strong>${bn ? "তথ্য" : "Entry"} ${bn ? bnDigits(i + 1) : i + 1}</strong><dl>${fields(f.children ?? [], row, root)}</dl></div>`).join("")}</section>`;
+          return `<section class="repeatable"><h4>${escape(label)}</h4>${(value as Record<string, unknown>[]).map((row, i) => `<div class="member"><strong>${bn ? "তথ্য" : "Entry"} ${bn ? bnDigits(i + 1) : i + 1}</strong><dl>${fields(f.children ?? [], row, root, `${prefix}${f.id}[${i}].`)}</dl></div>`).join("")}</section>`;
         let output: unknown = value;
         if (f.type === "attachment")
           output = bn
             ? "সংযুক্ত ব্যক্তিগত নথি"
             : "Private supporting document attached";
+        else if (f.type === "geography")
+          output =
+            geographyNames[`${prefix}${f.id}`]?.[bn ? "bn" : "en"] ??
+            (bn ? "এলাকা যাচাই করা যায়নি" : "Location could not be resolved");
         else if (f.type === "checkbox")
           output = bn ? (value ? "হ্যাঁ" : "না") : value ? "Yes" : "No";
         else if (f.type === "select")
@@ -164,6 +172,7 @@ export function renderCertificateHtml(
               input.schema ?? getServiceSchema(input.service.service_no!),
               input.payload,
               lang,
+              input.geographyNames,
             ));
       const declaration = isResident
         ? bn

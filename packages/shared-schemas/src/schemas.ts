@@ -10,6 +10,8 @@ import {
   expandedOperationalSchemas,
   buildTradeLicenseV2,
   buildFamilyV2,
+  buildGeographySelectorVersion,
+  geographySelectorServices,
 } from "./expanded-schemas.js";
 
 const label = (bn: string, en: string): LocalizedText => ({ bn, en });
@@ -351,19 +353,31 @@ export const tradeLicenseV1: FormSchema = deepFreeze({
 export const tradeLicenseV2: FormSchema = buildTradeLicenseV2(tradeLicenseV1);
 export const familyV2: FormSchema = buildFamilyV2(familyV1);
 
-export const operationalSchemas: readonly FormSchema[] = deepFreeze([
-  permanentResidentV1,
-  familyV2,
-  tradeLicenseV2,
-  ...expandedOperationalSchemas,
-]);
+/** Versions superseded by the geography selector release; retained for applications pinned to them. */
+export const geographySupersededSchemas: readonly FormSchema[] = deepFreeze(
+  [tradeLicenseV2, ...expandedOperationalSchemas].filter((schema) =>
+    geographySelectorServices.includes(schema.serviceNo),
+  ),
+);
+export const geographySelectorSchemas: readonly FormSchema[] = deepFreeze(
+  geographySupersededSchemas.map(buildGeographySelectorVersion),
+);
+const latest = (schema: FormSchema) =>
+  geographySelectorSchemas.find((item) => item.serviceNo === schema.serviceNo) ??
+  schema;
+
+export const operationalSchemas: readonly FormSchema[] = deepFreeze(
+  [permanentResidentV1, familyV2, tradeLicenseV2, ...expandedOperationalSchemas].map(
+    latest,
+  ),
+);
 
 /** Initial payloads are synthetic. They are never lifted from source evidence. */
 export const demoPayloads: Readonly<
   Record<number, Readonly<Record<string, unknown>>>
 > = deepFreeze({
   ...Object.fromEntries(
-    expandedOperationalSchemas.map((schema) => [
+    expandedOperationalSchemas.map(latest).map((schema) => [
       schema.serviceNo,
       createSyntheticPayload(schema),
     ]),

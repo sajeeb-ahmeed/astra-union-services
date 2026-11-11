@@ -101,9 +101,13 @@ test("operational labels switch languages and private upload accept rules render
     attachments: [{ description: "Demo evidence" }],
   };
   const html = render(schema, payload);
+  // One nested fieldset for the attachment rows and one per geography selector.
   assert.equal(
     (html.match(/<fieldset\b/g) ?? []).length,
-    schema.sections.length + 1,
+    schema.sections.length +
+      1 +
+      flattenFields(schema).filter((field) => field.type === "geography")
+        .length,
   );
   for (const language of ["en", "bn"] as const) {
     setLanguage(language);

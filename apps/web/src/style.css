@@ -1516,6 +1516,10 @@ code {
   margin: 14px 0 0;
   line-height: 1.7;
 }
+/* Service-form location selector spans both form columns. */
+.form-grid > .geography-picker {
+  grid-column: 1 / -1;
+}
 .directory-filters .geography-fields {
   grid-column: 1 / -1;
   margin: 0;

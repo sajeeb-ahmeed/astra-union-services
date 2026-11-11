@@ -7,6 +7,7 @@ import {
   getServiceSchema,
   getCatalogPreviewSchema,
   stableSchemaJson,
+  allServiceSchemaVersions,
 } from "@astra/shared-schemas";
 const local = fs.existsSync(".runtime/postgres.json")
   ? JSON.parse(fs.readFileSync(".runtime/postgres.json", "utf8"))
@@ -59,17 +60,26 @@ try {
       throw new Error(
         `Immutable schema drift detected for service ${no} version ${schema.version}; publish a new schema version.`,
       );
-    if (schema.version !== 1) {
-      const historical = getServiceSchema(no, 1),
-        historicalJson = stableSchemaJson(historical);
+    // Every historical version stays published so pinned applications keep validating against their own schema.
+    for (const historical of allServiceSchemaVersions.filter(
+      (item) => item.serviceNo === no && item.version !== schema.version,
+    )) {
+      const historicalJson = stableSchemaJson(historical),
+        historicalHash = createHash("sha256").update(historicalJson).digest("hex");
       await db.query(
-        "INSERT INTO service_versions(service_no,version,schema_json,schema_hash) VALUES($1,1,$2,$3) ON CONFLICT DO NOTHING",
-        [
-          no,
-          historicalJson,
-          createHash("sha256").update(historicalJson).digest("hex"),
-        ],
+        "INSERT INTO service_versions(service_no,version,schema_json,schema_hash) VALUES($1,$2,$3,$4) ON CONFLICT DO NOTHING",
+        [no, historical.version, historicalJson, historicalHash],
       );
+      const stored = (
+        await db.query(
+          "SELECT schema_hash FROM service_versions WHERE service_no=$1 AND version=$2",
+          [no, historical.version],
+        )
+      ).rows[0];
+      if (stored.schema_hash !== historicalHash)
+        throw new Error(
+          `Immutable schema drift detected for service ${no} version ${historical.version}.`,
+        );
     }
     const preview = getCatalogPreviewSchema(no);
     const previewJson = stableSchemaJson(preview);

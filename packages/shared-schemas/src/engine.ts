@@ -1,6 +1,7 @@
 import type {
   FieldDefinition,
   FormSchema,
+  GeographyDepth,
   LocalizedText,
   Predicate,
   ValidationIssue,
@@ -55,6 +56,55 @@ export function flattenFields(schema: FormSchema): readonly FieldDefinition[] {
 }
 function text(bn: string, en: string): LocalizedText {
   return { bn, en };
+}
+
+export const geographyCodePattern = /^[a-z0-9-]{3,30}$/;
+const geographyKeys = [
+  "divisionCode",
+  "districtCode",
+  "upazilaCode",
+  "unionCode",
+  "wardCode",
+] as const;
+/** Shape-only check. Parent-child hierarchy must still be verified against the stored dataset by the server. */
+export function geographyShapeIssue(
+  value: unknown,
+  depth: GeographyDepth,
+): { code: string; message: LocalizedText } | null {
+  if (
+    !isRecord(value) ||
+    Object.keys(value).some(
+      (key) => !(geographyKeys as readonly string[]).includes(key),
+    ) ||
+    Object.values(value).some(
+      (code) => typeof code !== "string" || !geographyCodePattern.test(code),
+    )
+  )
+    return {
+      code: "geography",
+      message: text(
+        "তালিকা থেকে এলাকা নির্বাচন করুন।",
+        "Select the location from the administrative lists.",
+      ),
+    };
+  const needed = geographyKeys.slice(
+    0,
+    depth === "ward" ? 5 : depth === "union" ? 4 : 3,
+  );
+  const present = geographyKeys.filter((key) => value[key] !== undefined);
+  if (
+    needed.some((key) => value[key] === undefined) ||
+    // No gaps: a lower level is only allowed when every parent level is present.
+    present.length !== geographyKeys.indexOf(present[present.length - 1]!) + 1
+  )
+    return {
+      code: "geography_incomplete",
+      message: text(
+        "প্রয়োজনীয় সব প্রশাসনিক স্তর নির্বাচন করুন।",
+        "Select every required administrative level.",
+      ),
+    };
+  return null;
 }
 
 /** Deterministic shared validation; callers still authorize tenant, citizen and attachment references. */
@@ -235,6 +285,32 @@ export function validateForm(
             text(
               "নথির আকার অনুমোদিত নয়।",
               "Attachment is empty, oversized, or has an invalid size.",
+            ),
+          );
+        continue;
+      }
+      if (field.type === "geography") {
+        const depth =
+          rules.geographyUnionWhen &&
+          evaluatePredicate(rules.geographyUnionWhen, values) &&
+          (rules.geographyDepth ?? "upazila") === "upazila"
+            ? "union"
+            : (rules.geographyDepth ?? "upazila");
+        const shape = geographyShapeIssue(value, depth);
+        if (shape) issue(path, shape.code, shape.message);
+        else if (
+          rules.geographyUnionWhen &&
+          depth === "upazila" &&
+          isRecord(value) &&
+          (value.unionCode !== undefined || value.wardCode !== undefined)
+        )
+          // Same rule as inactive fields: no stale union after switching to an urban address.
+          issue(
+            path,
+            "geography_union_inactive",
+            text(
+              "এই ঠিকানার ধরনে ইউনিয়ন প্রযোজ্য নয়।",
+              "A union does not apply to this address type.",
             ),
           );
         continue;
