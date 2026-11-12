@@ -5,6 +5,8 @@ import { getDemoPayload } from "@astra/shared-schemas";
 import { app } from "../src/app.js";
 import { pool } from "../src/db.js";
 import { closePdfBrowser } from "../src/pdf.js";
+// B2: these tests exercise the sandbox settlement route, which is off unless explicitly enabled.
+process.env.DEMO_SETTLE_ENABLED = "true";
 
 type Session = { cookie: string; csrf: string; user: any };
 const sessions: Record<string, Session> = {};

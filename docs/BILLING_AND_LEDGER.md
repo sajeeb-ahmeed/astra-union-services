@@ -69,7 +69,7 @@ An outbox record proves durable enqueueing, not SMS/email delivery. No delivery 
 4. A serializable transaction locks the order, stores the event/body digest, appends the one grant, updates subscription when relevant, marks the order settled, inserts a separate SaaS invoice and audits the event.
 5. Same event/content is a safe replay. Reusing an event with changed content is rejected. A new event ID for an already settled order cannot grant again. Invoice uniqueness is `(tenant_id, order_id)`; grant key is `payment:<order_id>`.
 
-The explicit `demo-settle` UI action constructs and signs a local synthetic event and invokes the same settlement service. It is not evidence of a bank/gateway callback, actual cash movement, production signature scheme or statutory receipt. These legacy SaaS payment events retain accepted signed synthetic settlements. They remain separate from the 0.5 citizen-fee gateway events, query/search verification and reconciliation register.
+The explicit `demo-settle` UI action constructs and signs a local synthetic event and invokes the same settlement service. Because it signs with the server's own secret, the route exists only when `DEMO_SETTLE_ENABLED=true`; in every other case (including `NODE_ENV=production` without the flag) it answers 404 as if unregistered, and the UI hides the button (`GET /api/v1/billing` reports `demoSettleEnabled`). It is not evidence of a bank/gateway callback, actual cash movement, production signature scheme or statutory receipt. These legacy SaaS payment events retain accepted signed synthetic settlements. They remain separate from the 0.5 citizen-fee gateway events, query/search verification and reconciliation register.
 
 ## Adjustments, revocation and government fees
 

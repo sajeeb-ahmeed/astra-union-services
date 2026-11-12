@@ -1955,7 +1955,8 @@ export function WorkspaceApp({
                               {tx(o.status)}
                               {tx(" ")}
                               {tx(
-                                o.status !== "SETTLED" && (
+                                o.status !== "SETTLED" &&
+                                  billing?.demoSettleEnabled && (
                                   <button
                                     className="text-button"
                                     onClick={() =>

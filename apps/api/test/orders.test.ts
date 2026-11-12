@@ -6,6 +6,8 @@ import { getDemoPayload } from "@astra/shared-schemas";
 import { app } from "../src/app.js";
 import { pool, adminConnectionString, transaction } from "../src/db.js";
 import { closePdfBrowser } from "../src/pdf.js";
+// B2: these tests exercise the sandbox settlement route, which is off unless explicitly enabled.
+process.env.DEMO_SETTLE_ENABLED = "true";
 
 const admin = new pg.Pool({ connectionString: adminConnectionString });
 const run = randomUUID().slice(0, 8),

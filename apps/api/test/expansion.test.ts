@@ -16,6 +16,8 @@ import {
   DEMO_TEMPLATE_VERSION,
 } from "../src/pdf.js";
 import { payloadGeographyNames } from "../src/geography.js";
+// B2: these tests exercise the sandbox settlement route, which is off unless explicitly enabled.
+process.env.DEMO_SETTLE_ENABLED = "true";
 const db = new pg.Pool({ connectionString: adminConnectionString });
 const run = randomUUID().slice(0, 8),
   password = "Synthetic-Test-Pass!";
