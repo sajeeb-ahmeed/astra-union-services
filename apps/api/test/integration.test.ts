@@ -2,7 +2,7 @@ import test, { before, after } from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import pg from "pg";
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { demoPayloads } from "@astra/shared-schemas";
 import { app } from "../src/app.js";
 import { pool, adminConnectionString, transaction } from "../src/db.js";
@@ -546,7 +546,12 @@ test("CER-01 / CER-02 / WAL-01 / WAL-02: concurrent issuance produces one real P
   for (const result of issued)
     assert.ok([200, 201].includes(result.status), JSON.stringify(result.body));
   assert.equal(new Set(issued.map((r) => r.body.id)).size, 1);
-  cert = issued[0]!.body;
+  // B1: only the request that created the certificate receives its one-time verification URL;
+  // requests that found it already issued (200, or 201 when they lost the race) receive null.
+  const created = issued.filter((r) => r.body.verificationUrl !== null);
+  assert.equal(created.length, 1);
+  assert.match(created[0]!.body.verificationUrl, /\/verify\/[a-f0-9]{64}$/);
+  cert = created[0]!.body;
   assert.equal(cert.templateVersion, DEMO_TEMPLATE_VERSION);
   const retries = await request(
     "POST",
@@ -606,6 +611,34 @@ test("CER-01 / CER-02 / WAL-01 / WAL-02: concurrent issuance produces one real P
     [mainApp.id],
   );
   assert.equal(c.rows[0].n, 1);
+  // B1: the plaintext token is not stored; only its digest is, and verification still works.
+  const stored = (
+    await admin.query(
+      "SELECT verification_token,token_hash FROM certificates WHERE id=$1",
+      [cert.id],
+    )
+  ).rows[0];
+  assert.equal(stored.verification_token, null);
+  assert.equal(
+    stored.token_hash,
+    createHash("sha256").update(token).digest("hex"),
+  );
+  const reread = await request(
+    "GET",
+    `/applications/${mainApp.id}`,
+    undefined,
+    sessions["alpha:approver"],
+  );
+  assert.equal(reread.status, 200);
+  assert.equal(reread.body.certificate.id, cert.id);
+  assert.equal(reread.body.certificate.verificationUrl, null);
+  await assert.rejects(
+    admin.query(
+      "UPDATE certificates SET verification_token=$2 WHERE id=$1",
+      [cert.id, token],
+    ),
+    /certificates_no_plaintext_verification_token/,
+  );
   assert.equal(
     (
       await request(

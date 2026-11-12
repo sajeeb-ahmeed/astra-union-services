@@ -445,14 +445,23 @@ export function WorkspaceApp({
           >
             {t("Download PDF ")}
           </a>
-          <a
-            className="button secondary"
-            href={cert.verificationUrl || cert.verification_url}
-            target="_blank"
-            rel="noreferrer"
-          >
-            {t("QR verification ")}
-          </a>
+          {cert.verificationUrl ? (
+            <a
+              className="button secondary"
+              href={cert.verificationUrl}
+              target="_blank"
+              rel="noreferrer"
+            >
+              {t("QR verification ")}
+            </a>
+          ) : (
+            // The verify token is not stored (migration 017); the link exists only on the PDF.
+            <span className="hint">
+              {t(
+                "যাচাই লিংক সনদের PDF-এ QR কোড হিসেবে আছে। / The verification link is on the certificate PDF as a QR code.",
+              )}
+            </span>
+          )}
           {tx(
             approver && cert.status !== "REVOKED" && (
               <button

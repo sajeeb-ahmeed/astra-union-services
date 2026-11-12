@@ -1277,14 +1277,13 @@ app.post(
           );
         const c = (
           await db.query(
-            "INSERT INTO certificates(id,tenant_id,application_id,number,service_no,verification_token,token_hash,pdf,issued_by,template_version) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING *",
+            "INSERT INTO certificates(id,tenant_id,application_id,number,service_no,token_hash,pdf,issued_by,template_version) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING *",
             [
               certId,
               a.tenantId,
               id,
               number,
               r.service_no,
-              token,
               digest(token),
               pdf,
               a.userId,
@@ -1310,7 +1309,8 @@ app.post(
           "INSERT INTO outbox_events(tenant_id,kind,resource_id) VALUES($1,'DEMO_CERTIFICATE_ISSUED',$2)",
           [a.tenantId, c.id],
         );
-        return certificateRow(c);
+        // The only time the plaintext verification URL leaves the server outside the PDF.
+        return certificateRow(c, verificationUrl);
       },
       true,
     );
