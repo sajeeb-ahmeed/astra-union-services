@@ -61,17 +61,21 @@ test(
     try {
       await page.goto(origin);
       await page
-        .getByRole("heading", { name: /Citizen services from home/ })
+        .getByRole("heading", { name: "Choose the service you need" })
         .waitFor();
       fs.mkdirSync("execution/screenshots", { recursive: true });
       await page.screenshot({
         path: "execution/screenshots/expanded-home-desktop.png",
         fullPage: true,
       });
+      // Phase 1: "/" is the new home (47 tiles); its navigation uses links into the legacy pages.
+      assert.equal(await page.locator(".ax-tile").count(), 47);
       await page
         .getByRole("navigation", { name: "Public navigation" })
-        .getByRole("button", { name: "Services", exact: true })
+        .getByRole("link", { name: "Services", exact: true })
         .click();
+      await page.waitForURL(/\/services$/);
+      await page.locator(".public-service").first().waitFor();
       assert.equal(await page.locator(".public-service").count(), 47);
       await page
         .getByLabel("Search public services", { exact: true })
@@ -190,7 +194,7 @@ test(
       await page.setViewportSize({ width: 390, height: 844 });
       await page.goto(origin);
       await page
-        .getByRole("heading", { name: /Citizen services from home/ })
+        .getByRole("heading", { name: "Choose the service you need" })
         .waitFor();
       assert.equal(
         await page.evaluate(

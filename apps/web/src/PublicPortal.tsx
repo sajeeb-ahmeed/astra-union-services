@@ -239,9 +239,15 @@ export function PublicPortal({
 }) {
   const serviceInformationRef = useRef<HTMLElement>(null);
   const initial = location.pathname.split("/")[1] || "home";
+  // Phase 1: new public pages deep-link to one service as /services?service=N.
+  const linkedService = Number(new URLSearchParams(location.search).get("service"));
   const [page, setPage] = useState(initial),
     [search, setSearch] = useState(""),
-    [serviceNo, setServiceNo] = useState<number | null>(null);
+    [serviceNo, setServiceNo] = useState<number | null>(
+      initial === "services" && Number.isInteger(linkedService) && linkedService >= 1 && linkedService <= 47
+        ? linkedService
+        : null,
+    );
   const initialFilters = Object.fromEntries(
     new URLSearchParams(location.search),
   );
@@ -299,6 +305,11 @@ export function PublicPortal({
   );
   function nav(next: string) {
     onNavigate?.();
+    // Phase 1: "/" is the new public home, outside this legacy component.
+    if (next === "home") {
+      location.assign("/");
+      return;
+    }
     setPage(next);
     setOffice(null);
     setError("");
@@ -308,6 +319,10 @@ export function PublicPortal({
   useEffect(() => {
     const pop = () => {
       onNavigate?.();
+      if (location.pathname === "/") {
+        location.reload();
+        return;
+      }
       setPage(location.pathname.split("/")[1] || "home");
       setOffice(null);
     };

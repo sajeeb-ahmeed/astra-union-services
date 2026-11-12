@@ -1,0 +1,178 @@
+.ax-home-search {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ax-space-1);
+  max-width: 560px;
+}
+.ax-home-search label {
+  font-weight: 600;
+  font-size: var(--ax-text-sm);
+}
+.ax-home-search input {
+  min-height: 46px;
+  padding: 10px 14px;
+  border: 1px solid var(--ax-line);
+  border-radius: var(--ax-radius);
+  background: var(--ax-surface);
+}
+.ax-home-stats {
+  margin-top: var(--ax-space-4);
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 200px));
+  gap: var(--ax-space-3);
+}
+
+.ax-home-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 320px;
+  gap: var(--ax-space-5);
+  align-items: start;
+  padding-top: var(--ax-space-5);
+}
+.ax-home-count {
+  margin: 0 0 var(--ax-space-3);
+  color: var(--ax-muted);
+  font-size: var(--ax-text-sm);
+}
+.ax-tile-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: var(--ax-space-3);
+}
+.ax-home-empty {
+  background: var(--ax-surface);
+  border: 1px dashed var(--ax-line);
+  border-radius: var(--ax-radius);
+  padding: var(--ax-space-5);
+}
+
+.ax-home-rail {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ax-space-4);
+  position: sticky;
+  top: var(--ax-space-4);
+}
+.ax-home-rail form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ax-space-2);
+}
+.ax-home-rail label {
+  font-size: var(--ax-text-sm);
+  font-weight: 600;
+}
+.ax-home-rail input {
+  min-height: 42px;
+  padding: 8px 12px;
+  border: 1px solid var(--ax-line);
+  border-radius: var(--ax-radius-sm);
+}
+.ax-home-rail button {
+  border-radius: var(--ax-radius-sm);
+  background: var(--ax-green-600);
+  border-color: var(--ax-green-600);
+}
+.ax-home-rail button:hover {
+  background: var(--ax-green-700);
+}
+.ax-rail-text {
+  margin: 0 0 var(--ax-space-3);
+  color: var(--ax-muted);
+  font-size: var(--ax-text-sm);
+}
+.ax-rail-actions {
+  display: flex;
+  gap: var(--ax-space-2);
+}
+.ax-rail-actions .button {
+  flex: 1;
+}
+.ax-rail-error {
+  margin: var(--ax-space-2) 0 0;
+  color: #9b2c1f;
+  font-size: var(--ax-text-sm);
+}
+.ax-rail-result {
+  margin-top: var(--ax-space-3);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--ax-space-1);
+}
+.ax-notice-list {
+  list-style: none;
+  margin: 0 0 var(--ax-space-3);
+  padding: 0;
+}
+.ax-notice-list li {
+  padding-block: var(--ax-space-2);
+  border-bottom: 1px solid var(--ax-line);
+}
+.ax-notice-list a,
+.ax-rail-more {
+  color: var(--ax-green-700);
+}
+.ax-rail-more {
+  font-size: var(--ax-text-sm);
+  font-weight: 600;
+}
+
+@media (max-width: 900px) {
+  .ax-home-layout {
+    grid-template-columns: 1fr;
+  }
+  .ax-home-rail {
+    position: static;
+  }
+}
+@media (max-width: 560px) {
+  .ax-home-stats {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .ax-tile-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .ax-stat strong {
+    font-size: 18px;
+  }
+}
+
+/* The real sign-in form (with MFA) is rendered inside the account panel. */
+.ax-rail-login .login-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ax-space-2);
+}
+.ax-rail-login .login-form h2 {
+  display: none;
+}
+.ax-rail-login .login-form > p {
+  margin: 0;
+  color: var(--ax-muted);
+  font-size: var(--ax-text-sm);
+}
+.ax-rail-login .login-form form {
+  gap: var(--ax-space-2);
+}
+.ax-rail-login .password-control {
+  display: flex;
+  gap: var(--ax-space-2);
+}
+.ax-rail-login .password-control input {
+  flex: 1;
+  min-width: 0;
+}
+.ax-rail-login .password-control button {
+  background: var(--ax-surface);
+  color: var(--ax-green-700);
+  font-size: var(--ax-text-sm);
+  padding-inline: var(--ax-space-3);
+}
+.ax-rail-login .login-recovery,
+.ax-rail-login .ax-rail-more {
+  display: block;
+  margin-top: var(--ax-space-2);
+  color: var(--ax-green-700);
+  font-size: var(--ax-text-sm);
+}

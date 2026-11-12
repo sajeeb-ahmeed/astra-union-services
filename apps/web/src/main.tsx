@@ -176,10 +176,7 @@ function SignedOutPortal({
       setBusy(false);
     }
   }
-  return (
-    <PublicPortal
-      onNavigate={clearLoginSecrets}
-      login={
+  const loginForm = (
         <section className="login-form">
           {challenge ? (
             <MfaChallenge
@@ -305,9 +302,10 @@ function SignedOutPortal({
             </>
           )}
         </section>
-      }
-    />
   );
+  // Phase 1: signed-out visitors get the new public home on "/"; other public pages stay legacy for now.
+  if (location.pathname === "/") return <AsyncPanel><PublicHome login={loginForm} /></AsyncPanel>;
+  return <PublicPortal onNavigate={clearLoginSecrets} login={loginForm} />;
 }
 
 function SessionApp() {
@@ -348,6 +346,13 @@ function SessionApp() {
     </AsyncPanel>
   );
 }
+
+// Phase 1 slice (i), approved: the new public home (loaded on demand).
+const PublicHome = lazy(() =>
+  import("./PublicHome.js").then((module) => ({ default: module.PublicHome })),
+);
+
+if (location.pathname === "/home-preview") history.replaceState({}, "", "/");
 
 function App() {
   const publicToken = location.pathname.startsWith("/verify/")
