@@ -1164,6 +1164,7 @@ test("B2: sandbox settlement route exists only when DEMO_SETTLE_ENABLED is exact
     else process.env.DEMO_SETTLE_ENABLED = saved.flag;
     process.env.NODE_ENV = saved.nodeEnv;
   }
+});
 test("B3: government_fee_assessments is dropped and the drop refuses to lose rows", async () => {
   assert.equal(
     (await admin.query("SELECT to_regclass('public.government_fee_assessments') t"))
