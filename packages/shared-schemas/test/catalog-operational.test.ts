@@ -645,3 +645,19 @@ test("B6: org_location is at least as strict as the strictest v2 location field 
     }
   }
 });
+
+test("Phase 0: every service has a capture file headed with its number", async () => {
+  const fs = await import("node:fs");
+  const { captureDirectory, captureFileName } = await import(
+    "../../../scripts/evidence/capture-files.js"
+  );
+  for (const service of serviceCatalog) {
+    const file = `${captureDirectory}/${captureFileName(service.service_no, service.name_en)}`;
+    assert.ok(fs.existsSync(file), `missing ${file}`);
+    assert.match(
+      fs.readFileSync(file, "utf8").split("\n")[0],
+      new RegExp(`^# Service ${service.service_no}: `),
+    );
+  }
+  assert.equal(fs.readdirSync(captureDirectory).filter((n: string) => n.endsWith(".md")).length, serviceCatalog.length);
+});
