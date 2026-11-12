@@ -25,6 +25,9 @@ import {
   presentAddressPayload,
 } from "./PresentAddressFields.js";
 import { WorkspaceWelcome } from "./WorkspaceWelcome.js";
+import { WorkspaceDashboard } from "./WorkspaceDashboard.js";
+import { SidebarNav } from "./ui/SidebarNav.js";
+import { udcNavigation, usesUdcNavigation } from "./workspace-navigation.js";
 import { ApplicationGuidance } from "./ApplicationGuidance.js";
 import "./workspace-usability.css";
 import {
@@ -132,6 +135,7 @@ export function WorkspaceApp({
     [busy, setBusy] = useState(false);
   const [catalog, setCatalog] = useState<any[]>([]),
     [citizens, setCitizens] = useState<any[]>([]),
+    [citizenTotal, setCitizenTotal] = useState<number | null>(null),
     [applications, setApplications] = useState<any[]>([]),
     [wallet, setWallet] = useState<any>(null),
     [billing, setBilling] = useState<any>(null),
@@ -232,6 +236,7 @@ export function WorkspaceApp({
     if (epoch !== refreshEpoch.current) return;
     setCatalog(items(servicesResult));
     setCitizens(items(citizenResult));
+    setCitizenTotal(citizenResult.total ?? items(citizenResult).length);
     setApplications(items(applicationResult));
     setAppTotal(applicationResult.total ?? items(applicationResult).length);
     setWallet(walletResult);
@@ -266,6 +271,19 @@ export function WorkspaceApp({
     approver = role === "approver",
     finance = ["finance", "admin"].includes(role);
   const canApply = staff || role === "citizen";
+  // Phase 1 slice (ii), approved: staff get the UDC sidebar; staff and office admins get the dashboard home.
+  const udcPreview = usesUdcNavigation(role);
+  const dashboardHome = staff;
+  const udcCurrent =
+    page === "home"
+      ? "dashboard"
+      : page === "services"
+        ? "new-application"
+        : page === "prints"
+          ? "print-certificate"
+          : page === "applications" && filter === "ISSUED"
+            ? "renewal"
+            : page;
   const visiblePages = Object.keys(labels).filter((p) =>
     role === "owner"
       ? [
@@ -508,6 +526,31 @@ export function WorkspaceApp({
           <label htmlFor="workspace-jump">
             {choose({ bn: "কোথায় যেতে চান?", en: "Go to a page" })}
           </label>
+          {udcPreview ? (
+            <select
+              id="workspace-jump"
+              value={
+                udcNavigation.find((i) => i.key === udcCurrent && !i.state && i.page)?.page ?? udcCurrent
+              }
+              onChange={(event) => {
+                // Options use the page name (shared with the legacy picker); filtered items use their key.
+                const item = udcNavigation.find(
+                  (i) => (i.state ? i.key : (i.page ?? i.key)) === event.target.value,
+                );
+                if (item?.href) location.assign(item.href);
+                else if (item?.page === "applications") openTask("applications", item.state ?? "");
+                else if (item?.page) nav(item.page);
+              }}
+            >
+              {udcNavigation
+                .filter((item) => !item.soon)
+                .map((item) => (
+                  <option key={item.key} value={item.state ? item.key : (item.page ?? item.key)}>
+                    {choose(item)}
+                  </option>
+                ))}
+            </select>
+          ) : (
           <select
             id="workspace-jump"
             value={page}
@@ -519,12 +562,25 @@ export function WorkspaceApp({
               </option>
             ))}
           </select>
+          )}
         </div>
+        {udcPreview ? (
+          <SidebarNav
+            items={udcNavigation}
+            current={udcCurrent}
+            label={t("Workspace navigation")}
+            onSelect={(item) => {
+              if (item.page === "applications") openTask("applications", item.state ?? "");
+              else if (item.page) nav(item.page);
+            }}
+          />
+        ) : (
         <nav aria-label={t("Workspace navigation")}>
           {tx(
             visiblePages.map((p) => (
               <button
                 key={p}
+                data-page={p}
                 aria-current={page === p ? "page" : undefined}
                 onClick={() => nav(p)}
               >
@@ -533,6 +589,7 @@ export function WorkspaceApp({
             )),
           )}
         </nav>
+        )}
         <div className="sidebar-bottom">
           <span className="status">{t("DEMO WORKSPACE")}</span>
           <p>
@@ -581,7 +638,11 @@ export function WorkspaceApp({
             <span className="eyebrow">
               {t("ASTRA · DIGITAL UNION SERVICES")}
             </span>
-            <h1>{choose({ bn: localized[page], en: labels[page] })}</h1>
+            <h1>
+              {dashboardHome && page === "home"
+                ? choose({ bn: "ড্যাশবোর্ড", en: "Dashboard" })
+                : choose({ bn: localized[page], en: labels[page] })}
+            </h1>
           </div>
           <div className="workspace-header-actions">
             <LanguageSwitcher />
@@ -602,7 +663,24 @@ export function WorkspaceApp({
             </p>
           ),
         )}
-        {page === "home" && (
+        {page === "home" && dashboardHome && (
+          <WorkspaceDashboard
+            services={catalog}
+            citizenTotal={citizenTotal}
+            applicationTotal={appTotal}
+            creditBalance={wallet?.balance ?? null}
+            onStartService={(serviceNo) => {
+              setSelectedService(serviceNo);
+              nav("services");
+            }}
+            onOpenCitizens={() => nav("citizens")}
+            onOpenApplications={() => openTask("applications")}
+          />
+        )}
+        {page === "home" && dashboardHome && (
+          <WorkspaceWelcome role={role} navigate={openTask} />
+        )}
+        {page === "home" && !dashboardHome && (
           <>
             <WorkspaceWelcome role={role} navigate={openTask} />
             <section className="panel">

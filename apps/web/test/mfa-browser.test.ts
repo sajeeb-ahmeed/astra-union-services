@@ -9,6 +9,7 @@ import {
   type BrowserContext,
   type Page,
 } from "playwright";
+import { workspacePage } from "./fixtures/workspace-nav.js";
 
 const origin = "http://127.0.0.1:5173";
 const password = "Synthetic-Mfa-Browser-2026!";
@@ -143,10 +144,7 @@ test(
         0,
       );
       await page.unroute("**/api/v1/auth/mfa");
-      await page
-        .getByRole("navigation", { name: "Workspace navigation" })
-        .getByRole("button", { name: "Overview", exact: true })
-        .click();
+      await workspacePage(page, "home").click();
       panel = await openSecurity(page);
       await panel
         .getByLabel("Current password for setup", { exact: true })
@@ -166,10 +164,7 @@ test(
         false,
         "Displaying a QR must not enable MFA.",
       );
-      await page
-        .getByRole("navigation", { name: "Workspace navigation" })
-        .getByRole("button", { name: "Overview", exact: true })
-        .click();
+      await workspacePage(page, "home").click();
       panel = await openSecurity(page);
       assert.equal(await panel.getByRole("img").count(), 0);
       assert.equal(await panel.getByTestId("mfa-setup-key").count(), 0);

@@ -120,3 +120,53 @@
   background: var(--ax-green-100);
   color: var(--ax-green-800);
 }
+
+/* SidebarNav: buttons inherit the workspace sidebar look; links and disabled items match it. */
+.ax-sidebar-nav {
+  overflow-y: auto;
+  min-height: 0;
+  flex: 1 1 auto;
+}
+.ax-sidebar-nav .ax-sidebar-item {
+  display: block;
+  text-align: left;
+  color: #e4eee8;
+  padding: 9px 15px;
+  border-radius: 6px;
+  text-decoration: none;
+  font-size: 14px;
+}
+.ax-sidebar-nav a.ax-sidebar-item:hover {
+  background: #24483a;
+}
+.ax-sidebar-nav .ax-sidebar-item.is-soon {
+  color: #9fb8ad;
+  cursor: not-allowed;
+}
+.ax-sidebar-nav .ax-sidebar-item.is-soon small {
+  display: block;
+  font-size: 11px;
+  color: #8eab9f;
+}
+/* Fourteen UDC items must fit a typical laptop height, so they are a little denser than the legacy list. */
+.shell aside .ax-sidebar-nav {
+  gap: 2px;
+}
+.shell aside .ax-sidebar-nav .ax-sidebar-item {
+  padding: 7px 14px;
+  font-size: 14px;
+  line-height: 1.35;
+}
+.shell aside .ax-sidebar-nav .ax-sidebar-item.is-soon small {
+  margin-top: 0;
+  line-height: 1.2;
+}
+@media (min-width: 901px) {
+  .shell aside .ax-sidebar-nav .ax-sidebar-item {
+    min-height: 34px;
+    padding-block: 6px;
+  }
+  .shell aside:has(.ax-sidebar-nav) .office {
+    margin: 18px 0;
+  }
+}

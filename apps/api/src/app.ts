@@ -500,17 +500,26 @@ app.get(
   wrap(async (req, res) => {
     const a = roles(req, [...staffRead, "citizen"]);
     const q = String(req.query.q ?? "").slice(0, 100);
-    const items = await transaction(tenant(req), async (db) =>
-      (
-        await db.query(
-          `SELECT * FROM citizens WHERE tenant_id=$1 ${a.role === "citizen" ? "AND user_id=$2" : ""} AND (full_name_bn ILIKE ${a.role === "citizen" ? "$3" : "$2"} OR full_name_en ILIKE ${a.role === "citizen" ? "$3" : "$2"} OR synthetic_reference ILIKE ${a.role === "citizen" ? "$3" : "$2"}) ORDER BY created_at DESC LIMIT 100`,
-          a.role === "citizen"
-            ? [a.tenantId, a.userId, `%${q}%`]
-            : [a.tenantId, `%${q}%`],
-        )
-      ).rows.map(citizenRow),
-    );
-    res.json({ items });
+    const { items, total } = await transaction(tenant(req), async (db) => {
+      const filter = `WHERE tenant_id=$1 ${a.role === "citizen" ? "AND user_id=$2" : ""} AND (full_name_bn ILIKE ${a.role === "citizen" ? "$3" : "$2"} OR full_name_en ILIKE ${a.role === "citizen" ? "$3" : "$2"} OR synthetic_reference ILIKE ${a.role === "citizen" ? "$3" : "$2"})`;
+      const params =
+        a.role === "citizen"
+          ? [a.tenantId, a.userId, `%${q}%`]
+          : [a.tenantId, `%${q}%`];
+      return {
+        items: (
+          await db.query(
+            `SELECT * FROM citizens ${filter} ORDER BY created_at DESC LIMIT 100`,
+            params,
+          )
+        ).rows.map(citizenRow),
+        // Phase 1: the dashboard shows the real count, not the length of this 100-row page.
+        total: (
+          await db.query(`SELECT count(*)::int n FROM citizens ${filter}`, params)
+        ).rows[0].n as number,
+      };
+    });
+    res.json({ items, total });
   }),
 );
 app.post(

@@ -6,6 +6,7 @@ import http from "node:http";
 import { chromium, type Browser, type Page } from "playwright";
 import reference from "../../../packages/shared-schemas/src/reference-catalog.json" with { type: "json" };
 import publicCatalog from "../src/public-service-catalog.json" with { type: "json" };
+import { workspacePage } from "./fixtures/workspace-nav.js";
 
 const dist = path.resolve("apps/web/dist");
 type ManifestEntry = {
@@ -249,10 +250,7 @@ test(
       requests.filter((url) => url.endsWith(workspacePath)).length,
       1,
     );
-    await page
-      .getByRole("navigation")
-      .getByRole("button", { name: "Service catalog", exact: true })
-      .click();
+    await workspacePage(page, "services").click();
     assert.equal(await page.locator(".catalog .service").count(), 47);
     await page.getByRole("button", { name: "বাংলা", exact: true }).click();
     assert.equal(await page.locator("html").getAttribute("lang"), "bn");

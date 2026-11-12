@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
+import { workspacePage } from "./fixtures/workspace-nav.js";
 import { chromium, type Page } from "playwright";
 const base = "http://127.0.0.1:5173";
 async function launch() {
@@ -31,10 +32,7 @@ async function login(page: Page, role = "staff") {
     .waitFor();
 }
 async function nav(page: Page, name: string) {
-  await page
-    .getByRole("navigation", { name: "Workspace navigation" })
-    .getByRole("button", { name, exact: true })
-    .click();
+  await workspacePage(page, name).click();
 }
 
 test(

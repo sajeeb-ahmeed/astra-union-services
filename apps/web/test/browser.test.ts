@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 import { spawn, type ChildProcess } from "node:child_process";
+import { workspacePage } from "./fixtures/workspace-nav.js";
 import { chromium, type Browser, type Page } from "playwright";
 const origin = "http://127.0.0.1:5173";
 let ownedStack: ChildProcess | undefined;
@@ -45,10 +46,8 @@ async function nav(page: Page, name: string) {
     "Subscription & credits": "সাবস্ক্রিপশন ও ক্রেডিট",
     Citizens: "নাগরিক",
   };
-  await page
-    .getByRole("navigation")
-    .getByRole("button", { name: new RegExp(`${name}|${bn[name] || name}`) })
-    .click();
+  void bn;
+  await workspacePage(page, name).click();
 }
 async function openById(page: Page, id: string) {
   await nav(page, "Applications");
