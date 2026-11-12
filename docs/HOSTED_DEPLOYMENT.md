@@ -1,6 +1,31 @@
 # Hosted deployment record
 
-**Current release: 0.9, live and verified on 24 October 2026.** Payment collection remains disabled; certificates remain DEMO / NOT OFFICIAL.
+**Current hosting (since 12 November 2026):** web service unchanged on Render Free (Singapore); database moved from Render Free PostgreSQL to **Neon Free** (Singapore, PostgreSQL 17.11). The release-0.9 notes below stay as history; later runtime changes (PAR-05, PAR-06) are listed in [PROCESS_PARITY.md](PROCESS_PARITY.md). Payment collection remains disabled; certificates remain DEMO / NOT OFFICIAL.
+
+## Database move to Neon — 12 November 2026
+
+Performed by the owner (Md) with Claude: Claude moved and verified the data; the owner changed Render's `DATABASE_URL` and deployed. The Render Free database was due to expire the same day.
+
+| Item | Record |
+| --- | --- |
+| Method | Real data move, not a fresh seed. Encrypted hosted backup `managed_20261112044138716_bf8f5bce` was restored to an independent loopback cluster (restore checks passed), dumped and loaded into Neon in one transaction (`pg_restore --single-transaction --exit-on-error`). |
+| Neon target | Project `square-waterfall-75601747`, branch `production`, database `astra_prod`. Owner/migration role `astra_admin`; runtime role `astra_app` created by `scripts/bootstrap-db.ts` (NOSUPERUSER, NOBYPASSRLS, NOCREATEDB, NOCREATEROLE). The empty default database `astra` created with the project is unused. |
+| Left out of the restore | Render-specific catalog entries only: the `pgcrypto` extension entries (recreated with `CREATE EXTENSION pgcrypto`), pgcrypto function grants held by Render's `astra_recovery_operator` role, and default privileges of Render's `postgres` role. No application table, policy or grant was dropped. |
+| After the restore | `scripts/migrate.ts` applied `016_present_address.sql`; the three new form schemas (services 36, 41, 42 version 3) were published by a schema-only insert with the seed's hash-drift check across all 143 versions. Demo tenants and users were **not** seeded. |
+| Verification | 51 tables; forced RLS on 34 tables and 39 policies match the source. A second backup taken at 11:04 Asia/Dhaka (`managed_20261112050448226_84a85fa5`, restore checks passed) was compared row by row by checksum: 49 tables identical; `schema_migrations` and `service_versions` differ only by the migration and three schemas above. As `astra_app` without tenant context, `citizens` and `certificates` return 0 rows. |
+| App on Neon | Local `npm run build` passed; the API ran against Neon as `astra_app` (health, offices, geography, services and the web page returned HTTP 200). After the owner's Render deploy, the live site returned HTTP 200 on the same routes, form 36 serves schema version 3 with `org_location`, and Neon shows `astra_app` sessions. |
+| Code change needed | None. The app reads only `DATABASE_URL`; migrations and setup scripts read `DATABASE_ADMIN_URL`. |
+
+**Corrected mistake:** `scripts/seed.ts` was run once against Neon to publish the schemas; it also inserted demo tenants, users and grants. The Neon branch was restored to its state before that run (verified identical to the source again) and the mistaken state was kept as branch `production_seed_mistake`, which should be deleted. Do not run `scripts/seed.ts` against a hosted database.
+
+**Differences from the Render setup — open items:**
+
+- Neon creates `astra_admin` with **BYPASSRLS** (and CREATEROLE/CREATEDB) through its `neon_superuser` grouping. On Render the migration owner had neither superuser nor BYPASSRLS. The running app is unaffected because it uses `astra_app`, but the admin credential is stronger than before and must stay out of the runtime. A non-bypass owner role is a possible follow-up.
+- No IP allowlist is configured on Neon; access is protected by password and TLS (`sslmode=verify-full`). Keep the admin connection string private and reset the password if it has been exposed.
+- Neon Free scales compute to zero after about 5 minutes idle; the first request after that waits for the database to wake. This is expected, not an outage.
+- Neon Free has no expiry date. Point-in-time restore is limited to Neon's short Free-plan history window, so the encrypted backup procedure still matters; its scripts are pinned to the old Render database (see below).
+- `scripts/backup/managed-recovery.mjs`, `scripts/migrate-hosted-attachments.mjs` and `scripts/migrate-hosted-security.mjs` are **legacy**: they are hard-wired to the Render database `dpg-db6tr43ncjis73ercfsg-a` and only kept as history. A Neon-targeted backup procedure is still to be built.
+- The old Render database was not deleted by this move; it expires on the Free plan. Its final data is in the two encrypted backups above.
 
 ## Release 0.9 — current verified deployment
 

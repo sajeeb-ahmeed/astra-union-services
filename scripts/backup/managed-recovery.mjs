@@ -1,3 +1,4 @@
+/** LEGACY (12 Nov 2026): hard-wired to the retired Render Free database dpg-db6tr43ncjis73ercfsg-a. The live database is now on Neon; kept unchanged as history. See docs/HOSTED_DEPLOYMENT.md. */
 import fs from "node:fs/promises";
 import path from "node:path";
 import os from "node:os";

@@ -14,3 +14,4 @@ test-results/
 deliverables/
 .netlify/
 .vercel/
+.neon
