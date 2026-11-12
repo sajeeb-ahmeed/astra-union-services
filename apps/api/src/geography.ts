@@ -4,7 +4,9 @@ import { pool } from "./db.js";
 import { fail } from "./models.js";
 import {
   flattenFields,
+  geographySelectorServices,
   isFieldVisible,
+  legacyLocationFieldIds,
   type FieldDefinition,
   type FormSchema,
 } from "@astra/shared-schemas";
@@ -214,6 +216,77 @@ export function presentAddressRow(row: any) {
 }
 export const presentAddressColumns =
   "present_same_as_permanent,present_address_bn,present_address_en,present_division_code,present_district_code,present_upazila_code,present_union_code,present_ward_code";
+/** Compare a typed place name with dataset names, ignoring case, spacing and a trailing level word. */
+function placeKey(value: unknown): string {
+  return String(value ?? "")
+    .normalize("NFC")
+    .toLowerCase()
+    .replace(/\s+/g, " ")
+    .trim()
+    .replace(/ (division|district|upazila|thana|union|বিভাগ|জেলা|উপজেলা|থানা|ইউনিয়ন)$/u, "")
+    .trim();
+}
+async function uniqueChild(
+  db: Queryable,
+  table: "geo_divisions" | "geo_districts" | "geo_upazilas" | "geo_unions",
+  name: unknown,
+  parentCode?: string,
+): Promise<string | null> {
+  const key = placeKey(name);
+  if (!key) return null;
+  const rows = (
+    await db.query(
+      `SELECT code,name_en,name_bn FROM ${table}${parentCode ? " WHERE parent_code=$1" : ""}`,
+      parentCode ? [parentCode] : [],
+    )
+  ).rows.filter((r: any) => placeKey(r.name_en) === key || placeKey(r.name_bn) === key);
+  return rows.length === 1 ? rows[0].code : null;
+}
+export type LocationUpgrade = "NONE" | "RESOLVED" | "UNRESOLVED";
+/**
+ * B5: carry a pre-selector payload (free-text division/district/thana/union) into the selector version.
+ * The texts become `org_location` only when every level matches exactly one dataset entry under its parent;
+ * nothing is guessed. UNRESOLVED means the caller must keep the payload on its original version.
+ */
+export async function upgradeLegacyLocation(
+  db: Queryable,
+  serviceNo: number,
+  payload: Record<string, unknown>,
+): Promise<{ payload: Record<string, unknown>; status: LocationUpgrade }> {
+  if (!geographySelectorServices.includes(serviceNo))
+    return { payload, status: "NONE" };
+  const legacy = legacyLocationFieldIds.filter((id) => id in payload);
+  if (!legacy.length) return { payload, status: "NONE" };
+  const upgraded = { ...payload };
+  for (const id of legacy) delete upgraded[id];
+  if (upgraded.org_location) return { payload: upgraded, status: "NONE" };
+  const division =
+    payload.division_id ?? payload.noc_org_division ?? payload.trade_license_org_division;
+  const typed = [division, payload.district_id, payload.thana_id, payload.union_id];
+  if (typed.every((value) => !placeKey(value))) return { payload: upgraded, status: "NONE" };
+  const addressKind = Object.keys(payload).find((key) => key.endsWith("org_add_type"));
+  const wantsUnion = addressKind ? payload[addressKind] === "union" : false;
+  const divisionCode = await uniqueChild(db, "geo_divisions", division);
+  const districtCode = divisionCode
+    ? await uniqueChild(db, "geo_districts", payload.district_id, divisionCode)
+    : null;
+  const upazilaCode = districtCode
+    ? await uniqueChild(db, "geo_upazilas", payload.thana_id, districtCode)
+    : null;
+  const unionCode =
+    upazilaCode && wantsUnion
+      ? await uniqueChild(db, "geo_unions", payload.union_id, upazilaCode)
+      : null;
+  if (!upazilaCode || (wantsUnion && !unionCode))
+    return { payload, status: "UNRESOLVED" };
+  upgraded.org_location = {
+    divisionCode,
+    districtCode,
+    upazilaCode,
+    ...(unionCode ? { unionCode } : {}),
+  };
+  return { payload: upgraded, status: "RESOLVED" };
+}
 export function validateOfficeJurisdiction(office: any, g: Geography) {
   if (!office.division_code) return; // A legacy preview office has no declared geographic jurisdiction.
   for (const [column, key] of [

@@ -1166,8 +1166,16 @@ export const syntheticGeography = deepFreeze({
 export const geographySelectorServices: readonly number[] = deepFreeze([
   36, 41, 42,
 ]);
-const replacedLocationIds =
-  /^(division_id|noc_org_division|trade_license_org_division|district_id|thana_id|union_id)$/;
+/** Free-text location fields of the pre-selector versions that `org_location` replaces (used for renewal upgrades). */
+export const legacyLocationFieldIds: readonly string[] = deepFreeze([
+  "division_id",
+  "noc_org_division",
+  "trade_license_org_division",
+  "district_id",
+  "thana_id",
+  "union_id",
+]);
+const replacedLocationIds = new RegExp(`^(${legacyLocationFieldIds.join("|")})$`);
 
 /**
  * PAR-05: publish a new version instead of editing v2, so applications pinned to v2 keep their exact schema.
