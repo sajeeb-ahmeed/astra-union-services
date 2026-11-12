@@ -52,6 +52,8 @@ import {
   payloadGeographyNames,
   presentAddressInput,
   presentAddressValues,
+  upgradeLegacyLocation,
+  type LocationUpgrade,
 } from "./geography.js";
 export type Auth = {
   userId: string;
@@ -895,19 +897,64 @@ app.post(
             [id, parent.approved_version],
           )
         ).rows[0].payload;
-        const payload = { ...(d.payload ?? original) };
+        const carried = { ...(d.payload ?? original) };
         if (parent.service_no === 42) {
-          payload.has_previous_license = true;
-          payload.previous_license_number = cert.number;
+          carried.has_previous_license = true;
+          carried.previous_license_number = cert.number;
         }
-        const schemaVersion = getServiceSchema(parent.service_no).version;
-        await validatePayload(
-          db,
-          parent.service_no,
-          payload,
-          schemaVersion,
-          parent.citizen_id,
-        );
+        // B5: a parent pinned to an older schema renews on the latest version when its payload can be
+        // carried over (old location text mapped to org_location only on exact dataset matches);
+        // otherwise it renews on its own, still-published version with the payload unchanged.
+        const latestVersion = getServiceSchema(parent.service_no).version;
+        let payload = carried,
+          schemaVersion = latestVersion,
+          locationUpgrade: LocationUpgrade = "NONE";
+        if (parent.schema_version < latestVersion) {
+          const upgrade = await upgradeLegacyLocation(
+            db,
+            parent.service_no,
+            carried,
+          );
+          locationUpgrade = upgrade.status;
+          let latestError: unknown = null;
+          if (upgrade.status !== "UNRESOLVED")
+            try {
+              await validatePayload(
+                db,
+                parent.service_no,
+                upgrade.payload,
+                latestVersion,
+                parent.citizen_id,
+              );
+              payload = upgrade.payload;
+            } catch (error) {
+              if (!(error instanceof ApiError && error.code === "FORM_INVALID"))
+                throw error;
+              latestError = error;
+            }
+          if (upgrade.status === "UNRESOLVED" || latestError) {
+            try {
+              await validatePayload(
+                db,
+                parent.service_no,
+                carried,
+                parent.schema_version,
+                parent.citizen_id,
+              );
+            } catch (pinnedError) {
+              throw latestError ?? pinnedError;
+            }
+            payload = carried;
+            schemaVersion = parent.schema_version;
+          }
+        } else
+          await validatePayload(
+            db,
+            parent.service_no,
+            payload,
+            schemaVersion,
+            parent.citizen_id,
+          );
         const order = await prepareApplicationOrder(
           db,
           a.tenantId!,
@@ -964,7 +1011,11 @@ app.post(
           "DRAFT",
           `Renews ${cert.number}`,
         );
-        return { ...camelRow(child), sourceCertificateId: cert.id };
+        return {
+          ...camelRow(child),
+          sourceCertificateId: cert.id,
+          locationUpgrade,
+        };
       },
       true,
     );

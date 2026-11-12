@@ -4,10 +4,12 @@ import fs from "node:fs";
 import { randomUUID } from "node:crypto";
 import pg from "pg";
 import {
+  allServiceSchemaVersions,
   getDemoPayload,
   getServiceSchema,
   serviceCatalog,
 } from "@astra/shared-schemas";
+import { createHash } from "node:crypto";
 import { app } from "../src/app.js";
 import { pool, adminConnectionString, transaction } from "../src/db.js";
 import {
@@ -1073,4 +1075,84 @@ test("B4: the database rejects a separate present address without both texts", a
     await client.query("ROLLBACK");
     client.release();
   }
+});
+
+// B5: applications pinned to a schema version older than the latest must still renew.
+const v2LocationText: Record<number, Record<string, string>> = {
+  36: { noc_org_add_type: "union", noc_org_division: "Chattogram", district_id: "Cumilla", thana_id: "Debidwar", union_id: "Subil Union" },
+  41: { primises_license_org_add_type: "union", division_id: "Chattogram", district_id: "Cumilla", thana_id: "Debidwar", union_id: "Subil Union" },
+  42: { trade_license_org_add_type: "union", trade_license_org_division: "Chattogram", district_id: "Cumilla", thana_id: "Debidwar", union_id: "Subil Union" },
+};
+function stableJson(value: any): string {
+  if (Array.isArray(value)) return `[${value.map(stableJson).join(",")}]`;
+  if (value && typeof value === "object")
+    return `{${Object.keys(value).sort().map((k) => `${JSON.stringify(k)}:${stableJson(value[k])}`).join(",")}}`;
+  return JSON.stringify(value);
+}
+/** An issued application pinned to schema v2, as created before PAR-05 published v3. */
+async function issuedV2ApplicationWith(no: number, overrides: Record<string, string>) {
+  const source = (
+    await db.query("SELECT tenant_id,citizen_id,created_by FROM applications WHERE id=$1", [issued.get(no).applicationId])
+  ).rows[0];
+  const v2 = allServiceSchemaVersions.find((x) => x.serviceNo === no && x.version === 2)!;
+  assert.ok(v2 && getServiceSchema(no).version > 2);
+  const { org_location: _dropped, ...rest } = getDemoPayload(no) as Record<string, unknown>;
+  const payload = { ...rest, ...v2LocationText[no], ...overrides };
+  const hash = (
+    await db.query("SELECT schema_hash FROM service_versions WHERE service_no=$1 AND version=2", [no])
+  ).rows[0].schema_hash;
+  const id = await transaction(source.tenant_id, async (tx) => {
+    const app = (
+      await tx.query(
+        "INSERT INTO applications(tenant_id,citizen_id,service_no,schema_version,schema_hash,created_by) VALUES($1,$2,$3,2,$4,$5) RETURNING id",
+        [source.tenant_id, source.citizen_id, no, hash, source.created_by],
+      )
+    ).rows[0];
+    await tx.query(
+      "INSERT INTO application_payload_versions(tenant_id,application_id,version,payload,payload_hash,actor_id) VALUES($1,$2,1,$3,$4,$5)",
+      [source.tenant_id, app.id, JSON.stringify(payload), createHash("sha256").update(stableJson(payload)).digest("hex"), source.created_by],
+    );
+    return app.id as string;
+  });
+  await approve(id);
+  const result = await req("POST", `/applications/${id}/issue`, {}, s.approver);
+  assert.equal(result.status, 201, `Issue v2 ${no}: ${JSON.stringify(result.body)}`);
+  return { id, payload };
+}
+async function issuedV2Application(no: number, overrides: Record<string, string> = {}) {
+  return issuedV2ApplicationWith(no, overrides);
+}
+for (const no of [42, 36, 41])
+  test(`B5: a v2-pinned service ${no} application renews unchanged onto v3 when its location text matches`, async () => {
+    const { id } = await issuedV2Application(no);
+    const renewal = await req("POST", `/applications/${id}/renew`, {}, s.citizen);
+    assert.equal(renewal.status, 201, `Renew v2 ${no}: ${JSON.stringify(renewal.body)}`);
+    assert.equal(renewal.body.locationUpgrade, "RESOLVED");
+    assert.equal(renewal.body.schemaVersion, getServiceSchema(no).version);
+    const child = (await req("GET", `/applications/${renewal.body.id}`, undefined, s.citizen)).body;
+    // Chattogram > Cumilla > Debidwar > Subil Union is the dataset's div-02 > dis-19 > upa-089 > uni-0001.
+    assert.deepEqual(child.payload.org_location, {
+      divisionCode: "div-02",
+      districtCode: "dis-19",
+      upazilaCode: "upa-089",
+      unionCode: "uni-0001",
+    });
+    for (const legacy of ["district_id", "thana_id", "union_id"])
+      assert.equal(child.payload[legacy], undefined);
+    await approve(renewal.body.id);
+    const reissued = await req("POST", `/applications/${renewal.body.id}/issue`, {}, s.approver);
+    assert.equal(reissued.status, 201, JSON.stringify(reissued.body));
+  });
+test("B5: unmatched location text keeps the renewal on its pinned version with the payload unchanged", async () => {
+  const { id, payload } = await issuedV2Application(41, { union_id: "Nonexistent Union" });
+  const renewal = await req("POST", `/applications/${id}/renew`, {}, s.citizen);
+  assert.equal(renewal.status, 201, JSON.stringify(renewal.body));
+  assert.equal(renewal.body.locationUpgrade, "UNRESOLVED");
+  assert.equal(renewal.body.schemaVersion, 2);
+  const child = (await req("GET", `/applications/${renewal.body.id}`, undefined, s.citizen)).body;
+  assert.equal(child.payload.org_location, undefined);
+  assert.equal(child.payload.union_id, "Nonexistent Union");
+  assert.equal(child.payload.thana_id, payload.thana_id);
+  await approve(renewal.body.id);
+  assert.equal((await req("POST", `/applications/${renewal.body.id}/issue`, {}, s.approver)).status, 201);
 });

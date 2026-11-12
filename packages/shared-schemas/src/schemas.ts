@@ -13,6 +13,10 @@ import {
   buildGeographySelectorVersion,
   geographySelectorServices,
 } from "./expanded-schemas.js";
+export {
+  geographySelectorServices,
+  legacyLocationFieldIds,
+} from "./expanded-schemas.js";
 
 const label = (bn: string, en: string): LocalizedText => ({ bn, en });
 const stringField = (
