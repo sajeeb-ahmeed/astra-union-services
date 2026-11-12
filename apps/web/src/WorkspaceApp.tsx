@@ -27,7 +27,7 @@ import {
 import { WorkspaceWelcome } from "./WorkspaceWelcome.js";
 import { WorkspaceDashboard } from "./WorkspaceDashboard.js";
 import { SidebarNav } from "./ui/SidebarNav.js";
-import { udcNavigation, udcPreviewRequested } from "./workspace-navigation.js";
+import { udcNavigation, usesUdcNavigation } from "./workspace-navigation.js";
 import { ApplicationGuidance } from "./ApplicationGuidance.js";
 import "./workspace-usability.css";
 import {
@@ -271,8 +271,9 @@ export function WorkspaceApp({
     approver = role === "approver",
     finance = ["finance", "admin"].includes(role);
   const canApply = staff || role === "citizen";
-  // Phase 1 slice (ii) preview: the UDC sidebar and dashboard, opt-in with ?preview=udc until approved.
-  const udcPreview = staff && udcPreviewRequested();
+  // Phase 1 slice (ii), approved: staff get the UDC sidebar; staff and office admins get the dashboard home.
+  const udcPreview = usesUdcNavigation(role);
+  const dashboardHome = staff;
   const udcCurrent =
     page === "home"
       ? "dashboard"
@@ -525,6 +526,31 @@ export function WorkspaceApp({
           <label htmlFor="workspace-jump">
             {choose({ bn: "কোথায় যেতে চান?", en: "Go to a page" })}
           </label>
+          {udcPreview ? (
+            <select
+              id="workspace-jump"
+              value={
+                udcNavigation.find((i) => i.key === udcCurrent && !i.state && i.page)?.page ?? udcCurrent
+              }
+              onChange={(event) => {
+                // Options use the page name (shared with the legacy picker); filtered items use their key.
+                const item = udcNavigation.find(
+                  (i) => (i.state ? i.key : (i.page ?? i.key)) === event.target.value,
+                );
+                if (item?.href) location.assign(item.href);
+                else if (item?.page === "applications") openTask("applications", item.state ?? "");
+                else if (item?.page) nav(item.page);
+              }}
+            >
+              {udcNavigation
+                .filter((item) => !item.soon)
+                .map((item) => (
+                  <option key={item.key} value={item.state ? item.key : (item.page ?? item.key)}>
+                    {choose(item)}
+                  </option>
+                ))}
+            </select>
+          ) : (
           <select
             id="workspace-jump"
             value={page}
@@ -536,6 +562,7 @@ export function WorkspaceApp({
               </option>
             ))}
           </select>
+          )}
         </div>
         {udcPreview ? (
           <SidebarNav
@@ -553,6 +580,7 @@ export function WorkspaceApp({
             visiblePages.map((p) => (
               <button
                 key={p}
+                data-page={p}
                 aria-current={page === p ? "page" : undefined}
                 onClick={() => nav(p)}
               >
@@ -611,7 +639,7 @@ export function WorkspaceApp({
               {t("ASTRA · DIGITAL UNION SERVICES")}
             </span>
             <h1>
-              {udcPreview && page === "home"
+              {dashboardHome && page === "home"
                 ? choose({ bn: "ড্যাশবোর্ড", en: "Dashboard" })
                 : choose({ bn: localized[page], en: labels[page] })}
             </h1>
@@ -635,7 +663,7 @@ export function WorkspaceApp({
             </p>
           ),
         )}
-        {page === "home" && udcPreview && (
+        {page === "home" && dashboardHome && (
           <WorkspaceDashboard
             services={catalog}
             citizenTotal={citizenTotal}
@@ -649,7 +677,10 @@ export function WorkspaceApp({
             onOpenApplications={() => openTask("applications")}
           />
         )}
-        {page === "home" && !udcPreview && (
+        {page === "home" && dashboardHome && (
+          <WorkspaceWelcome role={role} navigate={openTask} />
+        )}
+        {page === "home" && !dashboardHome && (
           <>
             <WorkspaceWelcome role={role} navigate={openTask} />
             <section className="panel">

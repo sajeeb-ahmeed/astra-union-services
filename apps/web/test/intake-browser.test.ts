@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
+import { workspacePage } from "./fixtures/workspace-nav.js";
 import { chromium, type Browser, type Page } from "playwright";
 import { demoPayloads } from "@astra/shared-schemas";
 
@@ -32,10 +33,7 @@ async function login(page: Page) {
   await page.getByRole("button", { name: "Sign out", exact: true }).waitFor();
 }
 async function nav(page: Page, name: string) {
-  await page
-    .getByRole("navigation", { name: "Workspace navigation" })
-    .getByRole("button", { name, exact: true })
-    .click();
+  await workspacePage(page, name).click();
 }
 async function assertBlank(page: Page) {
   const form = page.getByTestId("service-application-form");

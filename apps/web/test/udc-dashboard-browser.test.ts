@@ -28,7 +28,7 @@ async function signIn(page: Page, email: string, query = "") {
 }
 
 test(
-  "Phase 1 UDC dashboard preview: guide-order sidebar, real counts, service tiles and unchanged default",
+  "Phase 1 UDC dashboard: staff sidebar in guide order, real counts, service tiles, admin keeps its sidebar",
   { timeout: 120000 },
   async () => {
     const browser = await browserInstance();
@@ -37,16 +37,18 @@ test(
       const errors: string[] = [];
       page.on("pageerror", (error) => errors.push(error.message));
       await page.addInitScript(() => localStorage.setItem("astra.language", "en"));
-      await signIn(page, "staff@alpha.demo.test", "?preview=udc");
+      await signIn(page, "staff@alpha.demo.test");
       await page.getByRole("heading", { name: "Dashboard", level: 1 }).waitFor();
       const sidebar = page.getByRole("navigation", { name: "Workspace navigation" });
-      // All fourteen items fit without scrolling the list at a common laptop height.
-      assert.equal(await sidebar.evaluate((el) => el.scrollHeight <= el.clientHeight + 1), true);
+      // The list may scroll on short screens, but every item is reachable.
+      await sidebar.locator(".ax-sidebar-item").last().scrollIntoViewIfNeeded();
+      assert.equal(await sidebar.locator(".ax-sidebar-item").last().isVisible(), true);
       const labels = (await sidebar.locator(".ax-sidebar-item > span:first-child").allTextContents()).map((s) => s.trim());
       assert.deepEqual(labels, [
         "Dashboard", "Profile", "Citizens", "All applications", "New application",
         "Certificate renewal", "Trade licence renewal", "BioData print", "BioData applications",
-        "Holding print", "Holding applications", "Print certificate", "Point recharge", "User guide",
+        "Holding print", "Holding applications", "Print certificate", "Point recharge",
+        "Payments and receipts", "Notifications", "Account security", "User guide",
       ]);
       assert.equal(await sidebar.locator(".is-soon[aria-disabled='true']").count(), 5);
       assert.equal(await sidebar.getByRole("link", { name: "User guide" }).getAttribute("href"), "/help");
@@ -79,17 +81,29 @@ test(
       await sidebar.getByRole("button", { name: "Dashboard" }).click();
       await page.locator(".ax-dashboard").waitFor();
 
-      // Without ?preview=udc the existing workspace home is unchanged.
+      // The staff home keeps its role task list below the dashboard.
+      assert.equal(await page.locator(".ax-dashboard ~ *").count() > 0, true);
+      // Office admins keep the full legacy sidebar (administration, billing, reports) with the dashboard home.
       const plain = await browser.newPage({ viewport: { width: 1366, height: 900 } });
       await plain.addInitScript(() => localStorage.setItem("astra.language", "en"));
       await signIn(plain, "admin@alpha.demo.test");
-      assert.equal(await plain.locator(".ax-dashboard").count(), 0);
+      await plain.locator(".ax-dashboard").waitFor();
       assert.equal(await plain.locator(".ax-sidebar-nav").count(), 0);
+      assert.equal(
+        await plain.getByRole("navigation", { name: "Workspace navigation" }).getByRole("button", { name: "Office administration" }).count(),
+        1,
+      );
+      // A citizen's workspace is unchanged.
+      const citizen = await browser.newPage({ viewport: { width: 1366, height: 900 } });
+      await citizen.addInitScript(() => localStorage.setItem("astra.language", "en"));
+      await signIn(citizen, "citizen@alpha.demo.test");
+      assert.equal(await citizen.locator(".ax-dashboard").count(), 0);
+      assert.equal(await citizen.locator(".ax-sidebar-nav").count(), 0);
 
       // An office admin may read the balance, so the first figure is a number.
       const admin = await browser.newPage({ viewport: { width: 390, height: 844 } });
       await admin.addInitScript(() => localStorage.setItem("astra.language", "en"));
-      await signIn(admin, "admin@alpha.demo.test", "?preview=udc");
+      await signIn(admin, "admin@alpha.demo.test");
       await admin.locator(".ax-dashboard").waitFor();
       await admin.waitForFunction(() => /\d/.test(document.querySelector(".ax-dashboard .ax-stat strong")?.textContent ?? ""));
       assert.equal(

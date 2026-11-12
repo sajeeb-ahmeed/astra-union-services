@@ -37,6 +37,7 @@ export function SidebarNav({
             key={item.key}
             type="button"
             className="ax-sidebar-item"
+            data-page={item.page && !item.state ? item.page : undefined}
             aria-current={current === item.key ? "page" : undefined}
             onClick={() => onSelect(item)}
           >

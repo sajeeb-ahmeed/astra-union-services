@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
+import { workspacePage } from "./fixtures/workspace-nav.js";
 import { chromium } from "playwright";
 
 test(
@@ -60,10 +61,7 @@ test(
         .locator(".login-form")
         .getByRole("button", { name: "Sign in", exact: true })
         .click();
-      await page
-        .getByRole("navigation", { name: "Workspace navigation" })
-        .getByRole("button", { name: "My profile", exact: true })
-        .click();
+      await workspacePage(page, "profile").click();
       const panel = page.locator(
         'section[aria-labelledby="account-sessions-title"]',
       );

@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
+import { workspacePage } from "./fixtures/workspace-nav.js";
 import { chromium, type Browser, type Page } from "playwright";
 import { demoPayloads } from "@astra/shared-schemas";
 const origin = "http://127.0.0.1:5173";
@@ -28,10 +29,7 @@ async function login(page: Page, email: string, password = "Demo-Phase1!") {
   await page.getByRole("button", { name: "Sign out", exact: true }).waitFor();
 }
 async function nav(page: Page, name: RegExp) {
-  await page
-    .getByRole("navigation", { name: "Workspace navigation" })
-    .getByRole("button", { name })
-    .click();
+  await workspacePage(page, name).click();
 }
 async function request(
   page: Page,

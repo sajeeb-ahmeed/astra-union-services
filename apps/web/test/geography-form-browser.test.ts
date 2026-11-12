@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
+import { workspacePage } from "./fixtures/workspace-nav.js";
 import { chromium, type Browser } from "playwright";
 const origin = "http://127.0.0.1:5173";
 async function browserInstance(): Promise<Browser> {
@@ -42,10 +43,7 @@ test(
       page.on("console", (message) => {
         if (message.type() === "error") errors.push(message.text());
       });
-      await page
-        .getByRole("navigation", { name: "Workspace navigation" })
-        .getByRole("button", { name: "Service catalog", exact: true })
-        .click();
+      await workspacePage(page, "services").click();
       await page
         .locator("#applicant option:not([value=''])")
         .first()

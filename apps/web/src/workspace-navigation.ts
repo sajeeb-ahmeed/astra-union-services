@@ -1,7 +1,7 @@
 /**
  * Phase 1 slice (ii): the UDC (office data-entry) sidebar, in the reference pattern's order, mapped onto
  * Astra's existing workspace pages. Items Astra does not have yet stay visible but disabled with the phase
- * that delivers them, instead of pointing at pages that do not exist.
+ * that delivers them, instead of pointing at pages that do not exist. Approved by the owner (guide 1.4).
  */
 export type WorkspaceNavItem = {
   key: string;
@@ -35,9 +35,12 @@ export const udcNavigation: readonly WorkspaceNavItem[] = [
   { key: "holding-applications", bn: "হোল্ডিং আবেদন", en: "Holding applications", soon: later("Phase 6") },
   { key: "print-certificate", bn: "সনদ প্রিন্ট", en: "Print certificate", page: "prints" },
   { key: "point-recharge", bn: "পয়েন্ট রিচার্জ", en: "Point recharge", soon: later("Phase 5") },
+  // Astra pages the reference list does not have; kept so staff lose nothing.
+  { key: "payments", bn: "পেমেন্ট ও রসিদ", en: "Payments and receipts", page: "payments" },
+  { key: "notifications", bn: "নোটিফিকেশন", en: "Notifications", page: "notifications" },
+  { key: "security", bn: "অ্যাকাউন্ট নিরাপত্তা", en: "Account security", page: "security" },
   { key: "user-guide", bn: "ব্যবহার নির্দেশিকা", en: "User guide", href: "/help" },
 ];
 
-/** The new UDC shell is opt-in with ?preview=udc until the owner approves the slice. */
-export const udcPreviewRequested = () =>
-  new URLSearchParams(location.search).get("preview") === "udc";
+/** Approved: the UDC sidebar is the default for the office data-entry (staff) role. */
+export const usesUdcNavigation = (role: string) => role === "staff";
