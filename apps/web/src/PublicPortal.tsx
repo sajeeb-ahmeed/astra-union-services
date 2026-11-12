@@ -239,9 +239,15 @@ export function PublicPortal({
 }) {
   const serviceInformationRef = useRef<HTMLElement>(null);
   const initial = location.pathname.split("/")[1] || "home";
+  // Phase 1: new public pages deep-link to one service as /services?service=N.
+  const linkedService = Number(new URLSearchParams(location.search).get("service"));
   const [page, setPage] = useState(initial),
     [search, setSearch] = useState(""),
-    [serviceNo, setServiceNo] = useState<number | null>(null);
+    [serviceNo, setServiceNo] = useState<number | null>(
+      initial === "services" && Number.isInteger(linkedService) && linkedService >= 1 && linkedService <= 47
+        ? linkedService
+        : null,
+    );
   const initialFilters = Object.fromEntries(
     new URLSearchParams(location.search),
   );

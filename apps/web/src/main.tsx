@@ -349,7 +349,18 @@ function SessionApp() {
   );
 }
 
+// Phase 1 slice (i): the new public home is served at a preview path until the owner approves it.
+const PublicHome = lazy(() =>
+  import("./PublicHome.js").then((module) => ({ default: module.PublicHome })),
+);
+
 function App() {
+  if (location.pathname === "/home-preview")
+    return (
+      <AsyncPanel>
+        <PublicHome />
+      </AsyncPanel>
+    );
   const publicToken = location.pathname.startsWith("/verify/")
     ? location.pathname.split("/")[2]
     : null;
