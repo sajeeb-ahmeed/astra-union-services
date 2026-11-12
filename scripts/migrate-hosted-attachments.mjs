@@ -1,3 +1,4 @@
+/** LEGACY (12 Nov 2026): hard-wired to the retired Render Free database dpg-db6tr43ncjis73ercfsg-a. The live database is now on Neon; kept unchanged as history. See docs/HOSTED_DEPLOYMENT.md. */
 /** Bounded release-0.9 migration. Never run without review and database access authorization. */
 import fs from "node:fs";
 import { createHash } from "node:crypto";
