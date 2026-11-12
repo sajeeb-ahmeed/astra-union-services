@@ -140,7 +140,7 @@ try {
       [draftA, tenantA, citizenA, schema.schema_hash, userId],
     );
     await fixture.query(
-      "INSERT INTO certificates(id,tenant_id,application_id,number,service_no,verification_token,token_hash,pdf,issued_by) VALUES($1,$2,$3,$4,45,'synthetic-verification-token','managed-certificate-digest',$5,$6)",
+      "INSERT INTO certificates(id,tenant_id,application_id,number,service_no,token_hash,pdf,issued_by) VALUES($1,$2,$3,$4,45,'managed-certificate-digest',$5,$6)",
       [certificateA, tenantA, applicationA, `MANAGED-${certificateA}`, Buffer.from('%PDF-synthetic-rls-fixture'), userId],
     );
     await fixture.query(

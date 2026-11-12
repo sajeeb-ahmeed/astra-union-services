@@ -29,7 +29,11 @@ export const citizenRow = (r: any) =>
         createdAt: r.created_at,
       }
     : null;
-export const certificateRow = (r: any) =>
+/**
+ * The plaintext verification token is never stored (migration 017), so `verificationUrl` is only
+ * present in the issuance response that created the certificate; later reads return null.
+ */
+export const certificateRow = (r: any, verificationUrl: string | null = null) =>
   r
     ? {
         id: r.id,
@@ -40,7 +44,7 @@ export const certificateRow = (r: any) =>
         status: r.status,
         issuedAt: r.issued_at,
         revokedAt: r.revoked_at,
-        verificationUrl: `${process.env.PUBLIC_ORIGIN ?? "http://127.0.0.1:5173"}/verify/${r.verification_token}`,
+        verificationUrl,
         pdfUrl: `/api/v1/certificates/${r.id}/pdf`,
         demo: true,
       }

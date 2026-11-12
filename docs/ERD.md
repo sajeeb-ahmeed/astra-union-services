@@ -193,7 +193,7 @@ erDiagram
         uuid application_id FK
         text number UK
         text token_hash UK
-        text verification_token
+        text verification_token "always NULL since migration 017"
         bytea pdf
         text status
         int template_version

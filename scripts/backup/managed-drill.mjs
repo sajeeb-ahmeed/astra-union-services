@@ -7,6 +7,8 @@ import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import pg from "pg";
 import { root } from "./backup.mjs";
+// Plaintext verify tokens are never stored (migration 017); the drill remembers the ones it creates.
+const fixtureVerifyTokens = new Map();
 import {
   createManagedBackup,
   restoreManagedArchive,
@@ -161,7 +163,9 @@ export async function verifyRecoveredHttp({ name, archive, accounts }) {
       .find((t) => t.name === "certificates")
       .rows.map((row) => JSON.parse(row));
     for (const cert of certificates) {
-      const response = await request(`/verify/${cert.verification_token}`);
+      const token = fixtureVerifyTokens.get(cert.id);
+      assert.ok(token, `Drill has no verify token for certificate ${cert.id}.`);
+      const response = await request(`/verify/${token}`);
       assert.equal(response.status, 200);
       const body = await response.json();
       assert.equal(body.status, cert.status);
@@ -440,14 +444,14 @@ async function drill() {
           [application, tenant, citizen, "a".repeat(64), user],
         );
         const token = crypto.randomBytes(32).toString("hex");
+        fixtureVerifyTokens.set(certificate, token);
         await fixture.query(
-          "INSERT INTO certificates(id,tenant_id,application_id,number,service_no,verification_token,token_hash,pdf,issued_by) VALUES($1,$2,$3,$4,45,$5,$6,$7,$8)",
+          "INSERT INTO certificates(id,tenant_id,application_id,number,service_no,token_hash,pdf,issued_by) VALUES($1,$2,$3,$4,45,$5,$6,$7)",
           [
             certificate,
             tenant,
             application,
             `RECOVERY-${certificate}`,
-            token,
             crypto.createHash("sha256").update(token).digest("hex"),
             originalPdf,
             user,
