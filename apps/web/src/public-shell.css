@@ -118,22 +118,67 @@
   color: #e3efdc;
   font-size: var(--ax-text-sm);
 }
-.ax-footer .ax-container {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: space-between;
-  gap: var(--ax-space-3);
-  padding-block: var(--ax-space-4);
+.ax-footer-grid {
+  display: grid;
+  grid-template-columns: 1.3fr 1fr 1fr 1.6fr;
+  gap: var(--ax-space-5);
+  padding-block: var(--ax-space-5);
+}
+.ax-footer strong {
+  color: #fff;
+  font-size: 18px;
 }
 .ax-footer p {
-  margin: 0;
+  margin: var(--ax-space-2) 0 0;
 }
 .ax-footer nav {
   display: flex;
-  gap: var(--ax-space-4);
+  flex-direction: column;
+  gap: var(--ax-space-2);
 }
 .ax-footer a {
   color: #fff;
+}
+.ax-subscribe label {
+  display: block;
+  font-weight: 600;
+  color: #fff;
+  margin-bottom: var(--ax-space-2);
+}
+.ax-subscribe-row {
+  display: flex;
+  gap: var(--ax-space-2);
+}
+.ax-subscribe-row input {
+  flex: 1;
+  min-width: 0;
+  min-height: 42px;
+  padding: 8px 12px;
+  border: 0;
+  border-radius: var(--ax-radius-sm);
+}
+.ax-subscribe-row button {
+  border-radius: var(--ax-radius-sm);
+  background: var(--ax-accent);
+  border-color: var(--ax-accent);
+  color: var(--ax-green-800);
+}
+.ax-subscribe small {
+  color: #cfe2c6;
+  margin-top: var(--ax-space-1);
+}
+.ax-subscribe p {
+  color: #fff;
+}
+@media (max-width: 900px) {
+  .ax-footer-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+@media (max-width: 560px) {
+  .ax-footer-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 @media (max-width: 640px) {

@@ -21,7 +21,7 @@ async function browserInstance(): Promise<Browser> {
 }
 
 test(
-  "Phase 1 public home preview: 47 services, search, rail actions, deep link and mobile layout",
+  "Phase 1 public home on /: 47 services, rail sign-in, search, rail actions, deep link and mobile layout",
   { timeout: 90000 },
   async () => {
     const browser = await browserInstance();
@@ -29,12 +29,19 @@ test(
       const page = await browser.newPage({ viewport: { width: 1366, height: 900 } });
       const errors: string[] = [];
       page.on("pageerror", (error) => errors.push(error.message));
+      // The approved preview path now redirects to the home itself.
       await page.goto(`${origin}/home-preview`);
+      assert.equal(new URL(page.url()).pathname, "/");
       const tiles = page.locator(".ax-tile");
       await tiles.first().waitFor();
       assert.equal(await tiles.count(), 47);
       for (const heading of ["ax-rail-account", "ax-rail-verify", "ax-rail-track", "ax-rail-notices"])
         assert.equal(await page.locator(`#${heading}-heading`).count(), 1, heading);
+      // Signed-out visitors can sign in from the home's account panel (the real form, MFA included).
+      const account = page.locator("#ax-rail-account-heading").locator("..");
+      assert.equal(await account.getByLabel("Email", { exact: true }).count(), 1);
+      assert.equal(await account.getByLabel("Password", { exact: true }).count(), 1);
+      assert.equal(await page.getByLabel("Update preferences", { exact: true }).count(), 1);
       // Office count and notices load after the first paint; capture once both have arrived.
       const loaded = () =>
         page.waitForFunction(
@@ -68,13 +75,13 @@ test(
         page.locator("#ax-rail-verify-heading").locator("..").getByRole("button").click(),
       ]);
 
-      await page.goto(`${origin}/home-preview`);
+      await page.goto(origin);
       await page.locator('.ax-tile[data-service="42"]').click();
       await page.waitForURL(`${origin}/services?service=42`);
       await page.locator(".service-information").waitFor();
 
       const mobile = await browser.newPage({ viewport: { width: 390, height: 844 } });
-      await mobile.goto(`${origin}/home-preview`);
+      await mobile.goto(origin);
       await mobile.locator(".ax-tile").first().waitFor();
       assert.equal(
         await mobile.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1),

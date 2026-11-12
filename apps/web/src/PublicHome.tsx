@@ -19,7 +19,7 @@ const digits = (value: number) =>
   choose({ bn: value.toLocaleString("bn-BD"), en: String(value) });
 
 /** Phase 1 slice (i): all services on one page with a right rail of everyday actions. */
-export function PublicHome() {
+export function PublicHome({ login }: { login?: React.ReactNode } = {}) {
   useLanguage();
   const [query, setQuery] = useState("");
   const [officeCount, setOfficeCount] = useState<number | null>(null);
@@ -127,20 +127,31 @@ export function PublicHome() {
         </section>
         <aside className="ax-home-rail">
           <RailPanel id="ax-rail-account" title={choose({ bn: "আপনার অ্যাকাউন্ট", en: "Your account" })}>
-            <p className="ax-rail-text">
-              {choose({
-                bn: "আবেদন করতে লগইন করুন; নতুন হলে নিবন্ধন করুন।",
-                en: "Sign in to apply; register if you are new.",
-              })}
-            </p>
-            <div className="ax-rail-actions">
-              <a className="button" href="/login">
-                {choose({ bn: "লগইন", en: "Sign in" })}
-              </a>
-              <a className="button secondary" href="/register">
-                {choose({ bn: "নিবন্ধন", en: "Register" })}
-              </a>
-            </div>
+            {login ? (
+              <div className="ax-rail-login">
+                {login}
+                <a className="ax-rail-more" href="/register">
+                  {choose({ bn: "নতুন? নিবন্ধন করুন →", en: "New here? Register →" })}
+                </a>
+              </div>
+            ) : (
+              <>
+                <p className="ax-rail-text">
+                  {choose({
+                    bn: "আবেদন করতে লগইন করুন; নতুন হলে নিবন্ধন করুন।",
+                    en: "Sign in to apply; register if you are new.",
+                  })}
+                </p>
+                <div className="ax-rail-actions">
+                  <a className="button" href="/login">
+                    {choose({ bn: "লগইন", en: "Sign in" })}
+                  </a>
+                  <a className="button secondary" href="/register">
+                    {choose({ bn: "নিবন্ধন", en: "Register" })}
+                  </a>
+                </div>
+              </>
+            )}
           </RailPanel>
           <RailPanel id="ax-rail-verify" title={choose({ bn: "সনদ যাচাই", en: "Verify a certificate" })}>
             <form

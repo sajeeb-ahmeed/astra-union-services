@@ -305,6 +305,11 @@ export function PublicPortal({
   );
   function nav(next: string) {
     onNavigate?.();
+    // Phase 1: "/" is the new public home, outside this legacy component.
+    if (next === "home") {
+      location.assign("/");
+      return;
+    }
     setPage(next);
     setOffice(null);
     setError("");
@@ -314,6 +319,10 @@ export function PublicPortal({
   useEffect(() => {
     const pop = () => {
       onNavigate?.();
+      if (location.pathname === "/") {
+        location.reload();
+        return;
+      }
       setPage(location.pathname.split("/")[1] || "home");
       setOffice(null);
     };

@@ -1,6 +1,7 @@
 import React from "react";
 import { choose, LanguageSwitcher, useLanguage } from "./i18n.js";
 import "./ui/kit.js";
+import { SubscriptionForm } from "./SubscriptionForm.js";
 import "./public-shell.css";
 
 /** Phase 1 public shell: header, navigation and footer shared by new public pages. Links are plain URLs. */
@@ -78,19 +79,27 @@ export function PublicShell({
       </nav>
       <main id="ax-content">{children}</main>
       <footer className="ax-footer">
-        <div className="ax-container">
-          <p>
-            {choose({
-              bn: "অ্যাস্ট্রা একটি স্বাধীন প্রদর্শনী ব্যবস্থা। এখানকার সনদ সরকারি নয়।",
-              en: "Astra is an independent demonstration. Certificates issued here are not official.",
-            })}
-          </p>
-          <nav aria-label={choose({ bn: "নীতিমালা", en: "Policies" })}>
-            <a href="/policies">
-              {choose({ bn: "গোপনীয়তা ও শর্তাবলি", en: "Privacy and terms" })}
-            </a>
-            <a href="/help">{choose({ bn: "সহায়িকা", en: "Help" })}</a>
+        <div className="ax-container ax-footer-grid">
+          <div>
+            <strong>{choose({ bn: "অ্যাস্ট্রা", en: "Astra" })}</strong>
+            <p>
+              {choose({
+                bn: "অ্যাস্ট্রা একটি স্বাধীন প্রদর্শনী ব্যবস্থা। এখানকার সনদ সরকারি নয়।",
+                en: "Astra is an independent demonstration. Certificates issued here are not official.",
+              })}
+            </p>
+          </div>
+          <nav aria-label={choose({ bn: "সেবার তথ্য", en: "Service information" })}>
+            <a href="/services">{choose({ bn: "সেবার তালিকা", en: "Service catalog" })}</a>
+            <a href="/offices">{choose({ bn: "অংশগ্রহণকারী অফিস", en: "Participating offices" })}</a>
+            <a href="/verify">{choose({ bn: "সনদ যাচাই", en: "Certificate verification" })}</a>
           </nav>
+          <nav aria-label={choose({ bn: "সহায়তা ও নীতি", en: "Help and policies" })}>
+            <a href="/help">{choose({ bn: "সহায়িকা ও প্রশ্নোত্তর", en: "Help and FAQ" })}</a>
+            <a href="/policies">{choose({ bn: "গোপনীয়তা ও শর্তাবলি", en: "Privacy and terms" })}</a>
+            <a href="/login">{choose({ bn: "অফিস ওয়ার্কস্পেস", en: "Office workspace" })}</a>
+          </nav>
+          <SubscriptionForm />
         </div>
       </footer>
     </div>

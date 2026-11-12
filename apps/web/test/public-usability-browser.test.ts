@@ -19,9 +19,10 @@ async function launch() {
 }
 
 test(
-  "public usability: mobile quick tasks reach tracking and verification in both languages",
+  "public usability: on mobile the home reaches tracking and verification in both languages",
   { timeout: 60000 },
   async () => {
+    // Phase 1: the old home's quick-task buttons became the home navigation and its rail panels.
     const browser = await launch();
     const page = await browser.newPage({
       viewport: { width: 390, height: 844 },
@@ -30,30 +31,23 @@ test(
     page.on("pageerror", (error) => errors.push(error.message));
     try {
       await page.goto(origin);
-      const tasks = page.getByRole("group", {
-        name: "Quick tasks",
-        exact: true,
-      });
-      await tasks
-        .getByRole("button", { name: /Check application progress/ })
-        .click();
-      assert.equal(new URL(page.url()).pathname, "/tracking");
+      await page.getByRole("button", { name: "English", exact: true }).click();
+      const nav = page.getByRole("navigation", { name: "Public navigation", exact: true });
+      await nav.getByRole("link", { name: "Track application", exact: true }).click();
+      await page.waitForURL(/\/tracking$/);
       await page.getByLabel("Application reference", { exact: true }).waitFor();
       await page.goto(origin);
       await page
-        .getByRole("group", { name: "Quick tasks", exact: true })
-        .getByRole("button", { name: /Check a certificate/ })
+        .getByRole("navigation", { name: "Public navigation", exact: true })
+        .getByRole("link", { name: "Verify certificate", exact: true })
         .click();
-      assert.equal(new URL(page.url()).pathname, "/verify");
+      await page.waitForURL(/\/verify$/);
       await page.goto(origin);
       await page.getByRole("button", { name: "বাংলা", exact: true }).click();
-      const banglaTasks = page.getByRole("group", {
-        name: "দ্রুত কাজ",
-        exact: true,
-      });
-      await banglaTasks
-        .getByRole("button", { name: /আবেদন কোথায় আছে/ })
-        .waitFor();
+      const banglaNav = page.getByRole("navigation", { name: "প্রধান মেনু", exact: true });
+      await banglaNav.getByRole("link", { name: "আবেদনের অবস্থা", exact: true }).waitFor();
+      await page.locator("#ax-rail-track-heading").getByText("আবেদনের অবস্থা").waitFor();
+      await page.locator("#ax-rail-verify-heading").getByText("সনদ যাচাই").waitFor();
       assert.equal(
         await page.evaluate(
           () => document.documentElement.scrollWidth <= innerWidth + 1,
@@ -62,12 +56,12 @@ test(
       );
       fs.mkdirSync("execution/screenshots", { recursive: true });
       await page
-        .locator(".hero-copy")
+        .locator(".ax-title-band")
         .screenshot({
           path: "execution/screenshots/usability-public-home-bn.png",
         });
-      await banglaTasks.getByRole("button", { name: /সনদ যাচাই করুন/ }).click();
-      assert.equal(new URL(page.url()).pathname, "/verify");
+      await banglaNav.getByRole("link", { name: "সনদ যাচাই", exact: true }).click();
+      await page.waitForURL(/\/verify$/);
       assert.deepEqual(errors, []);
     } finally {
       await browser.close();

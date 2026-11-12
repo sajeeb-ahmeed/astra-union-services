@@ -137,3 +137,42 @@
     font-size: 18px;
   }
 }
+
+/* The real sign-in form (with MFA) is rendered inside the account panel. */
+.ax-rail-login .login-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ax-space-2);
+}
+.ax-rail-login .login-form h2 {
+  display: none;
+}
+.ax-rail-login .login-form > p {
+  margin: 0;
+  color: var(--ax-muted);
+  font-size: var(--ax-text-sm);
+}
+.ax-rail-login .login-form form {
+  gap: var(--ax-space-2);
+}
+.ax-rail-login .password-control {
+  display: flex;
+  gap: var(--ax-space-2);
+}
+.ax-rail-login .password-control input {
+  flex: 1;
+  min-width: 0;
+}
+.ax-rail-login .password-control button {
+  background: var(--ax-surface);
+  color: var(--ax-green-700);
+  font-size: var(--ax-text-sm);
+  padding-inline: var(--ax-space-3);
+}
+.ax-rail-login .login-recovery,
+.ax-rail-login .ax-rail-more {
+  display: block;
+  margin-top: var(--ax-space-2);
+  color: var(--ax-green-700);
+  font-size: var(--ax-text-sm);
+}
