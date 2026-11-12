@@ -4,7 +4,8 @@ let stack:ChildProcess|undefined;
 async function healthy(){try{return (await fetch('http://127.0.0.1:5173/api/v1/health',{signal:AbortSignal.timeout(2000)})).ok;}catch{return false;}}
 try{
   if(!await healthy()){
-    stack=spawn(process.execPath,['--import','tsx','scripts/dev.ts'],{stdio:'inherit',windowsHide:true});
+    // B2: the browser suite settles a sandbox order, so its stack enables the otherwise-off route.
+    stack=spawn(process.execPath,['--import','tsx','scripts/dev.ts'],{stdio:'inherit',windowsHide:true,env:{...process.env,DEMO_SETTLE_ENABLED:'true'}});
     for(let i=0;i<80&&!await healthy();i++)await new Promise(r=>setTimeout(r,250));
     if(!await healthy())throw Error('Browser QA stack did not start. Initialize PostgreSQL first.');
   }

@@ -1435,6 +1435,7 @@ app.get(
         )
       ).rows.map(camelRow),
       sandbox: true,
+      demoSettleEnabled: demoSettleEnabled(),
       governmentFees: "NOT_CONFIGURED_SEPARATE_ACCOUNTING",
     }));
     res.json(result);
@@ -1480,8 +1481,15 @@ app.post(
     res.status(201).json(result);
   }),
 );
+/**
+ * B2: the sandbox settlement self-signs a webhook with the server's own secret, so it must only exist
+ * where explicitly wanted. Off unless DEMO_SETTLE_ENABLED is exactly "true", in every NODE_ENV;
+ * when off, the request falls through as if the route were never registered.
+ */
+export const demoSettleEnabled = () => process.env.DEMO_SETTLE_ENABLED === "true";
 app.post(
   "/api/v1/billing/orders/:id/demo-settle",
+  (_req, _res, next) => next(demoSettleEnabled() ? undefined : "route"),
   wrap(async (req, res) => {
     roles(req, ["admin", "finance"]);
     z.object({})

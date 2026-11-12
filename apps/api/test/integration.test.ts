@@ -12,6 +12,8 @@ import {
   renderCertificateHtml,
   DEMO_TEMPLATE_VERSION,
 } from "../src/pdf.js";
+// B2: these tests exercise the sandbox settlement route, which is off unless explicitly enabled.
+process.env.DEMO_SETTLE_ENABLED = "true";
 process.env.NODE_ENV = "test";
 const admin = new pg.Pool({ connectionString: adminConnectionString });
 let server: ReturnType<typeof app.listen>;
@@ -1121,4 +1123,45 @@ test("CER-01: current resident PDFs contain approved purpose/residency and genui
     "execution/resident-language-case.json",
     JSON.stringify(expected, null, 2),
   );
+});
+test("B2: sandbox settlement route exists only when DEMO_SETTLE_ENABLED is exactly true", async () => {
+  const finance = sessions["alpha:finance"];
+  const path = `/billing/orders/${randomUUID()}/demo-settle`;
+  const saved = {
+    flag: process.env.DEMO_SETTLE_ENABLED,
+    nodeEnv: process.env.NODE_ENV,
+  };
+  try {
+    for (const [flag, nodeEnv] of [
+      [undefined, "test"],
+      [undefined, "production"],
+      ["1", "test"],
+      ["TRUE", "production"],
+      ["false", "production"],
+    ] as const) {
+      if (flag === undefined) delete process.env.DEMO_SETTLE_ENABLED;
+      else process.env.DEMO_SETTLE_ENABLED = flag;
+      process.env.NODE_ENV = nodeEnv;
+      const r = await request("POST", path, {}, finance);
+      assert.equal(r.status, 404, `flag=${flag} NODE_ENV=${nodeEnv}`);
+      // Unregistered: the route handler never ran, so its ORDER_NOT_FOUND code is absent.
+      assert.notEqual(r.body?.error?.code, "ORDER_NOT_FOUND");
+      const billing = await request("GET", "/billing", undefined, finance);
+      assert.equal(billing.body.demoSettleEnabled, false);
+    }
+    process.env.DEMO_SETTLE_ENABLED = "true";
+    process.env.NODE_ENV = "test";
+    const enabled = await request("POST", path, {}, finance);
+    assert.equal(enabled.status, 404);
+    assert.equal(enabled.body.error.code, "ORDER_NOT_FOUND");
+    assert.equal(
+      (await request("GET", "/billing", undefined, finance)).body
+        .demoSettleEnabled,
+      true,
+    );
+  } finally {
+    if (saved.flag === undefined) delete process.env.DEMO_SETTLE_ENABLED;
+    else process.env.DEMO_SETTLE_ENABLED = saved.flag;
+    process.env.NODE_ENV = saved.nodeEnv;
+  }
 });

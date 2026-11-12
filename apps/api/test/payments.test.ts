@@ -13,6 +13,8 @@ import {
   type PaymentResult,
   type TransactionResult,
 } from "../src/bkash.js";
+// B2: these tests exercise the sandbox settlement route, which is off unless explicitly enabled.
+process.env.DEMO_SETTLE_ENABLED = "true";
 
 type Session = { cookie: string; csrf: string; user: any };
 const sessions: Record<string, Session> = {};

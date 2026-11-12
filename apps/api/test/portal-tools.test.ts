@@ -6,6 +6,8 @@ import fs from "node:fs";
 import {app} from "../src/app.js";
 import {pool,adminConnectionString} from "../src/db.js";
 import {closePdfBrowser} from "../src/pdf.js";
+// B2: these tests exercise the sandbox settlement route, which is off unless explicitly enabled.
+process.env.DEMO_SETTLE_ENABLED = "true";
 let server:ReturnType<typeof app.listen>,base:string;
 const admin=new pg.Pool({connectionString:adminConnectionString});
 const sessions:Record<string,{cookie:string;csrf:string;user:any}>={};
