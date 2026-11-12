@@ -170,3 +170,66 @@
     margin: 18px 0;
   }
 }
+
+.ax-stepper {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  gap: var(--ax-space-2);
+  counter-reset: none;
+}
+.ax-stepper li {
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--ax-space-2);
+  padding: var(--ax-space-2) var(--ax-space-3);
+  border-radius: var(--ax-radius);
+  background: var(--ax-surface);
+  border: 1px solid var(--ax-line);
+  color: var(--ax-muted);
+  font-size: var(--ax-text-sm);
+}
+.ax-stepper li.is-current {
+  border-color: var(--ax-green-600);
+  color: var(--ax-green-800);
+  font-weight: 700;
+  box-shadow: inset 0 -3px 0 var(--ax-accent);
+}
+.ax-stepper li.is-done {
+  color: var(--ax-green-700);
+  background: var(--ax-green-50);
+}
+.ax-step-number {
+  flex: 0 0 auto;
+  width: 26px;
+  height: 26px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--ax-green-100);
+  color: var(--ax-green-800);
+  font-weight: 700;
+}
+.ax-stepper li.is-current .ax-step-number {
+  background: var(--ax-green-600);
+  color: #fff;
+}
+.ax-step-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+@media (max-width: 700px) {
+  .ax-stepper li:not(.is-current) .ax-step-label {
+    display: none;
+  }
+  .ax-stepper li {
+    flex: 0 0 auto;
+  }
+  .ax-stepper li.is-current {
+    flex: 1 1 auto;
+  }
+}

@@ -25,6 +25,8 @@ import {
   presentAddressPayload,
 } from "./PresentAddressFields.js";
 import { WorkspaceWelcome } from "./WorkspaceWelcome.js";
+import { withoutOrderLanguage } from "./order-schema.js";
+import { ServiceFlow } from "./ServiceFlow.js";
 import { WorkspaceDashboard } from "./WorkspaceDashboard.js";
 import { SidebarNav } from "./ui/SidebarNav.js";
 import { udcNavigation, usesUdcNavigation } from "./workspace-navigation.js";
@@ -107,17 +109,6 @@ const actionText: Record<string, string> = {
   reject: "Reject application",
   cancel: "Cancel application",
 };
-function withoutOrderLanguage(schema: ReturnType<typeof getServiceSchema>) {
-  return {
-    ...schema,
-    sections: schema.sections.map((section) => ({
-      ...section,
-      fields: section.fields.filter(
-        (field) => field.id !== "delivery_language",
-      ),
-    })),
-  };
-}
 export function WorkspaceApp({
   session,
   onSignOut,
@@ -140,6 +131,9 @@ export function WorkspaceApp({
     [wallet, setWallet] = useState<any>(null),
     [billing, setBilling] = useState<any>(null),
     [tenants, setTenants] = useState<any[]>([]);
+  // Phase 1 slice (iii) preview: guided application flow, opt-in with ?preview=flow until approved.
+  const [flowService, setFlowService] = useState<number | null>(null);
+  const flowPreview = new URLSearchParams(location.search).get("preview") === "flow";
   const [selectedService, setSelectedService] = useState(45),
     [preview, setPreview] = useState(false),
     [payload, setPayload] = useState<Record<string, any>>({}),
@@ -277,7 +271,7 @@ export function WorkspaceApp({
   const udcCurrent =
     page === "home"
       ? "dashboard"
-      : page === "services"
+      : page === "services" || page === "flow"
         ? "new-application"
         : page === "prints"
           ? "print-certificate"
@@ -641,6 +635,8 @@ export function WorkspaceApp({
             <h1>
               {dashboardHome && page === "home"
                 ? choose({ bn: "ড্যাশবোর্ড", en: "Dashboard" })
+                : page === "flow"
+                ? choose({ bn: "নতুন আবেদন", en: "New application" })
                 : choose({ bn: localized[page], en: labels[page] })}
             </h1>
           </div>
@@ -663,6 +659,17 @@ export function WorkspaceApp({
             </p>
           ),
         )}
+        {page === "flow" && flowService !== null && (
+          <ServiceFlow
+            serviceNo={flowService}
+            tenant={session.tenant}
+            localDemo={localDemo}
+            onOpenApplication={(id) => void run(() => openApplication(id))}
+            onRegisterCitizen={() => nav("citizens")}
+            onExit={() => nav("home")}
+            onChanged={() => void refresh()}
+          />
+        )}
         {page === "home" && dashboardHome && (
           <WorkspaceDashboard
             services={catalog}
@@ -671,7 +678,10 @@ export function WorkspaceApp({
             creditBalance={wallet?.balance ?? null}
             onStartService={(serviceNo) => {
               setSelectedService(serviceNo);
-              nav("services");
+              if (flowPreview) {
+                setFlowService(serviceNo);
+                nav("flow");
+              } else nav("services");
             }}
             onOpenCitizens={() => nav("citizens")}
             onOpenApplications={() => openTask("applications")}
