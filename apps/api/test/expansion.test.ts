@@ -1156,3 +1156,14 @@ test("B5: unmatched location text keeps the renewal on its pinned version with t
   await approve(renewal.body.id);
   assert.equal((await req("POST", `/applications/${renewal.body.id}/issue`, {}, s.approver)).status, 201);
 });
+test("Phase 1: the citizen list reports the office's real total, not the 100-row page length", async () => {
+  const listed = await req("GET", "/citizens", undefined, s.staff);
+  assert.equal(listed.status, 200);
+  const expected = (
+    await db.query("SELECT count(*)::int n FROM citizens WHERE tenant_id=$1", [office.id])
+  ).rows[0].n;
+  assert.equal(listed.body.total, expected);
+  assert.ok(listed.body.items.length <= 100 && listed.body.items.length <= expected);
+  const searched = await req("GET", "/citizens?q=zz-no-such-citizen-zz", undefined, s.staff);
+  assert.equal(searched.body.total, 0);
+});
