@@ -1165,3 +1165,30 @@ test("B2: sandbox settlement route exists only when DEMO_SETTLE_ENABLED is exact
     process.env.NODE_ENV = saved.nodeEnv;
   }
 });
+test("B3: government_fee_assessments is dropped and the drop refuses to lose rows", async () => {
+  assert.equal(
+    (await admin.query("SELECT to_regclass('public.government_fee_assessments') t"))
+      .rows[0].t,
+    null,
+  );
+  const migration = fs.readFileSync(
+    "db/migrations/018_drop_government_fee_assessments.sql",
+    "utf8",
+  );
+  const client = await admin.connect();
+  try {
+    await client.query("BEGIN");
+    await client.query(
+      "CREATE TABLE government_fee_assessments(id int); INSERT INTO government_fee_assessments VALUES(1)",
+    );
+    await assert.rejects(client.query(migration), /has rows/);
+  } finally {
+    await client.query("ROLLBACK");
+    client.release();
+  }
+  assert.equal(
+    (await admin.query("SELECT to_regclass('public.government_fee_assessments') t"))
+      .rows[0].t,
+    null,
+  );
+});
