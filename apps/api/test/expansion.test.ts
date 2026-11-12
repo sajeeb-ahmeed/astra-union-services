@@ -1044,3 +1044,33 @@ test("TEN-NEW: suspension removes public office and invalidates existing session
     outsider.id,
   );
 });
+test("B4: the database rejects a separate present address without both texts", async () => {
+  const client = await db.connect();
+  try {
+    await client.query("BEGIN");
+    const id = (await client.query("SELECT id FROM citizens LIMIT 1")).rows[0]?.id;
+    assert.ok(id, "an existing citizen is needed for this check");
+    const attempt = async (bn: string | null, en: string | null) => {
+      await client.query("SAVEPOINT b4");
+      try {
+        await client.query(
+          "UPDATE citizens SET present_same_as_permanent=false,present_address_bn=$2,present_address_en=$3,present_division_code=NULL,present_district_code=NULL,present_upazila_code=NULL,present_union_code=NULL,present_ward_code=NULL WHERE id=$1",
+          [id, bn, en],
+        );
+        await client.query("RELEASE SAVEPOINT b4");
+        return "accepted";
+      } catch (error: any) {
+        await client.query("ROLLBACK TO SAVEPOINT b4");
+        assert.equal(error.constraint, "citizens_present_address_complete");
+        return "rejected";
+      }
+    };
+    assert.equal(await attempt(null, "Rented flat"), "rejected");
+    assert.equal(await attempt("ভাড়া বাসা", null), "rejected");
+    assert.equal(await attempt(null, null), "rejected");
+    assert.equal(await attempt("ভাড়া বাসা", "Rented flat"), "accepted");
+  } finally {
+    await client.query("ROLLBACK");
+    client.release();
+  }
+});
