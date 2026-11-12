@@ -8,6 +8,8 @@ import {
   getDemoPayload,
   getServiceSchema,
   allServiceSchemaVersions,
+  geographySelectorServices,
+  legacyLocationFieldIds,
   legacyOperationalSchemas,
   operationalServiceNumbers,
   serviceCatalog,
@@ -608,4 +610,38 @@ test("service-specific financial/vehicle numbers, holding year, dates and privat
       },
     }).issues.some((issue) => issue.code === "attachment_reference"),
   );
+});
+
+test("B6: org_location is at least as strict as the strictest v2 location field it replaced", () => {
+  for (const no of geographySelectorServices) {
+    const selector = allServiceSchemaVersions
+      .filter((x) => x.serviceNo === no)
+      .sort((a, b) => a.version - b.version)
+      .find((x) => flattenFields(x).some((f) => f.id === "org_location"))!;
+    const previous = allServiceSchemaVersions.find(
+      (x) => x.serviceNo === no && x.version === selector.version - 1,
+    )!;
+    assert.ok(previous, `service ${no} keeps the version before its selector`);
+    const location = flattenFields(selector).find((f) => f.id === "org_location")!;
+    const replaced = flattenFields(previous).filter((f) =>
+      legacyLocationFieldIds.includes(f.id),
+    );
+    assert.ok(replaced.length >= 4, `service ${no} replaced its location fields`);
+    for (const field of replaced)
+      assert.equal(field.requiredWhen, undefined, `${no}.${field.id}: requiredWhen is not mapped`);
+    const unconditional = replaced.filter((f) => !f.visibleWhen);
+    assert.equal(
+      !!location.constraints?.required,
+      unconditional.some((f) => !!f.constraints?.required),
+      `service ${no}: org_location.required must equal the strictest always-visible replaced field`,
+    );
+    for (const field of replaced.filter((f) => f.visibleWhen && f.constraints?.required)) {
+      assert.equal(field.id, "union_id", `${no}.${field.id}: only the union may be conditional`);
+      assert.deepEqual(
+        location.constraints?.geographyUnionWhen,
+        field.visibleWhen,
+        `service ${no}: the union stays required exactly when v2 showed and required it`,
+      );
+    }
+  }
 });
