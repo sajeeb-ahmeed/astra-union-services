@@ -131,9 +131,10 @@ export function WorkspaceApp({
     [wallet, setWallet] = useState<any>(null),
     [billing, setBilling] = useState<any>(null),
     [tenants, setTenants] = useState<any[]>([]);
-  // Phase 1 slice (iii) preview: guided application flow, opt-in with ?preview=flow until approved.
+  // Phase 1 slice (iii), approved: dashboard tiles open the guided application flow.
   const [flowService, setFlowService] = useState<number | null>(null);
-  const flowPreview = new URLSearchParams(location.search).get("preview") === "flow";
+  const [flowCitizen, setFlowCitizen] = useState<any>(null);
+  const [returnToFlow, setReturnToFlow] = useState(false);
   const [selectedService, setSelectedService] = useState(45),
     [preview, setPreview] = useState(false),
     [payload, setPayload] = useState<Record<string, any>>({}),
@@ -421,6 +422,7 @@ export function WorkspaceApp({
   }
   function nav(next: string) {
     setReturnToIntake(false);
+    setReturnToFlow(false);
     setPage(next);
     setDetail(null);
     setMessage("");
@@ -661,11 +663,17 @@ export function WorkspaceApp({
         )}
         {page === "flow" && flowService !== null && (
           <ServiceFlow
+            key={`${flowService}:${flowCitizen?.id ?? ""}`}
             serviceNo={flowService}
+            initialCitizen={flowCitizen}
             tenant={session.tenant}
             localDemo={localDemo}
             onOpenApplication={(id) => void run(() => openApplication(id))}
-            onRegisterCitizen={() => nav("citizens")}
+            onRegisterCitizen={() => {
+              nav("citizens");
+              setReturnToIntake(true);
+              setReturnToFlow(true);
+            }}
             onExit={() => nav("home")}
             onChanged={() => void refresh()}
           />
@@ -678,10 +686,9 @@ export function WorkspaceApp({
             creditBalance={wallet?.balance ?? null}
             onStartService={(serviceNo) => {
               setSelectedService(serviceNo);
-              if (flowPreview) {
-                setFlowService(serviceNo);
-                nav("flow");
-              } else nav("services");
+              setFlowService(serviceNo);
+              setFlowCitizen(null);
+              nav("flow");
             }}
             onOpenCitizens={() => nav("citizens")}
             onOpenApplications={() => openTask("applications")}
@@ -1156,7 +1163,7 @@ export function WorkspaceApp({
                     className="secondary"
                     onClick={() => {
                       setReturnToIntake(false);
-                      nav("services");
+                      nav(returnToFlow ? "flow" : "services");
                     }}
                   >
                     {t("Back to application")}
@@ -1239,7 +1246,16 @@ export function WorkspaceApp({
                             addressBn: "",
                             addressEn: "",
                           });
-                          if (returnToIntake) {
+                          if (returnToIntake && returnToFlow) {
+                            // Back into the guided flow with the new citizen already chosen.
+                            setFlowCitizen(created);
+                            setCitizenSearch("");
+                            setCitizenQuery("");
+                            nav("flow");
+                            setMessage(
+                              "Citizen registered and selected. Complete the application below.",
+                            );
+                          } else if (returnToIntake) {
                             selectApplicant(created.id, created);
                             setCitizenSearch("");
                             setCitizenQuery("");

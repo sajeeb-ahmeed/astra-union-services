@@ -53,7 +53,7 @@ async function completeFees(page: Page) {
 }
 
 test(
-  "Phase 1 service flow preview: citizen → form → fees → review → submitted, with validation and back navigation",
+  "Phase 1 service flow: citizen → form → fees → review → submitted, validation, back navigation and new-citizen return",
   { timeout: 150000 },
   async () => {
     const browser = await browserInstance();
@@ -61,7 +61,7 @@ test(
       const page = await browser.newPage({ viewport: { width: 1366, height: 900 } });
       const errors: string[] = [];
       page.on("pageerror", (error) => errors.push(error.message));
-      await signIn(page, "?preview=flow");
+      await signIn(page, "");
       await page.locator('.ax-dashboard .ax-tile[data-service="45"]').click();
 
       // Step 1: citizen.
@@ -121,16 +121,42 @@ test(
       await page.getByRole("button", { name: "Open application" }).click();
       await page.getByText(reference.slice(0, 8)).first().waitFor();
 
-      // Without ?preview=flow the dashboard tile still opens the legacy intake page.
-      const plain = await browser.newPage({ viewport: { width: 1366, height: 900 } });
-      await signIn(plain, "");
-      await plain.locator('.ax-dashboard .ax-tile[data-service="45"]').click();
-      await plain.locator(".catalog .service.selected").waitFor();
-      assert.equal(await plain.locator(".ax-flow").count(), 0);
+      // Registering a new citizen from the flow returns to it at the form, with that citizen chosen.
+      await page.getByRole("navigation", { name: "Workspace navigation" }).getByRole("button", { name: "Dashboard" }).click();
+      await page.locator('.ax-dashboard .ax-tile[data-service="42"]').click();
+      await stepHeading(page).getByText("Citizen", { exact: true }).waitFor();
+      await page.getByRole("button", { name: "Register a new citizen", exact: true }).click();
+      const name = `Flow Browser Citizen ${Date.now()}`;
+      await page.getByLabel("Name (English)", { exact: true }).fill(name);
+      await page.getByLabel("Name (Bangla)", { exact: true }).fill("ফ্লো পরীক্ষার নমুনা নাগরিক");
+      await page.getByLabel("Date of birth", { exact: true }).fill("1993-04-05");
+      await page.getByLabel("Address (Bangla)", { exact: true }).fill("নমুনা পরীক্ষার গ্রাম");
+      await page.getByLabel("Address (English)", { exact: true }).fill("Synthetic Flow Village");
+      const union = JSON.parse(fs.readFileSync("data/geo/unions.json", "utf8")).find(
+        (row: any) => row.upazilaCode === "upa-001",
+      );
+      for (const [level, code] of [
+        ["division", "div-01"],
+        ["district", "dis-01"],
+        ["upazila", "upa-001"],
+        ["union", union.code],
+        ["ward", `${union.code}-w01`],
+      ]) {
+        await page.locator(`#citizen-geo-${level} option[value="${code}"]`).waitFor({ state: "attached" });
+        await page.locator(`#citizen-geo-${level}`).selectOption(code);
+      }
+      const registered = page.waitForResponse(
+        (r) => r.url().endsWith("/citizens") && r.request().method() === "POST",
+      );
+      await page.getByRole("button", { name: "Register citizen", exact: true }).click();
+      assert.equal((await registered).status(), 201);
+      await stepHeading(page).getByText("Application form", { exact: true }).waitFor();
+      assert.match((await page.locator(".ax-flow").textContent()) ?? "", new RegExp(name));
+      assert.match((await page.locator(".ax-flow-title").textContent()) ?? "", /Trade licen/);
 
       // Mobile: the stepper collapses and the page does not scroll sideways.
       const mobile = await browser.newPage({ viewport: { width: 390, height: 844 } });
-      await signIn(mobile, "?preview=flow");
+      await signIn(mobile, "");
       await mobile.locator('.ax-dashboard .ax-tile[data-service="45"]').click();
       await mobile.locator(".ax-citizen").first().waitFor();
       assert.equal(

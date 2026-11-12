@@ -70,10 +70,10 @@ test(
 
       await page.locator(".ax-dashboard-search input").fill("42");
       assert.equal(await page.locator(".ax-dashboard .ax-tile").count(), 1);
+      // Approved slice (iii): a tile opens the guided application flow for that service.
       await page.locator('.ax-dashboard .ax-tile[data-service="42"]').click();
-      await page.locator(".catalog .service.selected").waitFor();
-      assert.equal(await page.locator('.catalog .service[aria-pressed="true"]').count(), 1);
-      assert.match((await page.locator(".catalog .service.selected").textContent()) ?? "", /42/);
+      await page.locator(".ax-flow").waitFor();
+      assert.match((await page.locator(".ax-flow .ax-eyebrow").textContent()) ?? "", /42/);
       assert.equal(await sidebar.locator('[aria-current="page"]').textContent(), "New application");
 
       await sidebar.getByRole("button", { name: "Certificate renewal" }).click();

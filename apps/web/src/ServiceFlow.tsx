@@ -32,6 +32,7 @@ const citizenName = (c: any) =>
  */
 export function ServiceFlow({
   serviceNo,
+  initialCitizen = null,
   tenant,
   localDemo,
   onOpenApplication,
@@ -40,6 +41,8 @@ export function ServiceFlow({
   onChanged,
 }: {
   serviceNo: number;
+  /** A citizen registered from inside the flow; the flow resumes at the form with them selected. */
+  initialCitizen?: any;
   tenant: any;
   localDemo: boolean;
   onOpenApplication: (id: string) => void;
@@ -49,10 +52,10 @@ export function ServiceFlow({
 }) {
   useLanguage();
   const schema = getServiceSchema(serviceNo);
-  const [step, setStep] = useState(0);
+  const [step, setStep] = useState(initialCitizen ? 1 : 0);
   const [query, setQuery] = useState("");
   const [found, setFound] = useState<any[] | null>(null);
-  const [citizen, setCitizen] = useState<any>(null);
+  const [citizen, setCitizen] = useState<any>(initialCitizen);
   const [payload, setPayload] = useState<Record<string, any>>({});
   const [issues, setIssues] = useState<readonly ValidationIssue[]>([]);
   const [order, setOrder] = useState<IntakeOrderState | null>(null);
