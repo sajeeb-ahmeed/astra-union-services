@@ -1,0 +1,132 @@
+.ax-flow {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ax-space-4);
+}
+.ax-flow-head {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: var(--ax-space-3);
+}
+.ax-flow-title {
+  margin: 0;
+  color: var(--ax-green-800);
+}
+.ax-flow-panel {
+  background: var(--ax-surface);
+  border: 1px solid var(--ax-line);
+  border-radius: var(--ax-radius-lg);
+  padding: var(--ax-space-5);
+}
+.ax-flow-panel > h3 {
+  margin: 0 0 var(--ax-space-4);
+  font-size: 18px;
+  color: var(--ax-green-800);
+}
+.ax-flow-panel > h3:focus {
+  outline: none;
+}
+.ax-flow-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ax-space-1);
+  font-weight: 600;
+  max-width: 480px;
+  margin-bottom: var(--ax-space-4);
+}
+.ax-flow-muted {
+  color: var(--ax-muted);
+}
+.ax-flow-error {
+  color: #9b2c1f;
+  background: #fdecea;
+  border-radius: var(--ax-radius-sm);
+  padding: var(--ax-space-2) var(--ax-space-3);
+}
+.ax-citizen-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: var(--ax-space-2);
+}
+.ax-citizen {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--ax-space-2);
+  padding: var(--ax-space-3);
+  border: 1px solid var(--ax-line);
+  border-radius: var(--ax-radius);
+  cursor: pointer;
+}
+.ax-citizen.is-selected {
+  border-color: var(--ax-green-600);
+  background: var(--ax-green-50);
+  box-shadow: inset 4px 0 0 var(--ax-accent);
+}
+.ax-citizen input {
+  margin-top: 4px;
+  width: auto;
+  min-height: 0;
+}
+.ax-citizen span {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.ax-citizen small {
+  color: var(--ax-muted);
+  overflow-wrap: anywhere;
+}
+.ax-flow-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--ax-space-2);
+  margin-top: var(--ax-space-5);
+  padding-top: var(--ax-space-4);
+  border-top: 1px solid var(--ax-line);
+}
+.ax-flow-summary {
+  display: grid;
+  grid-template-columns: minmax(140px, 220px) 1fr;
+  gap: var(--ax-space-2) var(--ax-space-4);
+  margin: 0;
+}
+.ax-flow-summary dt {
+  color: var(--ax-muted);
+  font-weight: 600;
+}
+.ax-flow-summary dd {
+  margin: 0;
+}
+.ax-flow-done {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--ax-space-2);
+}
+.ax-flow-reference {
+  overflow-wrap: anywhere;
+}
+@media (max-width: 640px) {
+  .ax-flow-panel {
+    padding: var(--ax-space-4);
+  }
+  .ax-flow-summary {
+    grid-template-columns: 1fr;
+  }
+  .ax-flow-summary dd {
+    margin-bottom: var(--ax-space-2);
+  }
+  .ax-flow-actions button {
+    flex: 1 1 100%;
+  }
+}
+.ax-flow-summary + .ax-flow-muted {
+  margin-top: var(--ax-space-4);
+}
+.ax-flow-done .ax-flow-actions {
+  align-self: stretch;
+  justify-content: flex-start;
+}
