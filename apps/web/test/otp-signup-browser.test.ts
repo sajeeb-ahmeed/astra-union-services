@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { randomBytes } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { chromium, type Browser } from "playwright";
@@ -32,7 +33,7 @@ test(
     const browser = await browserInstance();
     const unique = Date.now();
     const mobile = `016${String(unique).slice(-8)}`;
-    const password = "Demo-Browser-Otp-2026!";
+    const password = randomBytes(18).toString("base64url"); // generated per run
     try {
       const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
       const errors: string[] = [];
