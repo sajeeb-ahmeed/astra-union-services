@@ -24,6 +24,12 @@ import {
   emptyPresentAddress,
   presentAddressPayload,
 } from "./PresentAddressFields.js";
+import {
+  CitizenDetailsEditor,
+  CitizenDetailsFields,
+  citizenDetailsPayload,
+  emptyCitizenDetails,
+} from "./CitizenDetailsFields.js";
 import { WorkspaceWelcome } from "./WorkspaceWelcome.js";
 import { withoutOrderLanguage } from "./order-schema.js";
 import { ServiceFlow } from "./ServiceFlow.js";
@@ -185,6 +191,9 @@ export function WorkspaceApp({
   const [citizenPresentAddress, setCitizenPresentAddress] = useState(
     emptyPresentAddress(),
   );
+  const [citizenDetails, setCitizenDetails] = useState(emptyCitizenDetails);
+  // Phase 3a: the citizen whose details panel is open on the citizens page.
+  const [detailsCitizenId, setDetailsCitizenId] = useState("");
   useEffect(() => {
     setCitizenGeography(readGeography(session?.tenant));
   }, [session?.tenant?.id]);
@@ -1188,6 +1197,7 @@ export function WorkspaceApp({
                         <th>{t("Citizen")}</th>
                         <th>{t("Identity state")}</th>
                         <th>{t("Record")}</th>
+                        <th>{t("Details")}</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -1212,6 +1222,21 @@ export function WorkspaceApp({
                               <td>
                                 <code>{tx(c.id.slice(0, 8))}</code>
                               </td>
+                              <td>
+                                <button
+                                  type="button"
+                                  className="secondary"
+                                  aria-label={`${t("Details")}: ${c.nameEn || c.name_en}`}
+                                  aria-expanded={detailsCitizenId === c.id}
+                                  onClick={() =>
+                                    setDetailsCitizenId(
+                                      detailsCitizenId === c.id ? "" : c.id,
+                                    )
+                                  }
+                                >
+                                  {t("Details")}
+                                </button>
+                              </td>
                             </tr>
                           )),
                       )}
@@ -1219,6 +1244,21 @@ export function WorkspaceApp({
                   </table>
                 </div>
               </section>
+              {(() => {
+                const open = citizens.find((c) => c.id === detailsCitizenId);
+                return open ? (
+                  <CitizenDetailsEditor
+                    citizen={open}
+                    canEdit={staff || role === "citizen"}
+                    onClose={() => setDetailsCitizenId("")}
+                    onSaved={(updated) =>
+                      setCitizens((list) =>
+                        list.map((c) => (c.id === updated.id ? updated : c)),
+                      )
+                    }
+                  />
+                ) : null;
+              })()}
               {tx(
                 staff && (
                   <section className="panel">
@@ -1237,9 +1277,11 @@ export function WorkspaceApp({
                             presentAddress: presentAddressPayload(
                               citizenPresentAddress,
                             ),
+                            details: citizenDetailsPayload(citizenDetails),
                           });
                           await refresh();
                           setCitizenPresentAddress(emptyPresentAddress());
+                          setCitizenDetails(emptyCitizenDetails());
                           setCitizenForm({
                             nameBn: "",
                             nameEn: "",
@@ -1317,6 +1359,11 @@ export function WorkspaceApp({
                         prefix="citizen-present"
                         value={citizenPresentAddress}
                         onChange={setCitizenPresentAddress}
+                      />
+                      <CitizenDetailsFields
+                        prefix="citizen-details"
+                        value={citizenDetails}
+                        onChange={setCitizenDetails}
                       />
                       <button disabled={busy}>{t("Register citizen")}</button>
                     </form>

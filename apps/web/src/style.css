@@ -1517,14 +1517,16 @@ code {
   line-height: 1.7;
 }
 /* PAR-06 present address: same frame as the geography picker. */
-.present-address {
+.present-address,
+.citizen-details {
   min-width: 0;
   border: 1px solid #e1e8e5;
   border-radius: 10px;
   padding: 16px 20px 18px;
   margin: 16px 0;
 }
-.present-address legend {
+.present-address legend,
+.citizen-details legend {
   color: #30483c;
   font-size: 14px;
   padding: 0 8px;
@@ -2462,4 +2464,20 @@ html[lang="bn"] .hero-copy h1 {
 .order-panel .checkbox input { width: auto; margin-top: 5px; }
 @media (max-width: 600px) {
   .reference-lookup-controls { flex-direction: column; align-items: stretch; }
+}
+/* Phase 3a: masked identity numbers beside the citizen details form. */
+.identity-summary {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 4px 16px;
+  margin: 8px 0 12px;
+}
+.identity-summary dt {
+  color: #30483c;
+  font-weight: 600;
+}
+.identity-summary dd {
+  margin: 0;
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  overflow-wrap: anywhere;
 }

@@ -36,6 +36,14 @@ import {
 import { mfaRouter, publicMfaRouter, passwordLogin, sendLogin } from "./mfa.js";
 import { identifierDigest, identifiersAvailable, normalizeIdentifier } from "./identifiers.js";
 import { identifierRouter } from "./identifier-routes.js";
+import {
+  citizenDataAvailable,
+  citizenDetailColumns,
+  citizenDetailsInput,
+  decryptNumber,
+  duplicateNumberError,
+  type CitizenDetails,
+} from "./citizen-data.js";
 import { otpRouter } from "./otp.js";
 import {
   ownerOfficeRegistrationRouter,
@@ -565,6 +573,72 @@ app.post(
     res.json({ ok: true });
   }),
 );
+/** Phase 3a: apply personal/identity details to one citizen of this office; numbers are encrypted. */
+async function updateCitizenDetails(db: DB, tenantId: string, citizenId: string, details: CitizenDetails) {
+  const columns = citizenDetailColumns(details, tenantId);
+  const names = Object.keys(columns);
+  if (!names.length) return (await db.query("SELECT * FROM citizens WHERE id=$1", [citizenId])).rows[0];
+  const assignments = names.map((column, index) => column + "=$" + (index + 3)).join(",");
+  await db.query("SAVEPOINT citizen_details");
+  try {
+    const row = (
+      await db.query(
+        "UPDATE citizens SET " + assignments + " WHERE tenant_id=$1 AND id=$2 RETURNING *",
+        [tenantId, citizenId, ...names.map((column) => columns[column])],
+      )
+    ).rows[0];
+    await db.query("RELEASE SAVEPOINT citizen_details");
+    return row;
+  } catch (error) {
+    await db.query("ROLLBACK TO SAVEPOINT citizen_details");
+    duplicateNumberError(error);
+  }
+}
+/** The citizen of this office the caller may act on: any for office staff, only their own for a citizen. */
+async function reachableCitizen(db: DB, a: Auth, id: string, columns: string) {
+  const own = a.role === "citizen";
+  const row = (
+    await db.query(
+      "SELECT " + columns + " FROM citizens WHERE tenant_id=$1 AND id=$2" + (own ? " AND user_id=$3" : ""),
+      own ? [a.tenantId, id, a.userId] : [a.tenantId, id],
+    )
+  ).rows[0];
+  if (!row) fail(404, "NOT_FOUND", "Citizen not found.");
+  return row;
+}
+app.patch(
+  "/api/v1/citizens/:id/details",
+  wrap(async (req, res) => {
+    const a = roles(req, ["staff", "admin", "citizen"]);
+    const id = uuid.parse(req.params.id);
+    const details = citizenDetailsInput.parse(req.body);
+    const item = await transaction(tenant(req), async (db) => {
+      await reachableCitizen(db, a, id, "id");
+      const row = await updateCitizenDetails(db, a.tenantId!, id, details);
+      await audit(db, a.tenantId!, a.userId, "CITIZEN_DETAILS_UPDATED", id, { fields: Object.keys(details) });
+      return citizenRow(row);
+    });
+    res.json(item);
+  }),
+);
+app.get(
+  "/api/v1/citizens/:id/identity",
+  wrap(async (req, res) => {
+    const a = roles(req, [...staffRead, "citizen"]);
+    const id = uuid.parse(req.params.id);
+    const numbers = await transaction(tenant(req), async (db) => {
+      const r = await reachableCitizen(db, a, id, "nid_cipher,birth_reg_cipher");
+      // Reading the full numbers is recorded, like other access to personal data.
+      await audit(db, a.tenantId!, a.userId, "CITIZEN_IDENTITY_VIEWED", id);
+      return {
+        nid: r.nid_cipher ? decryptNumber(r.nid_cipher, a.tenantId!, "nid") : null,
+        birthReg: r.birth_reg_cipher ? decryptNumber(r.birth_reg_cipher, a.tenantId!, "birth_reg") : null,
+      };
+    });
+    res.setHeader("Cache-Control", "no-store");
+    res.json({ ...numbers, available: citizenDataAvailable() });
+  }),
+);
 app.get(
   "/api/v1/citizens",
   wrap(async (req, res) => {
@@ -617,6 +691,7 @@ app.post(
           .optional(),
         geography: geographyInput.optional(),
         presentAddress: presentAddressInput.optional(),
+        details: citizenDetailsInput.optional(),
       })
       .strict()
       .parse(req.body);
@@ -660,6 +735,8 @@ app.post(
       await audit(db, a.tenantId!, a.userId, "DEMO_CITIZEN_REGISTERED", r.id, {
         verification: "SYNTHETIC_DEMO",
       });
+      if (data.details)
+        return citizenRow(await updateCitizenDetails(db, a.tenantId!, r.id, data.details));
       return citizenRow(r);
     });
     res.status(201).json(item);
