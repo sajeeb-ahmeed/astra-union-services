@@ -354,6 +354,9 @@ test("ORDER-03: server quotes exact paisa components without writing application
       preferences: selected,
       currency: "BDT",
       paymentStatus: "NOT_COLLECTED",
+      couponCode: null,
+      discountMinor: 0,
+      grossMinor: expectedTotal,
       totalMinor: expectedTotal,
       components: [
         { code: "statutory_fee", amountMinor: 10001 },
