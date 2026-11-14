@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { randomUUID } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { workspacePage } from "./fixtures/workspace-nav.js";
@@ -49,7 +50,7 @@ test(
       const email = `secretary-${Date.now()}@alpha.demo.test`;
       await page.getByLabel("Staff email", { exact: false }).fill(email);
       await page.getByLabel("Staff display name", { exact: false }).fill("Synthetic UP Secretary");
-      await page.getByLabel("Initial password", { exact: false }).fill("Synthetic-Pass-2026!");
+      await page.getByLabel("Initial password", { exact: false }).fill(`Pass-${randomUUID()}`); // generated per run
       const created = page.waitForResponse(
         (r) => r.url().endsWith("/admin/users") && r.request().method() === "POST",
       );
