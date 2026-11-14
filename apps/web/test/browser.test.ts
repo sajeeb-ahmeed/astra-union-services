@@ -5,6 +5,7 @@ import path from "node:path";
 import { spawn, type ChildProcess } from "node:child_process";
 import { workspacePage } from "./fixtures/workspace-nav.js";
 import { chromium, type Browser, type Page } from "playwright";
+import { signOut } from "./fixtures/session.js";
 const origin = "http://127.0.0.1:5173";
 let ownedStack: ChildProcess | undefined;
 async function ready() {
@@ -365,7 +366,7 @@ test(
         false,
         "No mobile horizontal document overflow",
       );
-      await page.getByRole("button", { name: "Sign out", exact: true }).click();
+      await signOut(page);
       await login(page, "finance");
       assert.equal(
         await page
@@ -406,7 +407,7 @@ test(
         path: "execution/screenshots/billing-sandbox.png",
         fullPage: true,
       });
-      await page.getByRole("button", { name: "Sign out", exact: true }).click();
+      await signOut(page);
       await page.locator(".login-form").getByRole("button", { name: "Sign in", exact: true }).waitFor();
       assert.equal(
         await page.getByLabel("Email", { exact: true }).inputValue(),
@@ -489,7 +490,7 @@ test(
         headers: { "X-CSRF-Token": session.csrfToken },
       });
       assert.equal(duplicate.status(), 409);
-      await page.getByRole("button", { name: "Sign out", exact: true }).click();
+      await signOut(page);
       await login(page, "owner");
       await page
         .getByRole("navigation")
@@ -519,9 +520,10 @@ test(
       await page
         .getByText("Audited compensating entry added.", { exact: true })
         .waitFor();
+      // Viewport only: the owner page lists every office, and a full-page capture of a long-lived
+      // test database (hundreds of offices) crashed the headless browser.
       await page.screenshot({
         path: "execution/screenshots/owner-tenants.png",
-        fullPage: true,
       });
     } finally {
       await context.close();

@@ -10,6 +10,7 @@ import {
   type Page,
 } from "playwright";
 import { workspacePage } from "./fixtures/workspace-nav.js";
+import { signOut } from "./fixtures/session.js";
 
 const origin = "http://127.0.0.1:5173";
 const password = "Synthetic-Mfa-Browser-2026!";
@@ -231,7 +232,7 @@ test(
       );
       await page.unroute("**/api/v1/auth/mfa/enrollment");
       await noStoredSecrets(context, page);
-      await page.getByRole("button", { name: "Sign out", exact: true }).click();
+      await signOut(page);
       await login(page, email);
       await page
         .getByRole("button", { name: "Sign out", exact: true })
@@ -346,7 +347,7 @@ test(
       );
       await page.getByRole("button", { name: "English", exact: true }).click();
       await noStoredSecrets(context, page);
-      await page.getByRole("button", { name: "Sign out", exact: true }).click();
+      await signOut(page);
       await login(page, email);
       const challenge = page.locator(".mfa-challenge");
       await challenge
@@ -406,7 +407,7 @@ test(
         .waitFor();
       // A consumed time step cannot authenticate twice. Exercise a real next-step
       // authenticator login as well as the recovery-code path without bypassing time.
-      await page.getByRole("button", { name: "Sign out", exact: true }).click();
+      await signOut(page);
       await new Promise((resolve) =>
         setTimeout(
           resolve,
@@ -512,7 +513,7 @@ test(
         path: "execution/screenshots/mfa-security-mobile-bn.png",
       });
       await page.getByRole("button", { name: "English", exact: true }).click();
-      await page.getByRole("button", { name: "Sign out", exact: true }).click();
+      await signOut(page);
       await login(page, email);
       await page
         .getByRole("button", { name: "Sign out", exact: true })
