@@ -7,6 +7,8 @@ import {
   getServiceSchema,
   getCatalogPreviewSchema,
   validateForm,
+  citizenProfileCompleteness,
+  completenessLabels,
 } from "@astra/shared-schemas";
 import { pool, transaction, audit, type DB } from "./db.js";
 import {
@@ -573,6 +575,20 @@ app.post(
     res.json({ ok: true });
   }),
 );
+/** Phase 3b: the citizen with profile completeness under this office's rules. */
+async function completenessFor(db: DB, citizenId: string) {
+  const citizen = citizenRow((await db.query("SELECT * FROM citizens WHERE id=$1", [citizenId])).rows[0]);
+  const office = (
+    await db.query("SELECT division_code,require_complete_profile FROM tenants WHERE id=nullif(current_setting('astra.tenant_id',true),'')::uuid")
+  ).rows[0];
+  return {
+    citizen,
+    profileCompleteness: {
+      ...citizenProfileCompleteness(citizen, { geographyRequired: !!office?.division_code }),
+      enforced: !!office?.require_complete_profile,
+    },
+  };
+}
 /** Phase 3a: apply personal/identity details to one citizen of this office; numbers are encrypted. */
 async function updateCitizenDetails(db: DB, tenantId: string, citizenId: string, details: CitizenDetails) {
   const columns = citizenDetailColumns(details, tenantId);
@@ -972,10 +988,7 @@ app.get(
             [r.id],
           )
         ).rows.map(camelRow),
-        citizen: citizenRow(
-          (await db.query("SELECT * FROM citizens WHERE id=$1", [r.citizen_id]))
-            .rows[0],
-        ),
+        ...(await completenessFor(db, r.citizen_id)),
         certificate: certificateRow(
           (
             await db.query(
@@ -1406,6 +1419,23 @@ app.post(
     if (prepared.existing) {
       res.json(certificateRow(prepared.existing));
       return;
+    }
+    // Phase 3b: offices that enforce it issue only for a complete citizen profile.
+    if (prepared.tenant.require_complete_profile) {
+      const completeness = citizenProfileCompleteness(citizenRow(prepared.citizen), {
+        geographyRequired: !!prepared.tenant.division_code,
+      });
+      if (!completeness.complete) {
+        const error = new ApiError(
+          409,
+          "PROFILE_INCOMPLETE",
+          "The citizen profile is incomplete: " +
+            completeness.missing.map((item) => completenessLabels[item].en).join(", ") +
+            ". Complete it before issuing.",
+          { missing: completeness.missing, percent: completeness.percent },
+        );
+        throw error;
+      }
     }
     const certId = randomUUID(),
       token = randomToken(),

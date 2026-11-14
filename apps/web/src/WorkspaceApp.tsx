@@ -30,6 +30,7 @@ import {
   citizenDetailsPayload,
   emptyCitizenDetails,
 } from "./CitizenDetailsFields.js";
+import { ProfileCompleteness } from "./ProfileCompleteness.js";
 import { WorkspaceWelcome } from "./WorkspaceWelcome.js";
 import { withoutOrderLanguage } from "./order-schema.js";
 import { ServiceFlow } from "./ServiceFlow.js";
@@ -1250,6 +1251,7 @@ export function WorkspaceApp({
                   <CitizenDetailsEditor
                     citizen={open}
                     canEdit={staff || role === "citizen"}
+                    geographyRequired={!!session?.tenant?.divisionCode}
                     onClose={() => setDetailsCitizenId("")}
                     onSaved={(updated) =>
                       setCitizens((list) =>
@@ -1667,6 +1669,18 @@ export function WorkspaceApp({
                     </p>
                   ),
                 )}
+                {detail.profileCompleteness &&
+                  role !== "citizen" &&
+                  !detail.certificate &&
+                  !["ISSUED", "REVOKED", "REJECTED", "CANCELLED"].includes(
+                    application.state,
+                  ) && (
+                    <ProfileCompleteness
+                      completeness={detail.profileCompleteness}
+                      enforced={detail.profileCompleteness.enforced}
+                      context="application"
+                    />
+                  )}
                 <ApplicationGuidance
                   state={application.state || application.status}
                   role={role}

@@ -276,6 +276,7 @@ export function AdditionalWorkspace({
             {session.user.role === "citizen" && ownCitizen && (
               <CitizenDetailsEditor
                 citizen={ownCitizen}
+                geographyRequired={!!session.tenant?.divisionCode}
                 onSaved={setOwnCitizen}
               />
             )}

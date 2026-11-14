@@ -337,5 +337,13 @@
   "Leave a number blank to keep the one on file. Numbers are stored encrypted.": "সংরক্ষিত নম্বর রাখতে ঘরটি খালি রাখুন। নম্বরগুলো এনক্রিপ্ট করে সংরক্ষণ করা হয়।",
   "NID: 10, 13 or 17 digits. Birth registration: 17 digits. Numbers are stored encrypted.": "জাতীয় পরিচয়পত্র: ১০, ১৩ বা ১৭ অঙ্ক। জন্ম নিবন্ধন: ১৭ অঙ্ক। নম্বরগুলো এনক্রিপ্ট করে সংরক্ষণ করা হয়।",
   "Viewing full numbers is recorded in the audit log.": "পূর্ণ নম্বর দেখার তথ্য অডিট লগে সংরক্ষিত হয়।",
-  "Details": "বিস্তারিত"
+  "Details": "বিস্তারিত",
+  "Profile completeness": "প্রোফাইলের পূর্ণতা",
+  "Missing:": "যা বাকি:",
+  "This office requires a complete profile: the certificate cannot be issued until these are added.": "এই অফিসে সম্পূর্ণ প্রোফাইল বাধ্যতামূলক: এগুলো যোগ না করা পর্যন্ত সনদ ইস্যু করা যাবে না।",
+  "This office requires a complete profile before a certificate is issued.": "এই অফিসে সনদ ইস্যুর আগে সম্পূর্ণ প্রোফাইল বাধ্যতামূলক।",
+  "Certificates can still be issued, but the office may require a complete profile later.": "এখনও সনদ ইস্যু করা যাবে, তবে অফিস পরে সম্পূর্ণ প্রোফাইল বাধ্যতামূলক করতে পারে।",
+  "Complete means: name, date of birth and address, an NID or birth registration number, and a mobile number or a 'no mobile' declaration. When off, approvers see a warning only.": "সম্পূর্ণ মানে: নাম, জন্ম তারিখ ও ঠিকানা, জাতীয় পরিচয়পত্র বা জন্ম নিবন্ধন নম্বর, এবং মোবাইল নম্বর বা 'মোবাইল নেই' ঘোষণা। বন্ধ থাকলে অনুমোদনকারী শুধু সতর্কবার্তা দেখবেন।",
+  "Certificates now require a complete citizen profile.": "এখন থেকে সনদের জন্য সম্পূর্ণ নাগরিক প্রোফাইল প্রয়োজন।",
+  "Incomplete profiles now show a warning only.": "অসম্পূর্ণ প্রোফাইলে এখন শুধু সতর্কবার্তা দেখানো হবে।"
 }

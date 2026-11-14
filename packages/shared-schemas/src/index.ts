@@ -17,6 +17,7 @@ import {
 export * from "./types.js";
 export * from "./engine.js";
 export * from "./schemas.js";
+export * from "./completeness.js";
 
 /** Sanitized public metadata. No original tokens, captured values or record URLs are included. */
 export const serviceCatalog = deepFreeze(

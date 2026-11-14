@@ -1,6 +1,6 @@
 # Phase 3 plan — citizen record and completeness
 
-Status: **3a delivered (migration 024); 3b and 3c planned.** Owner decisions recorded 14 November 2026. Source: the parity execution guide, Phase 3 (G5–G7).
+Status: **3a delivered (migration 024); 3b delivered (migration 025); 3c planned.** Owner decisions recorded 14 November 2026. Source: the parity execution guide, Phase 3 (G5–G7).
 
 ## Today
 
@@ -22,6 +22,14 @@ A citizen record holds the Bangla/English name, date of birth, the registered (p
 3. **3c — Document image.** Optional NID/birth-registration image attached to the citizen through the existing quarantine and malware-scan pipeline (only a CLEAN scan is usable).
 
 Each PR keeps existing records valid (new columns are nullable) and ships API and browser tests.
+
+## 3b as built
+
+- `citizenProfileCompleteness(citizen, { geographyRequired })` in `@astra/shared-schemas` returns `{ percent, complete, missing }`. The address area counts only in offices that use structured geography.
+- `GET /api/v1/applications/:id` returns `profileCompleteness` (with `enforced`). Approvers see a warning, or a blocking notice in an enforcing office.
+- `PUT /api/v1/admin/office/profile-completeness` `{ requireCompleteProfile }` (office admin only, audited `PROFILE_COMPLETENESS_ENFORCEMENT_CHANGED`). Off by default.
+- With enforcement on, `POST /applications/:id/issue` returns `409 PROFILE_INCOMPLETE` with `issues.missing`; nothing is issued or charged.
+- The citizen details panel (staff and the citizen's own profile) shows the same indicator.
 
 ## Not in Phase 3
 
