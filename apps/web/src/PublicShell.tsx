@@ -98,6 +98,9 @@ export function PublicShell({
             <a href="/help">{choose({ bn: "সহায়িকা ও প্রশ্নোত্তর", en: "Help and FAQ" })}</a>
             <a href="/policies">{choose({ bn: "গোপনীয়তা ও শর্তাবলি", en: "Privacy and terms" })}</a>
             <a href="/login">{choose({ bn: "অফিস ওয়ার্কস্পেস", en: "Office workspace" })}</a>
+            <a href="/register-office">
+              {choose({ bn: "অফিস অ্যাকাউন্টের জন্য নিবন্ধন", en: "Register an office account" })}
+            </a>
           </nav>
           <SubscriptionForm />
         </div>

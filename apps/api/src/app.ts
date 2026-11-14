@@ -38,6 +38,10 @@ import { identifierDigest, identifiersAvailable, normalizeIdentifier } from "./i
 import { identifierRouter } from "./identifier-routes.js";
 import { otpRouter } from "./otp.js";
 import {
+  ownerOfficeRegistrationRouter,
+  publicOfficeRegistrationRouter,
+} from "./office-registration.js";
+import {
   ordersRouter,
   applicationOrderInput,
   prepareApplicationOrder,
@@ -324,6 +328,7 @@ app.post(
 app.use(express.json({ limit: "3mb" }));
 app.use("/api/v1", attachmentScannerRouter);
 app.use("/api/v1", otpRouter);
+app.use("/api/v1", publicOfficeRegistrationRouter);
 app.use("/api/v1", publicManagementRouter);
 app.use("/api/v1", geographyRouter);
 app.use("/api/v1", publicToolsRouter);
@@ -515,6 +520,7 @@ app.use(
 app.use("/api/v1", managementRouter);
 app.use("/api/v1", mfaRouter);
 app.use("/api/v1", identifierRouter);
+app.use("/api/v1", ownerOfficeRegistrationRouter);
 app.use("/api/v1", protectedToolsRouter);
 app.use("/api/v1", ordersRouter);
 app.use("/api/v1", paymentsRouter);

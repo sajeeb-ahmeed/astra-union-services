@@ -133,6 +133,9 @@ export function PublicHome({ login }: { login?: React.ReactNode } = {}) {
                 <a className="ax-rail-more" href="/register">
                   {choose({ bn: "নতুন? নিবন্ধন করুন →", en: "New here? Register →" })}
                 </a>
+                <a className="ax-rail-more" href="/register-office">
+                  {choose({ bn: "অফিস কর্মকর্তা? অ্যাকাউন্টের আবেদন →", en: "Office staff? Request an account →" })}
+                </a>
               </div>
             ) : (
               <>

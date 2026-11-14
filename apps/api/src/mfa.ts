@@ -6,6 +6,7 @@ import type { Auth } from "./app.js";
 import { pool, type DB } from "./db.js";
 import { ApiError, camelRow, fail } from "./models.js";
 import { checkPassword, digest, hashPassword, randomToken } from "./security.js";
+import { pendingReviewStatus } from "./office-registration.js";
 import {
   accountTransaction,
   accountActionLimiter,
@@ -227,8 +228,17 @@ export async function passwordLogin(email: string, password: string) {
       checkPassword(password, unknownAccountHash);
       fail(401, "INVALID_LOGIN", "Invalid sign-in credentials.");
     }
-    if (!user.active || !checkPassword(password, user.password_hash))
+    if (!checkPassword(password, user.password_hash))
       fail(401, "INVALID_LOGIN", "Invalid sign-in credentials.");
+    if (!user.active) {
+      // Phase 2d: only someone who knows the password learns that the office account awaits review.
+      const review = await pendingReviewStatus(user.id);
+      if (review === "PENDING")
+        fail(403, "ACCOUNT_PENDING_REVIEW", "Your office account is waiting for verification. You can sign in once it is approved.");
+      if (review === "REJECTED")
+        fail(403, "ACCOUNT_REJECTED", "Your office account request was not approved. Contact the platform operator.");
+      fail(401, "INVALID_LOGIN", "Invalid sign-in credentials.");
+    }
     const membership = await membershipFor(db, user);
     const state = await mfaState(db, user.id);
     if (state?.enabled_at) {

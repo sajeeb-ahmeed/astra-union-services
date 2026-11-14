@@ -1,0 +1,43 @@
+.office-registration {
+  padding-top: var(--ax-space-5);
+  max-width: 860px;
+}
+.office-registration .panel {
+  background: var(--ax-surface);
+  border: 1px solid var(--ax-line);
+  border-radius: var(--ax-radius-lg);
+  padding: var(--ax-space-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--ax-space-3);
+  align-items: flex-start;
+}
+.office-registration form.panel {
+  align-items: stretch;
+}
+.office-registration form.panel > button {
+  align-self: flex-end;
+}
+.office-registration label {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ax-space-1);
+  font-weight: 600;
+}
+.ax-title-band p {
+  color: var(--ax-muted);
+  margin: 0;
+}
+.owner-requests table td small {
+  display: block;
+  color: var(--ax-muted);
+}
+.owner-requests .reject-reason {
+  display: flex;
+  gap: var(--ax-space-2);
+  margin-top: var(--ax-space-2);
+}
+.owner-requests .reject-reason input {
+  flex: 1;
+  min-width: 0;
+}

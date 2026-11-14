@@ -337,6 +337,13 @@ function SignedOutPortal({
   );
   // Phase 1: signed-out visitors get the new public home on "/"; other public pages stay legacy for now.
   if (location.pathname === "/") return <AsyncPanel><PublicHome login={loginForm} /></AsyncPanel>;
+  // Phase 2d: office staff ask for an account for their post.
+  if (location.pathname === "/register-office")
+    return (
+      <AsyncPanel>
+        <OfficeRegistrationPage />
+      </AsyncPanel>
+    );
   return <PublicPortal onNavigate={clearLoginSecrets} login={loginForm} />;
 }
 
@@ -382,6 +389,15 @@ function SessionApp() {
 // Phase 1 slice (i), approved: the new public home (loaded on demand).
 const PublicHome = lazy(() =>
   import("./PublicHome.js").then((module) => ({ default: module.PublicHome })),
+);
+const OfficeRegistrationPage = lazy(() =>
+  Promise.all([import("./PublicShell.js"), import("./OfficeRegistration.js")]).then(([shell, page]) => ({
+    default: () => (
+      <shell.PublicShell current="/register-office">
+        <page.OfficeRegistration />
+      </shell.PublicShell>
+    ),
+  })),
 );
 
 if (location.pathname === "/home-preview") history.replaceState({}, "", "/");
