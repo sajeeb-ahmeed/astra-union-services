@@ -5,6 +5,7 @@ import path from "node:path";
 import { workspacePage } from "./fixtures/workspace-nav.js";
 import { chromium, type Browser, type Page } from "playwright";
 import { demoPayloads } from "@astra/shared-schemas";
+import { signOut } from "./fixtures/session.js";
 const origin = "http://127.0.0.1:5173";
 async function browserInstance(): Promise<Browser> {
   const local = path.join(process.env.LOCALAPPDATA || "", "ms-playwright");
@@ -247,7 +248,7 @@ test(
       await page
         .getByText("Office and initial administrator created.", { exact: true })
         .waitFor();
-      await page.getByRole("button", { name: "Sign out", exact: true }).click();
+      await signOut(page);
       await login(page, adminEmail, password);
       await nav(page, /Office administration/);
       await page.getByLabel("Staff email", { exact: true }).fill(approverEmail);
@@ -545,7 +546,7 @@ test(
           exact: true,
         })
         .waitFor();
-      await page.getByRole("button", { name: "Sign out", exact: true }).click();
+      await signOut(page);
       await login(page, email, "Changed-Browser-2026!");
       await page.screenshot({
         path: "execution/screenshots/expanded-citizen-mobile.png",

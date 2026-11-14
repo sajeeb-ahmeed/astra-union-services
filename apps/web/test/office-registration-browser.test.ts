@@ -72,7 +72,8 @@ test(
       const row = queue.locator("tr", { hasText: email });
       await row.waitFor();
       assert.match((await row.textContent()) ?? "", /Digital Centre Entrepreneur/);
-      await owner.screenshot({ path: "execution/screenshots/phase2d-owner-queue.png", fullPage: true });
+      // Only the queue: the owner page lists every office, which can be thousands of rows in a long-lived test database.
+      await queue.screenshot({ path: "execution/screenshots/phase2d-owner-queue.png" });
       await row.getByRole("button", { name: "Approve" }).click();
       await queue.getByText("Approved. They can now sign in.").waitFor();
 
