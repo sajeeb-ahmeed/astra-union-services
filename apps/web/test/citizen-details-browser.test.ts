@@ -123,3 +123,66 @@ test(
     }
   },
 );
+
+test(
+  "profile completeness browser: the details panel shows what is missing and the admin switch saves",
+  { timeout: 120000 },
+  async () => {
+    const browser = await browserInstance();
+    const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
+    try {
+      await signIn(page, "staff@alpha.demo.test");
+      await workspacePage(page, "Citizens").click();
+      // A fresh citizen without an ID number or mobile decision is incomplete.
+      const name = `Completeness Browser Citizen ${Date.now()}`;
+      const created = await page.evaluate(async (nameEn) => {
+        const session = await (await fetch("/api/v1/auth/me", { credentials: "include" })).json();
+        const own = await (await fetch("/api/v1/citizens", { credentials: "include" })).json();
+        const geography = own.items.find((c: any) => c.geography?.wardCode)?.geography;
+        const r = await fetch("/api/v1/citizens", {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json", "X-CSRF-Token": session.csrfToken },
+          body: JSON.stringify({
+            nameBn: "পূর্ণতা পরীক্ষা",
+            nameEn,
+            dateOfBirth: "1990-04-05",
+            addressBn: "নমুনা গ্রাম ঠিকানা",
+            addressEn: "Synthetic village address",
+            ...(geography ? { geography } : {}),
+          }),
+        });
+        return { status: r.status, body: await r.json() };
+      }, name);
+      assert.equal(created.status, 201, JSON.stringify(created.body));
+      await page.reload();
+      await workspacePage(page, "Citizens").click();
+      await page.getByRole("button", { name: `Details: ${name}`, exact: true }).click();
+      const indicator = page.locator(".citizen-details-editor [data-testid=profile-completeness]");
+      await indicator.getByText("Profile incomplete", { exact: true }).waitFor();
+      await indicator.getByText("NID or birth registration number", { exact: true }).waitFor();
+      const panel = page.locator(".citizen-details-editor");
+      await panel.locator('[id$="-birth-reg"]').fill(`20${String(Date.now()).slice(-13)}11`.slice(0, 17));
+      await panel.locator('[id$="-no-mobile"]').check();
+      await panel.getByRole("button", { name: "Save details", exact: true }).click();
+      await indicator.getByText("Profile complete", { exact: true }).waitFor();
+      await page.getByRole("button", { name: "Sign out", exact: true }).click();
+
+      await signIn(page, "admin@alpha.demo.test");
+      await workspacePage(page, "Office administration").click();
+      await page.getByRole("tab", { name: "Office profile", exact: true }).click();
+      const toggle = page.locator("#require-complete-profile");
+      await toggle.waitFor();
+      assert.equal(await toggle.isChecked(), false);
+      await toggle.click();
+      await page.getByText("Certificates now require a complete citizen profile.", { exact: true }).waitFor();
+      assert.equal(await toggle.isChecked(), true);
+      // Leave the shared demo office as seeded.
+      await toggle.click();
+      await page.getByText("Incomplete profiles now show a warning only.", { exact: true }).waitFor();
+      assert.equal(await toggle.isChecked(), false);
+    } finally {
+      await browser.close();
+    }
+  },
+);

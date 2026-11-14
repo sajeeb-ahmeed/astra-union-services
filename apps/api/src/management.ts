@@ -306,6 +306,25 @@ managementRouter.patch(
     res.json(item);
   }),
 );
+// Phase 3b: the office admin turns the citizen profile completeness gate on or off for certificate issuance.
+managementRouter.put(
+  "/admin/office/profile-completeness",
+  wrap(async (req, res) => {
+    const a = role(req, ["admin"]),
+      d = z.object({ requireCompleteProfile: z.boolean() }).strict().parse(req.body);
+    const item = await transaction(a.tenantId!, async (db) => {
+      const r = (
+        await db.query("UPDATE tenants SET require_complete_profile=$2 WHERE id=$1 RETURNING *", [
+          a.tenantId,
+          d.requireCompleteProfile,
+        ])
+      ).rows[0];
+      await audit(db, a.tenantId!, a.userId, "PROFILE_COMPLETENESS_ENFORCEMENT_CHANGED", a.tenantId, d);
+      return officeRow(r);
+    });
+    res.json(item);
+  }),
+);
 
 publicManagementRouter.get(
   "/offices",

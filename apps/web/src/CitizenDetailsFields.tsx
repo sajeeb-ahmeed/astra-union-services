@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from "react";
 import { t, useLanguage } from "./i18n.js";
 import { api } from "./api.js";
+import { citizenProfileCompleteness } from "@astra/shared-schemas";
+import { ProfileCompleteness } from "./ProfileCompleteness.js";
 
 /**
  * Phase 3a: personal and identity details of a citizen record. NID and birth-registration numbers are sent
@@ -194,11 +196,14 @@ export function CitizenDetailsEditor({
   onSaved,
   onClose,
   canEdit = true,
+  geographyRequired = false,
 }: {
   citizen: any;
   onSaved: (citizen: any) => void;
   onClose?: () => void;
   canEdit?: boolean;
+  /** Phase 3b: whether the office uses structured geography, so the address area counts. */
+  geographyRequired?: boolean;
 }) {
   useLanguage();
   const [draft, setDraft] = useState(() => readCitizenDetails(citizen));
@@ -229,6 +234,7 @@ export function CitizenDetailsEditor({
       <h2 id={`details-${citizen.id}`}>
         {t("নাগরিকের তথ্য / Citizen details")}: {citizen.nameBn} <small>{citizen.nameEn}</small>
       </h2>
+      <ProfileCompleteness completeness={citizenProfileCompleteness(citizen, { geographyRequired })} />
       <dl className="identity-summary">
         <dt>{t("জাতীয় পরিচয়পত্র / NID")}</dt>
         <dd data-testid="nid-value">{revealed ? (revealed.nid ?? "—") : (citizen.nidHint ?? "—")}</dd>

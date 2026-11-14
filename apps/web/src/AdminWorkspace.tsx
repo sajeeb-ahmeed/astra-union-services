@@ -326,6 +326,41 @@ export function AdminWorkspace() {
               )}
               <button disabled={busy}>{t("Save office profile")}</button>
             </form>
+            <fieldset className="citizen-details completeness-setting">
+              <legend>{t("নাগরিক প্রোফাইলের পূর্ণতা / Citizen profile completeness")}</legend>
+              <div className="check-field">
+                <label htmlFor="require-complete-profile">
+                  <input
+                    id="require-complete-profile"
+                    type="checkbox"
+                    checked={!!office?.requireCompleteProfile}
+                    disabled={busy}
+                    onChange={(e) => {
+                      const requireCompleteProfile = e.target.checked;
+                      void run(async () => {
+                        setOffice(
+                          await api("/admin/office/profile-completeness", "PUT", {
+                            requireCompleteProfile,
+                          }),
+                        );
+                      }, requireCompleteProfile
+                        ? "Certificates now require a complete citizen profile."
+                        : "Incomplete profiles now show a warning only.");
+                    }}
+                  />
+                  <span>
+                    {t(
+                      "সম্পূর্ণ প্রোফাইল ছাড়া সনদ ইস্যু করা যাবে না / Issue certificates only for complete citizen profiles",
+                    )}
+                  </span>
+                </label>
+              </div>
+              <p className="hint">
+                {t(
+                  "Complete means: name, date of birth and address, an NID or birth registration number, and a mobile number or a 'no mobile' declaration. When off, approvers see a warning only.",
+                )}
+              </p>
+            </fieldset>
           </section>
         ),
       )}
