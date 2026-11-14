@@ -36,6 +36,7 @@ import {
 import { mfaRouter, publicMfaRouter, passwordLogin, sendLogin } from "./mfa.js";
 import { identifierDigest, identifiersAvailable, normalizeIdentifier } from "./identifiers.js";
 import { identifierRouter } from "./identifier-routes.js";
+import { otpRouter } from "./otp.js";
 import {
   ordersRouter,
   applicationOrderInput,
@@ -322,6 +323,7 @@ app.post(
 );
 app.use(express.json({ limit: "3mb" }));
 app.use("/api/v1", attachmentScannerRouter);
+app.use("/api/v1", otpRouter);
 app.use("/api/v1", publicManagementRouter);
 app.use("/api/v1", geographyRouter);
 app.use("/api/v1", publicToolsRouter);
