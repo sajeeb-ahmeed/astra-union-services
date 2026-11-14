@@ -1,13 +1,14 @@
 import test, { before, after } from "node:test";
 import assert from "node:assert/strict";
-import { randomUUID } from "node:crypto";
+import { randomBytes, randomUUID } from "node:crypto";
 import pg from "pg";
 import { app } from "../src/app.js";
 import { pool, adminConnectionString } from "../src/db.js";
 import { logOtpProvider, setOtpProvider } from "../src/otp.js";
 
 const db = new pg.Pool({ connectionString: adminConnectionString });
-const password = "Synthetic-Otp-Pass-2026!";
+// Test-only credentials are generated per run so no password-like literal sits in the repository.
+const password = randomBytes(18).toString("base64url");
 const run = randomUUID().slice(0, 8);
 let server: ReturnType<typeof app.listen>, base: string, tenantId: string;
 const sent: { mobile: string; code: string }[] = [];

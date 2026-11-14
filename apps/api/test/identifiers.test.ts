@@ -1,6 +1,6 @@
 import test, { before, after } from "node:test";
 import assert from "node:assert/strict";
-import { randomUUID } from "node:crypto";
+import { randomBytes, randomUUID } from "node:crypto";
 import pg from "pg";
 import { app } from "../src/app.js";
 import { pool, adminConnectionString } from "../src/db.js";
@@ -8,7 +8,9 @@ import { hashPassword } from "../src/security.js";
 import { identifierHint, normalizeIdentifier } from "../src/identifiers.js";
 
 const db = new pg.Pool({ connectionString: adminConnectionString });
-const password = "Synthetic-Identifier-Pass!";
+// Test-only credentials are generated per run so no password-like literal sits in the repository.
+const password = randomBytes(18).toString("base64url");
+const notThePassword = randomBytes(18).toString("base64url");
 const run = randomUUID().slice(0, 8);
 let server: ReturnType<typeof app.listen>, base: string;
 type Session = { cookie: string; csrf: string };
@@ -87,7 +89,7 @@ test("Phase 2b: identifiers normalise Bangla digits, +880 and separators, and re
 });
 
 test("Phase 2b: an account holder sets identifiers with the current password; only a digest is stored", async () => {
-  const wrong = await request("PUT", "/account/identifiers/mobile", { value: mobile, currentPassword: "wrong-password" }, session);
+  const wrong = await request("PUT", "/account/identifiers/mobile", { value: mobile, currentPassword: notThePassword }, session);
   assert.equal(wrong.body.error.code, "PASSWORD_MISMATCH");
   const invalid = await request("PUT", "/account/identifiers/nid", { value: "123", currentPassword: password }, session);
   assert.equal(invalid.body.error.code, "IDENTIFIER_INVALID");
@@ -126,7 +128,7 @@ test("Phase 2b: sign-in by mobile, NID or birth registration; unknown and wrong 
   }
   assert.equal((await signIn({ email, password })).status, 200, "legacy email body still works");
   const unknown = await signIn({ identifierType: "nid", identifier: "9999999999", password });
-  const wrong = await signIn({ identifierType: "nid", identifier: nid, password: "Wrong-Password-123" });
+  const wrong = await signIn({ identifierType: "nid", identifier: nid, password: notThePassword });
   const malformed = await signIn({ identifierType: "mobile", identifier: "abc", password });
   for (const r of [unknown, wrong, malformed]) {
     assert.equal(r.status, 401);
@@ -135,7 +137,7 @@ test("Phase 2b: sign-in by mobile, NID or birth registration; unknown and wrong 
 });
 
 test("Phase 2b: failed attempts pause one identifier for every kind alike; success resets the count", async () => {
-  const wrongPassword = "Wrong-Password-123";
+  const wrongPassword = notThePassword;
   // Ten failures pause an identifier, even an unregistered one, so probing gets the same answer.
   const target = `018${tail}`;
   for (let i = 0; i < 10; i++)
