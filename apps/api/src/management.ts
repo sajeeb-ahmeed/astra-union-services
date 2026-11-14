@@ -9,6 +9,12 @@ import {
   digest,
 } from "./security.js";
 import { camelRow, fail } from "./models.js";
+import { consumeSignupOtp } from "./otp.js";
+import {
+  identifierDigest,
+  identifierHint,
+  normalizeIdentifier,
+} from "./identifiers.js";
 import type { Auth } from "./app.js";
 import {
   lockAccount,
@@ -435,9 +441,18 @@ publicManagementRouter.post(
           .optional(),
         geography: geographyInput.optional(),
         presentAddress: presentAddressInput.optional(),
+        // Phase 2c: a mobile number is accepted only with a verified one-time code.
+        mobile: z.string().min(1).max(40).optional(),
+        otpToken: z.string().regex(/^[a-f0-9]{64}$/).optional(),
       })
       .strict()
+      .refine((v) => (v.mobile === undefined) === (v.otpToken === undefined), {
+        message: "A mobile number needs its verified code.",
+      })
       .parse(req.body);
+    const mobile = d.mobile ? normalizeIdentifier("mobile", d.mobile) : null;
+    if (d.mobile && !mobile)
+      fail(422, "IDENTIFIER_INVALID", "Enter an 11-digit Bangladeshi mobile number starting with 01.");
     await transaction(d.tenantId, async (db) => {
       const office = (
         await db.query(
@@ -481,6 +496,16 @@ publicManagementRouter.post(
           ...(await presentAddressValues(db, d.presentAddress)),
         ],
       );
+      if (mobile) {
+        const digestValue = identifierDigest("mobile", mobile);
+        if ((await db.query("SELECT 1 FROM account_identifiers WHERE kind='mobile' AND digest=$1", [digestValue])).rowCount)
+          fail(409, "IDENTIFIER_TAKEN", "This mobile number is already used by another account.");
+        await consumeSignupOtp(db, d.otpToken!, mobile);
+        await db.query(
+          "INSERT INTO account_identifiers(user_id,kind,digest,hint) VALUES($1,'mobile',$2,$3)",
+          [user.id, digestValue, identifierHint("mobile", mobile)],
+        );
+      }
       await audit(db, d.tenantId, user.id, "DEMO_SELF_REGISTRATION", user.id);
     });
     res.status(201).json({

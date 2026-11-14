@@ -1,3 +1,4 @@
+import { MobileOtpField, type VerifiedMobile } from "./MobileOtpField.js";
 import { t, tx, choose } from "./i18n.js";
 import React, { useEffect, useRef, useState } from "react";
 import "./public-usability.css";
@@ -303,6 +304,8 @@ export function PublicPortal({
   const [signupPresentAddress, setSignupPresentAddress] = useState(
     emptyPresentAddress(),
   );
+  // Phase 2c: an optional mobile number, accepted only after its one-time code is confirmed.
+  const [signupMobile, setSignupMobile] = useState<VerifiedMobile | null>(null);
   function nav(next: string) {
     onNavigate?.();
     // Phase 1: "/" is the new public home, outside this legacy component.
@@ -1247,6 +1250,7 @@ export function PublicPortal({
                                 geography: geographyPayload(signupGeography),
                                 presentAddress:
                                   presentAddressPayload(signupPresentAddress),
+                                ...(signupMobile ?? {}),
                               });
                               setRegistration((previous) => ({
                                 ...previous,
@@ -1555,6 +1559,10 @@ export function PublicPortal({
                                 )),
                             )}
                           </div>
+                          <MobileOtpField
+                            value={signupMobile}
+                            onChange={setSignupMobile}
+                          />
                           <PresentAddressFields
                             prefix="signup-present"
                             value={signupPresentAddress}
