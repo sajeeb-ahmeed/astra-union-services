@@ -1167,3 +1167,59 @@ test("Phase 1: the citizen list reports the office's real total, not the 100-row
   const searched = await req("GET", "/citizens?q=zz-no-such-citizen-zz", undefined, s.staff);
   assert.equal(searched.body.total, 0);
 });
+test("Phase 2a: account types fix the membership role, suit the office type and stay consistent", async () => {
+  const listed = await req("GET", "/admin/account-types", undefined, s.admin);
+  assert.equal(listed.status, 200);
+  assert.equal(listed.body.items.length, 16);
+  const byCode = Object.fromEntries(listed.body.items.map((t: any) => [t.code, t]));
+  assert.equal(byCode.up_secretary.available, true);
+  assert.equal(byCode.up_secretary.role, "reviewer");
+  assert.equal(byCode.municipality_mayor.available, false);
+  assert.equal(byCode.digital_centre_entrepreneur.status, "confirmed");
+  assert.equal((await req("GET", "/admin/account-types", undefined, s.staff)).status, 403);
+
+  const stamp = Date.now();
+  const make = (body: Record<string, unknown>) =>
+    req("POST", "/admin/users", { email: `post-${stamp}-${Math.random().toString(36).slice(2, 8)}@${office.slug}.test`, displayName: "Post Holder", password, ...body }, s.admin);
+  const secretary = await make({ accountType: "up_secretary" });
+  assert.equal(secretary.status, 201, JSON.stringify(secretary.body));
+  assert.equal(secretary.body.role, "reviewer");
+  assert.equal(secretary.body.accountType, "up_secretary");
+  assert.equal((await make({ accountType: "municipality_mayor" })).body.error.code, "ACCOUNT_TYPE_OFFICE_MISMATCH");
+  assert.equal((await make({ accountType: "no_such_post" })).body.error.code, "ACCOUNT_TYPE_UNKNOWN");
+  assert.ok([400, 422].includes((await make({ accountType: "up_secretary", role: "staff" })).status));
+  assert.ok([400, 422].includes((await make({})).status));
+  const legacy = await make({ role: "staff" });
+  assert.equal(legacy.status, 201);
+  assert.equal(legacy.body.accountType, null);
+
+  const users = (await req("GET", "/admin/users", undefined, s.admin)).body.items;
+  const listedSecretary = users.find((u: any) => u.id === secretary.body.id);
+  assert.equal(listedSecretary.accountType, "up_secretary");
+  assert.equal(listedSecretary.accountTypeEn, "UP Secretary");
+
+  // Choosing a post sets its role; changing the role directly drops the post.
+  const promoted = await req("PATCH", `/admin/users/${secretary.body.id}`, { accountType: "up_chairman" }, s.admin);
+  assert.equal(promoted.status, 200, JSON.stringify(promoted.body));
+  assert.equal(promoted.body.role, "approver");
+  assert.equal(promoted.body.accountType, "up_chairman");
+  const demoted = await req("PATCH", `/admin/users/${secretary.body.id}`, { role: "staff" }, s.admin);
+  assert.equal(demoted.body.role, "staff");
+  assert.equal(demoted.body.accountType, null);
+  await req("PATCH", `/admin/users/${secretary.body.id}`, { accountType: "up_chairman" }, s.admin);
+
+  // The database refuses an inconsistent post, whoever writes it.
+  await assert.rejects(
+    db.query("UPDATE staff_memberships SET role='staff' WHERE user_id=$1 AND tenant_id=$2", [secretary.body.id, office.id]),
+    /requires role approver/,
+  );
+  await assert.rejects(
+    db.query("UPDATE staff_memberships SET account_type='municipality_mayor', role='approver' WHERE user_id=$1 AND tenant_id=$2", [secretary.body.id, office.id]),
+    /not available for a UNION office/,
+  );
+
+  // A union office with union-only posts cannot silently become a municipality.
+  const retype = await req("PATCH", "/admin/office", { officeType: "MUNICIPALITY" }, s.admin);
+  assert.equal(retype.status, 409, JSON.stringify(retype.body));
+  assert.equal(retype.body.error.code, "ACCOUNT_TYPES_CONFLICT");
+});

@@ -4,6 +4,12 @@ The roles below are **new product policy**. Phase 0 observed a UDC interface; ot
 
 **0.5 source scope:** online citizen-fee permissions below are implemented, with release verification/deployment tracked separately. bKash merchant setup is missing, so production checkout stays disabled. Nagad, bank payouts and cash collection are not implemented. [Gateway payments](GATEWAY_PAYMENTS.md) documents the independent provider and receipt boundaries; no reference-site administrative behavior is inferred.
 
+## Office posts (account types, Phase 2a)
+
+An office account can carry an **office post** such as UP Secretary or Digital Centre Entrepreneur (migration 020, table `account_types`). A post grants nothing by itself: it **fixes the membership role** in the matrix below, and a database trigger keeps the two consistent and refuses posts that do not exist in the office's type (a union post in a municipality, for example). Choosing a post sets the role; changing the role directly clears the post; existing accounts without a post work as before. An office cannot change its type while it has accounts whose posts the new type lacks.
+
+Most mappings are **provisional** until the Secretary/Chairman role evidence is captured (see [PHASE2_PLAN.md](PHASE2_PLAN.md) for the full table). Approver posts (Chairman, Mayor) still need per-service approval authorizations. Cross-office oversight posts (upazila, district, divisional) are deferred.
+
 ## Implemented role matrix
 
 `Own` means the citizen profile/application is linked to the current user. `Tenant` means only the server-selected active tenant. `Authority` additionally requires an active service-specific approval authorization. A dash means the API denies the action.
