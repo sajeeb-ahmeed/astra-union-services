@@ -296,6 +296,7 @@ test("ORDER-02: only office admins publish explicit integer fees and policies ar
       "deliveryFeesMinor",
       "deliveryModes",
       "urgencies",
+      "charterDays",
       "currency",
     ].sort(),
   );
