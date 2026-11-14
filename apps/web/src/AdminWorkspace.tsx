@@ -3,6 +3,7 @@ import { SignInIdentifiers } from "./SignInIdentifiers.js";
 import React, { useEffect, useState } from "react";
 import { api, items } from "./api.js";
 import { OrderPolicySettings } from "./OrderPolicySettings.js";
+import { CouponSettings } from "./CouponSettings.js";
 import { AccountSessions } from "./AccountSessions.js";
 import { AccountMfa } from "./AccountMfa.js";
 import {
@@ -156,6 +157,7 @@ export function AdminWorkspace() {
               ["services", "Service settings"],
               ["authority", "Approval authority"],
               ["notices", "Office notices"],
+              ["coupons", "Coupons"],
             ].map(([key, text]) => (
               <button
                 key={key}
@@ -673,6 +675,7 @@ export function AdminWorkspace() {
         ),
       )}
       {tab === "order-policies" && <OrderPolicySettings services={services} />}
+      {tab === "coupons" && <CouponSettings services={services} />}
       {tx(
         tab === "authority" && (
           <section className="panel">

@@ -11,8 +11,11 @@ export type OrderPreferences = {
 export type OrderInput = {
   policyVersion: number;
   preferences: OrderPreferences;
+  couponCode?: string;
 };
 export type OrderQuote = OrderInput & {
+  couponCode?: string | null;
+  discountMinor?: number;
   currency: "BDT";
   components: { code: string; amountMinor: number }[];
   totalMinor: number;
@@ -42,6 +45,7 @@ function componentLabel(code: string) {
           "Urgent service surcharge",
         ),
         delivery_fee: label("সনদ সরবরাহের ফি", "Delivery fee"),
+        coupon_discount: label("কুপন ছাড়", "Coupon discount"),
       } as Record<string, string>
     )[code] ?? code
   );
@@ -128,11 +132,14 @@ export function ApplicationOrder({
   const [quote, setQuote] = useState<OrderQuote | null>(null);
   const [accepted, setAccepted] = useState(false);
   const [busy, setBusy] = useState(false);
+  // Phase 4b: an optional office coupon code, applied when the fees are reviewed.
+  const [coupon, setCoupon] = useState("");
   const requestEpoch = useRef(0);
   const currentPreferences = JSON.stringify({
     certificateLanguage,
     deliveryMode,
     urgency,
+    coupon: coupon.trim().toUpperCase(),
   });
   const latestPreferences = useRef(currentPreferences);
   latestPreferences.current = currentPreferences;
@@ -176,6 +183,7 @@ export function ApplicationOrder({
             order: {
               policyVersion: quote.policyVersion,
               preferences: quote.preferences,
+              ...(quote.couponCode ? { couponCode: quote.couponCode } : {}),
             },
           }
         : {}),
@@ -296,6 +304,18 @@ export function ApplicationOrder({
           </select>
         </div>
       </div>
+      <div className="field coupon-field">
+        <label htmlFor="order-coupon">
+          {label("কুপন কোড (ঐচ্ছিক)", "Coupon code (optional)")}
+        </label>
+        <input
+          id="order-coupon"
+          value={coupon}
+          maxLength={32}
+          autoComplete="off"
+          onChange={(e) => setCoupon(e.target.value)}
+        />
+      </div>
       <button
         type="button"
         className="secondary"
@@ -318,6 +338,7 @@ export function ApplicationOrder({
                   deliveryMode,
                   urgency,
                 },
+                ...(coupon.trim() ? { couponCode: coupon.trim() } : {}),
               },
             );
             if (
