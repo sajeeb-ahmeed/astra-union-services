@@ -84,19 +84,23 @@ export function AdminWorkspace() {
   const [tab, setTab] = useState("users"),
     [office, setOffice] = useState<any>(null),
     [users, setUsers] = useState<any[]>([]),
+    [accountTypes, setAccountTypes] = useState<any[]>([]),
+    [newPost, setNewPost] = useState(""),
     [services, setServices] = useState<any[]>([]),
     [notices, setNotices] = useState<any[]>([]),
     [authorizations, setAuthorizations] = useState<any[]>([]),
     [message, setMessage] = useState(""),
     [busy, setBusy] = useState(false);
   async function load() {
-    const [u, s, n, a, o] = await Promise.all([
+    const [u, s, n, a, o, types] = await Promise.all([
       api("/admin/users"),
       api("/admin/services"),
       api("/admin/notices"),
       api("/admin/authorizations"),
       api("/admin/office"),
+      api("/admin/account-types"),
     ]);
+    setAccountTypes(items(types));
     setOffice(o);
     setOfficeGeography(readGeography(o.geography));
     setOfficeType(o.officeType);
@@ -334,8 +338,13 @@ export function AdminWorkspace() {
                   const form = e.currentTarget,
                     d = new FormData(form);
                   void run(async () => {
-                    await api("/admin/users", "POST", Object.fromEntries(d));
+                    // Phase 2a: a post fixes the role, so only one of the two is sent.
+                    const body = Object.fromEntries(d) as Record<string, string>;
+                    if (body.accountType) delete body.role;
+                    else delete body.accountType;
+                    await api("/admin/users", "POST", body);
                     form.reset();
+                    setNewPost("");
                   }, "Staff account created.");
                 }}
               >
@@ -359,23 +368,46 @@ export function AdminWorkspace() {
                     />
                   </label>
                   <label>
-                    {t("Staff role ")}
-                    <select aria-label={t("Staff role")} name="role">
-                      {tx(
-                        [
-                          "staff",
-                          "reviewer",
-                          "approver",
-                          "finance",
-                          "admin",
-                        ].map((r) => (
-                          <option key={r} value={r}>
-                            {tx(r)}
+                    {choose({ bn: "পদ", en: "Office post" })}
+                    <select
+                      aria-label={choose({ bn: "পদ", en: "Office post" })}
+                      name="accountType"
+                      value={newPost}
+                      onChange={(e) => setNewPost(e.target.value)}
+                    >
+                      <option value="">
+                        {choose({ bn: "অন্য — সরাসরি ভূমিকা বেছে নিন", en: "Other — choose a role directly" })}
+                      </option>
+                      {accountTypes
+                        .filter((type) => type.available)
+                        .map((type) => (
+                          <option key={type.code} value={type.code}>
+                            {choose({ bn: type.nameBn, en: type.nameEn })} → {type.role}
+                            {type.status === "provisional" ? choose({ bn: " (অস্থায়ী)", en: " (provisional)" }) : ""}
                           </option>
-                        )),
-                      )}
+                        ))}
                     </select>
                   </label>
+                  {!newPost && (
+                    <label>
+                      {t("Staff role ")}
+                      <select aria-label={t("Staff role")} name="role">
+                        {tx(
+                          [
+                            "staff",
+                            "reviewer",
+                            "approver",
+                            "finance",
+                            "admin",
+                          ].map((r) => (
+                            <option key={r} value={r}>
+                              {tx(r)}
+                            </option>
+                          )),
+                        )}
+                      </select>
+                    </label>
+                  )}
                 </div>
                 <button disabled={busy}>{t("Create staff account")}</button>
               </form>
@@ -387,6 +419,7 @@ export function AdminWorkspace() {
                   <thead>
                     <tr>
                       <th>{t("User")}</th>
+                      <th>{choose({ bn: "পদ", en: "Office post" })}</th>
                       <th>{t("Role")}</th>
                       <th>{t("Status")}</th>
                       <th>{t("Update")}</th>
@@ -399,6 +432,34 @@ export function AdminWorkspace() {
                           <td>
                             {tx(read(u, "displayName", "display_name"))}
                             <small>{u.email}</small>
+                          </td>
+                          <td>
+                            {u.role === "citizen" ? (
+                              "—"
+                            ) : (
+                              <select
+                                aria-label={`${choose({ bn: "পদ", en: "Office post" })}: ${u.email}`}
+                                value={u.accountType || ""}
+                                disabled={busy}
+                                onChange={(e) =>
+                                  e.target.value &&
+                                  void run(async () => {
+                                    await api(`/admin/users/${u.id || u.userId}`, "PATCH", {
+                                      accountType: e.target.value,
+                                    });
+                                  }, "Office post updated.")
+                                }
+                              >
+                                <option value="">{choose({ bn: "নির্ধারিত নয়", en: "Not set" })}</option>
+                                {accountTypes
+                                  .filter((type) => type.available)
+                                  .map((type) => (
+                                    <option key={type.code} value={type.code}>
+                                      {choose({ bn: type.nameBn, en: type.nameEn })}
+                                    </option>
+                                  ))}
+                              </select>
+                            )}
                           </td>
                           <td>
                             <select

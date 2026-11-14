@@ -257,6 +257,21 @@ managementRouter.patch(
           "GEOGRAPHY_REQUIRED",
           "Select structured geography to change an office location or type.",
         );
+      if (d.officeType && d.officeType !== existing.office_type) {
+        // Phase 2a: posts such as "UP Secretary" only exist in some office types.
+        const misfit = (
+          await db.query(
+            "SELECT count(*)::int n FROM staff_memberships m JOIN account_types t ON t.code=m.account_type WHERE m.tenant_id=$1 AND NOT ($2 = ANY(t.office_types))",
+            [a.tenantId, d.officeType],
+          )
+        ).rows[0].n;
+        if (misfit)
+          fail(
+            409,
+            "ACCOUNT_TYPES_CONFLICT",
+            "Some office accounts have posts that do not exist in the new office type. Change their account types first.",
+          );
+      }
       const names = d.geography
         ? await validateGeography(
             db,
@@ -569,6 +584,46 @@ managementRouter.post(
     res.json({ revoked, remainingSessions: 1 });
   }),
 );
+/** Phase 2a: office posts this office may assign, with the role each one grants. */
+managementRouter.get(
+  "/admin/account-types",
+  wrap(async (req, res) => {
+    const a = role(req, ["admin"]);
+    const items = await transaction(a.tenantId!, async (db) =>
+      (
+        await db.query(
+          `SELECT t.code,t.name_bn,t.name_en,t.role,t.status,t.office_types,
+                  (o.office_type = ANY(t.office_types)) AS available
+             FROM account_types t CROSS JOIN (SELECT office_type FROM tenants WHERE id=$1) o
+            ORDER BY t.sort_order`,
+          [a.tenantId],
+        )
+      ).rows.map(camelRow),
+    );
+    res.json({ items });
+  }),
+);
+async function accountTypeFor(
+  db: { query: (q: string, v?: unknown[]) => Promise<any> },
+  code: string,
+  tenantId: string,
+) {
+  const t = (
+    await db.query(
+      "SELECT t.*, (SELECT office_type FROM tenants WHERE id=$2) AS office_type FROM account_types t WHERE t.code=$1",
+      [code, tenantId],
+    )
+  ).rows[0];
+  if (!t) fail(422, "ACCOUNT_TYPE_UNKNOWN", "Choose a listed account type.");
+  if (!t.office_types.includes(t.office_type))
+    fail(
+      422,
+      "ACCOUNT_TYPE_OFFICE_MISMATCH",
+      "This post does not exist in this kind of office.",
+    );
+  return t as { code: string; role: string };
+}
+const accountTypeCode = z.string().regex(/^[a-z][a-z0-9_]{2,39}$/);
 managementRouter.get(
   "/admin/users",
   wrap(async (req, res) => {
@@ -576,7 +631,7 @@ managementRouter.get(
     const rows = await transaction(a.tenantId!, async (db) =>
       (
         await db.query(
-          "SELECT u.id,u.email,u.display_name,m.role,m.active FROM staff_memberships m JOIN platform_users u ON u.id=m.user_id WHERE m.tenant_id=$1 ORDER BY u.display_name",
+          "SELECT u.id,u.email,u.display_name,m.role,m.active,m.account_type,t.name_bn account_type_bn,t.name_en account_type_en FROM staff_memberships m JOIN platform_users u ON u.id=m.user_id LEFT JOIN account_types t ON t.code=m.account_type WHERE m.tenant_id=$1 ORDER BY u.display_name",
           [a.tenantId],
         )
       ).rows.map(camelRow),
@@ -593,11 +648,20 @@ managementRouter.post(
           email,
           displayName: z.string().min(2).max(120),
           password,
-          role: roleInput,
+          role: roleInput.optional(),
+          accountType: accountTypeCode.optional(),
         })
         .strict()
+        // Either an office post (which fixes the role) or a role chosen directly, as before.
+        .refine((v) => (v.role === undefined) !== (v.accountType === undefined), {
+          message: "Provide either accountType or role.",
+        })
         .parse(req.body);
     const item = await transaction(a.tenantId!, async (db) => {
+      const type = d.accountType
+        ? await accountTypeFor(db, d.accountType, a.tenantId!)
+        : null;
+      const membershipRole = type ? type.role : d.role!;
       const u = (
         await db.query(
           "INSERT INTO platform_users(email,display_name,password_hash) VALUES($1,$2,$3) RETURNING id,email,display_name",
@@ -605,13 +669,19 @@ managementRouter.post(
         )
       ).rows[0];
       await db.query(
-        "INSERT INTO staff_memberships(user_id,tenant_id,role) VALUES($1,$2,$3)",
-        [u.id, a.tenantId, d.role],
+        "INSERT INTO staff_memberships(user_id,tenant_id,role,account_type) VALUES($1,$2,$3,$4)",
+        [u.id, a.tenantId, membershipRole, type?.code ?? null],
       );
       await audit(db, a.tenantId!, a.userId, "MEMBERSHIP_CREATED", u.id, {
-        role: d.role,
+        role: membershipRole,
+        ...(type ? { accountType: type.code } : {}),
       });
-      return { ...camelRow(u), role: d.role, active: true };
+      return {
+        ...camelRow(u),
+        role: membershipRole,
+        accountType: type?.code ?? null,
+        active: true,
+      };
     });
     res.status(201).json(item);
   }),
@@ -622,13 +692,27 @@ managementRouter.patch(
     const a = role(req, ["admin"]),
       id = uuid.parse(req.params.id),
       d = z
-        .object({ role: roleInput.optional(), active: z.boolean().optional() })
+        .object({
+          role: roleInput.optional(),
+          accountType: accountTypeCode.optional(),
+          active: z.boolean().optional(),
+        })
         .strict()
         .refine((v) => Object.keys(v).length > 0)
+        .refine((v) => !(v.role && v.accountType), {
+          message: "Provide either accountType or role, not both.",
+        })
         .parse(req.body);
+    const effectiveRole = d.accountType
+      ? (
+          await transaction(a.tenantId!, (db) =>
+            accountTypeFor(db, d.accountType!, a.tenantId!),
+          )
+        ).role
+      : d.role;
     if (
       id === a.userId &&
-      ((d.role && d.role !== "admin") || d.active === false)
+      ((effectiveRole && effectiveRole !== "admin") || d.active === false)
     )
       fail(
         422,
@@ -638,8 +722,11 @@ managementRouter.patch(
     const item = await transaction(a.tenantId!, async (db) => {
       const r = (
         await db.query(
-          "UPDATE staff_memberships SET role=coalesce($3,role),active=coalesce($4,active) WHERE tenant_id=$1 AND user_id=$2 RETURNING user_id,role,active",
-          [a.tenantId, id, d.role, d.active],
+          // A direct role change drops the post; choosing a post sets its role.
+          `UPDATE staff_memberships SET role=coalesce($3,role),active=coalesce($4,active),
+             account_type=CASE WHEN $5::text IS NOT NULL THEN $5 WHEN $3::text IS NOT NULL THEN NULL ELSE account_type END
+           WHERE tenant_id=$1 AND user_id=$2 RETURNING user_id,role,active,account_type`,
+          [a.tenantId, id, effectiveRole, d.active, d.accountType ?? null],
         )
       ).rows[0];
       if (!r) fail(404, "NOT_FOUND", "Membership not found.");
