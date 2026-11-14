@@ -1,6 +1,6 @@
 # Phase 3 plan — citizen record and completeness
 
-Status: **3a delivered (migration 024); 3b delivered (migration 025); 3c planned.** Owner decisions recorded 14 November 2026. Source: the parity execution guide, Phase 3 (G5–G7).
+Status: **3a delivered (migration 024); 3b delivered (migration 025); 3c delivered (migration 026).** Owner decisions recorded 14 November 2026. Source: the parity execution guide, Phase 3 (G5–G7).
 
 ## Today
 
@@ -30,6 +30,13 @@ Each PR keeps existing records valid (new columns are nullable) and ships API an
 - `PUT /api/v1/admin/office/profile-completeness` `{ requireCompleteProfile }` (office admin only, audited `PROFILE_COMPLETENESS_ENFORCEMENT_CHANGED`). Off by default.
 - With enforcement on, `POST /applications/:id/issue` returns `409 PROFILE_INCOMPLETE` with `issues.missing`; nothing is issued or charged.
 - The citizen details panel (staff and the citizen's own profile) shows the same indicator.
+
+## 3c as built
+
+- `PUT /api/v1/citizens/:id/identity-document` `{ document: { attachmentId, kind: "nid" | "birth_reg" } | null }` (office staff/admin, or the citizen for their own record), audited as `CITIZEN_IDENTITY_DOCUMENT_LINKED` / `_REMOVED`.
+- The image is uploaded through `POST /attachments`, so it is quarantined and can be opened only after a CLEAN scan.
+- The database refuses a link to an attachment of another citizen or office (composite key `citizens_identity_document_own`).
+- The citizen details panel shows the document, its scan status, and add/replace/remove controls.
 
 ## Not in Phase 3
 

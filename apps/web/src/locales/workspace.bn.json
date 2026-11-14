@@ -345,5 +345,8 @@
   "Certificates can still be issued, but the office may require a complete profile later.": "এখনও সনদ ইস্যু করা যাবে, তবে অফিস পরে সম্পূর্ণ প্রোফাইল বাধ্যতামূলক করতে পারে।",
   "Complete means: name, date of birth and address, an NID or birth registration number, and a mobile number or a 'no mobile' declaration. When off, approvers see a warning only.": "সম্পূর্ণ মানে: নাম, জন্ম তারিখ ও ঠিকানা, জাতীয় পরিচয়পত্র বা জন্ম নিবন্ধন নম্বর, এবং মোবাইল নম্বর বা 'মোবাইল নেই' ঘোষণা। বন্ধ থাকলে অনুমোদনকারী শুধু সতর্কবার্তা দেখবেন।",
   "Certificates now require a complete citizen profile.": "এখন থেকে সনদের জন্য সম্পূর্ণ নাগরিক প্রোফাইল প্রয়োজন।",
-  "Incomplete profiles now show a warning only.": "অসম্পূর্ণ প্রোফাইলে এখন শুধু সতর্কবার্তা দেখানো হবে।"
+  "Incomplete profiles now show a warning only.": "অসম্পূর্ণ প্রোফাইলে এখন শুধু সতর্কবার্তা দেখানো হবে।",
+  "No ID document image on file. Adding one is optional.": "পরিচয়পত্রের কোনো ছবি সংরক্ষিত নেই। ছবি যোগ করা ঐচ্ছিক।",
+  "PDF, PNG or JPEG up to 2 MB. The image can be opened only after its security scan finds no threat.": "পিডিএফ, পিএনজি বা জেপিইজি, সর্বোচ্চ ২ মেগাবাইট। নিরাপত্তা পরীক্ষায় কোনো ঝুঁকি না পাওয়া পর্যন্ত ছবিটি খোলা যাবে না।",
+  "Uploads must be between 8 bytes and 2 MiB.": "ফাইলের আকার ৮ বাইট থেকে ২ মেগাবাইটের মধ্যে হতে হবে।"
 }
