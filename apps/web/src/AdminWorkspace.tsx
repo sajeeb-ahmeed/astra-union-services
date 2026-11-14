@@ -1,4 +1,5 @@
 import { t, tx, choose } from "./i18n.js";
+import { SignInIdentifiers } from "./SignInIdentifiers.js";
 import React, { useEffect, useState } from "react";
 import { api, items } from "./api.js";
 import { OrderPolicySettings } from "./OrderPolicySettings.js";
@@ -74,6 +75,7 @@ export function AccountSecurity() {
       </section>
       <AccountSessions revision={securityRevision} />
       <AccountMfa revision={securityRevision} onChange={() => setSecurityRevision((value) => value + 1)} />
+      <SignInIdentifiers />
     </>
   );
 }

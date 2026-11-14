@@ -11,7 +11,9 @@ export type SecurityAction =
   | "MFA_CHALLENGE_CREATED"
   | "MFA_LOGIN_SUCCEEDED"
   | "MFA_RECOVERY_CODE_USED"
-  | "MFA_CODE_REJECTED";
+  | "MFA_CODE_REJECTED"
+  | "SIGN_IN_IDENTIFIER_SET"
+  | "SIGN_IN_IDENTIFIER_REMOVED";
 export async function accountScope(db: DB, userId: string) {
   await db.query("SELECT set_config('astra.account_id',$1,true)", [userId]);
 }

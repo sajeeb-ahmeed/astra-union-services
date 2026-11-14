@@ -5,7 +5,7 @@ import QRCode from "qrcode";
 import type { Auth } from "./app.js";
 import { pool, type DB } from "./db.js";
 import { ApiError, camelRow, fail } from "./models.js";
-import { checkPassword, digest, randomToken } from "./security.js";
+import { checkPassword, digest, hashPassword, randomToken } from "./security.js";
 import {
   accountTransaction,
   accountActionLimiter,
@@ -211,6 +211,7 @@ export function sendLogin(
   );
   res.json(session.body);
 }
+const unknownAccountHash = hashPassword(randomToken());
 export async function passwordLogin(email: string, password: string) {
   const db = await pool.connect();
   try {
@@ -220,7 +221,13 @@ export async function passwordLogin(email: string, password: string) {
         email.toLowerCase(),
       ])
     ).rows[0];
-    if (!user || !user.active || !checkPassword(password, user.password_hash))
+    // Phase 2b: an unknown account costs the same password check as a wrong password, so response
+    // time does not reveal which emails or numbers are registered.
+    if (!user) {
+      checkPassword(password, unknownAccountHash);
+      fail(401, "INVALID_LOGIN", "Invalid sign-in credentials.");
+    }
+    if (!user.active || !checkPassword(password, user.password_hash))
       fail(401, "INVALID_LOGIN", "Invalid sign-in credentials.");
     const membership = await membershipFor(db, user);
     const state = await mfaState(db, user.id);

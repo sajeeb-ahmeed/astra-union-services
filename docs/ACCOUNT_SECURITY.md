@@ -88,3 +88,11 @@ Run `node --import tsx --test --test-concurrency=1 apps/api/test/account-securit
 - No device inventory, individual-session revocation, idle timeout or cross-account privileged access review exists. Sessions retain their existing eight-hour maximum lifetime. The new history panel is own-account only.
 - General process-local attempt budgets reset on application restart and do not coordinate replicas; the new MFA factor budget is database-backed. Shared general throttling, privileged recovery/access reviews, file quarantine/scanning and production identity remain in the [delivery backlog](DELIVERY_BACKLOG.md).
 - All payment merchant/provider acceptance requirements remain unchanged; this release does not activate collection.
+
+## Sign-in identifiers (Phase 2b)
+
+Besides email, an account can sign in with a **mobile, NID or birth-registration number** it has added on the Account security page (current password required; each change is recorded in the account's security history). The numbers are normalised (Bangla digits, `+880`, spaces and dashes accepted) and stored **only as an HMAC-SHA-256 digest** keyed with the server secret `IDENTIFIER_SECRET`, plus a masked hint such as `017******78` for the owner's own page. A number can belong to one account only.
+
+`POST /api/v1/auth/login` accepts `{ identifierType, identifier, password }` as well as the original `{ email, password }`. An unknown identifier, a malformed one and a wrong password all return the same `401 INVALID_LOGIN`, and an unknown account now costs the same password check as a known one, so response time does not reveal registered emails or numbers. Besides the per-address limit, ten **failed** attempts for one identifier pause it for five minutes, the same for every kind; a successful sign-in clears the count.
+
+`IDENTIFIER_SECRET` must be 32+ random characters and must not be changed once numbers are stored. If it is missing in production, the server still starts: email sign-in works and the other identifiers report `503 IDENTIFIERS_UNAVAILABLE`.

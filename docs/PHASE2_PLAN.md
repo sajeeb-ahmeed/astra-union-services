@@ -1,6 +1,6 @@
 # Phase 2 plan — offices, account types and sign-in
 
-Status: **planned, owner decisions recorded 12 November 2026.** Source: the parity execution guide, Phase 2 (G1–G4).
+Status: **2a merged (PR #14); 2b in review. Owner decisions recorded 12 November 2026.** Source: the parity execution guide, Phase 2 (G1–G4).
 
 ## What already exists (no rebuild)
 
