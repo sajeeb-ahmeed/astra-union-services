@@ -149,6 +149,8 @@ function SignedOutPortal({
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  // Phase 2b: sign in with email (default, unchanged) or a mobile/NID/birth-registration number.
+  const [identifierType, setIdentifierType] = useState<"email" | "mobile" | "nid" | "birth_reg">("email");
   const [challenge, setChallenge] = useState<MfaLoginChallenge | null>(null);
   const loginAttempt = useRef(0);
   const clearLoginSecrets = useCallback(() => {
@@ -197,10 +199,13 @@ function SignedOutPortal({
                   setShowPassword(false);
                   const attempt = ++loginAttempt.current;
                   run(async () => {
-                    const nextSession = await api("/auth/login", "POST", {
-                      email,
-                      password,
-                    });
+                    const nextSession = await api(
+                      "/auth/login",
+                      "POST",
+                      identifierType === "email"
+                        ? { email, password }
+                        : { identifierType, identifier: email, password },
+                    );
                     setPassword("");
                     if (attempt !== loginAttempt.current) return;
                     if (nextSession.mfaRequired === true) {
@@ -222,11 +227,38 @@ function SignedOutPortal({
                   });
                 }}
               >
-                <label htmlFor="email">{t("Email")}</label>
+                <label htmlFor="login-identifier-type">
+                  {choose({ bn: "যা দিয়ে লগইন করবেন", en: "Sign in with" })}
+                </label>
+                <select
+                  id="login-identifier-type"
+                  value={identifierType}
+                  onChange={(e) => {
+                    setIdentifierType(e.target.value as typeof identifierType);
+                    setEmail("");
+                  }}
+                >
+                  <option value="email">{choose({ bn: "ইমেইল", en: "Email" })}</option>
+                  <option value="mobile">{choose({ bn: "মোবাইল নম্বর", en: "Mobile number" })}</option>
+                  <option value="nid">{choose({ bn: "জাতীয় পরিচয়পত্র (NID)", en: "National ID (NID)" })}</option>
+                  <option value="birth_reg">{choose({ bn: "জন্ম নিবন্ধন নম্বর", en: "Birth registration number" })}</option>
+                </select>
+                <label htmlFor="email">
+                  {identifierType === "email"
+                    ? t("Email")
+                    : choose(
+                        {
+                          mobile: { bn: "মোবাইল নম্বর", en: "Mobile number" },
+                          nid: { bn: "NID নম্বর", en: "NID number" },
+                          birth_reg: { bn: "জন্ম নিবন্ধন নম্বর", en: "Birth registration number" },
+                        }[identifierType],
+                      )}
+                </label>
                 <input
                   id="email"
-                  type="email"
-                  list="accounts"
+                  type={identifierType === "email" ? "email" : "text"}
+                  inputMode={identifierType === "email" ? "email" : "numeric"}
+                  list={identifierType === "email" ? "accounts" : undefined}
                   autoComplete="username"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}

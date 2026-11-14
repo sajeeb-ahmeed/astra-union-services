@@ -34,6 +34,8 @@ import {
   validateAttachmentReferences,
 } from "./attachments.js";
 import { mfaRouter, publicMfaRouter, passwordLogin, sendLogin } from "./mfa.js";
+import { identifierDigest, identifiersAvailable, normalizeIdentifier } from "./identifiers.js";
+import { identifierRouter } from "./identifier-routes.js";
 import {
   ordersRouter,
   applicationOrderInput,
@@ -377,6 +379,7 @@ app.get(
   }),
 );
 const loginAttempts = new Map<string, { count: number; expires: number }>();
+const identifierAttempts = new Map<string, { count: number; expires: number }>();
 app.post(
   "/api/v1/auth/login",
   wrap(async (req, res) => {
@@ -392,14 +395,72 @@ app.post(
         "RATE_LIMIT",
         "Too many sign-in attempts. Try again in one minute.",
       );
+    // Phase 2b: email (as before) or { identifierType, identifier } for mobile, NID or birth registration.
     const data = z
-      .object({
-        email: z.string().email().max(150),
-        password: z.string().min(1).max(200),
-      })
-      .strict()
+      .union([
+        z
+          .object({
+            email: z.string().email().max(150),
+            password: z.string().min(1).max(200),
+          })
+          .strict(),
+        z
+          .object({
+            identifierType: z.enum(["email", "mobile", "nid", "birth_reg"]),
+            identifier: z.string().min(1).max(150),
+            password: z.string().min(1).max(200),
+          })
+          .strict(),
+      ])
       .parse(req.body);
-    const result = await passwordLogin(data.email, data.password);
+    const kind = "email" in data ? "email" : data.identifierType;
+    const normalized = normalizeIdentifier(
+      kind,
+      "email" in data ? data.email : data.identifier,
+    );
+    let email = "";
+    if (kind === "email") email = normalized ?? "";
+    else if (normalized) {
+      if (!identifiersAvailable())
+        fail(
+          503,
+          "IDENTIFIERS_UNAVAILABLE",
+          "Sign-in with mobile, NID or birth registration is not configured on this server. Use your email.",
+        );
+      email =
+        (
+          await pool.query(
+            "SELECT u.email FROM account_identifiers i JOIN platform_users u ON u.id=i.user_id WHERE i.kind=$1 AND i.digest=$2",
+            [kind, identifierDigest(kind, normalized)],
+          )
+        ).rows[0]?.email ?? "";
+    }
+    // Same limit for every identifier kind, keyed by the identifier itself (not only by address).
+    const identifierKey = `${kind}:${normalized ?? "invalid"}`;
+    let perIdentifier = identifierAttempts.get(identifierKey);
+    if (!perIdentifier || perIdentifier.expires < Date.now()) {
+      perIdentifier = { count: 0, expires: Date.now() + 300000 };
+      identifierAttempts.set(identifierKey, perIdentifier);
+      if (identifierAttempts.size > 10000)
+        for (const [k, v] of identifierAttempts)
+          if (v.expires < Date.now()) identifierAttempts.delete(k);
+    }
+    // Failed attempts only: ten failures for one identifier pause it for five minutes, whatever its kind.
+    if (perIdentifier.count >= 10)
+      fail(
+        429,
+        "RATE_LIMIT",
+        "Too many sign-in attempts. Try again in five minutes.",
+      );
+    let result: Awaited<ReturnType<typeof passwordLogin>>;
+    try {
+      // An unknown or malformed identifier takes the same path as a wrong password.
+      result = await passwordLogin(email || "unknown@invalid.invalid", data.password);
+    } catch (error) {
+      if (error instanceof ApiError && error.code === "INVALID_LOGIN") perIdentifier.count++;
+      throw error;
+    }
+    identifierAttempts.delete(identifierKey);
     if (result.challenge) res.json(result.challenge);
     else sendLogin(res, result.session!);
   }),
@@ -451,6 +512,7 @@ app.use(
 );
 app.use("/api/v1", managementRouter);
 app.use("/api/v1", mfaRouter);
+app.use("/api/v1", identifierRouter);
 app.use("/api/v1", protectedToolsRouter);
 app.use("/api/v1", ordersRouter);
 app.use("/api/v1", paymentsRouter);
