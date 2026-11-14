@@ -212,7 +212,7 @@ test(
       );
       await section.locator('input[type="file"]').setInputFiles({ name: "synthetic-id.jpg", mimeType: "image/jpeg", buffer: jpeg });
       assert.equal((await linked).status(), 200);
-      await section.getByText("Birth registration", { exact: true }).waitFor();
+      await section.locator("strong", { hasText: "Birth registration" }).waitFor();
       await section.getByText(/Waiting for safety check|Safety check in progress|Not yet checked/).first().waitFor();
       assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), true);
       await section.getByRole("button", { name: "Remove image", exact: true }).click();
