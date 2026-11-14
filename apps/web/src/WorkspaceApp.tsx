@@ -27,6 +27,7 @@ import {
 import { WorkspaceWelcome } from "./WorkspaceWelcome.js";
 import { withoutOrderLanguage } from "./order-schema.js";
 import { ServiceFlow } from "./ServiceFlow.js";
+import { OwnerAccountRequests } from "./OwnerAccountRequests.js";
 import { WorkspaceDashboard } from "./WorkspaceDashboard.js";
 import { SidebarNav } from "./ui/SidebarNav.js";
 import { udcNavigation, usesUdcNavigation } from "./workspace-navigation.js";
@@ -2182,6 +2183,7 @@ export function WorkspaceApp({
             ),
           )}
           {tx(page === "owner" && <OwnerOnboarding onSaved={refresh} />)}
+          {tx(page === "owner" && <OwnerAccountRequests />)}
         </AsyncPanel>
         {tx(
           page === "owner" && (

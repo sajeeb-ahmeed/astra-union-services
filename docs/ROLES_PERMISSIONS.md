@@ -10,6 +10,12 @@ An office account can carry an **office post** such as UP Secretary or Digital C
 
 Most mappings are **provisional** until the Secretary/Chairman role evidence is captured (see [PHASE2_PLAN.md](PHASE2_PLAN.md) for the full table). Approver posts (Chairman, Mayor) still need per-service approval authorizations. Cross-office oversight posts (upazila, district, divisional) are deferred.
 
+## Office account registration and verification (Phase 2d)
+
+Office staff can request an account for their post at `/register-office` (office, post available in that office's type, name, email, password, optional verified mobile). The request creates an **inactive** account with **no membership**, so it cannot sign in or reach any office data. Signing in with the correct password then answers `403 ACCOUNT_PENDING_REVIEW` (or `ACCOUNT_REJECTED`); a wrong password still gets the same `401` as an unknown account.
+
+The **platform owner** verifies requests (owner decision) in Platform management: approve, or reject with a reason of at least eight characters. Approval creates the membership with the post's role and post, and activates the account; each request, approval and rejection is written to the office's audit log. Approval does not grant approval authorizations: a Chairman or Mayor still needs per-service authorizations from the office admin.
+
 ## Implemented role matrix
 
 `Own` means the citizen profile/application is linked to the current user. `Tenant` means only the server-selected active tenant. `Authority` additionally requires an active service-specific approval authorization. A dash means the API denies the action.
