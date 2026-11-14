@@ -8,6 +8,7 @@ import {
   presentAddressPayload,
   readPresentAddress,
 } from "./PresentAddressFields.js";
+import { CitizenDetailsEditor } from "./CitizenDetailsFields.js";
 import {
   GeographyFields,
   geographyPayload,
@@ -56,6 +57,7 @@ export function AdditionalWorkspace({
   const [busy, setBusy] = useState(false),
     [message, setMessage] = useState(""),
     [error, setError] = useState("");
+  const [ownCitizen, setOwnCitizen] = useState<any>(null);
   const [profile, setProfile] = useState<any>({
     displayName: "",
     nameBn: "",
@@ -117,7 +119,12 @@ export function AdditionalWorkspace({
   }
   useEffect(() => {
     void run(async () => {
-      if (page === "profile") setProfile(await api("/profile"));
+      if (page === "profile") {
+        setProfile(await api("/profile"));
+        // Phase 3a: a citizen also keeps their own personal and identity details.
+        if (session.user.role === "citizen")
+          setOwnCitizen(items(await api("/citizens"))[0] ?? null);
+      }
       if (page === "prints") {
         const c = items(await api("/citizens"));
         setCitizens(c);
@@ -266,6 +273,12 @@ export function AdditionalWorkspace({
                 <button disabled={busy}>{t("Save profile")}</button>
               </form>
             </section>
+            {session.user.role === "citizen" && ownCitizen && (
+              <CitizenDetailsEditor
+                citizen={ownCitizen}
+                onSaved={setOwnCitizen}
+              />
+            )}
             <section className="panel">
               <h2>{t("পাসওয়ার্ড পরিবর্তন / Change password")}</h2>
               <form

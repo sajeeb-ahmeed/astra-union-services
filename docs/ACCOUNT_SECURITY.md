@@ -97,6 +97,12 @@ Besides email, an account can sign in with a **mobile, NID or birth-registration
 
 `IDENTIFIER_SECRET` must be 32+ random characters and must not be changed once numbers are stored. If it is missing in production, the server still starts: email sign-in works and the other identifiers report `503 IDENTIFIERS_UNAVAILABLE`.
 
+## Citizen identity numbers (Phase 3a)
+
+A citizen record can carry an NID and a birth-registration number, entered by office staff or by the citizen on their own profile. Unlike sign-in identifiers these must be printable, so each is stored three ways: **AES-256-GCM ciphertext** under the server key `CITIZEN_DATA_KEY` (bound to the office and the kind of number, so a value cannot be moved between records), an HMAC digest that keeps one record per number per office (`409 CITIZEN_NUMBER_TAKEN`), and a masked hint such as `••••123`. Lists and record responses carry only the hint. The full numbers come from `GET /api/v1/citizens/:id/identity` (office staff, reviewers and approvers, or the citizen for their own record); every read is recorded as `CITIZEN_IDENTITY_VIEWED` and the response is not cached. Detail changes are recorded as `CITIZEN_DETAILS_UPDATED` with the field names only, never the values.
+
+`CITIZEN_DATA_KEY` is 64 hex characters, separate from `IDENTIFIER_SECRET` and `MFA_ENCRYPTION_KEY`. Losing or changing it makes stored numbers unreadable, so keep a copy with the database backups. Without it in production the server starts and entering a number reports `503 CITIZEN_DATA_UNAVAILABLE`.
+
 ## Mobile verification at registration (Phase 2c)
 
 Self-registration can add a **mobile number confirmed by a one-time code** (optional for now). `POST /api/v1/auth/otp/signup` sends a six-digit code and returns only an opaque challenge token; `POST /api/v1/auth/otp/verify` checks the code; `POST /api/v1/auth/signup` then accepts `mobile` with that `otpToken`, consumes the challenge in the same transaction and stores the number as a mobile sign-in identifier (Phase 2b). The token and the code are stored only as digests and the number only as its keyed digest. A code expires after 10 minutes, allows five tries and makes one account; a new code for the same number needs a 60-second wait and at most five an hour.

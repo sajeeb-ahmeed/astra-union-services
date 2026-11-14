@@ -333,5 +333,9 @@
   "Please retry shortly.": "কিছুক্ষণ পরে আবার চেষ্টা করুন।",
   "Draft saved. Open the draft and submit it when ready.": "খসড়া সংরক্ষিত হয়েছে। প্রস্তুত হলে খসড়া খুলে আবেদন জমা দিন।",
   "Changes saved.": "পরিবর্তন সংরক্ষিত হয়েছে।",
-  "Supporting documents must pass security scanning before this action.": "এই ধাপে যাওয়ার আগে সহায়ক নথির নিরাপত্তা পরীক্ষা সম্পন্ন হতে হবে। নথির পরীক্ষার অবস্থা দেখুন।"
+  "Supporting documents must pass security scanning before this action.": "এই ধাপে যাওয়ার আগে সহায়ক নথির নিরাপত্তা পরীক্ষা সম্পন্ন হতে হবে। নথির পরীক্ষার অবস্থা দেখুন।",
+  "Leave a number blank to keep the one on file. Numbers are stored encrypted.": "সংরক্ষিত নম্বর রাখতে ঘরটি খালি রাখুন। নম্বরগুলো এনক্রিপ্ট করে সংরক্ষণ করা হয়।",
+  "NID: 10, 13 or 17 digits. Birth registration: 17 digits. Numbers are stored encrypted.": "জাতীয় পরিচয়পত্র: ১০, ১৩ বা ১৭ অঙ্ক। জন্ম নিবন্ধন: ১৭ অঙ্ক। নম্বরগুলো এনক্রিপ্ট করে সংরক্ষণ করা হয়।",
+  "Viewing full numbers is recorded in the audit log.": "পূর্ণ নম্বর দেখার তথ্য অডিট লগে সংরক্ষিত হয়।",
+  "Details": "বিস্তারিত"
 }

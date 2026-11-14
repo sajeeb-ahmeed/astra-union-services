@@ -26,6 +26,20 @@ export const citizenRow = (r: any) =>
         verificationState: r.verification_state,
         geography: geographyRow(r),
         presentAddress: presentAddressRow(r),
+        // Phase 3a details. NID/birth-registration numbers appear only as masked hints here;
+        // the full numbers come from GET /citizens/:id/identity, which is audited.
+        gender: r.gender ?? null,
+        fatherNameBn: r.father_name_bn ?? null,
+        fatherNameEn: r.father_name_en ?? null,
+        motherNameBn: r.mother_name_bn ?? null,
+        motherNameEn: r.mother_name_en ?? null,
+        spouseNameBn: r.spouse_name_bn ?? null,
+        spouseNameEn: r.spouse_name_en ?? null,
+        bloodGroup: r.blood_group ?? null,
+        nidHint: r.nid_hint ?? null,
+        birthRegHint: r.birth_reg_hint ?? null,
+        contactMobile: r.contact_mobile ?? null,
+        noMobile: r.no_mobile ?? false,
         createdAt: r.created_at,
       }
     : null;
