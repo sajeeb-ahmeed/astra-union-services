@@ -637,6 +637,52 @@ app.patch(
     res.json(item);
   }),
 );
+/**
+ * Phase 3c: link an uploaded private attachment of this citizen as their NID or birth-registration image, or
+ * unlink it with null. The upload itself goes through POST /attachments and its quarantine scan.
+ */
+app.put(
+  "/api/v1/citizens/:id/identity-document",
+  wrap(async (req, res) => {
+    const a = roles(req, ["staff", "admin", "citizen"]);
+    const id = uuid.parse(req.params.id);
+    const input = z
+      .object({
+        document: z.object({ attachmentId: uuid, kind: z.enum(["nid", "birth_reg"]) }).strict().nullable(),
+      })
+      .strict()
+      .parse(req.body).document;
+    const item = await transaction(tenant(req), async (db) => {
+      await reachableCitizen(db, a, id, "id");
+      if (input) {
+        const owned = (
+          await db.query("SELECT 1 FROM attachments WHERE tenant_id=$1 AND citizen_id=$2 AND id=$3", [
+            a.tenantId,
+            id,
+            input.attachmentId,
+          ])
+        ).rowCount;
+        if (!owned) fail(404, "ATTACHMENT_NOT_FOUND", "Upload the document for this citizen first.");
+      }
+      const row = (
+        await db.query(
+          "UPDATE citizens SET identity_document_id=$3,identity_document_kind=$4 WHERE tenant_id=$1 AND id=$2 RETURNING *",
+          [a.tenantId, id, input?.attachmentId ?? null, input?.kind ?? null],
+        )
+      ).rows[0];
+      await audit(
+        db,
+        a.tenantId!,
+        a.userId,
+        input ? "CITIZEN_IDENTITY_DOCUMENT_LINKED" : "CITIZEN_IDENTITY_DOCUMENT_REMOVED",
+        id,
+        input ?? {},
+      );
+      return citizenRow(row);
+    });
+    res.json(item);
+  }),
+);
 app.get(
   "/api/v1/citizens/:id/identity",
   wrap(async (req, res) => {

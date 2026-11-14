@@ -3,6 +3,7 @@ import { t, useLanguage } from "./i18n.js";
 import { api } from "./api.js";
 import { citizenProfileCompleteness } from "@astra/shared-schemas";
 import { ProfileCompleteness } from "./ProfileCompleteness.js";
+import { IdentityDocument } from "./IdentityDocument.js";
 
 /**
  * Phase 3a: personal and identity details of a citizen record. NID and birth-registration numbers are sent
@@ -261,6 +262,7 @@ export function CitizenDetailsEditor({
       {hasNumbers && !revealed && (
         <p className="hint">{t("Viewing full numbers is recorded in the audit log.")}</p>
       )}
+      <IdentityDocument citizen={citizen} canEdit={canEdit} onChanged={onSaved} />
       {canEdit && (
         <form
           onSubmit={(e) => {

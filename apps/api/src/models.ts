@@ -40,6 +40,10 @@ export const citizenRow = (r: any) =>
         birthRegHint: r.birth_reg_hint ?? null,
         contactMobile: r.contact_mobile ?? null,
         noMobile: r.no_mobile ?? false,
+        // Phase 3c: the linked NID/birth-registration image; its scan state comes from /attachments/:id/status.
+        identityDocument: r.identity_document_id
+          ? { attachmentId: r.identity_document_id, kind: r.identity_document_kind }
+          : null,
         createdAt: r.created_at,
       }
     : null;

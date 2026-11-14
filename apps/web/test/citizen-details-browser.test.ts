@@ -186,3 +186,39 @@ test(
     }
   },
 );
+
+test(
+  "identity document browser: staff attach an ID image that stays quarantined, then remove it",
+  { timeout: 120000 },
+  async () => {
+    const browser = await browserInstance();
+    const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
+    try {
+      await signIn(page, "staff@alpha.demo.test");
+      await workspacePage(page, "Citizens").click();
+      const first = page.getByRole("button", { name: /^Details: / }).first();
+      await first.click();
+      const section = page.locator(".citizen-details-editor .identity-document");
+      await section.waitFor();
+      if (await section.getByRole("button", { name: "Remove image", exact: true }).count()) {
+        await section.getByRole("button", { name: "Remove image", exact: true }).click();
+        await section.getByText("No ID document image on file. Adding one is optional.", { exact: true }).waitFor();
+      }
+      await section.locator("select").selectOption("birth_reg");
+      // A minimal well-formed JPEG; it is synthetic test data, never a real document.
+      const jpeg = Buffer.concat([Buffer.from([255, 216, 255, 224]), Buffer.alloc(64, 7), Buffer.from([255, 217])]);
+      const linked = page.waitForResponse(
+        (r) => r.url().includes("/identity-document") && r.request().method() === "PUT",
+      );
+      await section.locator('input[type="file"]').setInputFiles({ name: "synthetic-id.jpg", mimeType: "image/jpeg", buffer: jpeg });
+      assert.equal((await linked).status(), 200);
+      await section.locator("strong", { hasText: "Birth registration" }).waitFor();
+      await section.getByText(/Waiting for safety check|Safety check in progress|Not yet checked/).first().waitFor();
+      assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), true);
+      await section.getByRole("button", { name: "Remove image", exact: true }).click();
+      await section.getByText("No ID document image on file. Adding one is optional.", { exact: true }).waitFor();
+    } finally {
+      await browser.close();
+    }
+  },
+);
