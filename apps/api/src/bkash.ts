@@ -202,6 +202,30 @@ export class BkashGateway implements Gateway {
     if (result.transactionId!==transactionId) return providerFailure();
     return result;
   }
+  /**
+   * Phase 5d: bKash refund (v2 Refund API, checked against developer.bka.sh on 15 November 2026). bKash says to
+   * call Refund Status before retrying an unanswered refund, so this always checks first: an existing completed
+   * refund is reported instead of refunding twice.
+   */
+  async refundPayment(input: {paymentId: string; trxId: string; amountMinor: number; reason: string; sku: string}): Promise<{accepted: boolean; settled: boolean; reference?: string; error?: string}> {
+    const existing = await this.refundStatusOf(input.paymentId, input.trxId);
+    if (existing) return {accepted:true, settled: existing.status === 'Completed', reference: existing.refundTrxId};
+    try {
+      const data = await this.call('/refund/payment/transaction',{paymentId:string(input.paymentId),trxId:string(input.trxId),refundAmount:minorToMoney(input.amountMinor),sku:input.sku.slice(0,255),reason:input.reason.slice(0,255)});
+      if (data.originalTrxId!==input.trxId || moneyToMinor(data.refundAmount)!==input.amountMinor) return providerFailure();
+      return {accepted:true, settled: data.refundTransactionStatus==='Completed', reference: string(data.refundTrxId)};
+    } catch (error: any) {
+      if (error?.code === 'GATEWAY_REJECTED') return {accepted:false, settled:false, error:'REFUND_REJECTED_BY_PROVIDER'};
+      throw error;
+    }
+  }
+  /** The refund recorded against a payment, if any (Refund Status API). */
+  async refundStatusOf(paymentId: string, trxId: string): Promise<{refundTrxId: string; status: string} | null> {
+    const data = await this.call('/refund/payment/status',{paymentId:string(paymentId),trxId:string(trxId)});
+    const list = Array.isArray(data.refundTransactions) ? data.refundTransactions : [];
+    const latest = list.at(-1);
+    return latest ? {refundTrxId:string(latest.refundTrxId), status:string(latest.refundTransactionStatus,40)} : null;
+  }
 }
 
 const overrides = new Map<string,Gateway>();

@@ -122,6 +122,23 @@ class FakeGateway implements Gateway {
       )!.search,
     };
   }
+  // Phase 5d: the bKash Refund and Refund Status APIs.
+  refunds = new Map<string, { refundTrxId: string; status: string }>();
+  refundCalls = 0;
+  async refundPayment(input: { paymentId: string; trxId: string; amountMinor: number; reason: string; sku: string }) {
+    const existing = await this.refundStatusOf(input.paymentId, input.trxId);
+    if (existing) return { accepted: true, settled: existing.status === "Completed", reference: existing.refundTrxId };
+    this.refundCalls++;
+    const entry = this.entries.get(input.paymentId)!;
+    assert.equal(input.trxId, entry.result.transactionId);
+    assert.equal(input.amountMinor, entry.result.amountMinor);
+    const refund = { refundTrxId: `R${randomUUID().slice(0, 8)}`, status: "Completed" };
+    this.refunds.set(input.paymentId, refund);
+    return { accepted: true, settled: true, reference: refund.refundTrxId };
+  }
+  async refundStatusOf(paymentId: string, _trxId: string) {
+    return this.refunds.get(paymentId) ?? null;
+  }
   async entryFor(intentId: string) {
     const row = (
       await admin.query(
@@ -1105,4 +1122,24 @@ test("PAY-16: later contradictory provider evidence holds issuance without rewri
     (await request("GET", "/wallet", undefined, "finance")).body.balance,
     balance - 1,
   );
+});
+
+test("PAY-REFUND: a bKash refund is sent once, completes at once and makes the fee no longer count as paid", async () => {
+  setGatewayForTests(office.id, gateway);
+  const app = await createApplication();
+  const started = await checkout(app.id);
+  assert.equal(started.status, 201, JSON.stringify(started.body));
+  assert.equal((await callback(started.body.attempt.id)).status, 303);
+  assert.equal((await request("GET", `/applications/${app.id}/payment`)).body.paymentStatus, "COLLECTED");
+  const requested = await request("POST", `/applications/${app.id}/refunds`, { reason: "Paid for the wrong service" });
+  assert.equal(requested.status, 201, JSON.stringify(requested.body));
+  const before = gateway.refundCalls;
+  const approved = await request("POST", `/refunds/${requested.body.id}/decision`, { decision: "APPROVED" }, "finance");
+  assert.equal(approved.status, 200, JSON.stringify(approved.body));
+  assert.equal(approved.body.status, "SETTLED");
+  assert.equal(gateway.refundCalls, before + 1);
+  // A later status check never refunds again.
+  assert.equal((await request("POST", `/refunds/${requested.body.id}/refresh`, {}, "finance")).body.status, "SETTLED");
+  assert.equal(gateway.refundCalls, before + 1);
+  assert.equal((await request("GET", `/applications/${app.id}/payment`)).body.paymentStatus, "REFUNDED");
 });

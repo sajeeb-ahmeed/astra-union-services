@@ -145,7 +145,7 @@ async function send(tenantId: string, refundId: string, actorId: string) {
   const claimed = await transaction(tenantId, async (db) => {
     const r = (
       await db.query(
-        `SELECT r.*,c.evidence,c.transaction_id,i.provider FROM application_refunds r
+        `SELECT r.*,c.evidence,c.transaction_id,i.provider,i.payment_id FROM application_refunds r
          JOIN gateway_payment_confirmations c ON c.tenant_id=r.tenant_id AND c.intent_id=r.intent_id
          JOIN gateway_payment_intents i ON i.tenant_id=r.tenant_id AND i.id=r.intent_id
          WHERE r.tenant_id=$1 AND r.id=$2 FOR UPDATE OF r`,
@@ -164,14 +164,25 @@ async function send(tenantId: string, refundId: string, actorId: string) {
   });
   if (!claimed) return;
   try {
-    const gateway = await resolveGateway(tenantId, claimed.provider);
-    if (!(gateway instanceof SslcommerzGateway)) throw Object.assign(new Error(), { code: "REFUND_PROVIDER_UNSUPPORTED" });
-    const result = await gateway.refund({
-      bankTransactionId: String(claimed.evidence?.providerReference ?? ""),
-      refundId: claimed.provider_refund_id,
-      amountMinor: claimed.amount_minor,
-      remarks: claimed.reason,
-    });
+    const gateway: any = await resolveGateway(tenantId, claimed.provider);
+    let result: { accepted: boolean; settled?: boolean; reference?: string; error?: string };
+    if (gateway instanceof SslcommerzGateway)
+      result = await gateway.refund({
+        bankTransactionId: String(claimed.evidence?.providerReference ?? ""),
+        refundId: claimed.provider_refund_id,
+        amountMinor: claimed.amount_minor,
+        remarks: claimed.reason,
+      });
+    else if (typeof gateway.refundPayment === "function")
+      // bKash completes a refund at once and is checked for an existing refund before any new request.
+      result = await gateway.refundPayment({
+        paymentId: claimed.payment_id,
+        trxId: claimed.transaction_id,
+        amountMinor: claimed.amount_minor,
+        reason: claimed.reason,
+        sku: `ASTRA-${claimed.application_id.slice(0, 8)}`,
+      });
+    else throw Object.assign(new Error(), { code: "REFUND_PROVIDER_UNSUPPORTED" });
     await transaction(tenantId, async (db) => {
       if (result.accepted)
         await db.query("UPDATE application_refunds SET provider_reference=$3,last_error=NULL WHERE tenant_id=$1 AND id=$2", [
@@ -179,7 +190,12 @@ async function send(tenantId: string, refundId: string, actorId: string) {
           refundId,
           result.reference,
         ]);
-      else
+      if (result.accepted && result.settled)
+        await db.query("UPDATE application_refunds SET status='SETTLED',settled_at=now() WHERE tenant_id=$1 AND id=$2 AND status='SENT'", [
+          tenantId,
+          refundId,
+        ]);
+      if (!result.accepted)
         await db.query("UPDATE application_refunds SET status='FAILED',last_error=$3 WHERE tenant_id=$1 AND id=$2", [
           tenantId,
           refundId,
@@ -222,8 +238,6 @@ refundsRouter.post(
       ).rows[0];
       if (!r) fail(404, "NOT_FOUND", "Refund not found.");
       if (r.status !== "REQUESTED") fail(409, "REFUND_ALREADY_DECIDED", "This refund has already been decided.");
-      if (d.decision === "APPROVED" && r.provider !== "SSLCOMMERZ")
-        fail(409, "REFUND_PROVIDER_UNSUPPORTED", "Online refunds are available only for SSLCommerz payments so far.");
       if (d.decision === "APPROVED" && (await db.query("SELECT 1 FROM certificates WHERE tenant_id=$1 AND application_id=$2", [a.tenantId, r.application_id])).rowCount)
         fail(409, "REFUND_AFTER_ISSUANCE", "A certificate has been issued for this application; it cannot be refunded here.");
       await db.query(
@@ -247,16 +261,21 @@ refundsRouter.post(
     const r = await transaction(a.tenantId, async (db) =>
       (
         await db.query(
-          "SELECT r.*,i.provider FROM application_refunds r JOIN gateway_payment_intents i ON i.tenant_id=r.tenant_id AND i.id=r.intent_id WHERE r.tenant_id=$1 AND r.id=$2",
+          "SELECT r.*,i.provider,i.payment_id,c.transaction_id FROM application_refunds r JOIN gateway_payment_intents i ON i.tenant_id=r.tenant_id AND i.id=r.intent_id JOIN gateway_payment_confirmations c ON c.tenant_id=r.tenant_id AND c.intent_id=r.intent_id WHERE r.tenant_id=$1 AND r.id=$2",
           [a.tenantId, id],
         )
       ).rows[0],
     );
     if (!r) fail(404, "NOT_FOUND", "Refund not found.");
     if (r.status === "SENT" && r.provider_reference) {
-      const gateway = await resolveGateway(a.tenantId, r.provider);
-      if (gateway instanceof SslcommerzGateway) {
-        const state = await gateway.refundStatus(r.provider_reference);
+      const gateway: any = await resolveGateway(a.tenantId, r.provider);
+      if (gateway instanceof SslcommerzGateway || typeof gateway.refundStatusOf === "function") {
+        const state =
+          gateway instanceof SslcommerzGateway
+            ? await gateway.refundStatus(r.provider_reference)
+            : (await gateway.refundStatusOf(r.payment_id, r.transaction_id))?.status === "Completed"
+              ? "refunded"
+              : "processing";
         if (state === "refunded")
           await transaction(a.tenantId, async (db) => {
             await db.query("UPDATE application_refunds SET status='SETTLED',settled_at=now(),last_error=NULL WHERE tenant_id=$1 AND id=$2 AND status='SENT'", [

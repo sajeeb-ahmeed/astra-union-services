@@ -43,7 +43,7 @@ Legend: **Done** — built, tested and merged. **Sandbox** — built and tested;
 | Bank recharge with slip, owner confirmation | Done (owner adds the deposit accounts) | migration 030 |
 | Owner adjustments only through the ledger | Done (verified for credits and points) | Billing and ledger |
 | Citizen payments via an aggregator, per-office merchants | **Sandbox** (SSLCommerz). Live needs the office's approved store, `MERCHANT_SECRET_KEY` and `SSLCOMMERZ_LIVE_ENABLED=true` | migration 031, [Gateway payments](GATEWAY_PAYMENTS.md) |
-| Refund state machine, 3–5 working days shown | Done for SSLCommerz; bKash refunds deferred | migration 032 |
+| Refund state machine, 3–5 working days shown | Done for SSLCommerz and bKash | migration 032 |
 | Single `BKASH_TENANT_ID` binding | Kept for bKash; SSLCommerz is per office. Moving bKash to per-office credentials is deferred until a bKash merchant exists | Gateway payments |
 
 ## Phase 6 — office workflow (G16, G19, G20)
