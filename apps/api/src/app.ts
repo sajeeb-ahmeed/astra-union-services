@@ -53,6 +53,7 @@ import { merchantSecretsAvailable } from "./sslcommerz.js";
 import { refundsRouter } from "./refunds.js";
 import { ownerInclusionRouter, publicInclusionRouter } from "./office-inclusion.js";
 import { ownerWitnessRouter, publicWitnessRouter } from "./witness.js";
+import { operationsRouter } from "./operations.js";
 import { otpRouter } from "./otp.js";
 import {
   ownerOfficeRegistrationRouter,
@@ -559,6 +560,7 @@ app.use("/api/v1", merchantRouter);
 app.use("/api/v1", refundsRouter);
 app.use("/api/v1", ownerInclusionRouter);
 app.use("/api/v1", ownerWitnessRouter);
+app.use("/api/v1", operationsRouter);
 app.use("/api/v1", paymentsRouter);
 app.use("/api/v1", attachmentsRouter);
 app.get(

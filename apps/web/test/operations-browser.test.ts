@@ -1,0 +1,43 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import fs from "node:fs";
+import path from "node:path";
+import { chromium, type Browser } from "playwright";
+import { workspacePage } from "./fixtures/workspace-nav.js";
+const origin = "http://127.0.0.1:5173";
+async function browserInstance(): Promise<Browser> {
+  const local = path.join(process.env.LOCALAPPDATA || "", "ms-playwright");
+  const executable =
+    process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE ||
+    (fs.existsSync(local)
+      ? fs
+          .readdirSync(local)
+          .filter((name) => /^chromium-/.test(name))
+          .sort()
+          .reverse()
+          .map((name) => path.join(local, name, "chrome-win64", "chrome.exe"))
+          .find((filename) => fs.existsSync(filename))
+      : undefined);
+  return chromium.launch({ headless: true, executablePath: executable });
+}
+
+test("operations browser: the owner sees scanner health and pending queues first", { timeout: 90000 }, async () => {
+  const browser = await browserInstance();
+  const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
+  try {
+    await page.goto(`${origin}/login`);
+    await page.getByLabel("Email", { exact: true }).fill("owner@astra.demo.test");
+    await page.getByLabel("Password", { exact: true }).fill("Demo-Phase1!");
+    await page.locator(".login-form").getByRole("button", { name: "Sign in", exact: true }).click();
+    await page.getByRole("button", { name: "Sign out", exact: true }).waitFor();
+    await workspacePage(page, "Platform management").click();
+    const panel = page.locator(".owner-operations");
+    await panel.getByRole("heading", { name: "Operations", exact: true }).waitFor();
+    await panel.getByText("Waiting for scan", { exact: true }).waitFor();
+    await panel.getByText("Recharge requests", { exact: true }).waitFor();
+    // Either all clear or plain-language alerts; never an empty box.
+    assert.ok((await panel.getByTestId("operations-ok").count()) + (await panel.locator(".operations-alerts li").count()) >= 1);
+  } finally {
+    await browser.close();
+  }
+});
