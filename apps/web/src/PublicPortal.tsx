@@ -6,6 +6,8 @@ import "./public-usability.css";
 import serviceCatalog from "./public-service-catalog.json" with { type: "json" };
 import { api, items } from "./api.js";
 import { ServicePriceList } from "./ServicePriceList.js";
+import { DesignatedOfficers, OfficeInclusionForm } from "./OfficeInclusion.js";
+import faq from "./faq.json" with { type: "json" };
 import {
   GeographyFields,
   geographyPayload,
@@ -1048,6 +1050,7 @@ export function PublicPortal({
                         {t("Next offices ")}
                       </button>
                     </div>
+                    <OfficeInclusionForm />
                     {tx(
                       office && (
                         <section
@@ -1080,6 +1083,7 @@ export function PublicPortal({
                             )}
                           </div>
                           <ServicePriceList services={items(office.services)} />
+                          <DesignatedOfficers officers={office.officers ?? []} />
                           <h3>{t("Office notices")}</h3>
                           {tx(
                             (office.notices || []).map((n: any) => (
@@ -1667,45 +1671,16 @@ export function PublicPortal({
                         onChange={(e) => setFaqSearch(e.target.value)}
                         placeholder={t("Application, password, payment…")}
                       />
-                      {tx(
-                        [
-                          [
-                            "কীভাবে আবেদন করব? / How do I apply?",
-                            "Register with a participating office, sign in, choose a service and citizen, complete its form, then save and submit. Your Applications page shows the current state.",
-                          ],
-                          [
-                            "সংশোধনের অনুরোধ এলে? / What if changes are requested?",
-                            "Open the application, read the review reason, edit the requested fields, save changes and resubmit. Earlier submitted versions remain in the audit history.",
-                          ],
-                          [
-                            "সনদ কীভাবে পাব? / How do I get my certificate?",
-                            "After authorized approval and issuance, open the application and use Download PDF. The QR verification link shows current issued or revoked status.",
-                          ],
-                          [
-                            "পেমেন্ট কি বাস্তব? / Are payments live?",
-                            "No. The current installation uses a local billing sandbox with engineering fixture prices. No real money is collected and statutory government fees are not configured.",
-                          ],
-                          [
-                            "পরিচয় যাচাই হয় কি? / Is identity verified?",
-                            "Accounts and records are synthetic demo data. Government NID/BRN, OTP and official identity verification are not connected.",
-                          ],
-                          [
-                            "সমস্যা হলে? / What if I need help?",
-                            "Contact your participating office through your existing trusted contact channel. This demo has no live call centre, email or SMS delivery provider.",
-                          ],
-                        ]
-                          .filter(([q, a]) =>
-                            `${q} ${a}`
-                              .toLowerCase()
-                              .includes(faqSearch.toLowerCase()),
-                          )
-                          .map(([q, a]) => (
-                            <details key={q}>
-                              <summary>{tx(q)}</summary>
-                              <p>{tx(a)}</p>
-                            </details>
-                          )),
-                      )}
+                      {/* Phase 6b: Astra's own answers about how Astra works (apps/web/src/faq.json). */}
+                      {faq
+                        .map((item) => ({ id: item.id, q: choose(item.q), a: choose(item.a) }))
+                        .filter(({ q, a }) => `${q} ${a}`.toLowerCase().includes(faqSearch.toLowerCase()))
+                        .map(({ id, q, a }) => (
+                          <details key={id} id={`faq-${id}`}>
+                            <summary>{q}</summary>
+                            <p>{a}</p>
+                          </details>
+                        ))}
                     </section>
                     <section className="panel prose">
                       <h2>{t("মতামত ও সহায়তা / Feedback")}</h2>

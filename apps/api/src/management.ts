@@ -407,7 +407,22 @@ publicManagementRouter.get(
         [office.id],
       )
     ).rows.map(camelRow);
-    res.json({ office: officeRow(office), services, notices });
+    // Phase 6b: designated issuing officers — approvers with active authority, by name and post only.
+    const officers = await transaction(office.id, async (db) =>
+      (
+        await db.query(
+          `SELECT u.display_name, at.name_bn AS post_bn, at.name_en AS post_en, array_agg(aa.service_no ORDER BY aa.service_no) AS services
+           FROM approval_authorizations aa
+           JOIN staff_memberships m ON m.tenant_id=aa.tenant_id AND m.user_id=aa.user_id AND m.active AND m.role='approver'
+           JOIN platform_users u ON u.id=m.user_id AND u.active
+           LEFT JOIN account_types at ON at.code=m.account_type
+           WHERE aa.tenant_id=$1 AND aa.active
+           GROUP BY u.id, u.display_name, at.name_bn, at.name_en ORDER BY u.display_name`,
+          [office.id],
+        )
+      ).rows.map((r) => ({ name: r.display_name, postBn: r.post_bn, postEn: r.post_en, services: r.services })),
+    );
+    res.json({ office: officeRow(office), services, notices, officers });
   }),
 );
 publicManagementRouter.get(
