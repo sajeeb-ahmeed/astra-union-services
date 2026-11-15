@@ -75,6 +75,21 @@ test("managed source pins resource, database and verified TLS; no URL redirectio
     assert.throws(() => validateSource(c));
   }
 });
+test("Neon source requires a Neon host, the astra_prod database and TLS; application credentials are refused", () => {
+  const neon = (value) => ({ mode: "neon", databaseId: "neon:astra_prod", url: new URL(value) });
+  assert.doesNotThrow(() =>
+    validateSource(neon("postgresql://fixture_owner:synthetic@ep-fixture-123-pooler.ap-southeast-1.aws.neon.tech/astra_prod?sslmode=require")),
+  );
+  for (const value of [
+    "postgresql://fixture_owner:x@ep-fixture.ap-southeast-1.aws.neon.tech/astra_prod",
+    "postgresql://fixture_owner:x@ep-fixture.ap-southeast-1.aws.neon.tech/astra_prod?sslmode=disable",
+    "postgresql://fixture_owner:x@ep-fixture.ap-southeast-1.aws.neon.tech/neondb?sslmode=require",
+    "postgresql://fixture_owner:x@neon.tech.attacker.test/astra_prod?sslmode=require",
+    "postgresql://fixture_owner:x@ep-fixture.ap-southeast-1.aws.neon.tech:6543/astra_prod?sslmode=require",
+    "postgresql://astra_app:x@ep-fixture.ap-southeast-1.aws.neon.tech/astra_prod?sslmode=require",
+  ])
+    assert.throws(() => validateSource(neon(value)), value);
+});
 test("local managed test source cannot silently select main database or remote host", () => {
   const c = {
     mode: "local-managed",
