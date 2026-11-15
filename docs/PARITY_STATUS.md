@@ -32,7 +32,7 @@ Legend: **Done** — built, tested and merged. **Sandbox** — built and tested;
 | Fee breakdown, language on the order | Done (already present before this phase) | [Order workflow](ORDER_WORKFLOW.md) |
 | G10 per-service price list with citizen-charter time, public view | Done | migration 027 |
 | G11 coupons | Done | migration 028 |
-| G13 public witness generator | **Blocked** — its religion-dependent certificate-type options must come from a capture, not a guess | Phase 4 guide text |
+| G13 public witness generator | Done as a free public flow at `/witness` (utility PDF, nothing stored, 10/17-digit NID). The religion and certificate-type options are an **owner-maintained list** (migration 034) — empty until the owner enters them from the captures, so nothing is guessed | `apps/api/src/witness.ts` |
 | 4.4 certificate layout | Done in Astra's own artwork: portrait A4, two signature blocks (template 5); QR/token verification kept | migration-free, Phase 6a |
 
 ## Phase 5 — money (G8, G9)

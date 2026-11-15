@@ -51,6 +51,7 @@ import { rechargeRouter } from "./recharge.js";
 import { merchantRouter } from "./gateways.js";
 import { refundsRouter } from "./refunds.js";
 import { ownerInclusionRouter, publicInclusionRouter } from "./office-inclusion.js";
+import { ownerWitnessRouter, publicWitnessRouter } from "./witness.js";
 import { otpRouter } from "./otp.js";
 import {
   ownerOfficeRegistrationRouter,
@@ -349,6 +350,7 @@ app.use("/api/v1", geographyRouter);
 app.use("/api/v1", publicToolsRouter);
 app.use("/api/v1", publicPaymentsRouter);
 app.use("/api/v1", publicInclusionRouter);
+app.use("/api/v1", publicWitnessRouter);
 app.get(
   "/api/v1/health",
   wrap(async (_req, res) => {
@@ -544,6 +546,7 @@ app.use("/api/v1", rechargeRouter);
 app.use("/api/v1", merchantRouter);
 app.use("/api/v1", refundsRouter);
 app.use("/api/v1", ownerInclusionRouter);
+app.use("/api/v1", ownerWitnessRouter);
 app.use("/api/v1", paymentsRouter);
 app.use("/api/v1", attachmentsRouter);
 app.get(

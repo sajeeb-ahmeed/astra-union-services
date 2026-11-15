@@ -7,6 +7,7 @@ import serviceCatalog from "./public-service-catalog.json" with { type: "json" }
 import { api, items } from "./api.js";
 import { ServicePriceList } from "./ServicePriceList.js";
 import { DesignatedOfficers, OfficeInclusionForm } from "./OfficeInclusion.js";
+import { WitnessGenerator } from "./WitnessGenerator.js";
 import faq from "./faq.json" with { type: "json" };
 import {
   GeographyFields,
@@ -27,6 +28,7 @@ const publicPages: Record<string, [string, string]> = {
   offices: ["সেবার আওতাভুক্ত অফিস", "Office directory"],
   notices: ["বিজ্ঞপ্তি", "Notices"],
   help: ["সহায়িকা", "Help"],
+  witness: ["সাক্ষীর প্রত্যয়ন", "Witness statement"],
   tracking: ["আবেদনের অবস্থা", "Track application"],
   verify: ["সনদ যাচাই", "Verify certificate"],
 };
@@ -1659,6 +1661,7 @@ export function PublicPortal({
                   </section>
                 ),
               )}
+              {page === "witness" && <WitnessGenerator />}
               {tx(
                 page === "help" && (
                   <>
