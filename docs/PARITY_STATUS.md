@@ -54,7 +54,7 @@ Legend: **Done** — built, tested and merged. **Sandbox** — built and tested;
 | Manual verification console with role evidence | **Blocked** on the role captures (`docs/evidence/prottoyon-roles/`) | [Phase 6 plan](PHASE6_PLAN.md) |
 | Print and renewal products as lists with lookup and date range | See Phase 6 plan (6c) | Phase 6 plan |
 | Office inclusion requests, FAQ, designated issuing officers | Done; FAQ is Astra's own content, not the reference's 61 headings | Phase 6 plan |
-| User-guide PDF slot | Deferred until the owner supplies a guide | Phase 6 plan |
+| User guide | Done: bilingual guide by role at `/guide` (Citizens, office staff, Secretary, Chairman, office admin/finance, owner), printable as PDF. The owner can replace it with an official guide later | `apps/web/src/UserGuide.tsx` |
 
 ## Before release sign-off (Phase 7.4)
 
