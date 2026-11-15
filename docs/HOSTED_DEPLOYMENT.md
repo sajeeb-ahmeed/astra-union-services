@@ -24,7 +24,7 @@ Performed by the owner (Md) with Claude: Claude moved and verified the data; the
 - No IP allowlist is configured on Neon; access is protected by password and TLS (`sslmode=verify-full`). Keep the admin connection string private and reset the password if it has been exposed.
 - Neon Free scales compute to zero after about 5 minutes idle; the first request after that waits for the database to wake. This is expected, not an outage.
 - Neon Free has no expiry date. Point-in-time restore is limited to Neon's short Free-plan history window, so the encrypted backup procedure still matters; its scripts are pinned to the old Render database (see below).
-- `scripts/backup/managed-recovery.mjs`, `scripts/migrate-hosted-attachments.mjs` and `scripts/migrate-hosted-security.mjs` are **legacy**: they are hard-wired to the Render database `dpg-db6tr43ncjis73ercfsg-a` and only kept as history. A Neon-targeted backup procedure is still to be built.
+- `scripts/migrate-hosted-attachments.mjs` and `scripts/migrate-hosted-security.mjs` are **legacy** (hard-wired to the retired Render database). `scripts/backup/managed-recovery.mjs` now also has a **Neon mode**: `node scripts/backup/managed-recovery.mjs backup --neon <private file with adminUrl>` (set `PG_BINARY_DIRECTORY` to PostgreSQL 17 client tools). It accepts only a `*.neon.tech` host, the `astra_prod` database and TLS, and refuses to export unless the owner role meets the privilege contract — on 15 November 2026 Neon's `astra_admin` still had **BYPASSRLS**, so the owner must remove it before the first Neon backup can pass.
 - The old Render database was not deleted by this move; it expires on the Free plan. Its final data is in the two encrypted backups above.
 
 ## Release 0.9 — current verified deployment
