@@ -1,5 +1,7 @@
 # Astra Union Services
 
+**Release 1.0 candidate (15 November 2026), awaiting the owner's sign-off:** citizen identity and completeness, price list and coupons, points wallet and bank recharge, SSLCommerz checkout (sandbox) and refunds, the Chairman's summons step and signature blocks, office inclusion requests, FAQ and the witness-statement generator. See [Release 1.0](docs/RELEASE_1_0.md) and [Parity status](docs/PARITY_STATUS.md). The 0.9 notes below are history.
+
 Attachment quarantine and PC malware scanner: [0.9 notes](docs/RELEASE_0_9.md) · [operator runbook](docs/ATTACHMENT_SCANNER_RUNTIME.md). Hosted status is recorded separately; source version alone does not establish deployment.
 
 Release **0.9.0 is live**, verified 24 October 2026. Independently authored Bangla/English React frontend, Express/TypeScript backend and real PostgreSQL. The commissioning user owns the original software; third-party licenses are retained separately.
