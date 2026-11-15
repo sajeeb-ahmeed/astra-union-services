@@ -1,5 +1,5 @@
 import fs from "node:fs";
-import { createCipheriv, createDecipheriv, randomBytes } from "node:crypto";
+import { createCipheriv, createDecipheriv, createHmac, randomBytes } from "node:crypto";
 import { ApiError } from "./models.js";
 import { minorToMoney, moneyToMinor, type CreatedPayment, type Gateway, type PaymentResult, type TransactionResult } from "./bkash.js";
 
@@ -46,23 +46,31 @@ function merchantKey(): Buffer | null {
   return Buffer.from(fs.readFileSync(keyFile, "utf8").trim(), "hex");
 }
 export const merchantSecretsAvailable = () => merchantKey() !== null;
-const aad = (tenantId: string, environment: string) => Buffer.from(`astra-merchant-v1:${tenantId}:SSLCOMMERZ:${environment}`);
-export function sealMerchantSecret(secret: string, tenantId: string, environment: string) {
+// The provider is part of the binding, so a sealed secret cannot be moved between providers or offices.
+type MerchantProvider = "SSLCOMMERZ" | "BKASH";
+const aad = (tenantId: string, environment: string, provider: MerchantProvider) =>
+  Buffer.from(`astra-merchant-v1:${tenantId}:${provider}:${environment}`);
+/** A 64-hex key for bKash's encrypted token cache, derived from MERCHANT_SECRET_KEY (never stored). */
+export function derivedTokenKey(tenantId: string): string | null {
+  const key = merchantKey();
+  return key ? createHmac("sha256", key).update(`astra-bkash-token-v1:${tenantId}`).digest("hex") : null;
+}
+export function sealMerchantSecret(secret: string, tenantId: string, environment: string, provider: MerchantProvider = "SSLCOMMERZ") {
   const key = merchantKey();
   if (!key) throw problem("MERCHANT_SECRETS_UNAVAILABLE", "Storing merchant credentials is not enabled on this server.", 503);
   const nonce = randomBytes(12);
   const cipher = createCipheriv("aes-256-gcm", key, nonce);
-  cipher.setAAD(aad(tenantId, environment));
+  cipher.setAAD(aad(tenantId, environment, provider));
   const bytes = Buffer.concat([cipher.update(secret, "utf8"), cipher.final()]);
   return ["v1", nonce.toString("hex"), cipher.getAuthTag().toString("hex"), bytes.toString("hex")].join(".");
 }
-export function openMerchantSecret(sealed: string, tenantId: string, environment: string) {
+export function openMerchantSecret(sealed: string, tenantId: string, environment: string, provider: MerchantProvider = "SSLCOMMERZ") {
   const key = merchantKey();
   if (!key) throw problem("MERCHANT_SECRETS_UNAVAILABLE", "Merchant credentials cannot be read on this server.", 503);
   try {
     const [, nonce, tag, bytes] = sealed.split(".");
     const decipher = createDecipheriv("aes-256-gcm", key, Buffer.from(nonce!, "hex"));
-    decipher.setAAD(aad(tenantId, environment));
+    decipher.setAAD(aad(tenantId, environment, provider));
     decipher.setAuthTag(Buffer.from(tag!, "hex"));
     return Buffer.concat([decipher.update(Buffer.from(bytes!, "hex")), decipher.final()]).toString("utf8");
   } catch {

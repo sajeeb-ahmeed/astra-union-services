@@ -60,7 +60,7 @@ test(
       await page.getByRole("button", { name: "Sign out", exact: true }).waitFor();
       await workspacePage(page, "Office administration").click();
       await page.getByRole("tab", { name: "Online payments", exact: true }).click();
-      const panel = page.locator(".payment-merchant");
+      const panel = page.locator(".sslcommerz-merchant");
       await panel.getByTestId("merchant-status").getByText("Not set up").waitFor();
       await panel.getByLabel("Store ID", { exact: true }).fill("astra-browser-test");
       await panel.getByLabel("Store password", { exact: true }).fill(storePassword);
@@ -76,6 +76,15 @@ test(
       assert.equal(await panel.getByLabel("Store ID", { exact: true }).inputValue(), "astra-browser-test");
       assert.equal((await page.content()).includes(storePassword), false);
       assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), true);
+      // The office's own bKash merchant, in the same tab.
+      const bkash = page.locator(".bkash-merchant");
+      await bkash.getByTestId("bkash-status").getByText("Not set up").waitFor();
+      await bkash.getByLabel("Merchant number", { exact: true }).fill("01712345678");
+      for (const field of ["App key", "App secret", "Username", "Password"])
+        await bkash.getByLabel(field, { exact: true }).fill(`${field.replace(" ", "-")}-${storePassword}`);
+      await bkash.getByRole("button", { name: "Save", exact: true }).click();
+      await bkash.getByTestId("bkash-status").getByText("Active").waitFor();
+      assert.equal((await page.content()).includes(storePassword), false);
       // Phase 5d: the office's refund panel is on the billing page for admin and finance.
       await workspacePage(page, "Subscription & credits").click();
       await page.locator(".office-refunds").getByText("No refund requests.", { exact: true }).waitFor();

@@ -248,6 +248,24 @@ function configuration(tenantId: string): {config?:BkashConfig; environment:'DIS
     return {environment,reason:'CONFIGURED',config:{tenantId,environment,merchantAccount,appKey:process.env.BKASH_APP_KEY!,appSecret:process.env.BKASH_APP_SECRET!,username:process.env.BKASH_USERNAME!,password:process.env.BKASH_PASSWORD!,encryptionKey:process.env.BKASH_TOKEN_ENCRYPTION_KEY!,publicOrigin:origin.origin}};
   } catch { return {environment,reason:'GATEWAY_CONFIGURATION_INVALID'}; }
 }
+/** Whether a test transport replaces bKash for this office (test processes only). */
+export function hasGatewayOverride(tenantId: string) {
+  return process.env.NODE_ENV === 'test' && overrides.has(tenantId);
+}
+/**
+ * An office's own bKash merchant (office_payment_merchants). Returns the reason when it cannot be used, so
+ * availability and checkout give the same answer.
+ */
+export function officeBkashConfig(input: {tenantId: string; environment: 'SANDBOX' | 'LIVE'; merchantAccount: string; appKey: string; appSecret: string; username: string; password: string; tokenKey: string | null}): {config?: BkashConfig; reason: string} {
+  if (input.environment === 'LIVE' && process.env.BKASH_LIVE_ENABLED !== 'true') return {reason:'LIVE_ACTIVATION_REQUIRED'};
+  if (!input.tokenKey) return {reason:'MERCHANT_SECRETS_UNAVAILABLE'};
+  try {
+    const raw = process.env.PUBLIC_ORIGIN ?? (process.env.NODE_ENV === 'production' ? '' : 'http://127.0.0.1:5173');
+    const origin = new URL(raw);
+    if ((process.env.NODE_ENV === 'production' && origin.protocol !== 'https:') || origin.origin !== raw.replace(/\/$/, '')) return {reason:'GATEWAY_CONFIGURATION_INVALID'};
+    return {reason:'CONFIGURED', config:{tenantId:input.tenantId, environment:input.environment, merchantAccount:normalizeMerchant(input.merchantAccount), appKey:input.appKey, appSecret:input.appSecret, username:input.username, password:input.password, encryptionKey:input.tokenKey, publicOrigin:origin.origin}};
+  } catch { return {reason:'GATEWAY_CONFIGURATION_INVALID'}; }
+}
 export function gatewayAvailability(tenantId: string) {
   const override=process.env.NODE_ENV==='test' ? overrides.get(tenantId) : undefined;
   const c=configuration(tenantId);
