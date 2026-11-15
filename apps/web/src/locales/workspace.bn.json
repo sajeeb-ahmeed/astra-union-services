@@ -350,5 +350,7 @@
   "PDF, PNG or JPEG up to 2 MB. The image can be opened only after its security scan finds no threat.": "পিডিএফ, পিএনজি বা জেপিইজি, সর্বোচ্চ ২ মেগাবাইট। নিরাপত্তা পরীক্ষায় কোনো ঝুঁকি না পাওয়া পর্যন্ত ছবিটি খোলা যাবে না।",
   "Uploads must be between 8 bytes and 2 MiB.": "ফাইলের আকার ৮ বাইট থেকে ২ মেগাবাইটের মধ্যে হতে হবে।",
   "Coupons": "কুপন",
-  "Online payments": "অনলাইন পেমেন্ট"
+  "Online payments": "অনলাইন পেমেন্ট",
+  "Ask the applicant to come": "আবেদনকারীকে আসতে বলুন",
+  "summon": "আবেদনকারীকে তলব"
 }
