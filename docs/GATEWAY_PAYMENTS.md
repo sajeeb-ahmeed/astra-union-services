@@ -99,3 +99,14 @@ A second provider, **SSLCommerz** (cards and mobile wallets on one hosted page, 
 - **Return and IPN.** SSLCommerz POSTs the browser return and the IPN to `/api/v1/payments/sslcommerz/callback/:token`. The global origin guard admits only `sandbox.sslcommerz.com` / `securepay.sslcommerz.com` (or no Origin) on that one path. The opaque token finds the attempt and the returned `tran_id` must equal its invoice. Neither the return nor the IPN is proof of payment.
 - **Verification.** A payment is accepted only when the session query (`merchantTransIDvalidationAPI.php?sessionkey=`) reports VALID/VALIDATED for the same invoice, amount and currency **and** order validation (`validationserverAPI.php?val_id=`) agrees. A risk-flagged payment (`risk_level` ≠ 0) or any disagreement is not accepted. The confirmation, receipt (number `…SSLC-…`, verification `SSLCOMMERZ_SESSION_QUERY_AND_VALIDATION`, enforced by the receipt trigger) and paid state commit together, exactly as for bKash; reconciliation reuses the same checks.
 - **Not done here.** Live merchant credentials, real-money tests, refunds (5d) and bank payout reconciliation.
+
+## Refunds (Phase 5d)
+
+Refunds are their own audited state machine (`application_refunds`, migration 032): **REQUESTED → APPROVED → SENT → SETTLED**, or REQUESTED → REJECTED, or SENT → FAILED. The database enforces the allowed moves, keeps the request fields fixed, refuses deletion and allows one live refund per application.
+
+- **Request.** The applicant (own application) or office staff/admin: `POST /api/v1/applications/:id/refunds` `{ reason, amountMinor? }` (default: the full verified payment; never more). Refused once a certificate has been issued.
+- **Decide.** Office admin or finance: `POST /api/v1/refunds/:id/decision` `{ decision, note? }`; a rejection needs a reason. Approval sets the expected date (5 working days, Sunday–Thursday) and sends the refund at once.
+- **Send once.** Astra stores its own `refund_trans_id` and marks the refund SENT **before** calling the SSLCommerz Refund API, so an unknown outcome is retried with the same id (the provider answers "processing" rather than refunding twice). The bank transaction id needed by the provider is kept in the payment confirmation evidence from order validation.
+- **Settle.** `POST /api/v1/refunds/:id/refresh` asks the Refund Query API; only "refunded" settles it.
+- **Effect.** From approval the application's payment state is REFUND_PENDING, then REFUNDED; neither satisfies issuance. The original payment, confirmation and receipt are never edited.
+- **bKash** refunds are not integrated yet; approving one returns `409 REFUND_PROVIDER_UNSUPPORTED` and leaves it requested.

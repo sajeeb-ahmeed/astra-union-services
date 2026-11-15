@@ -202,6 +202,14 @@ export async function applicationPaymentState(
     )
   ).rowCount;
   if (confirmed) {
+    // Phase 5d: an approved, sent or settled refund means the fee no longer counts as paid.
+    const refund = (
+      await db.query(
+        "SELECT status FROM application_refunds WHERE application_id=$1 AND status IN ('APPROVED','SENT','SETTLED') LIMIT 1",
+        [applicationId],
+      )
+    ).rows[0];
+    if (refund) return refund.status === "SETTLED" ? ("REFUNDED" as const) : ("REFUND_PENDING" as const);
     const decisive = (
       await db.query(
         `SELECT r.result FROM gateway_payment_reconciliations r JOIN gateway_payment_confirmations p ON p.tenant_id=r.tenant_id AND p.intent_id=r.intent_id
@@ -409,6 +417,7 @@ async function finalize(
       ...(search.creditedAmountMinor === undefined
         ? {}
         : { creditedAmountMinor: search.creditedAmountMinor }),
+      ...(search.providerReference ? { providerReference: search.providerReference } : {}),
     };
     await db.query(
       `INSERT INTO gateway_payment_confirmations(tenant_id,intent_id,application_id,provider,environment,merchant_account,payment_id,transaction_id,invoice,amount_minor,currency,evidence)

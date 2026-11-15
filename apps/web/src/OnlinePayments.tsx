@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { api, ApiError } from "./api.js";
 import { choose, useLanguage } from "./i18n.js";
 import { money } from "./ApplicationOrder.js";
+import { ApplicationRefunds } from "./Refunds.js";
 
 type Message = { bn: string; en: string };
 type Availability = {
@@ -110,6 +111,8 @@ function statusLabel(status: string) {
     },
     PAID: { bn: "পরিশোধ যাচাইকৃত", en: "Verified paid" },
     REVIEW_REQUIRED: { bn: "পুনরায় যাচাই প্রয়োজন", en: "Review required" },
+    REFUND_PENDING: { bn: "ফি ফেরত প্রক্রিয়াধীন", en: "Refund in progress" },
+    REFUNDED: { bn: "ফি ফেরত দেওয়া হয়েছে", en: "Fee refunded" },
     FAILED: { bn: "পেমেন্ট সম্পন্ন হয়নি", en: "Payment not completed" },
     MATCHED: { bn: "গেটওয়ের তথ্য মিলেছে", en: "Gateway records matched" },
     MISMATCH: { bn: "গেটওয়ের তথ্যে অমিল", en: "Gateway record mismatch" },
@@ -423,6 +426,9 @@ export function ApplicationPayment({
           )}
           {attempt?.lastReconciliation && (
             <LatestCheck check={attempt.lastReconciliation} />
+          )}
+          {["COLLECTED", "REFUND_PENDING", "REFUNDED"].includes(payment.paymentStatus) && (
+            <ApplicationRefunds applicationId={applicationId} canRequest={canPay && payment.paymentStatus === "COLLECTED"} />
           )}
           {payment.totalMinor > 0 && (
             <>

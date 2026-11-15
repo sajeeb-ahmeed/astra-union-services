@@ -6,7 +6,7 @@ import { ApiError } from './models.js';
 // 2026-10-17. Wallet numbers, OTPs and PINs are handled only on bKash's page.
 export type CreatedPayment = { paymentId: string; checkoutUrl: string; signature: string; amountMinor: number; currency: 'BDT'; invoice: string };
 export type PaymentResult = { paymentId: string; status: string; transactionId?: string; amountMinor: number; currency: string; invoice: string; intent: string; serviceFeeMinor?: number; creditedAmountMinor?: number; couponAmountMinor?: number };
-export type TransactionResult = { transactionId: string; status: string; amountMinor: number; currency: string; merchantAccount: string; serviceFeeMinor?: number; creditedAmountMinor?: number; couponAmountMinor?: number };
+export type TransactionResult = { transactionId: string; status: string; amountMinor: number; currency: string; merchantAccount: string; serviceFeeMinor?: number; creditedAmountMinor?: number; couponAmountMinor?: number; /** Provider's own reference needed later (SSLCommerz bank_tran_id for refunds). */ providerReference?: string };
 export interface Gateway {
   provider: 'BKASH' | 'SSLCOMMERZ'; environment: 'SANDBOX' | 'LIVE'; merchantAccount: string;
   create(input: {invoice: string; amountMinor: number; callbackURL: string; payerReference: string}): Promise<CreatedPayment>;
