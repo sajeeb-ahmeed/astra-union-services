@@ -1,6 +1,6 @@
 # Phase 6 plan — office workflow completion
 
-Status: **6a and 6b delivered; 6c planned** (15 November 2026). Source: the parity execution guide, Phase 6 (G16, G19, G20 and print products).
+Status: **6a, 6b and 6c delivered** (15 November 2026). Source: the parity execution guide, Phase 6 (G16, G19, G20 and print products).
 
 ## What can be built now, and what waits for evidence
 
@@ -19,6 +19,12 @@ Phase 0 role captures (one Secretary and one Chairman session, `docs/evidence/pr
 - Help page answers come from `apps/web/src/faq.json`: twenty questions written for Astra about how Astra works, in Bangla and English, searchable. They do not claim to match the reference system's 61 headings, which are not in the repository.
 - Office public page: **Designated issuing officers** — approvers with active authority, by name, post and number of services (no contact details).
 - Not done: the user-guide PDF slot, until the owner provides a guide document.
+
+## 6c as built
+
+- Applications list: `from` / `to` (Asia/Dhaka calendar days, inclusive; reversed or invalid dates → 422) and `renewal=true` (renewal applications only; rows carry `isRenewal`); search also matches the citizen's contact mobile.
+- Print copies list (biodata, holding, witness): search by name, reference or mobile, plus the same date range; rows show the citizen's name.
+- Until the role captures arrive these are the lookup fields; observed per-list fields can be added later without changing the data.
 
 ## Delivery, one pull request each
 
