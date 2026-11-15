@@ -46,6 +46,7 @@ import {
   duplicateNumberError,
   type CitizenDetails,
 } from "./citizen-data.js";
+import { pointsRouter, chargeIssuancePoints } from "./points.js";
 import { otpRouter } from "./otp.js";
 import {
   ownerOfficeRegistrationRouter,
@@ -533,6 +534,7 @@ app.use("/api/v1", identifierRouter);
 app.use("/api/v1", ownerOfficeRegistrationRouter);
 app.use("/api/v1", protectedToolsRouter);
 app.use("/api/v1", ordersRouter);
+app.use("/api/v1", pointsRouter);
 app.use("/api/v1", paymentsRouter);
 app.use("/api/v1", attachmentsRouter);
 app.get(
@@ -1578,6 +1580,8 @@ app.post(
           "INSERT INTO credit_ledger(tenant_id,delta,kind,idempotency_key,certificate_id,actor_id,reason,balance_after) VALUES($1,$2,'ISSUANCE',$3,$4,$5,'DEMO certificate issuance',0)",
           [a.tenantId, -cost, `issuance:${c.id}`, c.id, a.userId],
         );
+        // Phase 5a: the owner-set point price, deducted once in the same transaction (402 keeps it approved).
+        await chargeIssuancePoints(db, a.tenantId!, r.service_no, c.id, a.userId);
         if (
           process.env.NODE_ENV === "test" &&
           req.header("X-Test-Failure") === "after-debit"
