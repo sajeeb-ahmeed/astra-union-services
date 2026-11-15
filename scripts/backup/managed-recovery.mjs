@@ -568,8 +568,9 @@ export function validateInventory(tables, policies, owner) {
 }
 
 /**
- * `allowOwnerBypass` is set only for Neon: roles made in the Neon console get BYPASSRLS from the platform and no
- * user role can remove it. The application role must still have no bypass, and the archive records the fact.
+ * `allowOwnerBypass` is set only for Neon: roles made in the Neon console get BYPASSRLS and REPLICATION from the
+ * platform and no user role can remove them. The application role must still have neither, and the archive
+ * records both facts.
  */
 async function captureSecurity(client, owner, { allowOwnerBypass = false } = {}) {
   const roles = (
@@ -580,7 +581,12 @@ async function captureSecurity(client, owner, { allowOwnerBypass = false } = {})
   ).rows;
   if (
     roles.length !== 2 ||
-    roles.some((r) => r.superuser || r.replication || (r.bypass && !(allowOwnerBypass && r.name === owner))) ||
+    roles.some(
+      (r) =>
+        r.superuser ||
+        (r.replication && !(allowOwnerBypass && r.name === owner)) ||
+        (r.bypass && !(allowOwnerBypass && r.name === owner)),
+    ) ||
     roles.find((r) => r.name === "astra_app").createrole ||
     roles.find((r) => r.name === "astra_app").createdb
   )
@@ -614,6 +620,7 @@ async function captureSecurity(client, owner, { allowOwnerBypass = false } = {})
     owner,
     app: "astra_app",
     ownerBypassRls: roles.find((r) => r.name === owner).bypass,
+    ownerReplication: roles.find((r) => r.name === owner).replication,
     roles,
     memberships,
     owners,
