@@ -38,6 +38,7 @@ import { OwnerAccountRequests } from "./OwnerAccountRequests.js";
 import { OwnerPointPrices, OwnerPointsPanel, PointsWallet } from "./PointsWallet.js";
 import { OwnerRecharges, RechargeRequests } from "./Recharge.js";
 import { OfficeRefunds } from "./Refunds.js";
+import { OwnerInclusionRequests } from "./OfficeInclusion.js";
 import { WorkspaceDashboard } from "./WorkspaceDashboard.js";
 import { SidebarNav } from "./ui/SidebarNav.js";
 import { udcNavigation, usesUdcNavigation } from "./workspace-navigation.js";
@@ -2292,6 +2293,7 @@ export function WorkspaceApp({
           {tx(page === "owner" && <OwnerAccountRequests />)}
           {tx(page === "owner" && <OwnerPointPrices />)}
           {tx(page === "owner" && <OwnerRecharges />)}
+          {tx(page === "owner" && <OwnerInclusionRequests />)}
         </AsyncPanel>
         {tx(
           page === "owner" && (

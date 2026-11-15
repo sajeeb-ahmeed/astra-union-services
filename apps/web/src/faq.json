@@ -1,0 +1,222 @@
+[
+  {
+    "id": "what-is-astra",
+    "q": {
+      "bn": "Astra কী?",
+      "en": "What is Astra?"
+    },
+    "a": {
+      "bn": "Astra ইউনিয়ন পরিষদ, পৌরসভা ও সিটি কর্পোরেশন অফিসের নাগরিক সেবার আবেদন, যাচাই, অনুমোদন ও সনদ ইস্যুর একটি অনলাইন ব্যবস্থা। প্রতিটি অফিস নিজের নাগরিক, সেবা ও ফি আলাদাভাবে পরিচালনা করে।",
+      "en": "Astra is an online system for citizen service applications, checks, approval and certificate issuing for union, municipality and city corporation offices. Each office runs its own citizens, services and fees separately."
+    }
+  },
+  {
+    "id": "find-office",
+    "q": {
+      "bn": "আমার অফিস Astra-তে আছে কি না কীভাবে দেখব?",
+      "en": "How do I check whether my office uses Astra?"
+    },
+    "a": {
+      "bn": "‘অফিস খুঁজুন’ পাতায় অফিসের নাম বা বিভাগ থেকে ইউনিয়ন পর্যন্ত এলাকা দিয়ে খুঁজুন। অফিস না থাকলে ‘অফিস যুক্ত করার অনুরোধ’ পাঠাতে পারেন।",
+      "en": "Search the Offices page by office name or by area from division to union. If your office is not listed, you can send an office inclusion request."
+    }
+  },
+  {
+    "id": "register",
+    "q": {
+      "bn": "নাগরিক হিসেবে কীভাবে নিবন্ধন করব?",
+      "en": "How do I register as a citizen?"
+    },
+    "a": {
+      "bn": "নিবন্ধন পাতায় আপনার অফিস বেছে নিন, নাম, জন্ম তারিখ ও স্থায়ী ঠিকানা দিন। মোবাইল নম্বর দিলে এককালীন কোড দিয়ে তা যাচাই করতে হয়। চাইলে অফিসের কর্মী আপনার পক্ষে নিবন্ধন করতে পারেন।",
+      "en": "On the registration page choose your office and enter your name, date of birth and permanent address. If you add a mobile number, you confirm it with a one-time code. Office staff can also register you."
+    }
+  },
+  {
+    "id": "sign-in-identifiers",
+    "q": {
+      "bn": "ইমেইল ছাড়া কি মোবাইল বা এনআইডি দিয়ে লগইন করা যায়?",
+      "en": "Can I sign in with my mobile or NID instead of email?"
+    },
+    "a": {
+      "bn": "হ্যাঁ। অ্যাকাউন্ট নিরাপত্তা পাতায় মোবাইল, এনআইডি বা জন্ম নিবন্ধন নম্বর যোগ করলে সেগুলো দিয়ে পাসওয়ার্ডসহ লগইন করা যায়। নম্বরগুলো গোপন আকারে সংরক্ষিত থাকে।",
+      "en": "Yes. Add your mobile, NID or birth registration number on the Account security page; you can then sign in with it and your password. The numbers are stored in protected form."
+    }
+  },
+  {
+    "id": "profile-complete",
+    "q": {
+      "bn": "প্রোফাইল ‘সম্পূর্ণ’ বলতে কী বোঝায়?",
+      "en": "What does a ‘complete’ profile mean?"
+    },
+    "a": {
+      "bn": "নাম (বাংলা ও ইংরেজি), জন্ম তারিখ, স্থায়ী ঠিকানা, এনআইডি বা জন্ম নিবন্ধন নম্বর, এবং মোবাইল নম্বর বা ‘মোবাইল নেই’ ঘোষণা। কিছু অফিস সম্পূর্ণ প্রোফাইল ছাড়া সনদ ইস্যু করে না।",
+      "en": "Name in Bangla and English, date of birth, permanent address, an NID or birth registration number, and a mobile number or a ‘no mobile’ declaration. Some offices issue certificates only for complete profiles."
+    }
+  },
+  {
+    "id": "apply",
+    "q": {
+      "bn": "কীভাবে আবেদন করব?",
+      "en": "How do I apply?"
+    },
+    "a": {
+      "bn": "সেবার তালিকা থেকে সেবা বেছে নিন, ফর্ম পূরণ করুন, প্রয়োজনীয় নথি যুক্ত করুন এবং জমা দিন। জমার আগে খসড়া সংরক্ষণ করা যায়।",
+      "en": "Choose the service from the list, fill in the form, attach the required documents and submit. You can save a draft before submitting."
+    }
+  },
+  {
+    "id": "documents-scan",
+    "q": {
+      "bn": "নথি যুক্ত করার পরে ‘পরীক্ষার অপেক্ষায়’ দেখাচ্ছে কেন?",
+      "en": "Why does an attached document say ‘waiting for safety check’?"
+    },
+    "a": {
+      "bn": "প্রতিটি নথি ম্যালওয়্যার পরীক্ষা শেষ না হওয়া পর্যন্ত আলাদা রাখা হয়। পরীক্ষা সফল হলে নথিটি খোলা যায় এবং আবেদন এগোয়।",
+      "en": "Every document is kept apart until its malware check finishes. Once the check passes, the document can be opened and the application can move on."
+    }
+  },
+  {
+    "id": "fees",
+    "q": {
+      "bn": "সেবার ফি কত, কোথায় দেখব?",
+      "en": "How much is a service fee, and where can I see it?"
+    },
+    "a": {
+      "bn": "প্রতিটি অফিস নিজের ফি নির্ধারণ করে। অফিসের পাতায় ‘সেবার মূল্য তালিকা’-তে ফি, জরুরি সেবার অতিরিক্ত ফি, বিতরণ ফি ও সেবা প্রদানের সময় দেখা যায়। আবেদনের সময় ফি-র বিস্তারিত হিসাব দেখানো হয়।",
+      "en": "Each office sets its own fees. The office page's Service price list shows the fee, urgent surcharge, delivery fees and service time. The full fee breakdown is shown when you apply."
+    }
+  },
+  {
+    "id": "coupon",
+    "q": {
+      "bn": "কুপন কোড কীভাবে ব্যবহার করব?",
+      "en": "How do I use a coupon code?"
+    },
+    "a": {
+      "bn": "অফিস কুপন দিলে আবেদনের ফি অংশে কোডটি লিখে ‘ফি দেখুন’ চাপুন। কোডটি বৈধ হলে ছাড়সহ মোট ফি দেখাবে।",
+      "en": "If your office gave you a coupon, enter it in the fee section of the application and choose ‘Review fees’. A valid code shows the total with the discount."
+    }
+  },
+  {
+    "id": "pay-online",
+    "q": {
+      "bn": "অনলাইনে কীভাবে ফি দেব?",
+      "en": "How do I pay a fee online?"
+    },
+    "a": {
+      "bn": "আবেদন অনুমোদিত হলে অফিস যে পদ্ধতি চালু রেখেছে (bKash বা কার্ড/মোবাইল ব্যাংকিং) তাতে পরিশোধ করুন। গেটওয়ের সার্ভার যাচাইয়ের পরেই রসিদ তৈরি হয়; শুধু পেমেন্ট পাতায় ফিরে আসা পরিশোধের প্রমাণ নয়।",
+      "en": "Once the application is approved, pay with the method your office has switched on (bKash, or card and mobile wallet). A receipt is created only after the gateway's server confirms the payment; returning from the payment page alone is not proof."
+    }
+  },
+  {
+    "id": "refund",
+    "q": {
+      "bn": "ফি ফেরত পাব কীভাবে?",
+      "en": "How do I get a fee refunded?"
+    },
+    "a": {
+      "bn": "সনদ ইস্যুর আগে আবেদনের পেমেন্ট অংশ থেকে কারণসহ ফেরতের অনুরোধ করুন। অফিস অনুমোদন করলে টাকা সাধারণত ৩–৫ কর্মদিবসে ফেরত যায়; অবস্থা আবেদনেই দেখা যায়।",
+      "en": "Before the certificate is issued, ask for a refund with a reason in the application's payment section. If the office approves it, the money usually returns within 3–5 working days; you can follow its status in the application."
+    }
+  },
+  {
+    "id": "track",
+    "q": {
+      "bn": "আবেদনের অবস্থা কীভাবে জানব?",
+      "en": "How do I follow my application?"
+    },
+    "a": {
+      "bn": "লগইন করে ‘আবেদনসমূহ’ পাতায় দেখুন, অথবা আবেদন নম্বর দিয়ে ‘আবেদন খুঁজুন’ ব্যবহার করুন। সংশোধনের প্রয়োজন হলে কারণসহ তা জানানো হয়।",
+      "en": "Sign in and open Applications, or use ‘Find application’ with the application number. If something needs correcting, you are told what and why."
+    }
+  },
+  {
+    "id": "summon",
+    "q": {
+      "bn": "চেয়ারম্যান কেন আমাকে অফিসে আসতে বলেছেন?",
+      "en": "Why has the Chairman asked me to come to the office?"
+    },
+    "a": {
+      "bn": "সিদ্ধান্তের আগে কিছু আবেদনে চেয়ারম্যান আবেদনকারীর সাথে কথা বলতে পারেন। আবেদনে কখন ও কোথায় যেতে হবে তা লেখা থাকে; আবেদনটি তখনো পর্যালোচনায় থাকে।",
+      "en": "For some applications the Chairman may want to speak with the applicant before deciding. The application shows when and where to come; it stays under review meanwhile."
+    }
+  },
+  {
+    "id": "certificate-sign",
+    "q": {
+      "bn": "সনদে স্বাক্ষর কীভাবে হয়?",
+      "en": "How is the certificate signed?"
+    },
+    "a": {
+      "bn": "Astra সনদের পিডিএফ তৈরি করে এবং QR কোড দিয়ে অনলাইনে যাচাইয়ের ব্যবস্থা রাখে। প্রিন্ট করা সনদে চেয়ারম্যান নিজ হাতে স্বাক্ষর করেন।",
+      "en": "Astra prepares the certificate PDF with a QR code for online verification. The Chairman signs the printed certificate by hand."
+    }
+  },
+  {
+    "id": "verify",
+    "q": {
+      "bn": "কোনো সনদ আসল কি না কীভাবে যাচাই করব?",
+      "en": "How do I check that a certificate is genuine?"
+    },
+    "a": {
+      "bn": "সনদের QR কোড স্ক্যান করুন বা যাচাই লিংক খুলুন। Astra সনদের অবস্থা (বৈধ বা বাতিল) দেখায়।",
+      "en": "Scan the certificate's QR code or open its verification link. Astra shows whether the certificate is valid or revoked."
+    }
+  },
+  {
+    "id": "renewal",
+    "q": {
+      "bn": "সনদ বা ট্রেড লাইসেন্স নবায়ন কীভাবে করব?",
+      "en": "How do I renew a certificate or trade licence?"
+    },
+    "a": {
+      "bn": "নবায়ন সেবা বেছে নিয়ে আগের সনদের নম্বর দিন। আগের সনদের তথ্য যুক্ত হয়ে নতুন আবেদন তৈরি হয়।",
+      "en": "Choose the renewal service and enter the previous certificate number. A new application is created linked to the previous certificate."
+    }
+  },
+  {
+    "id": "office-points",
+    "q": {
+      "bn": "অফিসের পয়েন্ট ওয়ালেট কী?",
+      "en": "What is an office's points wallet?"
+    },
+    "a": {
+      "bn": "প্রতিটি সনদ ইস্যুর সময় অফিসের পয়েন্ট (১ পয়েন্ট = ১ টাকা) থেকে নির্ধারিত পরিমাণ কাটা হয়। অফিস ব্যাংকে জমা দিয়ে রসিদসহ রিচার্জের অনুরোধ করে; যাচাইয়ের পরে পয়েন্ট যোগ হয়।",
+      "en": "Issuing each certificate deducts its set price from the office's points (1 point = 1 taka). The office recharges by bank deposit with the slip; points are added after the deposit is confirmed."
+    }
+  },
+  {
+    "id": "privacy",
+    "q": {
+      "bn": "আমার তথ্য কীভাবে সুরক্ষিত থাকে?",
+      "en": "How is my data protected?"
+    },
+    "a": {
+      "bn": "প্রতিটি অফিসের তথ্য আলাদা রাখা হয়। এনআইডি ও জন্ম নিবন্ধন নম্বর এনক্রিপ্ট করে রাখা হয় এবং তালিকায় শুধু শেষ কয়েকটি অঙ্ক দেখায়; পূর্ণ নম্বর দেখার প্রতিটি ঘটনা লগে থাকে।",
+      "en": "Each office's data is kept separate. NID and birth registration numbers are stored encrypted and lists show only the last digits; every view of a full number is logged."
+    }
+  },
+  {
+    "id": "demo",
+    "q": {
+      "bn": "Astra-র সনদ কি আইনগতভাবে বৈধ?",
+      "en": "Are Astra certificates legally valid?"
+    },
+    "a": {
+      "bn": "বর্তমান সংস্করণ প্রদর্শনী ও পাইলটের জন্য; সনদে ‘ডেমো’ চিহ্ন থাকে। আইনগত বৈধতা সংশ্লিষ্ট অফিসের অনুমোদন ও স্বাক্ষরের উপর নির্ভর করে।",
+      "en": "The current version is for demonstration and pilots; certificates carry a ‘demo’ mark. Legal validity depends on the office's authority and signature."
+    }
+  },
+  {
+    "id": "help",
+    "q": {
+      "bn": "সাহায্য দরকার হলে কী করব?",
+      "en": "Where can I get help?"
+    },
+    "a": {
+      "bn": "প্রথমে আপনার অফিসে যোগাযোগ করুন। পোর্টালের ‘মতামত’ ফর্ম দিয়ে সমস্যা বা পরামর্শ জানাতে পারেন।",
+      "en": "Contact your office first. You can also report a problem or suggestion through the portal's feedback form."
+    }
+  }
+]
