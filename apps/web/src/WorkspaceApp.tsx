@@ -36,6 +36,7 @@ import { withoutOrderLanguage } from "./order-schema.js";
 import { ServiceFlow } from "./ServiceFlow.js";
 import { OwnerAccountRequests } from "./OwnerAccountRequests.js";
 import { OwnerPointPrices, OwnerPointsPanel, PointsWallet } from "./PointsWallet.js";
+import { OwnerRecharges, RechargeRequests } from "./Recharge.js";
 import { WorkspaceDashboard } from "./WorkspaceDashboard.js";
 import { SidebarNav } from "./ui/SidebarNav.js";
 import { udcNavigation, usesUdcNavigation } from "./workspace-navigation.js";
@@ -2053,7 +2054,9 @@ export function WorkspaceApp({
                   <small>{t("Engineering fixture prices only")}</small>
                 </div>
               </div>
-              <PointsWallet />
+              <PointsWallet>
+                <RechargeRequests />
+              </PointsWallet>
               <section className="panel">
                 <h2>{t("Subscription and top-up")}</h2>
                 <p>
@@ -2248,6 +2251,7 @@ export function WorkspaceApp({
           {tx(page === "owner" && <OwnerOnboarding onSaved={refresh} />)}
           {tx(page === "owner" && <OwnerAccountRequests />)}
           {tx(page === "owner" && <OwnerPointPrices />)}
+          {tx(page === "owner" && <OwnerRecharges />)}
         </AsyncPanel>
         {tx(
           page === "owner" && (

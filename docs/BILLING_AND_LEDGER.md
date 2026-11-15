@@ -100,3 +100,9 @@ Beside the credit wallet above (owner decision "keep both"), each office has a *
 - **Adjustments.** `POST /api/v1/owner/tenants/:id/points/adjust` writes an ADJUSTMENT entry; a client `requestKey` makes a retried request apply once. Balances cannot go negative.
 - **Views.** Offices see their balance, prices and recent movements on the billing page (`GET /api/v1/wallet/points`); the owner sets prices and adjusts offices in Platform management.
 - **Managed PostgreSQL.** The wallet triggers run as the migration owner, which forced row-level security also restricts when it is not a superuser, so migration 029 gives that owner explicit policies (as migration 009 does).
+
+## Bank recharge of points (Phase 5b)
+
+- The owner keeps the list of deposit accounts (`PUT /api/v1/owner/recharge-banks/:code`; switched off, never deleted).
+- An office admin or finance user sends `POST /api/v1/recharges` with amount, account, deposit reference, deposit date (not in the future) and the deposit slip. The slip is stored as an office document (`attachments.purpose='recharge_proof'`, no citizen; migration 030) and goes through the same quarantine and malware scan; it is not reachable through the citizen attachment routes. A deposit reference can fund one live request per bank (`409 DEPOSIT_ALREADY_USED`); a rejected reference may be sent again.
+- The owner works the cross-office queue (`GET /api/v1/owner/recharges`, metadata only through `owner_recharge_queue()`), opens a slip only after a clean scan, and decides with `POST /api/v1/owner/recharges/:id/decision` inside that office's tenant context. Confirming requires a clean slip and credits exactly one RECHARGE ledger entry keyed `recharge:<id>`; rejecting requires a reason. A decided request is final (database trigger), and every step is audited.
