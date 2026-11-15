@@ -336,6 +336,11 @@ test("provider default ACL role is preserved only as a bounded auxiliary catalog
   archive.state.schemaGrants = [{ grantee: "pg_database_owner" }];
   assert.deepEqual(auxiliaryRecoveryRoles(archive), ["postgres"]);
 });
+test("Neon's provider role cloud_admin is also preserved only as a bounded auxiliary catalog identity", () => {
+  const archive = validPayload();
+  archive.state.defaultGrants = [{ owner: "cloud_admin", grantee: "fixture_owner" }];
+  assert.deepEqual(auxiliaryRecoveryRoles(archive), ["cloud_admin"]);
+});
 
 test("unknown provider roles fail before any restore role or database creation", () => {
   const archive = validPayload();

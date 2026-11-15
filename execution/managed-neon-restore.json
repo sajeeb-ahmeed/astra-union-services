@@ -1,0 +1,41 @@
+{
+  "status": "PASS",
+  "restoredAt": "2026-11-15T12:20:29.221Z",
+  "name": "managed_20261115121632695_ef1aaad4",
+  "target": "astra_recovered_d75d864e6c6fe9ae",
+  "independentClusterPort": 55433,
+  "tables": 65,
+  "tenants": 3,
+  "certificates": 2,
+  "exactStateMatch": true,
+  "ownershipPreserved": true,
+  "sourceDatabaseLocale": {
+    "datcollate": "C.UTF-8",
+    "datctype": "C.UTF-8",
+    "encoding": "UTF8"
+  },
+  "restoredDatabaseLocale": {
+    "datcollate": "C",
+    "datctype": "C",
+    "encoding": "UTF8"
+  },
+  "databaseLocaleMatchesSource": false,
+  "catalogComparison": "Exact complete values; only reviewed unordered top-level collections sorted; duplicates and nested array order retained",
+  "cutoverReady": false,
+  "sourceCredentialsReused": false,
+  "sourceMembershipsRecreated": false,
+  "auxiliaryCatalogRoles": 2,
+  "auxiliaryRolesRestrictedNoLogin": true,
+  "checks": [
+    "Restricted recovered application role.",
+    "All tenant/account tables deny unscoped runtime reads.",
+    "MFA and durable account audit obey account isolation with restored account context.",
+    "Tenant A reads its rows and cannot read tenant B.",
+    "Wallet, payment amount and receipt modification privileges remain denied.",
+    "Ledger trigger rejects modification.",
+    "Every existing certificate resolves through bounded QR verification; invalid token is hidden.",
+    "Invalid gateway callback resolves no record."
+  ],
+  "independentKeyCustody": false,
+  "offsiteReplication": false
+}
