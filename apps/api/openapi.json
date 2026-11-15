@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Astra independently authored DEMO API",
-    "version": "0.9.0",
+    "version": "1.0.0",
     "description": "Independently authored contracts for all 47 services, immutable office-specific fee assessments, and bKash v2 online checkout with provider verification, stored receipts and gateway reconciliation. These are not reference-site server contracts. Authenticated mutations require session and CSRF; the signed provider callback is separately public. Citizen fees and SaaS credits are separate. Production checkout defaults to disabled pending approved tenant merchant configuration; Nagad and bank payout reconciliation are not integrated. Official identity/signing remain unconfigured and certificates remain DEMO / NOT OFFICIAL. Source version does not establish hosted deployment or live merchant certification. Private attachments enter quarantine and require a hash-bound fresh ClamAV result before download, submission, approval or new issuance. The independently authenticated outbound scanner runs on the owner-selected PC; outages fail closed."
   },
   "servers": [

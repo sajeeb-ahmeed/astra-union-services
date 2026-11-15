@@ -32,7 +32,7 @@ Legend: **Done** — built, tested and merged. **Sandbox** — built and tested;
 | Fee breakdown, language on the order | Done (already present before this phase) | [Order workflow](ORDER_WORKFLOW.md) |
 | G10 per-service price list with citizen-charter time, public view | Done | migration 027 |
 | G11 coupons | Done | migration 028 |
-| G13 public witness generator | **Blocked** — its religion-dependent certificate-type options must come from a capture, not a guess | Phase 4 guide text |
+| G13 public witness generator | Done as a free public flow at `/witness` (utility PDF, nothing stored, 10/17-digit NID). The religion and certificate-type options are an **owner-maintained list** (migration 034) — empty until the owner enters them from the captures, so nothing is guessed | `apps/api/src/witness.ts` |
 | 4.4 certificate layout | Done in Astra's own artwork: portrait A4, two signature blocks (template 5); QR/token verification kept | migration-free, Phase 6a |
 
 ## Phase 5 — money (G8, G9)
@@ -43,7 +43,7 @@ Legend: **Done** — built, tested and merged. **Sandbox** — built and tested;
 | Bank recharge with slip, owner confirmation | Done (owner adds the deposit accounts) | migration 030 |
 | Owner adjustments only through the ledger | Done (verified for credits and points) | Billing and ledger |
 | Citizen payments via an aggregator, per-office merchants | **Sandbox** (SSLCommerz). Live needs the office's approved store, `MERCHANT_SECRET_KEY` and `SSLCOMMERZ_LIVE_ENABLED=true` | migration 031, [Gateway payments](GATEWAY_PAYMENTS.md) |
-| Refund state machine, 3–5 working days shown | Done for SSLCommerz; bKash refunds deferred | migration 032 |
+| Refund state machine, 3–5 working days shown | Done for SSLCommerz and bKash | migration 032 |
 | Single `BKASH_TENANT_ID` binding | Kept for bKash; SSLCommerz is per office. Moving bKash to per-office credentials is deferred until a bKash merchant exists | Gateway payments |
 
 ## Phase 6 — office workflow (G16, G19, G20)

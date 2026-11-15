@@ -256,5 +256,6 @@
   "Choose your complete administrative area and registration office.": "আপনার সম্পূর্ণ প্রশাসনিক এলাকা ও নিবন্ধনের অফিস নির্বাচন করুন।",
   "No participating office was found for this area. You can try a preview office below; it does not represent your local authority.": "এই এলাকার সেবাদানকারী অফিস পাওয়া যায়নি। নিচের পরীক্ষার অফিস ব্যবহার করতে পারেন; এটি আপনার স্থানীয় কর্তৃপক্ষের প্রতিনিধিত্ব করে না।",
   "No preview office matches this search. Clear the office name or contact the administrator.": "এই অনুসন্ধানে পরীক্ষার অফিস পাওয়া যায়নি। অফিসের নাম মুছে দিন অথবা প্রশাসকের সঙ্গে যোগাযোগ করুন।",
-  "Public preview: use sample personal information. Identity verification and official certificate authority are not connected; issued documents remain marked DEMO / NOT OFFICIAL.": "উন্মুক্ত পরীক্ষামূলক সংস্করণ: ব্যক্তিগত তথ্যের বদলে নমুনা তথ্য ব্যবহার করুন। পরিচয় যাচাই ও সরকারি সনদ প্রদানের ক্ষমতা সংযুক্ত নেই; ইস্যু করা নথিতে নমুনা / সরকারি সনদ নয় লেখা থাকবে।"
+  "Public preview: use sample personal information. Identity verification and official certificate authority are not connected; issued documents remain marked DEMO / NOT OFFICIAL.": "উন্মুক্ত পরীক্ষামূলক সংস্করণ: ব্যক্তিগত তথ্যের বদলে নমুনা তথ্য ব্যবহার করুন। পরিচয় যাচাই ও সরকারি সনদ প্রদানের ক্ষমতা সংযুক্ত নেই; ইস্যু করা নথিতে নমুনা / সরকারি সনদ নয় লেখা থাকবে।",
+  "Loading…": "লোড হচ্ছে…"
 }

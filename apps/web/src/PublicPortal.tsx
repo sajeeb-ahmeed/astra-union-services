@@ -1,13 +1,14 @@
 import { MobileOtpField, type VerifiedMobile } from "./MobileOtpField.js";
 import { t, tx, choose } from "./i18n.js";
-import React, { useEffect, useRef, useState } from "react";
+import React, { Suspense, lazy, useEffect, useRef, useState } from "react";
+// Phase 4c: the witness generator loads only on /witness, keeping the public start-up bundle small.
+const WitnessGenerator = lazy(() => import("./WitnessGenerator.js").then((m) => ({ default: m.WitnessGenerator })));
 import "./public-usability.css";
 // Public pages need names only; canonical metadata parity is checked by the web tests.
 import serviceCatalog from "./public-service-catalog.json" with { type: "json" };
 import { api, items } from "./api.js";
 import { ServicePriceList } from "./ServicePriceList.js";
 import { DesignatedOfficers, OfficeInclusionForm } from "./OfficeInclusion.js";
-import faq from "./faq.json" with { type: "json" };
 import {
   GeographyFields,
   geographyPayload,
@@ -27,6 +28,7 @@ const publicPages: Record<string, [string, string]> = {
   offices: ["সেবার আওতাভুক্ত অফিস", "Office directory"],
   notices: ["বিজ্ঞপ্তি", "Notices"],
   help: ["সহায়িকা", "Help"],
+  witness: ["সাক্ষীর প্রত্যয়ন", "Witness statement"],
   tracking: ["আবেদনের অবস্থা", "Track application"],
   verify: ["সনদ যাচাই", "Verify certificate"],
 };
@@ -309,6 +311,12 @@ export function PublicPortal({
   );
   // Phase 2c: an optional mobile number, accepted only after its one-time code is confirmed.
   const [signupMobile, setSignupMobile] = useState<VerifiedMobile | null>(null);
+  // Phase 6b: the FAQ text loads only when the help page opens, keeping the public start-up bundle small.
+  const [faq, setFaq] = useState<{ id: string; q: { bn: string; en: string }; a: { bn: string; en: string } }[]>([]);
+  useEffect(() => {
+    if (page !== "help" || faq.length) return;
+    import("./faq.json").then((m) => setFaq(m.default)).catch(() => setFaq([]));
+  }, [page]);
   function nav(next: string) {
     onNavigate?.();
     // Phase 1: "/" is the new public home, outside this legacy component.
@@ -1658,6 +1666,11 @@ export function PublicPortal({
                     </p>
                   </section>
                 ),
+              )}
+              {page === "witness" && (
+                <Suspense fallback={<p role="status">{t("Loading…")}</p>}>
+                  <WitnessGenerator />
+                </Suspense>
               )}
               {tx(
                 page === "help" && (
