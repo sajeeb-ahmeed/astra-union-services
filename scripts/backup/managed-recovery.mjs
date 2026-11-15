@@ -567,7 +567,11 @@ export function validateInventory(tables, policies, owner) {
   }
 }
 
-async function captureSecurity(client, owner) {
+/**
+ * `allowOwnerBypass` is set only for Neon: roles made in the Neon console get BYPASSRLS from the platform and no
+ * user role can remove it. The application role must still have no bypass, and the archive records the fact.
+ */
+async function captureSecurity(client, owner, { allowOwnerBypass = false } = {}) {
   const roles = (
     await client.query(
       "SELECT rolname name,rolsuper superuser,rolbypassrls bypass,rolcreatedb createdb,rolcreaterole createrole,rolreplication replication FROM pg_roles WHERE rolname=ANY($1::text[]) ORDER BY rolname",
@@ -576,7 +580,7 @@ async function captureSecurity(client, owner) {
   ).rows;
   if (
     roles.length !== 2 ||
-    roles.some((r) => r.superuser || r.bypass || r.replication) ||
+    roles.some((r) => r.superuser || r.replication || (r.bypass && !(allowOwnerBypass && r.name === owner))) ||
     roles.find((r) => r.name === "astra_app").createrole ||
     roles.find((r) => r.name === "astra_app").createdb
   )
@@ -609,6 +613,7 @@ async function captureSecurity(client, owner) {
   return {
     owner,
     app: "astra_app",
+    ownerBypassRls: roles.find((r) => r.name === owner).bypass,
     roles,
     memberships,
     owners,
@@ -653,7 +658,7 @@ export async function createManagedBackup(configuration) {
     ).rows[0];
     if (!/^17\d{4}$/.test(serverVersion))
       throw Error("Managed recovery requires PostgreSQL 17.");
-    const security = await captureSecurity(client, owner);
+    const security = await captureSecurity(client, owner, { allowOwnerBypass: configuration.mode === "neon" });
     const catalog = await inventory(client, owner);
     const tenantIds = (
       await client.query("SELECT id FROM tenants ORDER BY id")
