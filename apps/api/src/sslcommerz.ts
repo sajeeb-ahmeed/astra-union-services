@@ -197,6 +197,40 @@ export class SslcommerzGateway implements Gateway {
       // belongs to this store.
       merchantAccount: this.merchantAccount,
       ...(data.store_amount !== undefined ? { creditedAmountMinor: moneyToMinor(data.store_amount) } : {}),
+      ...(data.bank_tran_id ? { providerReference: text(data.bank_tran_id, 80) } : {}),
     };
+  }
+  /**
+   * Phase 5d: start a refund (Refund API). `refundId` is Astra's own refund_trans_id, stored before this call,
+   * so repeating it after an unknown outcome repeats the same request (the provider answers "processing").
+   */
+  async refund(input: { bankTransactionId: string; refundId: string; amountMinor: number; remarks: string }) {
+    if (!/^[A-Za-z0-9_-]{1,80}$/.test(input.bankTransactionId))
+      return { accepted: false, error: "BANK_TRANSACTION_UNKNOWN" } as const;
+    const data = await transport(
+      this.url("/validator/api/merchantTransIDvalidationAPI.php", {
+        bank_tran_id: input.bankTransactionId,
+        refund_trans_id: input.refundId,
+        refund_amount: minorToMoney(input.amountMinor),
+        refund_remarks: input.remarks.slice(0, 255),
+        ...this.credentials(),
+        format: "json",
+      }),
+      { method: "GET" },
+    );
+    if (data?.APIConnect !== "DONE") throw problem("GATEWAY_UNAVAILABLE", "The payment gateway refused the refund connection.");
+    const s = String(data.status ?? "").toLowerCase();
+    if ((s === "success" || s === "processing") && data.refund_ref_id)
+      return { accepted: true, reference: text(data.refund_ref_id, 80) } as const;
+    return { accepted: false, error: String(data.errorReason ?? "REFUND_NOT_INITIATED").slice(0, 200) } as const;
+  }
+  /** Phase 5d: refund state from the Refund Query API: "refunded" when finished. */
+  async refundStatus(reference: string): Promise<string> {
+    const data = await transport(
+      this.url("/validator/api/merchantTransIDvalidationAPI.php", { refund_ref_id: reference, ...this.credentials(), format: "json" }),
+      { method: "GET" },
+    );
+    if (data?.APIConnect !== "DONE") throw problem("GATEWAY_UNAVAILABLE", "The payment gateway could not report the refund.");
+    return String(data.status ?? "").toLowerCase();
   }
 }

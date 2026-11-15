@@ -76,6 +76,9 @@ test(
       assert.equal(await panel.getByLabel("Store ID", { exact: true }).inputValue(), "astra-browser-test");
       assert.equal((await page.content()).includes(storePassword), false);
       assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), true);
+      // Phase 5d: the office's refund panel is on the billing page for admin and finance.
+      await workspacePage(page, "Subscription & credits").click();
+      await page.locator(".office-refunds").getByText("No refund requests.", { exact: true }).waitFor();
     } finally {
       await browser.close();
     }

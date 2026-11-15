@@ -37,6 +37,7 @@ import { ServiceFlow } from "./ServiceFlow.js";
 import { OwnerAccountRequests } from "./OwnerAccountRequests.js";
 import { OwnerPointPrices, OwnerPointsPanel, PointsWallet } from "./PointsWallet.js";
 import { OwnerRecharges, RechargeRequests } from "./Recharge.js";
+import { OfficeRefunds } from "./Refunds.js";
 import { WorkspaceDashboard } from "./WorkspaceDashboard.js";
 import { SidebarNav } from "./ui/SidebarNav.js";
 import { udcNavigation, usesUdcNavigation } from "./workspace-navigation.js";
@@ -2057,6 +2058,7 @@ export function WorkspaceApp({
               <PointsWallet>
                 <RechargeRequests />
               </PointsWallet>
+              <OfficeRefunds />
               <section className="panel">
                 <h2>{t("Subscription and top-up")}</h2>
                 <p>

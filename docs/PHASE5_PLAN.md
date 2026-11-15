@@ -1,6 +1,6 @@
 # Phase 5 plan — money parity (points, recharge, citizen payments, refunds)
 
-Status: **5a delivered (migration 029); 5b delivered (migration 030); 5c delivered to sandbox (migration 031); 5d planned.** Owner decisions recorded 14 November 2026. Source: the parity execution guide, Phase 5 (G8, G9). Ledger invariants from [billing and ledger](BILLING_AND_LEDGER.md) must not regress.
+Status: **5a delivered (migration 029); 5b delivered (migration 030); 5c delivered to sandbox (migration 031); 5d delivered for SSLCommerz (migration 032).** Owner decisions recorded 14 November 2026. Source: the parity execution guide, Phase 5 (G8, G9). Ledger invariants from [billing and ledger](BILLING_AND_LEDGER.md) must not regress.
 
 ## Owner decisions
 

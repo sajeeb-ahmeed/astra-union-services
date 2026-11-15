@@ -45,7 +45,8 @@ async function login(name: string, email: string, secret = password) {
 }
 
 // --- A fake SSLCommerz following the v4 API documentation ---
-type FakeSession = { tran_id: string; amount: string; status: string; val_id?: string; validatedAmount?: string; risk?: string };
+type FakeSession = { tran_id: string; amount: string; status: string; val_id?: string; validatedAmount?: string; risk?: string; bank?: string };
+const refunds = new Map<string, { ref: string; amount: string; state: string }>();
 const sessions = new Map<string, FakeSession>();
 const calls: { url: URL; body?: URLSearchParams }[] = [];
 let lastSuccessUrl = "";
@@ -60,6 +61,17 @@ setSslcommerzTransportForTests(async (url, init) => {
     lastSuccessUrl = init.body!.get("success_url")!;
     return { status: "SUCCESS", sessionkey: key, GatewayPageURL: `https://sandbox.sslcommerz.com/EasyCheckOut/test${key.toLowerCase()}` };
   }
+  if (u.pathname === "/validator/api/merchantTransIDvalidationAPI.php" && u.searchParams.has("refund_trans_id")) {
+    const bank = u.searchParams.get("bank_tran_id")!;
+    if (![...sessions.values()].some((v) => v.bank === bank)) return { APIConnect: "DONE", status: "failed", errorReason: "Invalid bank_tran_id" };
+    const id = u.searchParams.get("refund_trans_id")!;
+    refunds.set(id, refunds.get(id) ?? { ref: `REF${randomBytes(5).toString("hex")}`, amount: u.searchParams.get("refund_amount")!, state: "processing" });
+    return { APIConnect: "DONE", status: "success", bank_tran_id: bank, refund_ref_id: refunds.get(id)!.ref };
+  }
+  if (u.pathname === "/validator/api/merchantTransIDvalidationAPI.php" && u.searchParams.has("refund_ref_id")) {
+    const entry = [...refunds.values()].find((r) => r.ref === u.searchParams.get("refund_ref_id"));
+    return { APIConnect: "DONE", status: entry?.state ?? "processing", refund_ref_id: entry?.ref };
+  }
   if (u.pathname === "/validator/api/merchantTransIDvalidationAPI.php") {
     const key = u.searchParams.get("sessionkey")!;
     const x = sessions.get(key)!;
@@ -68,13 +80,13 @@ setSslcommerzTransportForTests(async (url, init) => {
   if (u.pathname === "/validator/api/validationserverAPI.php") {
     const x = [...sessions.values()].find((v) => v.val_id === u.searchParams.get("val_id"));
     if (!x) return { status: "INVALID_TRANSACTION" };
-    return { status: "VALID", val_id: x.val_id, tran_id: x.tran_id, amount: x.validatedAmount ?? x.amount, store_amount: "123.00", currency: "BDT", risk_level: x.risk ?? "0" };
+    return { status: "VALID", val_id: x.val_id, tran_id: x.tran_id, bank_tran_id: x.bank, amount: x.validatedAmount ?? x.amount, store_amount: "123.00", currency: "BDT", risk_level: x.risk ?? "0" };
   }
   throw new Error(`unexpected ${u.pathname}`);
 });
 const pay = (sessionKey: string, extra: Partial<FakeSession> = {}) => {
   const x = sessions.get(sessionKey)!;
-  Object.assign(x, { status: "VALID", val_id: `VAL${randomBytes(6).toString("hex")}`, ...extra });
+  Object.assign(x, { status: "VALID", val_id: `VAL${randomBytes(6).toString("hex")}`, bank: `BANK${randomBytes(6).toString("hex")}`, ...extra });
 };
 async function postBack(fields: Record<string, string>, origin = "https://sandbox.sslcommerz.com", url = lastSuccessUrl) {
   return fetch(url.replace(/^https?:\/\/[^/]+/, base), {
@@ -284,4 +296,66 @@ test("Phase 5c: a validation that disagrees on the amount, or a risky payment, i
     const summary = await req("GET", `/applications/${id}/payment`, undefined, "citizen");
     assert.notEqual(summary.body.paymentStatus, "COLLECTED", JSON.stringify(extra));
   }
+});
+
+async function paidApplication() {
+  const id = await approvedApplication();
+  assert.equal((await checkout(id)).status, 201);
+  const sessionKey = [...sessions.keys()].at(-1)!;
+  pay(sessionKey);
+  await postBack({ tran_id: sessions.get(sessionKey)!.tran_id, status: "VALID" });
+  assert.equal((await req("GET", `/applications/${id}/payment`, undefined, "citizen")).body.paymentStatus, "COLLECTED");
+  return id;
+}
+
+test("Phase 5d: a refund is requested, approved, sent once and settled; the fee then no longer counts as paid", async () => {
+  const id = await paidApplication();
+  assert.equal((await req("POST", `/applications/${id}/refunds`, { reason: "Applied twice by mistake", amountMinor: 999999 }, "citizen")).status, 422);
+  const requested = await req("POST", `/applications/${id}/refunds`, { reason: "Applied twice by mistake" }, "citizen");
+  assert.equal(requested.status, 201, JSON.stringify(requested.body));
+  assert.equal(requested.body.amountMinor, 12707);
+  assert.equal((await req("POST", `/applications/${id}/refunds`, { reason: "Second request" }, "citizen")).status, 409);
+  const refundId = requested.body.id;
+  assert.equal((await req("POST", `/refunds/${refundId}/decision`, { decision: "APPROVED" }, "reviewer")).status, 403);
+  assert.equal((await req("POST", `/refunds/${refundId}/decision`, { decision: "APPROVED" }, "citizen")).status, 403);
+
+  const approved = await req("POST", `/refunds/${refundId}/decision`, { decision: "APPROVED" }, "finance");
+  assert.equal(approved.status, 200, JSON.stringify(approved.body));
+  assert.equal(approved.body.status, "SENT");
+  assert.match(approved.body.expectedBy, /^\d{4}-\d{2}-\d{2}$/);
+  const sent = calls.filter((c) => c.url.searchParams.has("refund_trans_id"));
+  assert.equal(sent.at(-1)!.url.searchParams.get("refund_amount"), "127.07");
+  assert.equal((await req("GET", `/applications/${id}/payment`, undefined, "citizen")).body.paymentStatus, "REFUND_PENDING");
+  // The application can no longer be issued on that payment.
+  const issue = await req("POST", `/applications/${id}/issue`, {}, "approver");
+  assert.equal(issue.status, 402, JSON.stringify(issue.body));
+
+  // Still processing at the provider: nothing changes. Refunded: settled.
+  assert.equal((await req("POST", `/refunds/${refundId}/refresh`, {}, "finance")).body.status, "SENT");
+  for (const entry of refunds.values()) entry.state = "refunded";
+  const settled = await req("POST", `/refunds/${refundId}/refresh`, {}, "finance");
+  assert.equal(settled.body.status, "SETTLED");
+  assert.equal((await req("GET", `/applications/${id}/payment`, undefined, "citizen")).body.paymentStatus, "REFUNDED");
+  assert.equal((await req("GET", `/applications/${id}/refunds`, undefined, "citizen")).body.items[0].status, "SETTLED");
+  // A settled refund is final and kept.
+  await assert.rejects(admin.query("UPDATE application_refunds SET status='FAILED' WHERE id=$1", [refundId]), /cannot move/);
+  await assert.rejects(admin.query("DELETE FROM application_refunds WHERE id=$1", [refundId]), /Append-only/);
+});
+
+test("Phase 5d: a rejected refund needs a reason and leaves the payment collected", async () => {
+  const id = await paidApplication();
+  const requested = await req("POST", `/applications/${id}/refunds`, { reason: "Changed my mind" }, "citizen");
+  assert.equal(requested.status, 201);
+  assert.equal((await req("POST", `/refunds/${requested.body.id}/decision`, { decision: "REJECTED" }, "admin")).status, 422);
+  const rejected = await req(
+    "POST",
+    `/refunds/${requested.body.id}/decision`,
+    { decision: "REJECTED", note: "The application is already being processed" },
+    "admin",
+  );
+  assert.equal(rejected.body.status, "REJECTED");
+  assert.equal((await req("GET", `/applications/${id}/payment`, undefined, "citizen")).body.paymentStatus, "COLLECTED");
+  assert.equal((await req("GET", "/refunds?status=REJECTED", undefined, "finance")).body.items.some((r: any) => r.id === requested.body.id), true);
+  // After a rejection a new request may be made.
+  assert.equal((await req("POST", `/applications/${id}/refunds`, { reason: "New information for the office" }, "citizen")).status, 201);
 });
