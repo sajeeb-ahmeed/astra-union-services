@@ -139,11 +139,11 @@ export async function verifyRecoveredHttp({ name, archive, accounts }) {
       } catch {}
       await new Promise((resolve) => setTimeout(resolve, 150));
     }
-    assert.deepEqual(health, {
-      status: "ok",
-      database: "PostgreSQL",
-      mode: "DEMO_ONLY",
-    });
+    // The health body also reports which optional keys are configured; the drill checks the core fields.
+    assert.deepEqual(
+      { status: health?.status, database: health?.database, mode: health?.mode },
+      { status: "ok", database: "PostgreSQL", mode: "DEMO_ONLY" },
+    );
     checks.push(
       "Actual recovered HTTP server starts with restricted restored credentials and PostgreSQL health passes.",
     );

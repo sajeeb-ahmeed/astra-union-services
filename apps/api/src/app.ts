@@ -49,6 +49,7 @@ import {
 import { pointsRouter, chargeIssuancePoints } from "./points.js";
 import { rechargeRouter } from "./recharge.js";
 import { merchantRouter } from "./gateways.js";
+import { merchantSecretsAvailable } from "./sslcommerz.js";
 import { refundsRouter } from "./refunds.js";
 import { ownerInclusionRouter, publicInclusionRouter } from "./office-inclusion.js";
 import { ownerWitnessRouter, publicWitnessRouter } from "./witness.js";
@@ -355,7 +356,18 @@ app.get(
   "/api/v1/health",
   wrap(async (_req, res) => {
     await pool.query("SELECT 1");
-    res.json({ status: "ok", database: "PostgreSQL", mode: "DEMO_ONLY" });
+    res.json({
+      status: "ok",
+      database: "PostgreSQL",
+      mode: "DEMO_ONLY",
+      // Whether each optional server key is in place (true/false only, never a value), so an operator can
+      // confirm a deployment without signing in.
+      features: {
+        signInIdentifiers: identifiersAvailable(),
+        citizenIdentityNumbers: citizenDataAvailable(),
+        officeMerchantCredentials: merchantSecretsAvailable(),
+      },
+    });
   }),
 );
 app.get("/api/v1/services", (_req, res) =>
