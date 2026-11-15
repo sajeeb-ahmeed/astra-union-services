@@ -40,6 +40,7 @@ import { OwnerRecharges, RechargeRequests } from "./Recharge.js";
 import { OfficeRefunds } from "./Refunds.js";
 import { OwnerInclusionRequests } from "./OfficeInclusion.js";
 import { OwnerWitnessTypes } from "./WitnessGenerator.js";
+import { OwnerOperations } from "./OwnerOperations.js";
 import { WorkspaceDashboard } from "./WorkspaceDashboard.js";
 import { SidebarNav } from "./ui/SidebarNav.js";
 import { udcNavigation, usesUdcNavigation } from "./workspace-navigation.js";
@@ -2336,6 +2337,7 @@ export function WorkspaceApp({
               <AdditionalWorkspace page={page} session={session} />
             ),
           )}
+          {tx(page === "owner" && <OwnerOperations />)}
           {tx(page === "owner" && <OwnerOnboarding onSaved={refresh} />)}
           {tx(page === "owner" && <OwnerAccountRequests />)}
           {tx(page === "owner" && <OwnerPointPrices />)}

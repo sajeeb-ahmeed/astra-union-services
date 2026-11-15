@@ -2513,3 +2513,25 @@ html[lang="bn"] .hero-copy h1 {
   border-color: #e3a5a5;
   color: #7a1f1f;
 }
+/* Owner operations panel. */
+.operations-alerts {
+  list-style: none;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+.operations-alerts li {
+  padding: 10px 12px;
+  border-radius: 8px;
+}
+.operations-grid {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 6px 16px;
+}
+.operations-grid dt {
+  font-weight: 600;
+}
+.operations-grid dd {
+  margin: 0;
+}
