@@ -110,3 +110,9 @@ Refunds are their own audited state machine (`application_refunds`, migration 03
 - **Settle.** `POST /api/v1/refunds/:id/refresh` asks the Refund Query API; only "refunded" settles it.
 - **Effect.** From approval the application's payment state is REFUND_PENDING, then REFUNDED; neither satisfies issuance. The original payment, confirmation and receipt are never edited.
 - **bKash** refunds use the v2 Refund API (`/refund/payment/transaction`, checked against developer.bka.sh on 15 November 2026). bKash completes a refund at once, so an approved bKash refund settles immediately. Following bKash's rule, Astra always calls Refund Status (`/refund/payment/status`) before a refund request, so a retry after an unanswered call never refunds twice. Refunds are possible for 60 days after payment.
+
+## Office-owned bKash merchants
+
+Following the guide's rule "credentials per office, never one global tenant binding", each office admin can now save the office's **own** bKash merchant in the Online payments tab (`PUT /api/v1/admin/payment-merchants/bkash`; finance may read the status). The merchant number and the four API credentials (app key, app secret, username, password) are stored encrypted under `MERCHANT_SECRET_KEY`, bound to the office, provider and environment (migration 035), and are never returned. The office's encrypted token cache uses a key derived from `MERCHANT_SECRET_KEY`, so no extra token key is needed. LIVE needs `BKASH_LIVE_ENABLED=true` on the deployment as before.
+
+Checkout, verification, receipts and refunds use the office's own merchant. The older deployment-wide configuration (`BKASH_TENANT_ID` and the `BKASH_*` variables) remains only as a fallback for an office that has not saved its own merchant, and can be removed once offices have moved.
