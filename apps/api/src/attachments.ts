@@ -100,6 +100,9 @@ async function scannerAvailable(db: DB, tenantId: string) {
     )
   ).rowCount;
 }
+export function attachmentReady(row: any) {
+  return ready(row);
+}
 function ready(row: any) {
   return (
     row.scan_state === "CLEAN" &&
@@ -226,6 +229,40 @@ export async function validateAttachmentReferences(
     );
 }
 
+/** Decode and check an upload: base64, size limits and a file signature matching its declared type. */
+export function decodeUpload(input: { mimeType: "application/pdf" | "image/png" | "image/jpeg"; base64: string }) {
+  if (!/^[A-Za-z0-9+/]*={0,2}$/.test(input.base64))
+    fail(422, "UPLOAD_INVALID", "Malformed base64 upload.");
+  const bytes = Buffer.from(input.base64, "base64");
+  if (bytes.length < 8 || bytes.length > 2097152)
+    fail(422, "UPLOAD_SIZE", "Uploads must be between 8 bytes and 2 MiB.");
+  if (bytes.toString("base64") !== input.base64)
+    fail(422, "UPLOAD_INVALID", "Malformed base64 upload.");
+  const valid =
+    input.mimeType === "application/pdf"
+      ? bytes.subarray(0, 5).toString() === "%PDF-" &&
+        bytes.subarray(-1024).includes(Buffer.from("%%EOF"))
+      : input.mimeType === "image/png"
+        ? bytes.length >= 45 &&
+          bytes
+            .subarray(0, 8)
+            .equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10])) &&
+          bytes.subarray(12, 16).toString() === "IHDR" &&
+          bytes.subarray(-8, -4).toString() === "IEND"
+        : bytes[0] === 255 &&
+          bytes[1] === 216 &&
+          bytes[2] === 255 &&
+          bytes.at(-2) === 255 &&
+          bytes.at(-1) === 217;
+  if (!valid)
+    fail(
+      422,
+      "UPLOAD_TYPE",
+      "File signature or end marker does not match its declared MIME type.",
+    );
+  return bytes;
+}
+
 export const attachmentsRouter = express.Router();
 attachmentsRouter.post(
   "/attachments",
@@ -239,35 +276,7 @@ attachmentsRouter.post(
       })
       .strict()
       .parse(req.body);
-    if (!/^[A-Za-z0-9+/]*={0,2}$/.test(input.base64))
-      fail(422, "UPLOAD_INVALID", "Malformed base64 upload.");
-    const bytes = Buffer.from(input.base64, "base64");
-    if (bytes.length < 8 || bytes.length > 2097152)
-      fail(422, "UPLOAD_SIZE", "Uploads must be between 8 bytes and 2 MiB.");
-    if (bytes.toString("base64") !== input.base64)
-      fail(422, "UPLOAD_INVALID", "Malformed base64 upload.");
-    const valid =
-      input.mimeType === "application/pdf"
-        ? bytes.subarray(0, 5).toString() === "%PDF-" &&
-          bytes.subarray(-1024).includes(Buffer.from("%%EOF"))
-        : input.mimeType === "image/png"
-          ? bytes.length >= 45 &&
-            bytes
-              .subarray(0, 8)
-              .equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10])) &&
-            bytes.subarray(12, 16).toString() === "IHDR" &&
-            bytes.subarray(-8, -4).toString() === "IEND"
-          : bytes[0] === 255 &&
-            bytes[1] === 216 &&
-            bytes[2] === 255 &&
-            bytes.at(-2) === 255 &&
-            bytes.at(-1) === 217;
-    if (!valid)
-      fail(
-        422,
-        "UPLOAD_TYPE",
-        "File signature or end marker does not match its declared MIME type.",
-      );
+    const bytes = decodeUpload(input);
     const result = await transaction(a.tenantId, async (db) => {
       const citizen = (
         await db.query(
