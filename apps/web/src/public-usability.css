@@ -104,3 +104,27 @@
 .mobile-otp-done {
   margin: 0;
 }
+
+/* User guide: printing (or "Save as PDF") shows only the guide. */
+@media print {
+  body:has(.user-guide) * {
+    visibility: hidden;
+  }
+  body:has(.user-guide) .user-guide,
+  body:has(.user-guide) .user-guide * {
+    visibility: visible;
+  }
+  body:has(.user-guide) .user-guide {
+    position: absolute;
+    inset: 0 auto auto 0;
+    width: 100%;
+    box-shadow: none;
+    border: 0;
+  }
+  .user-guide .no-print {
+    display: none !important;
+  }
+  .user-guide section {
+    break-inside: avoid-page;
+  }
+}

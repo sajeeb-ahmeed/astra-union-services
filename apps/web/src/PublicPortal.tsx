@@ -2,6 +2,7 @@ import { MobileOtpField, type VerifiedMobile } from "./MobileOtpField.js";
 import { t, tx, choose } from "./i18n.js";
 import React, { Suspense, lazy, useEffect, useRef, useState } from "react";
 // Phase 4c: the witness generator loads only on /witness, keeping the public start-up bundle small.
+const UserGuide = lazy(() => import("./UserGuide.js").then((m) => ({ default: m.UserGuide })));
 const WitnessGenerator = lazy(() => import("./WitnessGenerator.js").then((m) => ({ default: m.WitnessGenerator })));
 import "./public-usability.css";
 // Public pages need names only; canonical metadata parity is checked by the web tests.
@@ -29,6 +30,7 @@ const publicPages: Record<string, [string, string]> = {
   notices: ["বিজ্ঞপ্তি", "Notices"],
   help: ["সহায়িকা", "Help"],
   witness: ["সাক্ষীর প্রত্যয়ন", "Witness statement"],
+  guide: ["ব্যবহার নির্দেশিকা", "User guide"],
   tracking: ["আবেদনের অবস্থা", "Track application"],
   verify: ["সনদ যাচাই", "Verify certificate"],
 };
@@ -1666,6 +1668,11 @@ export function PublicPortal({
                     </p>
                   </section>
                 ),
+              )}
+              {page === "guide" && (
+                <Suspense fallback={<p role="status">{t("Loading…")}</p>}>
+                  <UserGuide />
+                </Suspense>
               )}
               {page === "witness" && (
                 <Suspense fallback={<p role="status">{t("Loading…")}</p>}>
