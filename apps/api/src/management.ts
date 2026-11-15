@@ -391,7 +391,13 @@ publicManagementRouter.get(
     const services = await transaction(office.id, async (db) =>
       (
         await db.query(
-          "SELECT s.service_no,s.name_bn,s.name_en,s.readiness,c.credit_cost FROM service_catalog s JOIN tenant_service_configuration c USING(service_no) WHERE c.enabled ORDER BY s.service_no",
+          // Phase 4a: each enabled service with the office's current published price list entry, if any.
+          `SELECT s.service_no,s.name_bn,s.name_en,s.readiness,c.credit_cost,
+             p.version AS policy_version,p.statutory_fee_minor,p.processing_fee_minor,p.emergency_surcharge_minor,
+             p.office_collection_fee_minor,p.digital_copy_fee_minor,p.delivery_modes,p.urgencies,p.charter_days
+           FROM service_catalog s JOIN tenant_service_configuration c USING(service_no)
+           LEFT JOIN LATERAL (SELECT * FROM service_order_policies o WHERE o.tenant_id=c.tenant_id AND o.service_no=c.service_no ORDER BY o.version DESC LIMIT 1) p ON true
+           WHERE c.enabled ORDER BY s.service_no`,
         )
       ).rows.map(camelRow),
     );

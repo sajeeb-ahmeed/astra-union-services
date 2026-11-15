@@ -12,6 +12,7 @@ type Policy = {
   deliveryFeesMinor: Record<DeliveryMode, number>;
   deliveryModes: DeliveryMode[];
   urgencies: Urgency[];
+  charterDays?: number | null;
   currency: "BDT";
 };
 type Options = { configured: boolean; policy: Policy | null };
@@ -95,6 +96,7 @@ export function OrderPolicySettings({ services }: { services: any[] }) {
   const [deliveryModes, setDeliveryModes] = useState<DeliveryMode[]>([]);
   const [urgencies, setUrgencies] = useState<Urgency[]>([]);
   const [reason, setReason] = useState("");
+  const [charterDays, setCharterDays] = useState("");
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [loaded, setLoaded] = useState(false);
@@ -122,6 +124,7 @@ export function OrderPolicySettings({ services }: { services: any[] }) {
     );
     setDeliveryModes(next ? [...next.deliveryModes] : []);
     setUrgencies(next ? [...next.urgencies] : []);
+    setCharterDays(next?.charterDays ? String(next.charterDays) : "");
     setReason("");
   }
   useEffect(() => {
@@ -176,6 +179,16 @@ export function OrderPolicySettings({ services }: { services: any[] }) {
       });
       return;
     }
+    const days = charterDays
+      .trim()
+      .replace(/[০-৯]/g, (digit) => String("০১২৩৪৫৬৭৮৯".indexOf(digit)));
+    if (days && !(/^\d{1,3}$/.test(days) && +days >= 1 && +days <= 365)) {
+      setError({
+        bn: "সেবা প্রদানের সময় ১ থেকে ৩৬৫ দিনের মধ্যে লিখুন, অথবা ঘরটি খালি রাখুন।",
+        en: "Enter a service time of 1 to 365 days, or leave it empty.",
+      });
+      return;
+    }
     if (reason.trim().length < 3 || reason.trim().length > 500) {
       setError({
         bn: "প্রকাশের কারণ ৩ থেকে ৫০০ অক্ষরে লিখুন।",
@@ -201,6 +214,7 @@ export function OrderPolicySettings({ services }: { services: any[] }) {
           },
           deliveryModes,
           urgencies,
+          charterDays: days ? Number(days) : null,
         },
       );
       if (epoch.current !== current) return;
@@ -420,6 +434,20 @@ export function OrderPolicySettings({ services }: { services: any[] }) {
               </label>
             ))}
           </fieldset>
+          <label htmlFor="order-policy-charter-days">
+            {choose({
+              bn: "সিটিজেন চার্টার অনুযায়ী সেবা প্রদানের সময় (দিন, ঐচ্ছিক)",
+              en: "Citizen-charter service time (days, optional)",
+            })}
+          </label>
+          <input
+            id="order-policy-charter-days"
+            inputMode="numeric"
+            value={charterDays}
+            onChange={(event) => setCharterDays(event.target.value)}
+            maxLength={3}
+            disabled={saving}
+          />
           <label htmlFor="order-policy-reason">
             {choose({
               bn: "নতুন সংস্করণ প্রকাশের কারণ",

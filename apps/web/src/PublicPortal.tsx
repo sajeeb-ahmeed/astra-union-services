@@ -5,6 +5,7 @@ import "./public-usability.css";
 // Public pages need names only; canonical metadata parity is checked by the web tests.
 import serviceCatalog from "./public-service-catalog.json" with { type: "json" };
 import { api, items } from "./api.js";
+import { ServicePriceList } from "./ServicePriceList.js";
 import {
   GeographyFields,
   geographyPayload,
@@ -1078,6 +1079,7 @@ export function PublicPortal({
                                 )),
                             )}
                           </div>
+                          <ServicePriceList services={items(office.services)} />
                           <h3>{t("Office notices")}</h3>
                           {tx(
                             (office.notices || []).map((n: any) => (
