@@ -505,6 +505,8 @@ export function validateInventory(tables, policies, owner) {
     ["definer_ledger_read", new Set(["point_ledger"])],
     ["definer_queue_read", new Set(["recharge_requests"])],
     ["definer_wallet_maintenance", new Set(["point_wallets"])],
+    // Migration 037: the owner operations summary counts across offices.
+    ["definer_operations_read", new Set(["attachments", "attachment_scanner_heartbeats", "application_refunds"])],
   ]);
   // The wallet trigger also writes balances, so its owner policy covers all commands.
   const ownerWritePolicies = new Set(["definer_wallet_maintenance"]);
