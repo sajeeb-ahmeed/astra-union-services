@@ -119,6 +119,7 @@ const actionText: Record<string, string> = {
   approve: "Approve application",
   reject: "Reject application",
   cancel: "Cancel application",
+  summon: "Ask the applicant to come",
 };
 export function WorkspaceApp({
   session,
@@ -1672,6 +1673,32 @@ export function WorkspaceApp({
                     </p>
                   ),
                 )}
+                {(() => {
+                  // Phase 6a: the latest summons, while the application is still under review.
+                  const summons = [...(detail.events || [])]
+                    .reverse()
+                    .find((e: any) => e.action === "summon");
+                  return summons && application.state === "UNDER_REVIEW" ? (
+                    <p className="notice summon-notice" role="status">
+                      <strong>
+                        {choose({
+                          bn: "চেয়ারম্যান আবেদনকারীকে আসতে বলেছেন",
+                          en: "The Chairman has asked the applicant to come",
+                        })}
+                        :
+                      </strong>{" "}
+                      {summons.reason}
+                    </p>
+                  ) : null;
+                })()}
+                {["APPROVED", "ISSUED"].includes(application.state) && (
+                  <p className="hint wet-sign-notice">
+                    {choose({
+                      bn: "সনদ প্রিন্ট করার পরে চেয়ারম্যান নিজ হাতে স্বাক্ষর করবেন।",
+                      en: "After the certificate is printed, the Chairman signs it by hand.",
+                    })}
+                  </p>
+                )}
                 {detail.profileCompleteness &&
                   role !== "citizen" &&
                   !detail.certificate &&
@@ -1867,6 +1894,17 @@ export function WorkspaceApp({
                         onClick={() => run(() => transition("approve"))}
                       >
                         {tx(actionText.approve)}
+                      </button>
+                    ),
+                  )}
+                  {tx(
+                    approver && application.state === "UNDER_REVIEW" && (
+                      <button
+                        disabled={busy}
+                        className="secondary"
+                        onClick={() => run(() => transition("summon"))}
+                      >
+                        {tx(actionText.summon)}
                       </button>
                     ),
                   )}

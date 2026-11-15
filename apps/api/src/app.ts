@@ -1308,6 +1308,7 @@ app.post(
           "approve",
           "reject",
           "cancel",
+          "summon",
         ]),
         reason: z.string().trim().min(3).max(500).optional(),
       })
@@ -1365,6 +1366,16 @@ app.post(
           if (r.state !== "UNDER_REVIEW")
             fail(409, "STATE_CONFLICT", "Approval requires completed review.");
           next = "APPROVED";
+          break;
+        case "summon":
+          // Phase 6a: the Chairman may ask the applicant to appear before deciding. The application stays
+          // under review; the note (when and where to come) is shown to the applicant.
+          await authorization(db, a, r.service_no);
+          if (r.state !== "UNDER_REVIEW")
+            fail(409, "STATE_CONFLICT", "Summoning the applicant requires completed review.");
+          if (!data.reason)
+            fail(422, "REASON_REQUIRED", "Say when and where the applicant should come.");
+          next = "UNDER_REVIEW";
           break;
         case "reject":
           roles(req, ["reviewer", "approver"]);
