@@ -77,6 +77,10 @@ export function AdditionalWorkspace({
     [requestKey, setRequestKey] = useState(crypto.randomUUID());
   const [printPage, setPrintPage] = useState(1),
     [printTotal, setPrintTotal] = useState(0);
+  // Phase 6c: find copies by name, reference or mobile within a date range.
+  const [printSearch, setPrintSearch] = useState(""),
+    [printFrom, setPrintFrom] = useState(""),
+    [printTo, setPrintTo] = useState("");
   const [holding, setHolding] = useState({
     number: "",
     ownerBn: "",
@@ -111,7 +115,8 @@ export function AdditionalWorkspace({
       setBusy(false);
     }
   }
-  const filterQuery = () => `?page=${printPage}&kind=${kind}`;
+  const filterQuery = () =>
+    `?${new URLSearchParams({ page: String(printPage), kind, ...(printSearch.trim() ? { q: printSearch.trim() } : {}), ...(printFrom ? { from: printFrom } : {}), ...(printTo ? { to: printTo } : {}) })}`;
   async function loadPrints() {
     const r = await api(`/print-requests${filterQuery()}`);
     setRequests(items(r));
@@ -542,6 +547,28 @@ export function AdditionalWorkspace({
             </section>
             <section className="panel">
               <h2>{t("Request history")}</h2>
+              <form
+                className="form-grid print-filters"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  setPrintPage(1);
+                  void run(loadPrints);
+                }}
+              >
+                <label htmlFor="print-search">
+                  {t("নাম, রেফারেন্স বা মোবাইল / Name, reference or mobile")}
+                  <input id="print-search" value={printSearch} onChange={(e) => setPrintSearch(e.target.value)} maxLength={100} />
+                </label>
+                <label htmlFor="print-from">
+                  {t("যে তারিখ থেকে / From date")}
+                  <input id="print-from" type="date" value={printFrom} max={printTo || undefined} onChange={(e) => setPrintFrom(e.target.value)} />
+                </label>
+                <label htmlFor="print-to">
+                  {t("যে তারিখ পর্যন্ত / To date")}
+                  <input id="print-to" type="date" value={printTo} min={printFrom || undefined} onChange={(e) => setPrintTo(e.target.value)} />
+                </label>
+                <button className="secondary" disabled={busy}>{t("খুঁজুন / Search")}</button>
+              </form>
               {tx(
                 requests.length === 0 ? (
                   <p>{t("No copies for this type yet.")}</p>
@@ -551,6 +578,7 @@ export function AdditionalWorkspace({
                       <thead>
                         <tr>
                           <th>{t("Type")}</th>
+                          <th>{t("নাগরিক / Citizen")}</th>
                           <th>{t("Language")}</th>
                           <th>{t("Created")}</th>
                           <th>{t("Document")}</th>
@@ -561,6 +589,7 @@ export function AdditionalWorkspace({
                           requests.map((r) => (
                             <tr key={r.id}>
                               <td>{tx(r.kind)}</td>
+                              <td>{r.citizenNameBn ? `${r.citizenNameBn} / ${r.citizenNameEn}` : "—"}</td>
                               <td>{tx(r.language)}</td>
                               <td>
                                 {tx(new Date(r.createdAt).toLocaleString())}

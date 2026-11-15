@@ -815,6 +815,13 @@ app.post(
     res.status(201).json(item);
   }),
 );
+/** Phase 6c: inclusive YYYY-MM-DD bounds for list filters; validated before they reach SQL. */
+export const dateRange = z
+  .object({
+    from: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).refine((v) => Number.isFinite(Date.parse(v)) && new Date(v).toISOString().slice(0, 10) === v).optional(),
+    to: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).refine((v) => Number.isFinite(Date.parse(v)) && new Date(v).toISOString().slice(0, 10) === v).optional(),
+  })
+  .refine((v) => !v.from || !v.to || v.from <= v.to, { message: "The start date must not be after the end date." });
 app.get(
   "/api/v1/applications",
   wrap(async (req, res) => {
@@ -853,6 +860,9 @@ app.get(
     const no = req.query.serviceNo
       ? z.coerce.number().int().min(1).max(47).parse(req.query.serviceNo)
       : null;
+    // Phase 6c: an optional date range (Asia/Dhaka calendar days, inclusive) and a renewals-only filter.
+    const range = dateRange.parse({ from: req.query.from, to: req.query.to });
+    const renewalOnly = req.query.renewal === "true";
     const result = await transaction(tenant(req), async (db) => {
       const values = [
         a.tenantId,
@@ -861,10 +871,10 @@ app.get(
         a.role === "citizen" ? a.userId : null,
         `%${search}%`,
       ];
-      const from = `FROM applications a JOIN citizens c ON c.id=a.citizen_id AND c.tenant_id=a.tenant_id WHERE a.tenant_id=$1 AND ($2::text IS NULL OR a.state=$2) AND ($3::int IS NULL OR a.service_no=$3) AND ($4::uuid IS NULL OR c.user_id=$4) AND (a.id::text ILIKE $5 OR c.full_name_bn ILIKE $5 OR c.full_name_en ILIKE $5 OR c.synthetic_reference ILIKE $5)`;
+      const from = `FROM applications a JOIN citizens c ON c.id=a.citizen_id AND c.tenant_id=a.tenant_id WHERE a.tenant_id=$1 AND ($2::text IS NULL OR a.state=$2) AND ($3::int IS NULL OR a.service_no=$3) AND ($4::uuid IS NULL OR c.user_id=$4) AND (a.id::text ILIKE $5 OR c.full_name_bn ILIKE $5 OR c.full_name_en ILIKE $5 OR c.synthetic_reference ILIKE $5 OR c.contact_mobile ILIKE $5)${range.from ? ` AND (a.created_at AT TIME ZONE 'Asia/Dhaka')::date >= '${range.from}'::date` : ""}${range.to ? ` AND (a.created_at AT TIME ZONE 'Asia/Dhaka')::date <= '${range.to}'::date` : ""}${renewalOnly ? " AND EXISTS(SELECT 1 FROM renewal_links l WHERE l.tenant_id=a.tenant_id AND l.application_id=a.id)" : ""}`;
       const items = (
         await db.query(
-          `SELECT a.* ${from} ORDER BY a.updated_at DESC,a.id LIMIT $6 OFFSET $7`,
+          `SELECT a.*,EXISTS(SELECT 1 FROM renewal_links l WHERE l.tenant_id=a.tenant_id AND l.application_id=a.id) AS is_renewal ${from} ORDER BY a.updated_at DESC,a.id LIMIT $6 OFFSET $7`,
           [...values, pageSize, (page - 1) * pageSize],
         )
       ).rows.map(camelRow);

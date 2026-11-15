@@ -164,6 +164,10 @@ export function WorkspaceApp({
     [appPage, setAppPage] = useState(1),
     [appPageSize, setAppPageSize] = useState(25),
     [appTotal, setAppTotal] = useState(0);
+  // Phase 6c: date range and renewals-only filters for the applications list.
+  const [appFrom, setAppFrom] = useState(""),
+    [appTo, setAppTo] = useState(""),
+    [appRenewals, setAppRenewals] = useState(false);
   const [applicationReference, setApplicationReference] = useState("");
   const [intakeOrder, setIntakeOrder] = useState<IntakeOrderState | null>(null);
   const [renewalOrder, setRenewalOrder] = useState<IntakeOrderState | null>(
@@ -233,7 +237,7 @@ export function WorkspaceApp({
         : Promise.resolve({ items: [] }),
       !["owner", "finance"].includes(role)
         ? api(
-            `/applications?${new URLSearchParams({ ...(filter ? { state: filter } : {}), q: appQuery, page: String(appPage), pageSize: String(appPageSize) })}`,
+            `/applications?${new URLSearchParams({ ...(filter ? { state: filter } : {}), q: appQuery, page: String(appPage), pageSize: String(appPageSize), ...(appFrom ? { from: appFrom } : {}), ...(appTo ? { to: appTo } : {}), ...(appRenewals ? { renewal: "true" } : {}) })}`,
           )
         : Promise.resolve({ items: [], total: 0 }),
       ["admin", "finance", "approver"].includes(role)
@@ -256,7 +260,7 @@ export function WorkspaceApp({
   }
   useEffect(() => {
     if (session) run(refresh);
-  }, [session, filter, appQuery, appPage, appPageSize, citizenQuery]);
+  }, [session, filter, appQuery, appPage, appPageSize, citizenQuery, appFrom, appTo, appRenewals]);
   const paymentReturnHandled = useRef(false);
   useEffect(() => {
     if (!session || !paymentReturnApplication || paymentReturnHandled.current)
@@ -1479,6 +1483,48 @@ export function WorkspaceApp({
                   )),
                 )}
               </select>
+              <div className="form-grid date-range">
+                <div className="field">
+                  <label htmlFor="application-from">{choose({ bn: "যে তারিখ থেকে", en: "From date" })}</label>
+                  <input
+                    id="application-from"
+                    type="date"
+                    value={appFrom}
+                    max={appTo || undefined}
+                    onChange={(e) => {
+                      setAppFrom(e.target.value);
+                      setAppPage(1);
+                    }}
+                  />
+                </div>
+                <div className="field">
+                  <label htmlFor="application-to">{choose({ bn: "যে তারিখ পর্যন্ত", en: "To date" })}</label>
+                  <input
+                    id="application-to"
+                    type="date"
+                    value={appTo}
+                    min={appFrom || undefined}
+                    onChange={(e) => {
+                      setAppTo(e.target.value);
+                      setAppPage(1);
+                    }}
+                  />
+                </div>
+                <div className="check-field">
+                  <label htmlFor="application-renewals">
+                    <input
+                      id="application-renewals"
+                      type="checkbox"
+                      checked={appRenewals}
+                      onChange={(e) => {
+                        setAppRenewals(e.target.checked);
+                        setAppPage(1);
+                      }}
+                    />
+                    <span>{choose({ bn: "শুধু নবায়নের আবেদন", en: "Renewals only" })}</span>
+                  </label>
+                </div>
+              </div>
               <div className="application-filter-tools">
                 <p className="hint" role="status">
                   {appTotal.toLocaleString(

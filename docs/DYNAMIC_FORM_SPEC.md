@@ -1,5 +1,7 @@
 # Dynamic service forms — release 0.2 contract
 
+> **Historical document.** This describes release 0.2 and is kept for the record. Current behaviour is described in [System architecture](SYSTEM_ARCHITECTURE.md), the phase plans (`PHASE2_PLAN.md`–`PHASE6_PLAN.md`) and [Parity status](PARITY_STATUS.md).
+
 All 47 services have executable, independently authored demonstration schemas. The frontend and backend share the same validation contract, and the PostgreSQL workflow has executed creation, submission, review, authorized approval, PDF issuance, public verification and one credit deduction for every service. These local results do not establish the original website's successful submission paths or official issuing authority.
 
 ## Reference evidence and operational coverage
@@ -59,7 +61,7 @@ The browser uploads through the authenticated private API, which checks the appl
 
 Operational payloads accept only `{ attachmentId, mimeType, byteLength }` handles returned by this service. Supporting-document arrays allow at most five rows; each supplied row requires its description/type and file handle. Accepted types are PDF, PNG and JPEG, with a 2 MiB maximum. URLs, extra claims such as `malwareClean`, unknown handles and mismatched metadata are rejected. The separate `scanState` response field must not be copied into the three-key handle.
 
-**Uploads remain `UNSCANNED`.** Signature checks are not malware scanning. This controlled demonstration accepts these files without a connected scanner; production needs a scanning/quarantine policy and enforcement before citizen documents are accepted. The schema alone cannot establish file safety, ownership or official evidentiary validity.
+**Uploads are quarantined until a malware scan passes (since release 0.9).** Signature checks are not malware scanning; the separate scanner worker decides, and only a CLEAN result releases a file for download, submission, approval or issuance (see [attachment scanner runtime](ATTACHMENT_SCANNER_RUNTIME.md)). The schema alone cannot establish file safety, ownership or official evidentiary validity.
 
 ## Workflow, renewal and charges
 

@@ -83,11 +83,13 @@ const printInput=z.object({kind:z.enum(["biodata","holding","witness"]),citizenI
 const printSummary=(r:any)=>({...camelRow(r),status:"READY",demo:true,pdfUrl:`/api/v1/print-requests/${r.id}/pdf`});
 protectedToolsRouter.get("/print-requests",wrap(async(req,res)=>{
   const a=scoped(req,["citizen","staff","admin"]);
-  const d=z.object({kind:z.enum(["biodata","holding","witness"]).optional(),page:z.coerce.number().int().min(1).max(10000).default(1)}).strict().parse(req.query);
+  // Phase 6c: optional search by citizen name, reference or mobile, and an inclusive Asia/Dhaka date range.
+  const day=z.string().regex(/^\d{4}-\d{2}-\d{2}$/).refine(v=>Number.isFinite(Date.parse(v))&&new Date(v).toISOString().slice(0,10)===v);
+  const d=z.object({kind:z.enum(["biodata","holding","witness"]).optional(),page:z.coerce.number().int().min(1).max(10000).default(1),q:z.string().trim().max(100).optional(),from:day.optional(),to:day.optional()}).strict().refine(v=>!v.from||!v.to||v.from<=v.to,{message:"The start date must not be after the end date."}).parse(req.query);
   const data=await transaction(a.tenantId,async(db)=>{
-    const values=[a.tenantId,a.role==="citizen"?a.userId:null,d.kind??null];
-    const filter="p.tenant_id=$1 AND ($2::uuid IS NULL OR c.user_id=$2) AND ($3::text IS NULL OR p.kind=$3)";
-    const r=await db.query(`SELECT p.id,p.kind,p.language,p.citizen_id,p.created_at FROM print_requests p JOIN citizens c ON c.tenant_id=p.tenant_id AND c.id=p.citizen_id WHERE ${filter} ORDER BY p.created_at DESC,p.id LIMIT 20 OFFSET $4`,[...values,(d.page-1)*20]);
+    const values=[a.tenantId,a.role==="citizen"?a.userId:null,d.kind??null,d.q?`%${d.q}%`:null,d.from??null,d.to??null];
+    const filter="p.tenant_id=$1 AND ($2::uuid IS NULL OR c.user_id=$2) AND ($3::text IS NULL OR p.kind=$3) AND ($4::text IS NULL OR c.full_name_bn ILIKE $4 OR c.full_name_en ILIKE $4 OR c.synthetic_reference ILIKE $4 OR c.contact_mobile ILIKE $4) AND ($5::date IS NULL OR (p.created_at AT TIME ZONE 'Asia/Dhaka')::date>=$5::date) AND ($6::date IS NULL OR (p.created_at AT TIME ZONE 'Asia/Dhaka')::date<=$6::date)";
+    const r=await db.query(`SELECT p.id,p.kind,p.language,p.citizen_id,p.created_at,c.full_name_bn AS citizen_name_bn,c.full_name_en AS citizen_name_en FROM print_requests p JOIN citizens c ON c.tenant_id=p.tenant_id AND c.id=p.citizen_id WHERE ${filter} ORDER BY p.created_at DESC,p.id LIMIT 20 OFFSET $7`,[...values,(d.page-1)*20]);
     const total=(await db.query(`SELECT count(*)::int n FROM print_requests p JOIN citizens c ON c.tenant_id=p.tenant_id AND c.id=p.citizen_id WHERE ${filter}`,values)).rows[0].n;
     return {items:r.rows.map(printSummary),page:d.page,pageSize:20,total};
   });res.json(data);

@@ -1,5 +1,7 @@
 # Product requirements — release 0.2
 
+> **Historical document.** This describes release 0.2 and is kept for the record. Current behaviour is described in [System architecture](SYSTEM_ARCHITECTURE.md), the phase plans (`PHASE2_PLAN.md`–`PHASE6_PLAN.md`) and [Parity status](PARITY_STATUS.md).
+
 Astra is an independently owned multi-office citizen-services platform. The commissioning user owns the original software/source/branding; office customers subscribe to hosted use. Software ownership does not establish legal certificate authority or ownership of citizen information. Third-party software remains under its respective licenses.
 
 ## Scope and evidence
