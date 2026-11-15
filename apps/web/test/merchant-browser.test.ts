@@ -1,0 +1,83 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import fs from "node:fs";
+import path from "node:path";
+import { randomBytes } from "node:crypto";
+import { chromium, type Browser } from "playwright";
+import { workspacePage } from "./fixtures/workspace-nav.js";
+const origin = "http://127.0.0.1:5173";
+async function browserInstance(): Promise<Browser> {
+  const local = path.join(process.env.LOCALAPPDATA || "", "ms-playwright");
+  const executable =
+    process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE ||
+    (fs.existsSync(local)
+      ? fs
+          .readdirSync(local)
+          .filter((name) => /^chromium-/.test(name))
+          .sort()
+          .reverse()
+          .map((name) => path.join(local, name, "chrome-win64", "chrome.exe"))
+          .find((filename) => fs.existsSync(filename))
+      : undefined);
+  return chromium.launch({ headless: true, executablePath: executable });
+}
+
+test(
+  "merchant browser: an office admin saves SSLCommerz sandbox credentials; the password is never shown again",
+  { timeout: 90000 },
+  async () => {
+    const browser = await browserInstance();
+    const slug = `merchant-browser-${Date.now()}`;
+    const adminPassword = randomBytes(18).toString("base64url");
+    const storePassword = randomBytes(10).toString("hex");
+    const owner = await browser.newContext();
+    const login = await owner.request.post(`${origin}/api/v1/auth/login`, {
+      data: { email: "owner@astra.demo.test", password: "Demo-Phase1!" },
+    });
+    const created = await owner.request.post(`${origin}/api/v1/owner/tenants`, {
+      headers: { "X-CSRF-Token": (await login.json()).csrfToken },
+      data: {
+        slug,
+        nameBn: "মার্চেন্ট ব্রাউজার অফিস",
+        nameEn: "Merchant Browser Office",
+        division: "Test Division",
+        district: "Test District",
+        upazila: "Test Upazila",
+        officeType: "UNION",
+        adminEmail: `admin@${slug}.test`,
+        adminName: "Synthetic merchant admin",
+        adminPassword,
+      },
+    });
+    assert.equal(created.status(), 201, await created.text());
+    await owner.close();
+    const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
+    try {
+      await page.goto(`${origin}/login`);
+      await page.getByLabel("Email", { exact: true }).fill(`admin@${slug}.test`);
+      await page.getByLabel("Password", { exact: true }).fill(adminPassword);
+      await page.locator(".login-form").getByRole("button", { name: "Sign in", exact: true }).click();
+      await page.getByRole("button", { name: "Sign out", exact: true }).waitFor();
+      await workspacePage(page, "Office administration").click();
+      await page.getByRole("tab", { name: "Online payments", exact: true }).click();
+      const panel = page.locator(".payment-merchant");
+      await panel.getByTestId("merchant-status").getByText("Not set up").waitFor();
+      await panel.getByLabel("Store ID", { exact: true }).fill("astra-browser-test");
+      await panel.getByLabel("Store password", { exact: true }).fill(storePassword);
+      await panel.getByRole("button", { name: "Save", exact: true }).click();
+      await panel.getByText("Saved.", { exact: true }).waitFor();
+      await panel.getByTestId("merchant-status").getByText("Active").waitFor();
+      assert.equal(await panel.getByLabel("Store password", { exact: true }).inputValue(), "");
+      assert.equal((await page.content()).includes(storePassword), false);
+      await page.reload();
+      await workspacePage(page, "Office administration").click();
+      await page.getByRole("tab", { name: "Online payments", exact: true }).click();
+      await panel.getByTestId("merchant-status").getByText("Active").waitFor();
+      assert.equal(await panel.getByLabel("Store ID", { exact: true }).inputValue(), "astra-browser-test");
+      assert.equal((await page.content()).includes(storePassword), false);
+      assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), true);
+    } finally {
+      await browser.close();
+    }
+  },
+);
