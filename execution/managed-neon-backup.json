@@ -1,0 +1,25 @@
+{
+  "status": "PASS",
+  "exportedAt": "2026-11-15T12:17:06.747Z",
+  "source": {
+    "mode": "neon",
+    "databaseId": "neon:astra_prod",
+    "serverVersion": "170012",
+    "databaseLocale": {
+      "datcollate": "C.UTF-8",
+      "datctype": "C.UTF-8",
+      "encoding": "UTF8"
+    }
+  },
+  "name": "managed_20261115121632695_ef1aaad4",
+  "tables": 65,
+  "tenants": 3,
+  "certificates": 2,
+  "encryptedBytes": 10239349,
+  "archiveSha256": "945cb8c0abfa95464db0d0f998142631f0035eaf060fe9a0b1609b027c2ec525",
+  "sourceReadOnly": true,
+  "rlsPoliciesChanged": false,
+  "keyOutsideWorkspace": true,
+  "independentKeyCustody": false,
+  "offsiteReplication": false
+}

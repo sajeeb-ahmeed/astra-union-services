@@ -568,8 +568,9 @@ export function validateInventory(tables, policies, owner) {
 }
 
 /**
- * `allowOwnerBypass` is set only for Neon: roles made in the Neon console get BYPASSRLS from the platform and no
- * user role can remove it. The application role must still have no bypass, and the archive records the fact.
+ * `allowOwnerBypass` is set only for Neon: roles made in the Neon console get BYPASSRLS and REPLICATION from the
+ * platform and no user role can remove them. The application role must still have neither, and the archive
+ * records both facts.
  */
 async function captureSecurity(client, owner, { allowOwnerBypass = false } = {}) {
   const roles = (
@@ -580,7 +581,12 @@ async function captureSecurity(client, owner, { allowOwnerBypass = false } = {})
   ).rows;
   if (
     roles.length !== 2 ||
-    roles.some((r) => r.superuser || r.replication || (r.bypass && !(allowOwnerBypass && r.name === owner))) ||
+    roles.some(
+      (r) =>
+        r.superuser ||
+        (r.replication && !(allowOwnerBypass && r.name === owner)) ||
+        (r.bypass && !(allowOwnerBypass && r.name === owner)),
+    ) ||
     roles.find((r) => r.name === "astra_app").createrole ||
     roles.find((r) => r.name === "astra_app").createdb
   )
@@ -614,6 +620,7 @@ async function captureSecurity(client, owner, { allowOwnerBypass = false } = {})
     owner,
     app: "astra_app",
     ownerBypassRls: roles.find((r) => r.name === owner).bypass,
+    ownerReplication: roles.find((r) => r.name === owner).replication,
     roles,
     memberships,
     owners,
@@ -833,9 +840,14 @@ export function auxiliaryRecoveryRoles(archive) {
     for (const grant of archive.state[key] ?? [])
       for (const role of [grant.owner, grant.grantee])
         if (role && !primary.has(role)) referenced.add(role);
-  if ([...referenced].some((role) => role !== "postgres"))
+  // Reviewed provider roles in default ACLs: Render's `postgres`, and Neon's `cloud_admin` and `neon_superuser`. They are
+  // recreated only as NOLOGIN catalog identities with no privileges.
+  const reviewedProviderRoles = new Set(["postgres", "cloud_admin", "neon_superuser"]);
+  if ([...referenced].some((role) => !reviewedProviderRoles.has(role)))
     throw Error(
-      "Unknown auxiliary catalog role requires a reviewed recovery policy.",
+      `Unknown auxiliary catalog role requires a reviewed recovery policy: ${[...referenced]
+        .filter((role) => !reviewedProviderRoles.has(role))
+        .join(", ")}.`,
     );
   return [...referenced].sort();
 }
@@ -994,19 +1006,35 @@ export async function restoreManagedArchive(name, recoveryUrl) {
       { flag: "wx", mode: 0o600 },
     );
     ownsSchema = true;
-    await runTool(
-      "pg_restore",
-      [
-        "--exit-on-error",
-        "--section=pre-data",
-        `--dbname=${target}`,
-        schemaPath,
-      ],
-      {
+    // Neon adds its own column storage option (pg_attver) to dumps; standard PostgreSQL rejects it. For Neon
+    // archives the schema section is turned into SQL, exactly those option lines are dropped, and the rest runs
+    // with psql stopping at the first error. Column options are not part of the compared fingerprint.
+    const restoreSection = async (section, log) => {
+      if (archive.source?.mode !== "neon") {
+        await runTool("pg_restore", ["--exit-on-error", `--section=${section}`, `--dbname=${target}`, schemaPath], {
+          url: restoreUrl,
+          diagnostic: path.join(archiveDirectory, `${name}.${target}.${log}.log`),
+        });
+        return;
+      }
+      const sqlPath = path.join(archiveDirectory, `${name}.${target}.${log}.plaintext.sql`);
+      await runTool("pg_restore", [`--section=${section}`, "-f", sqlPath, schemaPath], {
         url: restoreUrl,
-        diagnostic: path.join(archiveDirectory, `${name}.${target}.pre.log`),
-      },
-    );
+        diagnostic: path.join(archiveDirectory, `${name}.${target}.${log}.extract.log`),
+      });
+      try {
+        // Remove only those whole lines; every other byte (including CRLF inside function bodies) is kept.
+        const neonOption = /^ALTER TABLE ONLY public\.[a-z_][a-z0-9_]* ALTER COLUMN [a-z_][a-z0-9_]* SET \(pg_attver=\d+\);\r?\n/gm;
+        await fs.writeFile(sqlPath, (await fs.readFile(sqlPath, "utf8")).replace(neonOption, ""));
+        await runTool("psql", ["-X", "-q", "-v", "ON_ERROR_STOP=1", `--dbname=${target}`, "-f", sqlPath], {
+          url: restoreUrl,
+          diagnostic: path.join(archiveDirectory, `${name}.${target}.${log}.log`),
+        });
+      } finally {
+        await fs.rm(sqlPath, { force: true });
+      }
+    };
+    await restoreSection("pre-data", "pre");
     const restored = await connect(restoreUrl);
     try {
       await restored.query("BEGIN");
@@ -1022,19 +1050,7 @@ export async function restoreManagedArchive(name, recoveryUrl) {
           );
         }
       await restored.query("COMMIT");
-      await runTool(
-        "pg_restore",
-        [
-          "--exit-on-error",
-          "--section=post-data",
-          `--dbname=${target}`,
-          schemaPath,
-        ],
-        {
-          url: restoreUrl,
-          diagnostic: path.join(archiveDirectory, `${name}.${target}.post.log`),
-        },
-      );
+      await restoreSection("post-data", "post");
       await restored.query("BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY");
       await restored.query("SET LOCAL search_path=public,pg_catalog");
       const state = await captureState(restored);
