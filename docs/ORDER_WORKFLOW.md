@@ -78,3 +78,15 @@ The separate managed PostgreSQL check passed **11 groups** on a fresh isolated d
 Source implementation, local automated/API/browser verification and [Linux release CI](https://github.com/sajeeb-ahmeed/astra-union-services/actions/runs/39020055573): **passed**. Hosted migration 011, deployment `dep-db9jt9m1egvs73fi5bbg` of commit `de8a0c335aa2315e8ff03faf2e9100fcf7492622`, nine order groups, six historical-readback groups and five geography groups: **passed**. Existing-office tariffs were not configured by migration or QA. [Live browser checks](../execution/orders-live-browser-qa.json) passed bilingual fee retention, mobile layout, blank citizen-first intake and quote/acceptance gating without creating new domain records. See the [release evidence](RELEASE_0_4.md).
 
 The 0.5 addition is documented in [gateway payments](GATEWAY_PAYMENTS.md). Its local mock-provider verification, release CI and hosted migration must be reported separately from the historical results above. Genuine provider sandbox/merchant acceptance is still required before enabling real collection. Next operational milestone: merchant onboarding, provider acceptance and recovery procedures; service-specific geography, expanded addresses and official signing remain separate parity gaps. Complete reference-process equivalence is not claimed.
+
+## Public price list and citizen-charter time (Phase 4a)
+
+A fee policy version may state a citizen-charter service time (`charterDays`, 1–365, optional; migration 027). Each office's public page (`GET /api/v1/offices/:slug`) lists every enabled service with its latest published fee (statutory + processing), urgent surcharge, delivery fees and charter time. A service without a published policy is shown as "fee not yet published", never with an invented price.
+
+## Coupon codes (Phase 4b)
+
+- Office admins manage coupons at `GET/POST /api/v1/admin/coupons` and switch them on or off with `PATCH /api/v1/admin/coupons/:code` (finance may read). Coupons are never deleted, because fee snapshots refer to them.
+- A coupon is a percentage (1–100) or fixed taka discount on the assessed total, optionally for listed services, inside a validity window and up to a redemption limit (migration 028). Codes are case-insensitive and stored upper-case.
+- `POST /services/:no/order-quote` and the application `order` accept `couponCode`. The quote adds a negative `coupon_discount` line; `totalMinor` is the net amount and never below zero. A coupon that is unknown, off, outside its dates, not for this service or used up returns `422 COUPON_INVALID`.
+- The discount is stored on the immutable order snapshot (`coupon_code`, `discount_minor`). The database recomputes it with `coupon_discount()` on insert, so a snapshot cannot carry an invented discount. Each use is an append-only `coupon_redemptions` row; the coupon row is locked while applying, so the limit holds under concurrency.
+- Payment and issuance use the net total: a coupon that brings it to zero means no payment is needed.
