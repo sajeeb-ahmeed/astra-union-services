@@ -8,7 +8,7 @@ export type CreatedPayment = { paymentId: string; checkoutUrl: string; signature
 export type PaymentResult = { paymentId: string; status: string; transactionId?: string; amountMinor: number; currency: string; invoice: string; intent: string; serviceFeeMinor?: number; creditedAmountMinor?: number; couponAmountMinor?: number };
 export type TransactionResult = { transactionId: string; status: string; amountMinor: number; currency: string; merchantAccount: string; serviceFeeMinor?: number; creditedAmountMinor?: number; couponAmountMinor?: number };
 export interface Gateway {
-  provider: 'BKASH'; environment: 'SANDBOX' | 'LIVE'; merchantAccount: string;
+  provider: 'BKASH' | 'SSLCOMMERZ'; environment: 'SANDBOX' | 'LIVE'; merchantAccount: string;
   create(input: {invoice: string; amountMinor: number; callbackURL: string; payerReference: string}): Promise<CreatedPayment>;
   execute(paymentId: string): Promise<PaymentResult>;
   query(paymentId: string): Promise<PaymentResult>;

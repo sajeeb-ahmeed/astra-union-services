@@ -48,6 +48,7 @@ import {
 } from "./citizen-data.js";
 import { pointsRouter, chargeIssuancePoints } from "./points.js";
 import { rechargeRouter } from "./recharge.js";
+import { merchantRouter } from "./gateways.js";
 import { otpRouter } from "./otp.js";
 import {
   ownerOfficeRegistrationRouter,
@@ -537,6 +538,7 @@ app.use("/api/v1", protectedToolsRouter);
 app.use("/api/v1", ordersRouter);
 app.use("/api/v1", pointsRouter);
 app.use("/api/v1", rechargeRouter);
+app.use("/api/v1", merchantRouter);
 app.use("/api/v1", paymentsRouter);
 app.use("/api/v1", attachmentsRouter);
 app.get(

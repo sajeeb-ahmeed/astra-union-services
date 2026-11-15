@@ -12,11 +12,20 @@ type Availability = {
   reason: string;
   bankSettlement: "NOT_CONNECTED";
   nagad: { configured: false; reason: "NOT_INTEGRATED" };
+  // Phase 5c: the office's own SSLCommerz merchant (cards and mobile wallets).
+  sslcommerz?: { available: boolean; environment: string; reason: string };
+  anyAvailable?: boolean;
 };
+type Provider = "BKASH" | "SSLCOMMERZ";
+const anyAvailable = (a: Availability) => a.anyAvailable ?? a.available;
+const availableProviders = (a: Availability): Provider[] => [
+  ...(a.available ? (["BKASH"] as const) : []),
+  ...(a.sslcommerz?.available ? (["SSLCOMMERZ"] as const) : []),
+];
 type Attempt = {
   id: string;
   applicationId: string;
-  provider: "BKASH";
+  provider: Provider;
   environment: string;
   status: string;
   amountMinor: number;
@@ -242,6 +251,14 @@ function ReceiptLink({ id }: { id: string }) {
 function GatewayNotice({ availability }: { availability: Availability }) {
   return (
     <div className="payment-gateway-notice">
+      {availability.sslcommerz?.available && (
+        <p>
+          <strong>SSLCommerz</strong> ·{" "}
+          {availability.sslcommerz.environment === "SANDBOX"
+            ? label("পরীক্ষামূলক গেটওয়ে (কার্ড ও মোবাইল ব্যাংকিং)", "Sandbox gateway (cards and mobile wallets)")
+            : label("কার্ড ও মোবাইল ব্যাংকিং গেটওয়ে প্রস্তুত", "Cards and mobile wallets ready")}
+        </p>
+      )}
       <p>
         <strong>bKash</strong> ·{" "}
         {availability.available
@@ -250,7 +267,7 @@ function GatewayNotice({ availability }: { availability: Availability }) {
             : label("মার্চেন্ট গেটওয়ে প্রস্তুত", "Merchant gateway ready")
           : label("মার্চেন্ট সেটআপ প্রয়োজন", "Merchant setup required")}
       </p>
-      {!availability.available && (
+      {!anyAvailable(availability) && (
         <p className="hint">
           {label(
             "এই অফিসে অনুমোদিত bKash মার্চেন্ট সংযোগ এখনো চালু হয়নি। এখন কোনো টাকা গ্রহণ করা হচ্ছে না।",
@@ -258,7 +275,7 @@ function GatewayNotice({ availability }: { availability: Availability }) {
           )}
         </p>
       )}
-      {availability.environment === "SANDBOX" && (
+      {(availability.environment === "SANDBOX" || availability.sslcommerz?.environment === "SANDBOX") && (
         <p className="notice">
           {label(
             "এটি গেটওয়ের পরীক্ষামূলক পরিবেশ। প্রকৃত টাকা পরিশোধের প্রমাণ নয়।",
@@ -410,7 +427,7 @@ export function ApplicationPayment({
           {payment.totalMinor > 0 && (
             <>
               {!payment.eligible &&
-                payment.availability.available &&
+                anyAvailable(payment.availability) &&
                 !attempt && (
                   <p className="hint">
                     {label(
@@ -419,17 +436,22 @@ export function ApplicationPayment({
                     )}
                   </p>
                 )}
-              {canPay && !attempt && !payment.receipt && (
+              {canPay && !attempt && !payment.receipt &&
+                (availableProviders(payment.availability).length
+                  ? availableProviders(payment.availability)
+                  : (["BKASH"] as Provider[])
+                ).map((provider) => (
                 <button
+                  key={provider}
                   disabled={
-                    busy || !payment.eligible || !payment.availability.available
+                    busy || !payment.eligible || !availableProviders(payment.availability).includes(provider)
                   }
                   onClick={() =>
                     void run(async (current) => {
                       const result = await api(
                         `/applications/${applicationId}/payments`,
                         "POST",
-                        { provider: "BKASH", requestKey: requestKey.current },
+                        { provider, requestKey: requestKey.current },
                       );
                       if (!current()) return;
                       setPayment((current) =>
@@ -455,23 +477,27 @@ export function ApplicationPayment({
                     })
                   }
                 >
-                  {payment.availability.available
-                    ? label("bKash-এ পরিশোধ করুন", "Pay with bKash")
+                  {availableProviders(payment.availability).includes(provider)
+                    ? provider === "SSLCOMMERZ"
+                      ? label("কার্ড বা মোবাইল ব্যাংকিংয়ে পরিশোধ করুন (SSLCommerz)", "Pay by card or mobile wallet (SSLCommerz)")
+                      : label("bKash-এ পরিশোধ করুন", "Pay with bKash")
                     : label("bKash সেটআপ প্রয়োজন", "bKash setup required")}
                 </button>
-              )}
+              ))}
               {canPay &&
                 attempt?.status === "READY" &&
                 attempt.checkoutUrl &&
-                payment.availability.available && (
+                availableProviders(payment.availability).includes(attempt.provider) && (
                   <a className="button" href={attempt.checkoutUrl}>
-                    {label("bKash পেমেন্টে ফিরে যান", "Continue to bKash")}
+                    {attempt.provider === "SSLCOMMERZ"
+                      ? label("SSLCommerz পেমেন্টে ফিরে যান", "Continue to SSLCommerz")
+                      : label("bKash পেমেন্টে ফিরে যান", "Continue to bKash")}
                   </a>
                 )}
               {canReconcile && attempt && (
                 <button
                   className="secondary"
-                  disabled={busy || !payment.availability.available}
+                  disabled={busy || !anyAvailable(payment.availability)}
                   onClick={() =>
                     void run(async (isCurrent) => {
                       const result = await api(

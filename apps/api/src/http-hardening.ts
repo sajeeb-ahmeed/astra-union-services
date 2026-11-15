@@ -101,8 +101,13 @@ export function httpHardening(req: Request, res: Response, next: NextFunction) {
     res.setHeader("Strict-Transport-Security", "max-age=31536000");
   if (!["GET", "HEAD", "OPTIONS"].includes(req.method)) {
     const origin = req.header("Origin");
+    // Phase 5c: SSLCommerz returns the payer with a form POST from its own site, only to this callback path.
+    const gatewayReturn =
+      /^\/api\/v1\/payments\/sslcommerz\/callback\/[a-f0-9]{64}$/.test(req.path) &&
+      (origin === "https://sandbox.sslcommerz.com" || origin === "https://securepay.sslcommerz.com" || origin === "null");
     if (
       origin &&
+      !gatewayReturn &&
       origin !== (process.env.PUBLIC_ORIGIN ?? "http://127.0.0.1:5173")
     ) {
       res.status(403).json({
