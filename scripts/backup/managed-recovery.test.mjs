@@ -75,6 +75,27 @@ test("managed source pins resource, database and verified TLS; no URL redirectio
     assert.throws(() => validateSource(c));
   }
 });
+test("Neon source requires a Neon host, the astra_prod database and TLS; application credentials are refused", () => {
+  // Connection URLs are assembled at runtime with a generated password, so no credential sits in the repository.
+  const neon = (address, user = "fixture_owner") => {
+    const url = new URL(address);
+    url.username = user;
+    url.password = crypto.randomBytes(9).toString("hex");
+    return { mode: "neon", databaseId: "neon:astra_prod", url };
+  };
+  assert.doesNotThrow(() =>
+    validateSource(neon("postgresql://ep-fixture-123-pooler.ap-southeast-1.aws.neon.tech/astra_prod?sslmode=require")),
+  );
+  for (const [address, user] of [
+    ["postgresql://ep-fixture.ap-southeast-1.aws.neon.tech/astra_prod"],
+    ["postgresql://ep-fixture.ap-southeast-1.aws.neon.tech/astra_prod?sslmode=disable"],
+    ["postgresql://ep-fixture.ap-southeast-1.aws.neon.tech/neondb?sslmode=require"],
+    ["postgresql://neon.tech.attacker.test/astra_prod?sslmode=require"],
+    ["postgresql://ep-fixture.ap-southeast-1.aws.neon.tech:6543/astra_prod?sslmode=require"],
+    ["postgresql://ep-fixture.ap-southeast-1.aws.neon.tech/astra_prod?sslmode=require", "astra_app"],
+  ])
+    assert.throws(() => validateSource(neon(address, user)), address);
+});
 test("local managed test source cannot silently select main database or remote host", () => {
   const c = {
     mode: "local-managed",

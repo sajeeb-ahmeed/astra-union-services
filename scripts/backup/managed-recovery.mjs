@@ -1,4 +1,7 @@
-/** LEGACY (12 Nov 2026): hard-wired to the retired Render Free database dpg-db6tr43ncjis73ercfsg-a. The live database is now on Neon; kept unchanged as history. See docs/HOSTED_DEPLOYMENT.md. */
+/**
+ * Encrypted managed backups. Source modes: `neon` (the live database since 12 Nov 2026), `hosted` (the retired Render
+ * database dpg-db6tr43ncjis73ercfsg-a, kept for history) and `local-managed` (test fixtures). See docs/HOSTED_DEPLOYMENT.md.
+ */
 import fs from "node:fs/promises";
 import path from "node:path";
 import os from "node:os";
@@ -16,6 +19,10 @@ const magic = Buffer.from("ASTRA-MANAGED-RECOVERY-1\n");
 const sourceId = "dpg-db6tr43ncjis73ercfsg-a";
 const sourceHost = `${sourceId}.singapore-postgres.render.com`;
 const sourceDatabase = "astra_uvug";
+// Neon (live since 12 Nov 2026): any Neon endpoint host, the astra_prod database, and TLS that is verified.
+const neonDatabase = "astra_prod";
+const isNeonHost = (hostname) => /^[a-z0-9-]+(\.[a-z0-9-]+)*\.neon\.tech$/.test(hostname ?? "");
+const isRemote = (url) => url?.hostname === sourceHost || isNeonHost(url?.hostname);
 const digest = (value) =>
   crypto.createHash("sha256").update(value).digest("hex");
 const identifier = (value) => {
@@ -58,6 +65,14 @@ export function validateSource(configuration) {
       throw Error(
         "Hosted recovery permits only the confirmed Render resource with verified TLS.",
       );
+  } else if (mode === "neon") {
+    if (
+      !isNeonHost(url.hostname) ||
+      !["", "5432"].includes(url.port) ||
+      url.pathname !== `/${neonDatabase}` ||
+      !["require", "verify-full", "verify-ca"].includes(url.searchParams.get("sslmode") ?? "")
+    )
+      throw Error("Neon backup permits only the astra_prod database on a Neon host with TLS required.");
   } else if (mode === "local-managed") {
     if (
       url.hostname !== "127.0.0.1" ||
@@ -75,6 +90,14 @@ export function validateSource(configuration) {
 }
 
 export async function loadSource(mode, filename) {
+  if (mode === "neon") {
+    // The admin URL stays in a private file outside the repository (never printed).
+    const file = filename ?? process.env.ASTRA_NEON_CONFIG;
+    if (!file) throw Error("Give the private Neon configuration file (with adminUrl) or set ASTRA_NEON_CONFIG.");
+    const text = await fs.readFile(path.resolve(file), "utf8");
+    const saved = JSON.parse(text.charCodeAt(0) === 0xfeff ? text.slice(1) : text);
+    return validateSource({ mode, databaseId: "neon:astra_prod", url: new URL(saved.adminUrl) });
+  }
   if (mode === "hosted") {
     const saved = JSON.parse(
       (
@@ -193,14 +216,14 @@ export function decryptArchive(bytes, key) {
 }
 
 function connectionOptions(url) {
-  const hosted = url.hostname === sourceHost;
+  const hosted = isRemote(url);
   const clean = new URL(url);
   clean.search = "";
   return {
     connectionString: clean.toString(),
     connectionTimeoutMillis: 15000,
     ...(hosted
-      ? { ssl: { rejectUnauthorized: true, servername: sourceHost } }
+      ? { ssl: { rejectUnauthorized: true, servername: url.hostname } }
       : {}),
   };
 }
@@ -212,7 +235,7 @@ async function connect(url) {
 
 export function pgEnvironment(url, caPath) {
   const env = cleanEnvironment();
-  if (url?.hostname === sourceHost && !caPath)
+  if (isRemote(url) && !caPath)
     throw Error("Verified hosted tools require an explicit trusted CA bundle.");
   if (url)
     Object.assign(env, {
@@ -222,7 +245,7 @@ export function pgEnvironment(url, caPath) {
       PGUSER: decodeURIComponent(url.username),
       PGPASSWORD: decodeURIComponent(url.password),
       PGCONNECT_TIMEOUT: "15",
-      ...(url.hostname === sourceHost
+      ...(isRemote(url)
         ? { PGSSLMODE: "verify-full", PGSSLROOTCERT: caPath }
         : { PGSSLMODE: "disable" }),
     });
@@ -231,7 +254,7 @@ export function pgEnvironment(url, caPath) {
 
 export async function runTool(name, args, { url, diagnostic, input } = {}) {
   let caPath;
-  if (url?.hostname === sourceHost) {
+  if (isRemote(url)) {
     caPath = path.join(archiveDirectory, `${label()}.trusted-ca.pem`);
     await fs.writeFile(caPath, rootCertificates.join("\n") + "\n", {
       flag: "wx",
@@ -478,7 +501,13 @@ export function validateInventory(tables, policies, owner) {
       ]),
     ],
     ["callback_owner_read", new Set(["gateway_payment_intents"])],
+    // Migrations 029/030: the points ledger trigger and the owner recharge queue run as the owner.
+    ["definer_ledger_read", new Set(["point_ledger"])],
+    ["definer_queue_read", new Set(["recharge_requests"])],
+    ["definer_wallet_maintenance", new Set(["point_wallets"])],
   ]);
+  // The wallet trigger also writes balances, so its owner policy covers all commands.
+  const ownerWritePolicies = new Set(["definer_wallet_maintenance"]);
   for (const table of tables) {
     if (table.owner !== owner || table.generated)
       throw Error("Unsupported table ownership or generated column.");
@@ -528,9 +557,9 @@ export function validateInventory(tables, policies, owner) {
     for (const rule of rules.filter((p) => p.policyname !== "tenant_scope"))
       if (
         !ownerTables.get(rule.policyname)?.has(table.name) ||
-        rule.cmd !== "SELECT" ||
+        rule.cmd !== (ownerWritePolicies.has(rule.policyname) ? "ALL" : "SELECT") ||
         rule.qual !== "true" ||
-        rule.with_check !== null ||
+        rule.with_check !== (ownerWritePolicies.has(rule.policyname) ? "true" : null) ||
         rule.permissive !== "PERMISSIVE" ||
         JSON.stringify(rule.roles) !== JSON.stringify([owner])
       )
@@ -538,7 +567,11 @@ export function validateInventory(tables, policies, owner) {
   }
 }
 
-async function captureSecurity(client, owner) {
+/**
+ * `allowOwnerBypass` is set only for Neon: roles made in the Neon console get BYPASSRLS from the platform and no
+ * user role can remove it. The application role must still have no bypass, and the archive records the fact.
+ */
+async function captureSecurity(client, owner, { allowOwnerBypass = false } = {}) {
   const roles = (
     await client.query(
       "SELECT rolname name,rolsuper superuser,rolbypassrls bypass,rolcreatedb createdb,rolcreaterole createrole,rolreplication replication FROM pg_roles WHERE rolname=ANY($1::text[]) ORDER BY rolname",
@@ -547,7 +580,7 @@ async function captureSecurity(client, owner) {
   ).rows;
   if (
     roles.length !== 2 ||
-    roles.some((r) => r.superuser || r.bypass || r.replication) ||
+    roles.some((r) => r.superuser || r.replication || (r.bypass && !(allowOwnerBypass && r.name === owner))) ||
     roles.find((r) => r.name === "astra_app").createrole ||
     roles.find((r) => r.name === "astra_app").createdb
   )
@@ -580,6 +613,7 @@ async function captureSecurity(client, owner) {
   return {
     owner,
     app: "astra_app",
+    ownerBypassRls: roles.find((r) => r.name === owner).bypass,
     roles,
     memberships,
     owners,
@@ -624,7 +658,7 @@ export async function createManagedBackup(configuration) {
     ).rows[0];
     if (!/^17\d{4}$/.test(serverVersion))
       throw Error("Managed recovery requires PostgreSQL 17.");
-    const security = await captureSecurity(client, owner);
+    const security = await captureSecurity(client, owner, { allowOwnerBypass: configuration.mode === "neon" });
     const catalog = await inventory(client, owner);
     const tenantIds = (
       await client.query("SELECT id FROM tenants ORDER BY id")
@@ -715,7 +749,11 @@ export async function createManagedBackup(configuration) {
       source: {
         mode: configuration.mode,
         databaseId:
-          configuration.mode === "hosted" ? sourceId : "LOCAL_MANAGED_FIXTURE",
+          configuration.mode === "hosted"
+            ? sourceId
+            : configuration.mode === "neon"
+              ? "neon:astra_prod"
+              : "LOCAL_MANAGED_FIXTURE",
         serverVersion,
         databaseLocale,
       },
@@ -1220,7 +1258,9 @@ async function main() {
     const source =
       argument === "--hosted"
         ? await loadSource("hosted")
-        : await loadSource("local-managed", argument);
+        : argument === "--neon"
+          ? await loadSource("neon", process.argv[4])
+          : await loadSource("local-managed", argument);
     const result = await createManagedBackup(source);
     await fs.writeFile(
       path.join(root, "execution", `managed-${source.mode}-backup.json`),
