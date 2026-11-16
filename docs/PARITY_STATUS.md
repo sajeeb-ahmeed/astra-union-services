@@ -56,6 +56,14 @@ Legend: **Done** — built, tested and merged. **Sandbox** — built and tested;
 | Office inclusion requests, FAQ, designated issuing officers | Done; FAQ is Astra's own content, not the reference's 61 headings | Phase 6 plan |
 | User guide | Done: bilingual guide by role at `/guide` (Citizens, office staff, Secretary, Chairman, office admin/finance, owner), printable as PDF. The owner can replace it with an official guide later | `apps/web/src/UserGuide.tsx` |
 
+## Operations and recovery (Phase 8 groundwork)
+
+| Item | Status | Where |
+| --- | --- | --- |
+| Encrypted backup of the live database | Done for Neon; first backup restored with an exact match (15 Nov 2026). Offsite copy and schedule are the owner's steps | [Hosted deployment](HOSTED_DEPLOYMENT.md) |
+| Scanner and queue monitoring | Done: owner Operations panel with alerts | migration 037 |
+| Confirm server keys without signing in | Done: health reports true/false per key | #34 |
+
 ## Before release sign-off (Phase 7.4)
 
 - Owner fills the Phase 0 form and role captures, or accepts 4.1, 4.3 and 6.2 as deferred.
