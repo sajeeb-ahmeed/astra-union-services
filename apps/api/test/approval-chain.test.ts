@@ -4,6 +4,7 @@ import { demoPayloads, getServiceSchema } from "@astra/shared-schemas";
 import { app } from "../src/app.js";
 import { pool } from "../src/db.js";
 import { renderCertificateHtml, DEMO_TEMPLATE_VERSION } from "../src/certificate-template.js";
+import { closePdfBrowser } from "../src/pdf.js";
 
 process.env.NODE_ENV = "test";
 let server: ReturnType<typeof app.listen>, base: string, citizenId: string;
@@ -31,6 +32,15 @@ async function login(name: string) {
   assert.equal(r.status, 200, JSON.stringify(json));
   s[name] = { cookie: r.headers.get("set-cookie")!.split(";")[0], csrf: json.csrfToken };
 }
+async function submittedApplication() {
+  const created = await req("POST", "/applications", { citizenId, serviceNo: 45, payload: demoPayloads[45] }, "staff");
+  assert.equal(created.status, 201, JSON.stringify(created.body));
+  const id = created.body.id as string;
+  const submitted = await req("POST", `/applications/${id}/transition`, { action: "submit" }, "staff");
+  assert.equal(submitted.status, 200, JSON.stringify(submitted.body));
+  assert.equal(submitted.body.state, "SUBMITTED");
+  return id;
+}
 
 before(async () => {
   server = app.listen(0, "127.0.0.1");
@@ -40,37 +50,114 @@ before(async () => {
   citizenId = (await req("GET", "/citizens", undefined, "citizen")).body.items[0].id;
 });
 after(async () => {
+  await closePdfBrowser();
   await new Promise<void>((resolve) => server.close(() => resolve()));
   await pool.end();
 });
 
-test("Phase 6a: the Chairman may ask the applicant to come; the application stays under review and can then be approved", async () => {
-  const created = await req("POST", "/applications", { citizenId, serviceNo: 45, payload: demoPayloads[45] }, "staff");
-  assert.equal(created.status, 201, JSON.stringify(created.body));
-  const id = created.body.id;
+test("Phase W: the Chairman may ask the applicant to come; the application stays submitted and he then decides it himself", async () => {
+  const id = await submittedApplication();
   const move = (action: string, who: string, reason?: string) =>
     req("POST", `/applications/${id}/transition`, { action, ...(reason ? { reason } : {}) }, who);
-  assert.equal((await move("submit", "staff")).status, 200);
-  // Not before review.
-  assert.equal((await move("summon", "approver", "Come on Sunday at 10 am")).status, 409);
-  assert.equal((await move("review", "reviewer")).status, 200);
+  // No secretary step exists any more: the removed review action is refused outright.
+  assert.equal((await move("review", "reviewer")).status, 422);
   // Only the Chairman (approver with authority) summons, and only with a note.
   assert.equal((await move("summon", "reviewer", "Come on Sunday at 10 am")).status, 403);
   assert.equal((await move("summon", "approver")).status, 422);
   const summoned = await move("summon", "approver", "Please come to the Union office on Sunday at 10 am with your NID.");
   assert.equal(summoned.status, 200, JSON.stringify(summoned.body));
-  assert.equal(summoned.body.state, "UNDER_REVIEW");
+  assert.equal(summoned.body.state, "SUBMITTED");
   // The applicant sees the request in the application history.
   const seen = await req("GET", `/applications/${id}`, undefined, "citizen");
   const event = seen.body.events.find((e: any) => e.action === "summon");
   assert.equal(event.reason, "Please come to the Union office on Sunday at 10 am with your NID.");
-  assert.equal(event.toState, "UNDER_REVIEW");
-  // After the visit the Chairman can approve as usual.
-  assert.equal((await move("approve", "approver")).status, 200);
+  assert.equal(event.toState, "SUBMITTED");
+  // After the visit the Chairman approves — and approval issues the certificate at once.
+  const approved = await move("approve", "approver");
+  assert.equal(approved.status, 200, JSON.stringify(approved.body));
+  assert.equal(approved.body.state, "ISSUED");
+  assert.ok(approved.body.certificate?.number);
 });
 
-test("Phase 6a: certificates (template 5) carry Secretary and Chairman signature blocks in the delivery language", () => {
-  assert.equal(DEMO_TEMPLATE_VERSION, 5);
+test("Phase W: the Chairman's approval of a submitted application issues atomically — one certificate, one credit, notifications both ways", async () => {
+  const id = await submittedApplication();
+  // The office hears about the new submission; the citizen does not get the office-facing notice.
+  const officeFeed = await req("GET", "/notifications", undefined, "approver");
+  const submittedNotice = officeFeed.body.items.find((n: any) => n.kind === "APPLICATION_SUBMITTED" && n.applicationId === id);
+  assert.ok(submittedNotice, "approver feed contains the submission notification");
+  assert.equal(submittedNotice.serviceNo, 45);
+  const citizenFeedBefore = await req("GET", "/notifications", undefined, "citizen");
+  assert.equal(
+    citizenFeedBefore.body.items.some((n: any) => n.kind === "APPLICATION_SUBMITTED" && n.applicationId === id),
+    false,
+  );
+  // The Secretary (reviewer) can no longer decide anything.
+  assert.equal((await req("POST", `/applications/${id}/transition`, { action: "approve" }, "reviewer")).status, 403);
+  assert.equal(
+    (await req("POST", `/applications/${id}/transition`, { action: "reject", reason: "Secretary must not decide" }, "reviewer")).status,
+    403,
+  );
+  assert.equal(
+    (await req("POST", `/applications/${id}/transition`, { action: "request_correction", reason: "Secretary must not decide" }, "reviewer")).status,
+    403,
+  );
+  const balanceBefore = (await req("GET", "/wallet", undefined, "approver")).body.balance;
+  const approved = await req("POST", `/applications/${id}/transition`, { action: "approve" }, "approver");
+  assert.equal(approved.status, 200, JSON.stringify(approved.body));
+  assert.equal(approved.body.state, "ISSUED");
+  assert.ok(approved.body.approvedBy, "the Chairman is recorded as the approver");
+  const certificate = approved.body.certificate;
+  assert.ok(certificate.number && certificate.pdfUrl && certificate.verificationUrl);
+  assert.equal(certificate.templateVersion, DEMO_TEMPLATE_VERSION);
+  // Exactly one credit was deducted by the single action.
+  assert.equal((await req("GET", "/wallet", undefined, "approver")).body.balance, balanceBefore - 1);
+  // The stored record agrees: one certificate, an approve event and an issue event by the Chairman.
+  const detail = await req("GET", `/applications/${id}`, undefined, "citizen");
+  assert.equal(detail.body.application.state, "ISSUED");
+  assert.equal(detail.body.certificate.id, certificate.id);
+  const actions = detail.body.events.map((e: any) => e.action);
+  assert.ok(actions.includes("approve") && actions.includes("issue"));
+  // One action, two audit events: the approval, then the issuance it performed.
+  assert.equal(
+    detail.body.events.find((e: any) => e.action === "approve").toState,
+    "APPROVED",
+  );
+  assert.equal(
+    detail.body.events.find((e: any) => e.action === "issue").toState,
+    "ISSUED",
+  );
+  // Public verification works from the one-time URL, and the citizen was notified of issuance.
+  const token = certificate.verificationUrl.split("/").at(-1);
+  const verified = await req("GET", `/verify/${token}`);
+  assert.equal(verified.body.status, "ISSUED");
+  const citizenFeed = await req("GET", "/notifications", undefined, "citizen");
+  const issuedNotice = citizenFeed.body.items.find((n: any) => n.kind === "DEMO_CERTIFICATE_ISSUED" && n.applicationId === id);
+  assert.ok(issuedNotice, "citizen feed contains the issuance notification");
+  assert.equal(issuedNotice.certificateNumber, certificate.number);
+});
+
+test("Phase W: the Chairman rejects a submitted application with a reason and the citizen is notified with that reason", async () => {
+  const id = await submittedApplication();
+  const move = (action: string, who: string, reason?: string) =>
+    req("POST", `/applications/${id}/transition`, { action, ...(reason ? { reason } : {}) }, who);
+  assert.equal((await move("reject", "approver")).status, 422);
+  const rejected = await move("reject", "approver", "Documents do not match the application");
+  assert.equal(rejected.status, 200, JSON.stringify(rejected.body));
+  assert.equal(rejected.body.state, "REJECTED");
+  const citizenFeed = await req("GET", "/notifications", undefined, "citizen");
+  const notice = citizenFeed.body.items.find((n: any) => n.kind === "APPLICATION_REJECTED" && n.applicationId === id);
+  assert.ok(notice, "citizen feed contains the rejection notification");
+  assert.equal(notice.detail, "Documents do not match the application");
+  const detail = await req("GET", `/applications/${id}`, undefined, "citizen");
+  assert.equal(detail.body.application.state, "REJECTED");
+  const event = detail.body.events.find((e: any) => e.action === "reject");
+  assert.equal(event.reason, "Documents do not match the application");
+  // A decided application cannot be approved afterwards.
+  assert.equal((await move("approve", "approver")).status, 409);
+});
+
+test("Phase W: certificates (template 6) carry one Chairman signature block in the delivery language", () => {
+  assert.equal(DEMO_TEMPLATE_VERSION, 6);
   const render = (language: string) =>
     renderCertificateHtml(
       {
@@ -86,9 +173,14 @@ test("Phase 6a: certificates (template 5) carry Secretary and Chairman signature
     );
   const en = render("en");
   assert.match(en, /class="signatures"/);
-  assert.match(en, /<strong>Verified by<\/strong><span>Secretary<\/span>/);
-  assert.match(en, /<strong>Approved by<\/strong><span>Chairman<\/span>/);
-  assert.match(render("bn"), /<strong>অনুমোদনকারী<\/strong><span>চেয়ারম্যান<\/span>/);
+  assert.match(en, /<strong>Approved and issued by<\/strong><span>Chairman<\/span>/);
+  assert.doesNotMatch(en, /Secretary|সচিব/);
+  assert.equal((en.match(/class="signature"/g) ?? []).length, 1);
+  const bn = render("bn");
+  assert.match(bn, /<strong>অনুমোদন ও ইস্যুকারী<\/strong><span>চেয়ারম্যান<\/span>/);
+  assert.doesNotMatch(bn, /সচিব/);
+  const bilingual = render("bilingual");
+  assert.match(bilingual, /<strong>অনুমোদন ও ইস্যুকারী \/ Approved and issued by<\/strong><span>চেয়ারম্যান \/ Chairman<\/span>/);
   // Still clearly a demonstration document.
   assert.match(en, /DEMO \/ NOT OFFICIAL/);
 });

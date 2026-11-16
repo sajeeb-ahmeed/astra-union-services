@@ -66,7 +66,7 @@ async function login(name: string) {
     user: r.body.user,
   };
 }
-async function createApproved(
+async function createSubmitted(
   no = 45,
   payload = demoPayloads[no as keyof typeof demoPayloads],
 ) {
@@ -81,20 +81,33 @@ async function createApproved(
     sessions["alpha:staff"],
   );
   assert.equal(created.status, 201, JSON.stringify(created.body));
-  for (const [action, session] of [
-    ["submit", "alpha:staff"],
-    ["review", "alpha:reviewer"],
-    ["approve", "alpha:approver"],
-  ]) {
-    const r = await request(
-      "POST",
-      `/applications/${created.body.id}/transition`,
-      { action },
-      sessions[session!],
-    );
-    assert.equal(r.status, 200, JSON.stringify(r.body));
-  }
+  const submitted = await request(
+    "POST",
+    `/applications/${created.body.id}/transition`,
+    { action: "submit" },
+    sessions["alpha:staff"],
+  );
+  assert.equal(submitted.status, 200, JSON.stringify(submitted.body));
+  assert.equal(submitted.body.state, "SUBMITTED");
   return created.body;
+}
+// Phase W: the Chairman's approve IS the issuance. Returns the created
+// application plus the certificate carried by the approve response.
+async function createIssued(
+  no = 45,
+  payload = demoPayloads[no as keyof typeof demoPayloads],
+) {
+  const created = await createSubmitted(no, payload);
+  const approved = await request(
+    "POST",
+    `/applications/${created.id}/transition`,
+    { action: "approve" },
+    sessions["alpha:approver"],
+  );
+  assert.equal(approved.status, 200, JSON.stringify(approved.body));
+  assert.equal(approved.body.state, "ISSUED");
+  assert.ok(approved.body.certificate?.id);
+  return { id: created.id as string, certificate: approved.body.certificate };
 }
 before(async () => {
   server = app.listen(0, "127.0.0.1");
@@ -283,23 +296,51 @@ test("FOR-02 / APP-01 / APP-04: valid versioned draft, correction, resubmission 
     ).status,
     403,
   );
-  for (const [action, session, reason] of [
-    ["submit", "alpha:citizen", undefined],
-    ["review", "alpha:reviewer", undefined],
-    [
-      "request_correction",
-      "alpha:reviewer",
-      "Please clarify the demonstration address",
-    ],
-  ]) {
-    const r = await request(
-      "POST",
-      `/applications/${mainApp.id}/transition`,
-      { action, ...(reason ? { reason } : {}) },
-      sessions[session!],
-    );
-    assert.equal(r.status, 200, JSON.stringify(r.body));
-  }
+  const submittedMain = await request(
+    "POST",
+    `/applications/${mainApp.id}/transition`,
+    { action: "submit" },
+    sessions["alpha:citizen"],
+  );
+  assert.equal(submittedMain.status, 200, JSON.stringify(submittedMain.body));
+  // Phase W: the secretary review step no longer exists — the action itself
+  // is refused, and the reviewer can no longer request corrections.
+  assert.equal(
+    (
+      await request(
+        "POST",
+        `/applications/${mainApp.id}/transition`,
+        { action: "review" },
+        sessions["alpha:reviewer"],
+      )
+    ).status,
+    422,
+  );
+  assert.equal(
+    (
+      await request(
+        "POST",
+        `/applications/${mainApp.id}/transition`,
+        {
+          action: "request_correction",
+          reason: "Please clarify the demonstration address",
+        },
+        sessions["alpha:reviewer"],
+      )
+    ).status,
+    403,
+  );
+  const correction = await request(
+    "POST",
+    `/applications/${mainApp.id}/transition`,
+    {
+      action: "request_correction",
+      reason: "Please clarify the demonstration address",
+    },
+    sessions["alpha:approver"],
+  );
+  assert.equal(correction.status, 200, JSON.stringify(correction.body));
+  assert.equal(correction.body.state, "CORRECTION_REQUIRED");
   const revised = {
     ...demoPayloads[45],
     purpose_en: "Revised synthetic demonstration purpose",
@@ -312,22 +353,50 @@ test("FOR-02 / APP-01 / APP-04: valid versioned draft, correction, resubmission 
   );
   assert.equal(edited.status, 200);
   assert.equal(edited.body.latestVersion, 2);
-  for (const [action, session] of [
-    ["resubmit", "alpha:citizen"],
-    ["review", "alpha:reviewer"],
-    ["approve", "alpha:approver"],
-  ])
-    assert.equal(
-      (
-        await request(
-          "POST",
-          `/applications/${mainApp.id}/transition`,
-          { action },
-          sessions[session!],
-        )
-      ).status,
-      200,
-    );
+  const resubmittedMain = await request(
+    "POST",
+    `/applications/${mainApp.id}/transition`,
+    { action: "resubmit" },
+    sessions["alpha:citizen"],
+  );
+  assert.equal(resubmittedMain.status, 200, JSON.stringify(resubmittedMain.body));
+  assert.equal(resubmittedMain.body.state, "RESUBMITTED");
+  // The Chairman's approval is recorded even while issuance is blocked by an
+  // empty wallet; the suite's later issuance tests complete it from APPROVED.
+  const alphaTenant = sessions["alpha:staff"].user.tenantId;
+  const walletNow = (
+    await request("GET", "/wallet", undefined, sessions["alpha:approver"])
+  ).body.balance;
+  assert.equal(
+    (
+      await request(
+        "POST",
+        `/owner/tenants/${alphaTenant}/adjust`,
+        { delta: -walletNow, reason: "Synthetic approval-gate setup" },
+        sessions.owner,
+      )
+    ).status,
+    201,
+  );
+  const blockedApproval = await request(
+    "POST",
+    `/applications/${mainApp.id}/transition`,
+    { action: "approve" },
+    sessions["alpha:approver"],
+  );
+  assert.equal(blockedApproval.status, 402, JSON.stringify(blockedApproval.body));
+  assert.equal(blockedApproval.body.error.code, "INSUFFICIENT_CREDITS");
+  assert.equal(
+    (
+      await request(
+        "POST",
+        `/owner/tenants/${alphaTenant}/adjust`,
+        { delta: walletNow, reason: "Restore synthetic test wallet credits" },
+        sessions.owner,
+      )
+    ).status,
+    201,
+  );
   const detail = await request(
     "GET",
     `/applications/${mainApp.id}`,
@@ -341,7 +410,7 @@ test("FOR-02 / APP-01 / APP-04: valid versioned draft, correction, resubmission 
     demoPayloads[45].purpose_en,
   );
   assert.equal(detail.body.payload.purpose_en, revised.purpose_en);
-  assert.equal(detail.body.events.length, 8);
+  assert.equal(detail.body.events.length, 6);
 });
 test("APP-02 / APP-03 / SEC-02 / CER-04: read has no effects and cross-tenant/unauthorized issue denied", async () => {
   const before = await admin.query(
@@ -456,14 +525,16 @@ test("WAL-03: insufficient credit retains approval without document/debit", asyn
   );
 });
 test("WAL-04: injected database failure rolls certificate, ledger, state and outbox back", async () => {
-  const approved = await createApproved();
+  const submitted = await createSubmitted();
   const prior = (
     await request("GET", "/wallet", undefined, sessions["alpha:approver"])
   ).body;
+  // Phase W: the failure is injected into the Chairman's approve action
+  // itself, which performs issuance — the approval rolls back with it.
   const result = await request(
     "POST",
-    `/applications/${approved.id}/issue`,
-    {},
+    `/applications/${submitted.id}/transition`,
+    { action: "approve" },
     sessions["alpha:approver"],
     { "X-Test-Failure": "after-debit" },
   );
@@ -476,18 +547,18 @@ test("WAL-04: injected database failure rolls certificate, ledger, state and out
   const detail = (
     await request(
       "GET",
-      `/applications/${approved.id}`,
+      `/applications/${submitted.id}`,
       undefined,
       sessions["alpha:staff"],
     )
   ).body;
-  assert.equal(detail.application.state, "APPROVED");
+  assert.equal(detail.application.state, "SUBMITTED");
   assert.equal(detail.certificate, null);
   assert.equal(
     (
       await admin.query(
         "SELECT count(*)::int n FROM certificates WHERE application_id=$1",
-        [approved.id],
+        [submitted.id],
       )
     ).rows[0].n,
     0,
@@ -783,11 +854,11 @@ test("WAL-05 / BILL-01 / BILL-02: verified sandbox settlements are replay-safe a
 });
 test("FOR-02: repeatable family and conditional trade forms persist through the same engine", async () => {
   for (const no of [2, 42]) {
-    const approved = await createApproved(no);
+    const issued = await createIssued(no);
     const detail = (
       await request(
         "GET",
-        `/applications/${approved.id}`,
+        `/applications/${issued.id}`,
         undefined,
         sessions["alpha:staff"],
       )
@@ -796,7 +867,9 @@ test("FOR-02: repeatable family and conditional trade forms persist through the 
       detail.payload,
       demoPayloads[no as keyof typeof demoPayloads],
     );
-    assert.equal(detail.application.state, "APPROVED");
+    // Phase W: approval issued the certificate in the same action.
+    assert.equal(detail.application.state, "ISSUED");
+    assert.equal(detail.certificate.id, issued.certificate.id);
   }
 });
 test("FOR-03: malformed/oversize uploads rejected, valid files remain tenant private", async () => {
@@ -1033,15 +1106,20 @@ test("CER-01: current resident PDFs contain approved purpose/residency and genui
       purpose_en: expected.purposeEn,
       delivery_language: language,
     };
-    const approved = await createApproved(45, payload);
-    const issued = await request(
+    // Phase W: the Chairman's approve issued this certificate already; the
+    // certificate below is the one carried by that approve response, and a
+    // follow-up issue call returns the same certificate without recharging.
+    const issuedJourney = await createIssued(45, payload);
+    const issued = { body: issuedJourney.certificate };
+    assert.equal(issued.body.templateVersion, DEMO_TEMPLATE_VERSION);
+    const again = await request(
       "POST",
-      `/applications/${approved.id}/issue`,
+      `/applications/${issuedJourney.id}/issue`,
       {},
       sessions["alpha:approver"],
     );
-    assert.equal(issued.status, 201, JSON.stringify(issued.body));
-    assert.equal(issued.body.templateVersion, DEMO_TEMPLATE_VERSION);
+    assert.equal(again.status, 200, JSON.stringify(again.body));
+    assert.equal(again.body.id, issued.body.id);
     const document = await request(
       "GET",
       `/certificates/${issued.body.id}/pdf`,
@@ -1110,7 +1188,7 @@ test("CER-01: current resident PDFs contain approved purpose/residency and genui
       language,
       artifact,
       certificateId: issued.body.id,
-      applicationId: approved.id,
+      applicationId: issuedJourney.id,
       templateVersion: issued.body.templateVersion,
     });
   }

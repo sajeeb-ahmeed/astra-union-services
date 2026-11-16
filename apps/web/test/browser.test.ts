@@ -128,7 +128,7 @@ test(
       await openById(staff, application.id);
       assert.equal(
         await staff
-          .getByRole("button", { name: "Approve application", exact: true })
+          .getByRole("button", { name: "Approve and issue certificate", exact: true })
           .count(),
         0,
       );
@@ -142,11 +142,28 @@ test(
       });
       await login(reviewer, "reviewer");
       await openById(reviewer, application.id);
-      await action(reviewer, "Begin review");
-      await reviewer
-        .getByLabel("Review, approval or revocation reason", { exact: true })
+      // Phase W: the Secretary (reviewer) is view-only — no decision buttons.
+      assert.equal(
+        await reviewer
+          .getByRole("button", { name: "Request correction", exact: true })
+          .count(),
+        0,
+      );
+      assert.equal(
+        await reviewer
+          .getByRole("button", {
+            name: "Approve and issue certificate",
+            exact: true,
+          })
+          .count(),
+        0,
+      );
+      await login(approver, "approver");
+      await openById(approver, application.id);
+      await approver
+        .getByLabel("Decision or revocation reason", { exact: true })
         .fill("Clarify the synthetic demonstration purpose.");
-      await action(reviewer, "Request correction");
+      await action(approver, "Request correction");
       await citizen.reload();
       await openById(citizen, application.id);
       await citizen
@@ -163,27 +180,26 @@ test(
         .getByText("Changes saved.", { exact: true })
         .waitFor();
       await action(citizen, "Resubmit application");
-      await reviewer.reload();
-      await openById(reviewer, application.id);
-      await action(reviewer, "Begin review");
-      await login(approver, "approver");
+      await approver.reload();
       await openById(approver, application.id);
-      await action(approver, "Approve application");
       const before = await approver.evaluate(
         async () => await (await fetch("/api/v1/wallet")).json(),
       );
+      // Phase W: one click — the Chairman's approval issues the certificate.
       const issuedResponse = approver.waitForResponse(
-        (r) => r.url().endsWith("/issue") && r.request().method() === "POST",
+        (r) =>
+          r.url().endsWith("/transition") && r.request().method() === "POST",
       );
       await approver
         .getByRole("button", {
-          name: "Issue demo certificate · 1 credit",
+          name: "Approve and issue certificate",
           exact: true,
         })
         .click();
       const issued = await issuedResponse;
-      assert.equal(issued.status(), 201, await issued.text());
-      const certificate = await issued.json();
+      assert.equal(issued.status(), 200, await issued.text());
+      const certificate = (await issued.json()).certificate;
+      assert.ok(certificate?.id);
       await approver
         .getByRole("link", { name: "Download PDF", exact: true })
         .waitFor();

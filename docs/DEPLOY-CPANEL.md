@@ -89,6 +89,11 @@ template instructs. The critical ones:
 - `IDENTIFIER_SECRET`, `CITIZEN_DATA_KEY`, `MERCHANT_SECRET_KEY` — the
   last two **exactly 64 hex characters**; the server treats unset/invalid
   keys as "feature not enabled" (503), so double-check them here.
+- `OTP_PROVIDER=log` — **do not leave this unset.** In production an unset
+  `OTP_PROVIDER` disables mobile OTP entirely: the OTP endpoints answer
+  `503 OTP_UNAVAILABLE` and citizens cannot verify a mobile number at
+  sign-up. The `log` provider writes each code to the server log only (no
+  SMS reaches a handset); replace it when a real SMS provider is integrated.
 
 ## 5. Initialise the database (once)
 

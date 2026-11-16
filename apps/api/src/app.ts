@@ -1323,6 +1323,292 @@ app.patch(
     res.json(result);
   }),
 );
+/**
+ * Phase W (owner decision, 16 Nov 2026): there is no secretary step. The citizen applies, and the
+ * Chairman (approver) verifies the submitted application himself: his approval IS the issuance —
+ * one action that approves and issues atomically. The separate POST /issue endpoint remains only
+ * as the completion path for applications whose approval was recorded while an issuance gate was
+ * closed (fee not yet collected, insufficient credits/points, inactive subscription, incomplete
+ * profile, disabled service, revoked renewal source). Those gates keep the exact failure semantics
+ * the old two-step flow had: the decision stands, nothing is issued or charged.
+ */
+const DECISION_STATES = ["SUBMITTED", "RESUBMITTED", "UNDER_REVIEW"];
+const APPROVE_STATES = [...DECISION_STATES, "APPROVED"];
+const ISSUANCE_GATE_CODES = new Set([
+  "ORDER_PAYMENT_REQUIRED",
+  "PROFILE_INCOMPLETE",
+  "RENEWAL_SOURCE_INVALID",
+  "INSUFFICIENT_CREDITS",
+  "SUBSCRIPTION_INACTIVE",
+  "POINTS_INSUFFICIENT",
+  "SERVICE_DISABLED",
+]);
+async function prepareIssuance(
+  a: Auth,
+  id: string,
+  states: string[],
+  stateMessage: string,
+) {
+  return transaction(a.tenantId!, async (db) => {
+    const r = await loadApplication(db, id, a);
+    await authorization(db, a, r.service_no);
+    const existing = (
+      await db.query("SELECT * FROM certificates WHERE application_id=$1", [
+        id,
+      ])
+    ).rows[0];
+    if (existing) return { existing };
+    if (
+      !states.includes(r.state) ||
+      (r.state === "APPROVED" && r.approved_version !== r.latest_version)
+    )
+      fail(409, "APPROVAL_REQUIRED", stateMessage);
+    await validateApplicationOrder(db, r, undefined, true);
+    await validateRenewalSource(db, r.id);
+    const payload = (
+      await db.query(
+        "SELECT payload FROM application_payload_versions WHERE application_id=$1 AND version=$2",
+        [id, r.latest_version],
+      )
+    ).rows[0].payload;
+    await validateAttachmentReferences(db, payload, r.citizen_id, true);
+    const schema = (
+      await db.query(
+        "SELECT schema_json FROM service_versions WHERE service_no=$1 AND version=$2",
+        [r.service_no, r.schema_version],
+      )
+    ).rows[0].schema_json;
+    return {
+      r,
+      tenant: (
+        await db.query("SELECT * FROM tenants WHERE id=$1", [a.tenantId])
+      ).rows[0],
+      service: (
+        await db.query("SELECT * FROM service_catalog WHERE service_no=$1", [
+          r.service_no,
+        ])
+      ).rows[0],
+      citizen: (
+        await db.query("SELECT * FROM citizens WHERE id=$1", [r.citizen_id])
+      ).rows[0],
+      payload,
+      schema,
+      geographyNames: await payloadGeographyNames(db, schema, payload),
+      renewal: (
+        await db.query(
+          "SELECT c.number FROM renewal_links l JOIN certificates c ON c.id=l.source_certificate_id AND c.tenant_id=l.tenant_id WHERE l.application_id=$1",
+          [r.id],
+        )
+      ).rows[0]?.number,
+    };
+  });
+}
+/** Offices that enforce it issue only for a complete citizen profile (Phase 3b check, unchanged). */
+function assertProfileComplete(prepared: any) {
+  if (!prepared.tenant.require_complete_profile) return;
+  const completeness = citizenProfileCompleteness(citizenRow(prepared.citizen), {
+    geographyRequired: !!prepared.tenant.division_code,
+  });
+  if (!completeness.complete) {
+    throw new ApiError(
+      409,
+      "PROFILE_INCOMPLETE",
+      "The citizen profile is incomplete: " +
+        completeness.missing.map((item) => completenessLabels[item].en).join(", ") +
+        ". Complete it before issuing.",
+      { missing: completeness.missing, percent: completeness.percent },
+    );
+  }
+}
+async function finalizeIssuance(
+  a: Auth,
+  id: string,
+  meta: {
+    certId: string;
+    token: string;
+    number: string;
+    verificationUrl: string;
+    pdf: Buffer;
+  },
+  opts: {
+    states: string[];
+    stateMessage: string;
+    recordApproval: boolean;
+    testFailure?: string | null;
+  },
+) {
+  return transaction(
+    a.tenantId!,
+    async (db) => {
+      const r = await loadApplication(db, id, a, true);
+      await authorization(db, a, r.service_no);
+      const existing = (
+        await db.query("SELECT * FROM certificates WHERE application_id=$1", [
+          id,
+        ])
+      ).rows[0];
+      if (existing) return certificateRow(existing);
+      if (
+        !opts.states.includes(r.state) ||
+        (r.state === "APPROVED" && r.approved_version !== r.latest_version)
+      )
+        fail(409, "APPROVAL_REQUIRED", opts.stateMessage);
+      await validateApplicationOrder(db, r, undefined, true);
+      await validateRenewalSource(db, r.id);
+      const currentPayload = (
+        await db.query(
+          "SELECT payload FROM application_payload_versions WHERE application_id=$1 AND version=$2",
+          [id, r.latest_version],
+        )
+      ).rows[0].payload;
+      await validateAttachmentReferences(db, currentPayload, r.citizen_id, true);
+      if (
+        !(
+          await db.query(
+            "SELECT 1 FROM tenant_subscriptions WHERE tenant_id=$1 AND status='ACTIVE' AND valid_until>now() FOR UPDATE",
+            [a.tenantId],
+          )
+        ).rowCount
+      )
+        fail(
+          402,
+          "SUBSCRIPTION_INACTIVE",
+          "An active tenant subscription is required. Application is retained.",
+        );
+      const cost = (
+        await db.query(
+          "SELECT credit_cost FROM tenant_service_configuration WHERE tenant_id=$1 AND service_no=$2 AND enabled",
+          [a.tenantId, r.service_no],
+        )
+      ).rows[0]?.credit_cost;
+      if (!cost) fail(422, "SERVICE_DISABLED", "Service is disabled.");
+      const wallet = (
+        await db.query("SELECT balance FROM lock_tenant_wallet()")
+      ).rows[0];
+      if (!wallet || wallet.balance < cost)
+        fail(
+          402,
+          "INSUFFICIENT_CREDITS",
+          "Insufficient tenant credits. Approved application is retained.",
+        );
+      const c = (
+        await db.query(
+          "INSERT INTO certificates(id,tenant_id,application_id,number,service_no,token_hash,pdf,issued_by,template_version) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING *",
+          [
+            meta.certId,
+            a.tenantId,
+            id,
+            meta.number,
+            r.service_no,
+            digest(meta.token),
+            meta.pdf,
+            a.userId,
+            DEMO_TEMPLATE_VERSION,
+          ],
+        )
+      ).rows[0];
+      await db.query(
+        "INSERT INTO credit_ledger(tenant_id,delta,kind,idempotency_key,certificate_id,actor_id,reason,balance_after) VALUES($1,$2,'ISSUANCE',$3,$4,$5,'DEMO certificate issuance',0)",
+        [a.tenantId, -cost, `issuance:${c.id}`, c.id, a.userId],
+      );
+      // Phase 5a: the owner-set point price, deducted once in the same transaction (402 keeps it approved).
+      await chargeIssuancePoints(db, a.tenantId!, r.service_no, c.id, a.userId);
+      if (
+        process.env.NODE_ENV === "test" &&
+        opts.testFailure === "after-debit"
+      )
+        throw new Error("Injected issuance transaction failure");
+      const recordApproval = opts.recordApproval && r.state !== "APPROVED";
+      await db.query(
+        "UPDATE applications SET state='ISSUED',updated_at=now(),approved_by=CASE WHEN $3 THEN $2 ELSE approved_by END,approved_version=CASE WHEN $3 THEN latest_version ELSE approved_version END WHERE id=$1",
+        [id, a.userId, recordApproval],
+      );
+      if (recordApproval) await event(db, r, a, "approve", "APPROVED");
+      await event(
+        db,
+        recordApproval ? { ...r, state: "APPROVED" } : r,
+        a,
+        "issue",
+        "ISSUED",
+      );
+      await db.query(
+        "INSERT INTO outbox_events(tenant_id,kind,resource_id) VALUES($1,'DEMO_CERTIFICATE_ISSUED',$2)",
+        [a.tenantId, c.id],
+      );
+      // The only time the plaintext verification URL leaves the server outside the PDF.
+      return certificateRow(c, meta.verificationUrl);
+    },
+    true,
+  );
+}
+/**
+ * When an issuance gate blocks the Chairman's approval, the decision itself is still recorded
+ * (state APPROVED with the approve event), exactly as the old approve-then-issue flow behaved;
+ * only the issuance waits. Non-gate failures (validation, authorization, crashes) record nothing.
+ */
+async function recordApprovalOnGate(a: Auth, id: string) {
+  await transaction(a.tenantId!, async (db) => {
+    const r = await loadApplication(db, id, a, true);
+    if (!DECISION_STATES.includes(r.state)) return;
+    await db.query(
+      "UPDATE applications SET state='APPROVED',approved_by=$2,approved_version=latest_version,updated_at=now() WHERE id=$1",
+      [r.id, a.userId],
+    );
+    await event(db, r, a, "approve", "APPROVED");
+  });
+}
+/** The Chairman's single decision action: approve and issue in one atomic step. */
+async function approveAndIssue(req: Req, a: Auth, id: string) {
+  try {
+    const prepared = await prepareIssuance(
+      a,
+      id,
+      APPROVE_STATES,
+      "Approval requires a submitted application.",
+    );
+    if (prepared.existing) {
+      const application = await transaction(a.tenantId!, async (db) =>
+        camelRow(await loadApplication(db, id, a)),
+      );
+      return { ...application, certificate: certificateRow(prepared.existing) };
+    }
+    assertProfileComplete(prepared);
+    const certId = randomUUID(),
+      token = randomToken(),
+      number = `DEMO-${new Date().getFullYear()}-${certId.slice(0, 18).toUpperCase()}`;
+    const verificationUrl = `${publicOrigin}/verify/${token}`;
+    const pdf = await generatePdf({
+      number,
+      verificationUrl,
+      tenant: prepared.tenant,
+      service: prepared.service,
+      citizen: prepared.citizen,
+      payload: prepared.payload,
+      schema: prepared.schema,
+      geographyNames: prepared.geographyNames,
+      renewalNumber: prepared.renewal,
+    });
+    const certificate = await finalizeIssuance(
+      a,
+      id,
+      { certId, token, number, verificationUrl, pdf },
+      {
+        states: APPROVE_STATES,
+        stateMessage: "Approval requires a submitted application.",
+        recordApproval: true,
+        testFailure: req.header("X-Test-Failure"),
+      },
+    );
+    const application = await transaction(a.tenantId!, async (db) =>
+      camelRow(await loadApplication(db, id, a)),
+    );
+    return { ...application, certificate };
+  } catch (error) {
+    if (error instanceof ApiError && ISSUANCE_GATE_CODES.has(error.code))
+      await recordApprovalOnGate(a, id).catch(() => undefined);
+    throw error;
+  }
+}
 app.post(
   "/api/v1/applications/:id/transition",
   wrap(async (req, res) => {
@@ -1332,7 +1618,6 @@ app.post(
       .object({
         action: z.enum([
           "submit",
-          "review",
           "request_correction",
           "resubmit",
           "approve",
@@ -1344,6 +1629,11 @@ app.post(
       })
       .strict()
       .parse(req.body);
+    // Phase W: the Chairman's approval performs issuance atomically (see approveAndIssue).
+    if (data.action === "approve") {
+      res.json(await approveAndIssue(req, a, String(req.params.id)));
+      return;
+    }
     const result = await transaction(tenant(req), async (db) => {
       const r = await loadApplication(db, String(req.params.id), a, true);
       let next: string;
@@ -1373,47 +1663,42 @@ app.post(
             );
           next = "RESUBMITTED";
           break;
-        case "review":
-          roles(req, ["reviewer"]);
-          if (!["SUBMITTED", "RESUBMITTED"].includes(r.state))
+        case "request_correction":
+          // Phase W: the Chairman asks for corrections himself; there is no reviewer step.
+          roles(req, ["approver"]);
+          if (!DECISION_STATES.includes(r.state))
             fail(
               409,
               "STATE_CONFLICT",
-              "Review requires a submitted application.",
+              "Correction requires a submitted application.",
             );
-          next = "UNDER_REVIEW";
-          break;
-        case "request_correction":
-          roles(req, ["reviewer"]);
-          if (r.state !== "UNDER_REVIEW")
-            fail(409, "STATE_CONFLICT", "Correction requires review.");
           if (!data.reason)
             fail(422, "REASON_REQUIRED", "A correction reason is required.");
           next = "CORRECTION_REQUIRED";
           break;
-        case "approve":
-          await authorization(db, a, r.service_no);
-          if (r.state !== "UNDER_REVIEW")
-            fail(409, "STATE_CONFLICT", "Approval requires completed review.");
-          next = "APPROVED";
-          break;
         case "summon":
-          // Phase 6a: the Chairman may ask the applicant to appear before deciding. The application stays
-          // under review; the note (when and where to come) is shown to the applicant.
+          // Phase 6a/W: the Chairman may ask the applicant to appear before deciding. The
+          // application stays in its submitted state; the note (when and where to come) is
+          // shown to the applicant.
           await authorization(db, a, r.service_no);
-          if (r.state !== "UNDER_REVIEW")
-            fail(409, "STATE_CONFLICT", "Summoning the applicant requires completed review.");
-          if (!data.reason)
-            fail(422, "REASON_REQUIRED", "Say when and where the applicant should come.");
-          next = "UNDER_REVIEW";
-          break;
-        case "reject":
-          roles(req, ["reviewer", "approver"]);
-          if (!["SUBMITTED", "RESUBMITTED", "UNDER_REVIEW"].includes(r.state))
+          if (!DECISION_STATES.includes(r.state))
             fail(
               409,
               "STATE_CONFLICT",
-              "Rejection requires an active review application.",
+              "Summoning the applicant requires a submitted application.",
+            );
+          if (!data.reason)
+            fail(422, "REASON_REQUIRED", "Say when and where the applicant should come.");
+          next = r.state;
+          break;
+        case "reject":
+          // Phase W: only the Chairman rejects (the reviewer/secretary no longer decides).
+          roles(req, ["approver"]);
+          if (!DECISION_STATES.includes(r.state))
+            fail(
+              409,
+              "STATE_CONFLICT",
+              "Rejection requires a submitted application.",
             );
           if (!data.reason)
             fail(422, "REASON_REQUIRED", "A rejection reason is required.");
@@ -1427,8 +1712,11 @@ app.post(
             fail(422, "REASON_REQUIRED", "A cancellation reason is required.");
           next = "CANCELLED";
           break;
+        default:
+          // "approve" is intercepted before this transaction (it issues atomically).
+          fail(409, "STATE_CONFLICT", "Unsupported application action.");
       }
-      if (["submit", "resubmit", "approve"].includes(data.action)) {
+      if (["submit", "resubmit"].includes(data.action)) {
         const payload = (
           await db.query(
             "SELECT payload FROM application_payload_versions WHERE application_id=$1 AND version=$2",
@@ -1444,6 +1732,23 @@ app.post(
         )
       ).rows[0];
       await event(db, r, a, data.action, next, data.reason);
+      // Phase W notifications: the office's chairman/approver users hear about new work, and
+      // the citizen hears about a rejection (with the Chairman's reason) in the in-app feed.
+      if (data.action === "submit")
+        await db.query(
+          "INSERT INTO outbox_events(tenant_id,kind,resource_id) VALUES($1,'APPLICATION_SUBMITTED',$2)",
+          [a.tenantId, r.id],
+        );
+      else if (data.action === "resubmit")
+        await db.query(
+          "INSERT INTO outbox_events(tenant_id,kind,resource_id) VALUES($1,'APPLICATION_RESUBMITTED',$2)",
+          [a.tenantId, r.id],
+        );
+      else if (data.action === "reject")
+        await db.query(
+          "INSERT INTO outbox_events(tenant_id,kind,resource_id,detail) VALUES($1,'APPLICATION_REJECTED',$2,$3)",
+          [a.tenantId, r.id, data.reason],
+        );
       return camelRow(updated);
     });
     res.json(result);
@@ -1457,81 +1762,20 @@ app.post(
     z.object({})
       .strict()
       .parse(req.body ?? {});
-    const prepared = await transaction(tenant(req), async (db) => {
-      const r = await loadApplication(db, id, a);
-      await authorization(db, a, r.service_no);
-      const existing = (
-        await db.query("SELECT * FROM certificates WHERE application_id=$1", [
-          id,
-        ])
-      ).rows[0];
-      if (existing) return { existing };
-      if (r.state !== "APPROVED" || r.approved_version !== r.latest_version)
-        fail(
-          409,
-          "APPROVAL_REQUIRED",
-          "This application requires final approval of its current payload.",
-        );
-      await validateApplicationOrder(db, r, undefined, true);
-      await validateRenewalSource(db, r.id);
-      const payload = (
-        await db.query(
-          "SELECT payload FROM application_payload_versions WHERE application_id=$1 AND version=$2",
-          [id, r.latest_version],
-        )
-      ).rows[0].payload;
-      await validateAttachmentReferences(db, payload, r.citizen_id, true);
-      const schema = (
-        await db.query(
-          "SELECT schema_json FROM service_versions WHERE service_no=$1 AND version=$2",
-          [r.service_no, r.schema_version],
-        )
-      ).rows[0].schema_json;
-      return {
-        r,
-        tenant: (
-          await db.query("SELECT * FROM tenants WHERE id=$1", [a.tenantId])
-        ).rows[0],
-        service: (
-          await db.query("SELECT * FROM service_catalog WHERE service_no=$1", [
-            r.service_no,
-          ])
-        ).rows[0],
-        citizen: (
-          await db.query("SELECT * FROM citizens WHERE id=$1", [r.citizen_id])
-        ).rows[0],
-        payload,
-        schema,
-        geographyNames: await payloadGeographyNames(db, schema, payload),
-        renewal: (
-          await db.query(
-            "SELECT c.number FROM renewal_links l JOIN certificates c ON c.id=l.source_certificate_id AND c.tenant_id=l.tenant_id WHERE l.application_id=$1",
-            [r.id],
-          )
-        ).rows[0]?.number,
-      };
-    });
+    // Phase W: /issue is now only the completion path for an application whose approval was
+    // recorded while an issuance gate was closed; the normal flow approves and issues in the
+    // transition above. Both paths share prepareIssuance/finalizeIssuance.
+    const prepared = await prepareIssuance(
+      a,
+      id,
+      ["APPROVED"],
+      "This application requires final approval of its current payload.",
+    );
     if (prepared.existing) {
       res.json(certificateRow(prepared.existing));
       return;
     }
-    // Phase 3b: offices that enforce it issue only for a complete citizen profile.
-    if (prepared.tenant.require_complete_profile) {
-      const completeness = citizenProfileCompleteness(citizenRow(prepared.citizen), {
-        geographyRequired: !!prepared.tenant.division_code,
-      });
-      if (!completeness.complete) {
-        const error = new ApiError(
-          409,
-          "PROFILE_INCOMPLETE",
-          "The citizen profile is incomplete: " +
-            completeness.missing.map((item) => completenessLabels[item].en).join(", ") +
-            ". Complete it before issuing.",
-          { missing: completeness.missing, percent: completeness.percent },
-        );
-        throw error;
-      }
-    }
+    assertProfileComplete(prepared);
     const certId = randomUUID(),
       token = randomToken(),
       number = `DEMO-${new Date().getFullYear()}-${certId.slice(0, 18).toUpperCase()}`;
@@ -1547,106 +1791,16 @@ app.post(
       geographyNames: prepared.geographyNames,
       renewalNumber: prepared.renewal,
     });
-    const result = await transaction(
-      tenant(req),
-      async (db) => {
-        const r = await loadApplication(db, id, a, true);
-        await authorization(db, a, r.service_no);
-        const existing = (
-          await db.query("SELECT * FROM certificates WHERE application_id=$1", [
-            id,
-          ])
-        ).rows[0];
-        if (existing) return certificateRow(existing);
-        if (r.state !== "APPROVED" || r.approved_version !== r.latest_version)
-          fail(
-            409,
-            "APPROVAL_REQUIRED",
-            "Current payload requires final approval.",
-          );
-        await validateApplicationOrder(db, r, undefined, true);
-        await validateRenewalSource(db, r.id);
-        const currentPayload = (
-          await db.query(
-            "SELECT payload FROM application_payload_versions WHERE application_id=$1 AND version=$2",
-            [id, r.latest_version],
-          )
-        ).rows[0].payload;
-        await validateAttachmentReferences(
-          db,
-          currentPayload,
-          r.citizen_id,
-          true,
-        );
-        if (
-          !(
-            await db.query(
-              "SELECT 1 FROM tenant_subscriptions WHERE tenant_id=$1 AND status='ACTIVE' AND valid_until>now() FOR UPDATE",
-              [a.tenantId],
-            )
-          ).rowCount
-        )
-          fail(
-            402,
-            "SUBSCRIPTION_INACTIVE",
-            "An active tenant subscription is required. Application is retained.",
-          );
-        const cost = (
-          await db.query(
-            "SELECT credit_cost FROM tenant_service_configuration WHERE tenant_id=$1 AND service_no=$2 AND enabled",
-            [a.tenantId, r.service_no],
-          )
-        ).rows[0]?.credit_cost;
-        if (!cost) fail(422, "SERVICE_DISABLED", "Service is disabled.");
-        const wallet = (
-          await db.query("SELECT balance FROM lock_tenant_wallet()")
-        ).rows[0];
-        if (!wallet || wallet.balance < cost)
-          fail(
-            402,
-            "INSUFFICIENT_CREDITS",
-            "Insufficient tenant credits. Approved application is retained.",
-          );
-        const c = (
-          await db.query(
-            "INSERT INTO certificates(id,tenant_id,application_id,number,service_no,token_hash,pdf,issued_by,template_version) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING *",
-            [
-              certId,
-              a.tenantId,
-              id,
-              number,
-              r.service_no,
-              digest(token),
-              pdf,
-              a.userId,
-              DEMO_TEMPLATE_VERSION,
-            ],
-          )
-        ).rows[0];
-        await db.query(
-          "INSERT INTO credit_ledger(tenant_id,delta,kind,idempotency_key,certificate_id,actor_id,reason,balance_after) VALUES($1,$2,'ISSUANCE',$3,$4,$5,'DEMO certificate issuance',0)",
-          [a.tenantId, -cost, `issuance:${c.id}`, c.id, a.userId],
-        );
-        // Phase 5a: the owner-set point price, deducted once in the same transaction (402 keeps it approved).
-        await chargeIssuancePoints(db, a.tenantId!, r.service_no, c.id, a.userId);
-        if (
-          process.env.NODE_ENV === "test" &&
-          req.header("X-Test-Failure") === "after-debit"
-        )
-          throw new Error("Injected issuance transaction failure");
-        await db.query(
-          "UPDATE applications SET state='ISSUED',updated_at=now() WHERE id=$1",
-          [id],
-        );
-        await event(db, r, a, "issue", "ISSUED");
-        await db.query(
-          "INSERT INTO outbox_events(tenant_id,kind,resource_id) VALUES($1,'DEMO_CERTIFICATE_ISSUED',$2)",
-          [a.tenantId, c.id],
-        );
-        // The only time the plaintext verification URL leaves the server outside the PDF.
-        return certificateRow(c, verificationUrl);
+    const result = await finalizeIssuance(
+      a,
+      id,
+      { certId, token, number, verificationUrl, pdf },
+      {
+        states: ["APPROVED"],
+        stateMessage: "Current payload requires final approval.",
+        recordApproval: false,
+        testFailure: req.header("X-Test-Failure"),
       },
-      true,
     );
     res.status(201).json(result);
   }),

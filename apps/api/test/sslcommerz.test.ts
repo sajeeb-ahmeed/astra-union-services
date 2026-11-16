@@ -112,14 +112,14 @@ async function approvedApplication() {
     "citizen",
   );
   assert.equal(created.status, 201, JSON.stringify(created.body));
-  for (const [action, who] of [
-    ["submit", "citizen"],
-    ["review", "reviewer"],
-    ["approve", "approver"],
-  ]) {
-    const r = await req("POST", `/applications/${created.body.id}/transition`, { action }, who);
-    assert.equal(r.status, 200, JSON.stringify(r.body));
-  }
+  const submitted = await req("POST", `/applications/${created.body.id}/transition`, { action: "submit" }, "citizen");
+  assert.equal(submitted.status, 200, JSON.stringify(submitted.body));
+  // Phase W: approve attempts issuance in the same action; the unpaid order
+  // blocks it (402 ORDER_PAYMENT_REQUIRED) while the approval is recorded.
+  const approval = await req("POST", `/applications/${created.body.id}/transition`, { action: "approve" }, "approver");
+  assert.ok(approval.status === 200 || approval.status === 402, JSON.stringify(approval.body));
+  if (approval.status === 402)
+    assert.equal(approval.body.error.code, "ORDER_PAYMENT_REQUIRED");
   return created.body.id as string;
 }
 const checkout = (applicationId: string) =>

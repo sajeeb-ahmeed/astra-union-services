@@ -67,13 +67,11 @@ test(
       const id = created.body.id;
       assert.equal((await call(page, "POST", `/applications/${id}/transition`, { action: "submit" })).status, 200);
       await signOut(page);
-      await signIn(page, "reviewer");
-      assert.equal((await call(page, "POST", `/applications/${id}/transition`, { action: "review" })).status, 200);
-      await signOut(page);
 
+      // Phase W: no secretary review — the Chairman summons from SUBMITTED.
       await signIn(page, "approver");
       await openApplication(page, id);
-      await page.getByLabel("Review, approval or revocation reason", { exact: true }).fill("Please come to the office on Sunday at 10 am.");
+      await page.getByLabel("Decision or revocation reason", { exact: true }).fill("Please come to the office on Sunday at 10 am.");
       await page.getByRole("button", { name: "Ask the applicant to come", exact: true }).click();
       await page.locator(".summon-notice").getByText("Please come to the office on Sunday at 10 am.").waitFor();
       await signOut(page);

@@ -116,8 +116,8 @@ async function transition(
 }
 async function approve(id: string) {
   await transition(id, "submit", "citizen");
-  await transition(id, "review", "reviewer");
-  await transition(id, "approve", "approver");
+  // Phase W: no secretary review — the Chairman's approve issues at once.
+  return transition(id, "approve", "approver");
 }
 before(async () => {
   server = app.listen(0, "127.0.0.1");
@@ -375,7 +375,7 @@ test("MGMT-01: memberships, approval grants, service settings and office isolati
     .balance;
   assert.equal(before, 120);
 });
-test("ALL47-01: every service validates, persists, submits, reviews, authorizes and issues a real PDF with one charge", async () => {
+test("ALL47-01: every service validates, persists, submits and is issued by the Chairman's single approve action with one charge", async () => {
   const evidence: any[] = [];
   for (const service of serviceCatalog) {
     const no = service.service_no,
@@ -391,18 +391,20 @@ test("ALL47-01: every service validates, persists, submits, reviews, authorizes 
       201,
       `Service ${no}: ${JSON.stringify(created.body)}`,
     );
-    await approve(created.body.id);
-    const result = await req(
+    // Phase W: approval IS issuance — the certificate arrives with the
+    // approve response, and a follow-up issue call is an idempotent no-op.
+    const approvedBody = await approve(created.body.id);
+    assert.equal(approvedBody.state, "ISSUED", `Approve ${no}`);
+    const result = { body: approvedBody.certificate };
+    assert.ok(result.body?.id, `Certificate ${no}`);
+    const again = await req(
       "POST",
       `/applications/${created.body.id}/issue`,
       {},
       s.approver,
     );
-    assert.equal(
-      result.status,
-      201,
-      `Issue ${no}: ${JSON.stringify(result.body)}`,
-    );
+    assert.equal(again.status, 200, `Reissue ${no}: ${JSON.stringify(again.body)}`);
+    assert.equal(again.body.id, result.body.id);
     const pdf = await req(
       "GET",
       result.body.pdfUrl.replace("/api/v1", ""),
@@ -742,9 +744,12 @@ test("CER-RENEW: trade renewal preserves lineage, applicant and authority; concu
       .status,
     409,
   );
-  await approve(child.id);
+  // Phase W: the Chairman's approve issues the renewal; concurrent issue
+  // calls afterwards all return that same certificate with no extra charge.
   const before = (await req("GET", "/wallet", undefined, s.finance)).body
     .balance;
+  const approvedChild = await approve(child.id);
+  assert.equal(approvedChild.state, "ISSUED");
   const results = await Promise.all(
     Array.from({ length: 4 }, () =>
       req("POST", `/applications/${child.id}/issue`, {}, s.approver),
@@ -755,6 +760,7 @@ test("CER-RENEW: trade renewal preserves lineage, applicant and authority; concu
     JSON.stringify(results),
   );
   assert.equal(new Set(results.map((r) => r.body.id)).size, 1);
+  assert.equal(results[0]!.body.id, approvedChild.certificate.id);
   assert.equal(
     (await req("GET", "/wallet", undefined, s.finance)).body.balance,
     before - 1,
@@ -794,7 +800,9 @@ test("CER-REVOKE: source revocation blocks an already approved renewal and prese
       s.citizen,
     );
   assert.equal(r.status, 201);
-  await approve(r.body.id);
+  // Phase W: submit the renewal, revoke the source, then the Chairman's
+  // approve records his approval but cannot issue against a revoked source.
+  await transition(r.body.id, "submit", "citizen");
   assert.equal(
     (
       await req(
@@ -810,12 +818,28 @@ test("CER-REVOKE: source revocation blocks an already approved renewal and prese
     .balance;
   const attempt = await req(
     "POST",
-    `/applications/${r.body.id}/issue`,
-    {},
+    `/applications/${r.body.id}/transition`,
+    { action: "approve" },
     s.approver,
   );
   assert.equal(attempt.status, 409);
   assert.equal(attempt.body.error.code, "RENEWAL_SOURCE_INVALID");
+  const detail = await req(
+    "GET",
+    `/applications/${r.body.id}`,
+    undefined,
+    s.citizen,
+  );
+  assert.equal(detail.body.application.state, "APPROVED");
+  assert.equal(detail.body.certificate, null);
+  const issueAttempt = await req(
+    "POST",
+    `/applications/${r.body.id}/issue`,
+    {},
+    s.approver,
+  );
+  assert.equal(issueAttempt.status, 409);
+  assert.equal(issueAttempt.body.error.code, "RENEWAL_SOURCE_INVALID");
   assert.equal(
     (await req("GET", "/wallet", undefined, s.finance)).body.balance,
     before,
@@ -1114,9 +1138,13 @@ async function issuedV2ApplicationWith(no: number, overrides: Record<string, str
     );
     return app.id as string;
   });
-  await approve(id);
+  // Phase W: approve() already issued this application; the issue call is
+  // the idempotent completion path and returns the same certificate (200).
+  const approvedV2 = await approve(id);
+  assert.equal(approvedV2.state, "ISSUED");
   const result = await req("POST", `/applications/${id}/issue`, {}, s.approver);
-  assert.equal(result.status, 201, `Issue v2 ${no}: ${JSON.stringify(result.body)}`);
+  assert.equal(result.status, 200, `Issue v2 ${no}: ${JSON.stringify(result.body)}`);
+  assert.equal(result.body.id, approvedV2.certificate.id);
   return { id, payload };
 }
 async function issuedV2Application(no: number, overrides: Record<string, string> = {}) {
@@ -1139,9 +1167,10 @@ for (const no of [42, 36, 41])
     });
     for (const legacy of ["district_id", "thana_id", "union_id"])
       assert.equal(child.payload[legacy], undefined);
-    await approve(renewal.body.id);
+    const approvedRenewal = await approve(renewal.body.id);
     const reissued = await req("POST", `/applications/${renewal.body.id}/issue`, {}, s.approver);
-    assert.equal(reissued.status, 201, JSON.stringify(reissued.body));
+    assert.equal(reissued.status, 200, JSON.stringify(reissued.body));
+    assert.equal(reissued.body.id, approvedRenewal.certificate.id);
   });
 test("B5: unmatched location text keeps the renewal on its pinned version with the payload unchanged", async () => {
   const { id, payload } = await issuedV2Application(41, { union_id: "Nonexistent Union" });
@@ -1153,8 +1182,10 @@ test("B5: unmatched location text keeps the renewal on its pinned version with t
   assert.equal(child.payload.org_location, undefined);
   assert.equal(child.payload.union_id, "Nonexistent Union");
   assert.equal(child.payload.thana_id, payload.thana_id);
-  await approve(renewal.body.id);
-  assert.equal((await req("POST", `/applications/${renewal.body.id}/issue`, {}, s.approver)).status, 201);
+  const approvedUnresolved = await approve(renewal.body.id);
+  const unresolvedIssue = await req("POST", `/applications/${renewal.body.id}/issue`, {}, s.approver);
+  assert.equal(unresolvedIssue.status, 200);
+  assert.equal(unresolvedIssue.body.id, approvedUnresolved.certificate.id);
 });
 test("Phase 1: the citizen list reports the office's real total, not the 100-row page length", async () => {
   const listed = await req("GET", "/citizens", undefined, s.staff);

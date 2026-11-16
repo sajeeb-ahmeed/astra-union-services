@@ -213,9 +213,11 @@ try {
     "Real infected-file verdict blocks application submission without changing its draft",
   );
   const approved = await draft(clean);
+  // Phase W: no secretary review — the Chairman's approve issues at once,
+  // so the follow-up issue call returns the same certificate with 200.
+  let approveBody: any;
   for (const [action, role] of [
     ["submit", "staff"],
-    ["review", "reviewer"],
     ["approve", "approver"],
   ]) {
     const r = await request(
@@ -225,14 +227,17 @@ try {
       sessions[role!],
     );
     assert.equal(r.status, 200, JSON.stringify(r.body));
+    if (action === "approve") approveBody = r.body;
   }
+  assert.equal(approveBody.state, "ISSUED");
   const issued = await request(
     "POST",
     `/applications/${approved.id}/issue`,
     {},
     sessions.approver,
   );
-  assert.equal(issued.status, 201, JSON.stringify(issued.body));
+  assert.equal(issued.status, 200, JSON.stringify(issued.body));
+  assert.equal(issued.body.id, approveBody.certificate.id);
   const replay = await request(
     "POST",
     `/applications/${approved.id}/issue`,

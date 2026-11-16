@@ -1,4 +1,4 @@
-import { t, tx } from "./i18n.js";
+import { choose, t, tx } from "./i18n.js";
 import React, { useEffect, useState } from "react";
 import { api, items } from "./api.js";
 import { AccountSessions } from "./AccountSessions.js";
@@ -640,7 +640,9 @@ export function AdditionalWorkspace({
             <span className="eyebrow">{t("IN-APP UPDATES")}</span>
             <h2>{t("বিজ্ঞপ্তি / Notifications")}</h2>
             <p>
-              {t("Certificate issuance updates for your permitted records.")}
+              {t(
+                "Application and certificate updates for your permitted records.",
+              )}
             </p>
             {tx(
               notifications.length === 0 ? (
@@ -649,9 +651,21 @@ export function AdditionalWorkspace({
                 notifications.map((n) => (
                   <article className="notice" key={n.id}>
                     <strong>
-                      {t("Certificate issued · ")}
-                      {n.certificateNumber}
+                      {n.kind === "APPLICATION_SUBMITTED"
+                        ? `${choose({ bn: "নতুন আবেদন জমা পড়েছে", en: "New application submitted" })} · ${choose({ bn: "সেবা", en: "Service" })} ${n.serviceNo}`
+                        : n.kind === "APPLICATION_RESUBMITTED"
+                          ? `${choose({ bn: "আবেদন পুনরায় জমা পড়েছে", en: "Application resubmitted" })} · ${choose({ bn: "সেবা", en: "Service" })} ${n.serviceNo}`
+                          : n.kind === "APPLICATION_REJECTED"
+                            ? `${choose({ bn: "আবেদন প্রত্যাখ্যান করা হয়েছে", en: "Application rejected" })} · ${choose({ bn: "সেবা", en: "Service" })} ${n.serviceNo}`
+                            : `${t("Certificate issued · ")}${n.certificateNumber}`}
                     </strong>
+                    {tx(
+                      n.kind === "APPLICATION_REJECTED" && n.detail ? (
+                        <p>
+                          {choose({ bn: "কারণ", en: "Reason" })}: {n.detail}
+                        </p>
+                      ) : null,
+                    )}
                     <p>{tx(new Date(n.createdAt).toLocaleString())}</p>
                     {tx(
                       n.readAt ? (

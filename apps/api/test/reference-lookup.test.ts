@@ -175,7 +175,6 @@ before(async () => {
   neighborDraft = await createApplication(neighbor.id, "neighbor");
   for (const [action, role] of [
     ["submit", "citizen"],
-    ["review", "reviewer"],
     ["approve", "approver"],
   ]) {
     const response = await request(
@@ -185,15 +184,10 @@ before(async () => {
       role,
     );
     assert.equal(response.status, 200, JSON.stringify(response.body));
+    // Phase W: the Chairman's approve issues — its response carries the certificate.
+    if (action === "approve") certificate = response.body.certificate;
   }
-  const issuance = await request(
-    "POST",
-    `/applications/${issued.id}/issue`,
-    {},
-    "approver",
-  );
-  assert.equal(issuance.status, 201, JSON.stringify(issuance.body));
-  certificate = issuance.body;
+  assert.ok(certificate?.id);
 });
 
 after(async () => {

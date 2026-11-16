@@ -49,17 +49,11 @@ async function setPrice(priceMinor: number) {
   );
   assert.equal(r.status, 201, JSON.stringify(r.body));
 }
-async function approved() {
+async function submitted() {
   const created = await req("POST", "/applications", { citizenId, serviceNo: SERVICE, payload: demoPayloads[SERVICE] }, s.staff);
   assert.equal(created.status, 201, JSON.stringify(created.body));
-  for (const [action, who] of [
-    ["submit", "staff"],
-    ["review", "reviewer"],
-    ["approve", "approver"],
-  ]) {
-    const r = await req("POST", `/applications/${created.body.id}/transition`, { action }, s[who]);
-    assert.equal(r.status, 200, JSON.stringify(r.body));
-  }
+  const r = await req("POST", `/applications/${created.body.id}/transition`, { action: "submit" }, s.staff);
+  assert.equal(r.status, 200, JSON.stringify(r.body));
   return created.body.id as string;
 }
 
@@ -125,8 +119,10 @@ test("Phase 5a: issuance deducts the point price once; too few points keeps the 
     );
     assert.equal(r.status, 201, JSON.stringify(r.body));
   }
-  const id = await approved();
-  const refused = await req("POST", `/applications/${id}/issue`, {}, s.approver);
+  // Phase W: the Chairman's approve attempts issuance itself — too few
+  // points refuses it (402) while the approval is recorded as APPROVED.
+  const id = await submitted();
+  const refused = await req("POST", `/applications/${id}/transition`, { action: "approve" }, s.approver);
   assert.equal(refused.status, 402, JSON.stringify(refused.body));
   assert.equal(refused.body.error.code, "POINTS_INSUFFICIENT");
   assert.match(refused.body.error.message, /15\.75 points/);
