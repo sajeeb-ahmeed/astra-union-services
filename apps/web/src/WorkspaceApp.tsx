@@ -116,10 +116,9 @@ const localized: Record<string, string> = {
 };
 const actionText: Record<string, string> = {
   submit: "Submit application",
-  review: "Begin review",
   request_correction: "Request correction",
   resubmit: "Resubmit application",
-  approve: "Approve application",
+  approve: "Approve and issue certificate",
   reject: "Reject application",
   cancel: "Cancel application",
   summon: "Ask the applicant to come",
@@ -284,7 +283,6 @@ export function WorkspaceApp({
   }, [selectedService]);
   const role = session?.user?.role || "",
     staff = ["staff", "admin"].includes(role),
-    reviewer = role === "reviewer",
     approver = role === "approver",
     finance = ["finance", "admin"].includes(role);
   const canApply = staff || role === "citizen";
@@ -1723,11 +1721,14 @@ export function WorkspaceApp({
                   ),
                 )}
                 {(() => {
-                  // Phase 6a: the latest summons, while the application is still under review.
+                  // Phase 6a/W: the latest summons, while the Chairman's decision is still pending.
                   const summons = [...(detail.events || [])]
                     .reverse()
                     .find((e: any) => e.action === "summon");
-                  return summons && application.state === "UNDER_REVIEW" ? (
+                  return summons &&
+                    ["SUBMITTED", "RESUBMITTED", "UNDER_REVIEW"].includes(
+                      application.state,
+                    ) ? (
                     <p className="notice summon-notice" role="status">
                       <strong>
                         {choose({
@@ -1865,7 +1866,7 @@ export function WorkspaceApp({
                 )}
                 <div id="application-actions" tabIndex={-1} />
                 <label htmlFor="reason">
-                  {t("Review, approval or revocation reason ")}
+                  {t("Decision or revocation reason ")}
                 </label>
                 <textarea
                   id="reason"
@@ -1900,30 +1901,20 @@ export function WorkspaceApp({
                       ),
                   )}
                   {tx(
-                    reviewer &&
+                    approver &&
                       ["SUBMITTED", "RESUBMITTED"].includes(
                         application.state,
                       ) && (
                         <button
                           disabled={busy}
-                          onClick={() => run(() => transition("review"))}
+                          className="secondary"
+                          onClick={() =>
+                            run(() => transition("request_correction"))
+                          }
                         >
-                          {tx(actionText.review)}
+                          {tx(actionText.request_correction)}
                         </button>
                       ),
-                  )}
-                  {tx(
-                    reviewer && application.state === "UNDER_REVIEW" && (
-                      <button
-                        disabled={busy}
-                        className="secondary"
-                        onClick={() =>
-                          run(() => transition("request_correction"))
-                        }
-                      >
-                        {tx(actionText.request_correction)}
-                      </button>
-                    ),
                   )}
                   {tx(
                     (staff || role === "citizen") &&
@@ -1937,29 +1928,35 @@ export function WorkspaceApp({
                       ),
                   )}
                   {tx(
-                    approver && application.state === "UNDER_REVIEW" && (
-                      <button
-                        disabled={busy}
-                        onClick={() => run(() => transition("approve"))}
-                      >
-                        {tx(actionText.approve)}
-                      </button>
-                    ),
+                    approver &&
+                      ["SUBMITTED", "RESUBMITTED"].includes(
+                        application.state,
+                      ) && (
+                        <button
+                          disabled={busy}
+                          onClick={() => run(() => transition("approve"))}
+                        >
+                          {tx(actionText.approve)}
+                        </button>
+                      ),
                   )}
                   {tx(
-                    approver && application.state === "UNDER_REVIEW" && (
-                      <button
-                        disabled={busy}
-                        className="secondary"
-                        onClick={() => run(() => transition("summon"))}
-                      >
-                        {tx(actionText.summon)}
-                      </button>
-                    ),
+                    approver &&
+                      ["SUBMITTED", "RESUBMITTED"].includes(
+                        application.state,
+                      ) && (
+                        <button
+                          disabled={busy}
+                          className="secondary"
+                          onClick={() => run(() => transition("summon"))}
+                        >
+                          {tx(actionText.summon)}
+                        </button>
+                      ),
                   )}
                   {tx(
-                    (reviewer || approver) &&
-                      ["SUBMITTED", "UNDER_REVIEW", "RESUBMITTED"].includes(
+                    approver &&
+                      ["SUBMITTED", "RESUBMITTED"].includes(
                         application.state,
                       ) && (
                         <button

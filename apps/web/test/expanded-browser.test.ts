@@ -596,18 +596,8 @@ test(
         ).status,
         200,
       );
-      await login(reviewer, "reviewer@alpha.demo.test");
-      assert.equal(
-        (
-          await request(
-            reviewer,
-            `/applications/${source.id}/transition`,
-            "POST",
-            { action: "review" },
-          )
-        ).status,
-        200,
-      );
+      // Phase W: no secretary review — the Chairman approves the submitted
+      // application and his approval issues the certificate.
       await login(approver, "approver@alpha.demo.test");
       assert.equal(
         (
@@ -626,7 +616,7 @@ test(
         "POST",
         {},
       );
-      assert.equal(issued.status, 201, JSON.stringify(issued.data));
+      assert.equal(issued.status, 200, JSON.stringify(issued.data));
       const before = await request(approver, "/wallet");
       await nav(staff, /Applications/);
       await staff

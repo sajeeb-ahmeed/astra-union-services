@@ -9,57 +9,59 @@ stateDiagram-v2
     [*] --> DRAFT: Validated persistent creation
     DRAFT --> DRAFT: Append edited payload version
     DRAFT --> SUBMITTED: Citizen / staff / admin submit
-    SUBMITTED --> UNDER_REVIEW: Reviewer begins review
-    RESUBMITTED --> UNDER_REVIEW: Reviewer begins review
-    UNDER_REVIEW --> CORRECTION_REQUIRED: Reviewer + reason
+    SUBMITTED --> CORRECTION_REQUIRED: Chairman + reason
+    RESUBMITTED --> CORRECTION_REQUIRED: Chairman + reason
     CORRECTION_REQUIRED --> CORRECTION_REQUIRED: Citizen / staff / admin edits
     CORRECTION_REQUIRED --> RESUBMITTED: Citizen / staff / admin resubmits
-    UNDER_REVIEW --> APPROVED: Service-authorized approver
-    APPROVED --> ISSUED: Atomic PDF + credit transaction
+    SUBMITTED --> ISSUED: Chairman approve = issue (atomic)
+    RESUBMITTED --> ISSUED: Chairman approve = issue (atomic)
+    SUBMITTED --> APPROVED: Chairman approve, issuance gate closed
+    RESUBMITTED --> APPROVED: Chairman approve, issuance gate closed
+    APPROVED --> ISSUED: Completion via issue endpoint or approve again
     ISSUED --> REVOKED: Service-authorized approver + reason
     DRAFT --> CANCELLED: Applicant / staff / admin + reason
     SUBMITTED --> CANCELLED: Applicant / staff / admin + reason
     CORRECTION_REQUIRED --> CANCELLED: Applicant / staff / admin + reason
-    SUBMITTED --> REJECTED: Reviewer / approver + reason
-    RESUBMITTED --> REJECTED: Reviewer / approver + reason
-    UNDER_REVIEW --> REJECTED: Reviewer / approver + reason
+    SUBMITTED --> REJECTED: Chairman + reason
+    RESUBMITTED --> REJECTED: Chairman + reason
 ```
 
 | Operation | Required existing state | Role/condition | Persisted result |
 |---|---|---|---|
 | Create | No application | Citizen own profile, or staff/admin within active tenant; operational service and valid complete schema | `DRAFT`, payload version 1, create event/audit |
 | Edit | `DRAFT` or `CORRECTION_REQUIRED` | Citizen owner or staff/admin; valid persisted schema | New immutable version; same state; edit event |
-| Submit | `DRAFT` | Citizen owner or staff/admin | `SUBMITTED` |
-| Begin review | `SUBMITTED` or `RESUBMITTED` | Reviewer | `UNDER_REVIEW` |
-| Request correction | `UNDER_REVIEW` | Reviewer; reason 3–500 characters | `CORRECTION_REQUIRED` |
-| Resubmit | `CORRECTION_REQUIRED` | Citizen owner or staff/admin | `RESUBMITTED` |
-| Approve | `UNDER_REVIEW` | Active approver membership plus service authorization; active user/tenant | `APPROVED`, approved actor/version |
-| Reject | Submitted/resubmitted/under review | Reviewer or approver; reason 3–500 characters | `REJECTED` |
+| Submit | `DRAFT` | Citizen owner or staff/admin | `SUBMITTED`; office notified (`APPLICATION_SUBMITTED`) |
+| Request correction | `SUBMITTED` or `RESUBMITTED` | Chairman (approver); reason 3–500 characters | `CORRECTION_REQUIRED` |
+| Resubmit | `CORRECTION_REQUIRED` | Citizen owner or staff/admin | `RESUBMITTED`; office notified (`APPLICATION_RESUBMITTED`) |
+| Summon | `SUBMITTED` or `RESUBMITTED` | Service-authorized approver; note required | Same state; summon event/note for the applicant |
+| Approve (= issue) | `SUBMITTED` or `RESUBMITTED` (also `APPROVED` to finish a blocked issuance) | Active approver membership plus service authorization; active user/tenant | Atomic `ISSUED`: certificate, PDF, one credit debit, one point charge, approve + issue events, issuance notification. If an issuance gate is closed (fee unpaid, subscription inactive, insufficient credits/points, incomplete enforced profile, disabled service, revoked renewal source) the approval alone is recorded (`APPROVED`, approve event) and the gate error is returned |
+| Reject | `SUBMITTED` or `RESUBMITTED` | Chairman (approver); reason 3–500 characters | `REJECTED`; citizen notified with the reason (`APPLICATION_REJECTED`) |
 | Cancel | Draft/submitted/correction required | Citizen owner or staff/admin; reason 3–500 characters | `CANCELLED` |
-| Issue | `APPROVED`, approved version=current | Active authorized approver, enabled service, active subscription and enough credit | Atomic `ISSUED` document/debit/history/outbox |
+| Issue (completion) | `APPROVED`, approved version=current | Active authorized approver, enabled service, active subscription and enough credit | Atomic `ISSUED` document/debit/history/outbox |
 | Revoke | Issued certificate | Active service-authorized approver; reason 3–500 characters | Certificate/application `REVOKED`, retained PDF/history |
 
-Rejection currently uses role/tenant policy; it does not additionally require a service authorization row. Approval, issuance and revocation do. Admin has drafting/administrative privileges and cannot replace the reviewer or approver. Reviewer assignment/claiming is not modeled yet; a reviewer can act on their tenant's submitted queue.
+Phase W (owner decision, 16 Nov 2026) removed the secretary step: there is no `review` transition and no `UNDER_REVIEW` resting state in the normal flow (the state remains only as legacy tolerance for records created before Phase W, which the Chairman decides exactly like submitted ones). The Secretary (`reviewer`) keeps read access but cannot review, correct, reject or approve. Rejection uses the approver role/tenant policy; it does not additionally require a service authorization row. Approval, issuance and revocation do. Admin has drafting/administrative privileges and cannot replace the approver.
 
 All transitions lock the application and append an event with actor, prior/new states, timestamp and any required reason. No GET mutates applications or financial records. Invalid state/role operations are rejected; denied tenant-scoped attempts create an audit event without exposing the other tenant's record. Application lists and detail enforce citizen ownership in addition to tenant scope.
 
 ## Version and approval rules
 
-Creation requires a valid complete operational form. The release does not yet save partially valid drafts. Each edit appends JSON plus a stable SHA-256 payload hash and advances `latest_version`; previous versions cannot be updated/deleted. The schema JSON is immutable in PostgreSQL and server validation uses its exact stored version. Approval sets `approved_by` and `approved_version`.
+Creation requires a valid complete operational form. The release does not yet save partially valid drafts. Each edit appends JSON plus a stable SHA-256 payload hash and advances `latest_version`; previous versions cannot be updated/deleted. The schema JSON is immutable in PostgreSQL and server validation uses its exact stored version. Approval sets `approved_by` and `approved_version` — in the normal flow inside the same transaction that issues, or alone when an issuance gate blocks issuance (see above).
 
 An approved application cannot be edited. Issuance rechecks `approved_version = latest_version` after locking. A future official correction/revision must create an explicit new approved revision; bypassing the state machine by overwriting payload is not an implemented operation.
 
 ## Issuance and failure semantics
 
-The API first checks authority and approved data, then renders a real DEMO PDF in memory. The final serializable transaction repeats those checks, locks the current application, subscription and wallet, and returns an existing certificate if another request committed. It persists PDF bytes, certificate, one credit debit, `ISSUED` state, event/audit and outbox together.
+The API first checks authority and approved data, then renders a real DEMO PDF in memory. The final serializable transaction repeats those checks, locks the current application, subscription and wallet, and returns an existing certificate if another request committed. It persists PDF bytes, certificate, one credit debit, `ISSUED` state, event/audit and outbox together. The Chairman's approve transition and the completion issue endpoint share this machinery (`prepareIssuance`/`finalizeIssuance` in app.ts).
 
 | Failure or repeat | Observable result |
 |---|---|
+| Fee not yet collected (positive order total) | HTTP 402 `ORDER_PAYMENT_REQUIRED`; the Chairman's approval is recorded (`APPROVED`); no certificate/debit. The citizen pays, then issuance completes |
 | Insufficient credit | HTTP 402 `INSUFFICIENT_CREDITS`; application stays approved; no certificate/debit |
 | Expired/inactive subscription | HTTP 402 `SUBSCRIPTION_INACTIVE`; approved application retained |
 | Disabled service or removed approver authority | Rejected; no issued state or partial charge |
-| Rendering failure | No final transaction commits; approved application retained |
-| Database failure after attempted debit | Whole transaction rolls back, including document and credit |
+| Rendering failure | No final transaction commits and no approval is recorded; the application stays submitted and the Chairman can retry |
+| Database failure after attempted debit | Whole transaction rolls back, including document, credit and the approval itself |
 | Concurrent requests/lost response retry | Same committed certificate; one charge; HTTP 200 or 201 depending race branch |
 | Repeat issue after revocation | Existing revoked certificate metadata; no replacement issue or charge |
 
@@ -67,7 +69,7 @@ The API first checks authority and approved data, then renders a real DEMO PDF i
 
 ## Certificate and verification lifecycle
 
-An issued certificate has unique UUID/number, tenant/application, template version, issuer/timestamp, protected PDF bytes and the SHA-256 hash of an opaque random verification token. Since migration 017 the plaintext token is not stored: the verification URL is returned once, in the issuance response that created the certificate, and printed as the QR code on the PDF. Certificates issued earlier keep working because public verification looks up the hash. New issues use template version 4 and the protected response includes `templateVersion`; previously stored version-1/2/3 documents retain their original bytes/metadata. A retry returns the existing certificate rather than upgrading its template or charging again. Current certificate states are `ISSUED` and `REVOKED`. The API's protected row serializer returns the PDF link, and the verification link only in that first issuance response (later reads and idempotent retries return `verificationUrl: null`); the public database function returns only status, office, service, issue date and demo flag. No citizen name, birth date, address, NID/BRN, payload, tenant billing balance or private attachment is returned publicly.
+An issued certificate has unique UUID/number, tenant/application, template version, issuer/timestamp, protected PDF bytes and the SHA-256 hash of an opaque random verification token. Since migration 017 the plaintext token is not stored: the verification URL is returned once, in the issuance response that created the certificate, and printed as the QR code on the PDF. Certificates issued earlier keep working because public verification looks up the hash. New issues use template version 6 and the protected response includes `templateVersion`; previously stored documents retain their original bytes/metadata. A retry returns the existing certificate rather than upgrading its template or charging again. Current certificate states are `ISSUED` and `REVOKED`. The API's protected row serializer returns the PDF link, and the verification link only in that first issuance response (later reads and idempotent retries return `verificationUrl: null`); the public database function returns only status, office, service, issue date and demo flag. No citizen name, birth date, address, NID/BRN, payload, tenant billing balance or private attachment is returned publicly.
 
 QR possession permits public status verification only. It does not grant PDF/profile access or prove real official validity. Invalid tokens return a generic not-found response. Revocation retains original bytes and issuance charge, stores reason/time, appends history and immediately reports `REVOKED` at the original QR link. The PDF explicitly says `DEMO / NOT OFFICIAL`; the database enforces demo tenants/plans and no official seal/signature is generated.
 
@@ -75,7 +77,7 @@ The version-4 renderer supports all 47 operational service forms. Resident #45 k
 
 ## Implemented renewal
 
-`POST /applications/:id/renew` creates a new DRAFT from an issued source owned by the same tenant and citizen. A supplied payload may replace the prior approved payload, but must satisfy the current schema. Trade renewal pins the previous-license flag and number to the actual source certificate. The immutable source remains available. One active renewal per source is enforced by a PostgreSQL partial unique index; canceled/rejected children allow a replacement. The child requires fresh review/approval and one new issuance credit. Concurrent requests cannot create multiple active successors or multiple debits. Revoking the source blocks even an already-approved renewal at final issue. Renewal does not automatically expire or revoke the source; no unverified legal supersession policy is implied.
+`POST /applications/:id/renew` creates a new DRAFT from an issued source owned by the same tenant and citizen. A supplied payload may replace the prior approved payload, but must satisfy the current schema. Trade renewal pins the previous-license flag and number to the actual source certificate. The immutable source remains available. One active renewal per source is enforced by a PostgreSQL partial unique index; canceled/rejected children allow a replacement. The child requires a fresh Chairman decision and one new issuance credit. Concurrent requests cannot create multiple active successors or multiple debits. Revoking the source blocks even an already-approved renewal at final issue. Renewal does not automatically expire or revoke the source; no unverified legal supersession policy is implied.
 
 ## Proposed lifecycle extensions
 
@@ -85,7 +87,7 @@ Background issuance should introduce `ISSUANCE_PENDING` with a durable job, idem
 
 Evidence: APP-01/02/03/04, CER-01/02/03/04, WAL-01/02/03/04 and AUTH-02 in [integration tests](../apps/api/test/integration.test.ts). `ALL47-01`, `CER-RENEW`, `CER-REVOKE` and `PDF-ALL` in [expansion tests](../apps/api/test/expansion.test.ts) exercise all-service issuance and renewal lineage. [Full backend log](../execution/backend-full.log) and [47-service evidence](../execution/all-services-qa.json) record actual runs. PDF Unicode rendering/QR image QA and actual browser journeys are separately tracked in [TEST_MATRIX.md](TEST_MATRIX.md).
 
-## Approval chain additions (Phase 6a)
+## Approval chain additions (Phase 6a, as amended by Phase W)
 
-- **Summon.** While an application is UNDER_REVIEW, an approver with authority for the service (the Chairman's post) may record `summon` with a required note saying when and where the applicant should come. The state stays UNDER_REVIEW; the event and note appear in the application history and as a notice to the applicant. The Chairman then approves or rejects as usual.
-- **Hand signatures.** Certificate template 5 adds two signature blocks — *Verified by: Secretary* and *Approved by: Chairman* — in the delivery language, in Astra's own layout. The approved and issued screens state that the Chairman signs the printed certificate by hand. The document remains marked DEMO / NOT OFFICIAL, and QR/token verification is unchanged.
+- **Summon.** While an application is SUBMITTED or RESUBMITTED, an approver with authority for the service (the Chairman's post) may record `summon` with a required note saying when and where the applicant should come. The state does not change; the event and note appear in the application history and as a notice to the applicant. The Chairman then approves or rejects as usual.
+- **Hand signatures.** Certificate template 6 carries one signature block — *Approved and issued by: Chairman* — in the delivery language, in Astra's own layout. (Template 5, Phase 6a, had separate Secretary/Chairman blocks; Phase W removed the secretary step.) The approved and issued screens state that the Chairman signs the printed certificate by hand. The document remains marked DEMO / NOT OFFICIAL, and QR/token verification is unchanged.

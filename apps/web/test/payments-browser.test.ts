@@ -158,9 +158,10 @@ before(async () => {
     });
     assert.equal(created.status, 201, JSON.stringify(created.data));
     applicationId = created.data.id;
+    // Phase W: no secretary review; the Chairman's approve attempts issuance
+    // and is held by the unpaid order (402) with the approval recorded.
     for (const [role, action] of [
       ["citizen", "submit"],
-      ["reviewer", "review"],
       ["approver", "approve"],
     ]) {
       await apiLogin(setup, role);
@@ -170,7 +171,16 @@ before(async () => {
         "POST",
         { action },
       );
-      assert.equal(transitioned.status, 200, JSON.stringify(transitioned.data));
+      if (action === "approve") {
+        assert.ok(
+          transitioned.status === 200 || transitioned.status === 402,
+          JSON.stringify(transitioned.data),
+        );
+        if (transitioned.status === 402)
+          assert.equal(transitioned.data.error.code, "ORDER_PAYMENT_REQUIRED");
+      } else {
+        assert.equal(transitioned.status, 200, JSON.stringify(transitioned.data));
+      }
     }
   } finally {
     await context.close();

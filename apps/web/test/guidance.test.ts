@@ -34,26 +34,25 @@ test("guidance: saving a draft is not submission and only applicant roles get su
   }
 });
 
-test("guidance: review and approval stay separate for each role", () => {
+test("guidance: the Chairman alone verifies and decides; the Secretary is view-only", () => {
   for (const state of ["SUBMITTED", "RESUBMITTED"]) {
-    assert.match(render({ state, role: "reviewer" }), /Go to review controls/);
-    assert.doesNotMatch(render({ state, role: "approver" }), /href=/);
+    assert.match(render({ state, role: "approver" }), /Go to decision controls/);
+    const reviewerHtml = render({ state, role: "reviewer" });
+    assert.doesNotMatch(reviewerHtml, /href=/);
+    assert.match(reviewerHtml, /Chairman&#x27;s work/);
     assert.match(
       render({ state, role: "citizen" }),
       /do not need to submit the same application again/,
     );
   }
-  assert.match(
-    render({ state: "UNDER_REVIEW", role: "reviewer" }),
-    /separate authorised approver/,
-  );
+  // Legacy records already under review are decided by the Chairman the same way.
   assert.match(
     render({ state: "UNDER_REVIEW", role: "approver" }),
-    /If authorised for this service/,
+    /issues the certificate at once/,
   );
-  assert.match(
+  assert.doesNotMatch(
     render({ state: "UNDER_REVIEW", role: "approver" }),
-    /issuance is a separate step/,
+    /separate step/,
   );
   assert.doesNotMatch(
     render({ state: "UNDER_REVIEW", role: "citizen" }),

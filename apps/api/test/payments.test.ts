@@ -245,20 +245,30 @@ async function createApplication(approve = true) {
     order: { policyVersion: 1, preferences },
   });
   assert.equal(result.status, 201, JSON.stringify(result.body));
-  if (approve)
-    for (const [action, role] of [
-      ["submit", "citizen"],
-      ["review", "reviewer"],
-      ["approve", "approver"],
-    ]) {
-      const transition = await request(
-        "POST",
-        `/applications/${result.body.id}/transition`,
-        { action },
-        role,
-      );
-      assert.equal(transition.status, 200, JSON.stringify(transition.body));
-    }
+  if (approve) {
+    const submitted = await request(
+      "POST",
+      `/applications/${result.body.id}/transition`,
+      { action: "submit" },
+      "citizen",
+    );
+    assert.equal(submitted.status, 200, JSON.stringify(submitted.body));
+    // Phase W: the Chairman's approve attempts issuance in the same action;
+    // this application's unpaid order blocks it (402) while the approval
+    // itself is recorded, leaving the application APPROVED for checkout.
+    const approval = await request(
+      "POST",
+      `/applications/${result.body.id}/transition`,
+      { action: "approve" },
+      "approver",
+    );
+    assert.ok(
+      approval.status === 200 || approval.status === 402,
+      JSON.stringify(approval.body),
+    );
+    if (approval.status === 402)
+      assert.equal(approval.body.error.code, "ORDER_PAYMENT_REQUIRED");
+  }
   return result.body;
 }
 async function checkout(

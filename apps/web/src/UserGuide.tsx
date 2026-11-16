@@ -36,21 +36,21 @@ const sections: Section[] = [
   },
   {
     id: "secretary",
-    title: { bn: "সচিব (যাচাইকারী)", en: "Secretary (verifier)" },
-    who: { bn: "আবেদন যাচাই করেন যাঁরা", en: "People who check applications" },
+    title: { bn: "সচিব", en: "Secretary" },
+    who: { bn: "অফিসের নথি ও আবেদন দেখভাল করেন যাঁরা", en: "People who look after office records and applications" },
     steps: [
-      { bn: "জমা পড়া আবেদন খুলে ‘পর্যালোচনা শুরু করুন’ চাপুন। তথ্য ও নথি মিলিয়ে দেখুন।", en: "Open a submitted application and choose ‘Begin review’. Check the details and documents." },
-      { bn: "কিছু ঠিক করার দরকার হলে কারণ লিখে ‘সংশোধনের অনুরোধ’ পাঠান; ভুল আবেদন কারণসহ বাতিল করা যায়।", en: "If something must be fixed, write the reason and send ‘Request correction’; an invalid application can be rejected with a reason." },
+      { bn: "জমা পড়া আবেদন ও নাগরিকের তথ্য দেখুন; কোনো তথ্য বাকি থাকলে নাগরিক বা কর্মীকে জানান।", en: "View submitted applications and citizen records; tell the citizen or staff member if anything is missing." },
+      { bn: "আবেদন যাচাই ও সিদ্ধান্ত চেয়ারম্যানের কাজ — সচিব অনুমোদন বা প্রত্যাখ্যান করেন না।", en: "Verifying applications and deciding them is the Chairman's work — the Secretary does not approve or reject." },
     ],
   },
   {
     id: "chairman",
     title: { bn: "চেয়ারম্যান (অনুমোদনকারী)", en: "Chairman (approver)" },
-    who: { bn: "অনুমোদন ও সনদ ইস্যু করেন যাঁরা", en: "People who approve and issue certificates" },
+    who: { bn: "যাচাই, অনুমোদন ও সনদ ইস্যু করেন যাঁরা", en: "People who verify, approve and issue certificates" },
     steps: [
-      { bn: "যাচাই শেষ হওয়া আবেদন খুলুন। প্রোফাইল অসম্পূর্ণ হলে সতর্কবার্তা দেখাবে; অফিস বাধ্যতামূলক করলে সম্পূর্ণ না হওয়া পর্যন্ত সনদ ইস্যু হবে না।", en: "Open an application that has been reviewed. An incomplete profile shows a warning; if the office requires complete profiles, the certificate cannot be issued until it is complete." },
-      { bn: "প্রয়োজনে কখন ও কোথায় আসতে হবে লিখে ‘আবেদনকারীকে আসতে বলুন’ চাপুন।", en: "If needed, write when and where to come and choose ‘Ask the applicant to come’." },
-      { bn: "‘আবেদন অনুমোদন করুন’ দিন, ফি পরিশোধ যাচাই হলে সনদ ইস্যু করুন। প্রিন্ট করা সনদে নিজ হাতে স্বাক্ষর করুন।", en: "Choose ‘Approve application’, and issue the certificate once the fee is verified. Sign the printed certificate by hand." },
+      { bn: "জমা পড়া আবেদন খুলে তথ্য ও নথি নিজে যাচাই করুন। প্রোফাইল অসম্পূর্ণ হলে সতর্কবার্তা দেখাবে; অফিস বাধ্যতামূলক করলে সম্পূর্ণ না হওয়া পর্যন্ত সনদ ইস্যু হবে না।", en: "Open a submitted application and verify its details and documents yourself. An incomplete profile shows a warning; if the office requires complete profiles, the certificate cannot be issued until it is complete." },
+      { bn: "প্রয়োজনে কখন ও কোথায় আসতে হবে লিখে ‘আবেদনকারীকে আসতে বলুন’ চাপুন, বা কারণ লিখে সংশোধন চান।", en: "If needed, write when and where to come and choose ‘Ask the applicant to come’, or request a correction with a reason." },
+      { bn: "‘অনুমোদন করে সনদ ইস্যু করুন’ দিলেই অনুমোদনের সঙ্গে সঙ্গে সনদ ইস্যু হয়ে যাবে; ভুল আবেদন কারণসহ প্রত্যাখ্যান করুন। প্রিন্ট করা সনদে নিজ হাতে স্বাক্ষর করুন।", en: "Choose ‘Approve and issue certificate’ to approve and issue in one step; reject an invalid application with a reason. Sign the printed certificate by hand." },
     ],
   },
   {

@@ -191,13 +191,14 @@ async function transition(
   );
 }
 async function approve(id: string) {
+  // Phase W: no secretary review — the Chairman's approve issues at once.
   for (const [action, role] of [
     ["submit", "staff"],
-    ["review", "reviewer"],
     ["approve", "approver"],
   ]) {
     const r = await transition(id, action!, role!);
     assert.equal(r.status, 200, JSON.stringify(r.body));
+    if (action === "approve") return r.body;
   }
 }
 async function assertBlocked(
@@ -785,15 +786,17 @@ test("ATT-05: pending handles save as drafts but block submit/resubmit/approval/
     "ATTACHMENT_INVALID",
   );
   await finish(await claim(file.attachmentId));
-  // A real clean submission -> review -> authorized approval -> PDF issuance.
+  // A real clean submission -> the Chairman's approve -> PDF issuance.
   const clean = await newApplication(file);
-  await approve(clean.id);
+  const approvedClean = await approve(clean.id);
+  assert.equal(approvedClean.state, "ISSUED");
   const issued = await Promise.all([
     request("POST", `/applications/${clean.id}/issue`, {}, sessions.approver),
     request("POST", `/applications/${clean.id}/issue`, {}, sessions.approver),
   ]);
-  for (const r of issued) assert.equal(r.status, 201, JSON.stringify(r.body));
-  assert.equal(issued[0]!.body.id, issued[1]!.body.id);
+  for (const r of issued) assert.equal(r.status, 200, JSON.stringify(r.body));
+  assert.equal(issued[0]!.body.id, approvedClean.certificate.id);
+  assert.equal(issued[1]!.body.id, approvedClean.certificate.id);
   const ledger = (
     await db.query(
       "SELECT count(*)::int n,sum(delta)::int delta FROM credit_ledger WHERE certificate_id=$1",
@@ -848,7 +851,15 @@ test("ATT-06: final issuance transaction rechecks clean status after PDF generat
   const file = await upload();
   await finish(await claim(file.attachmentId));
   const application = await newApplication(file);
-  await approve(application.id);
+  // Phase W: rest the application in APPROVED directly (the state a blocked
+  // issuance leaves behind) so this test exercises the completion endpoint's
+  // final-transaction recheck exactly as before.
+  const submittedAtt = await transition(application.id, "submit", "staff");
+  assert.equal(submittedAtt.status, 200, JSON.stringify(submittedAtt.body));
+  await db.query(
+    "UPDATE applications SET state='APPROVED',approved_by=$2,approved_version=latest_version WHERE id=$1",
+    [application.id, sessions.approver!.id],
+  );
   const blocker = await db.connect();
   let pending: Promise<Awaited<ReturnType<typeof request>>> | undefined;
   try {

@@ -33,17 +33,11 @@ async function login(name: string) {
   assert.equal(r.status, 200, JSON.stringify(json));
   s[name] = { cookie: r.headers.get("set-cookie")!.split(";")[0], csrf: json.csrfToken };
 }
-async function approvedFor(citizenId: string) {
+async function submittedFor(citizenId: string) {
   const created = await req("POST", "/applications", { citizenId, serviceNo: 45, payload: demoPayloads[45] }, s.staff);
   assert.equal(created.status, 201, JSON.stringify(created.body));
-  for (const [action, who] of [
-    ["submit", "staff"],
-    ["review", "reviewer"],
-    ["approve", "approver"],
-  ]) {
-    const r = await req("POST", `/applications/${created.body.id}/transition`, { action }, s[who]);
-    assert.equal(r.status, 200, JSON.stringify(r.body));
-  }
+  const r = await req("POST", `/applications/${created.body.id}/transition`, { action: "submit" }, s.staff);
+  assert.equal(r.status, 200, JSON.stringify(r.body));
   return created.body.id as string;
 }
 
@@ -81,16 +75,21 @@ test("Phase 3b: approvers see completeness; an enforcing office refuses issuance
   );
   assert.equal(registered.status, 201, JSON.stringify(registered.body));
   const citizenId = registered.body.id;
-  const first = await approvedFor(citizenId);
+  const first = await submittedFor(citizenId);
 
-  // Warn first: with the gate off the detail shows what is missing and issuance still works.
+  // Warn first: with the gate off the detail shows what is missing and the
+  // Chairman's approve still issues in the same action.
+  const firstApproval = await req("POST", `/applications/${first}/transition`, { action: "approve" }, s.approver);
+  assert.equal(firstApproval.status, 200, JSON.stringify(firstApproval.body));
+  assert.equal(firstApproval.body.state, "ISSUED");
   const detail = await req("GET", `/applications/${first}`, undefined, s.approver);
   assert.equal(detail.status, 200);
   assert.equal(detail.body.profileCompleteness.enforced, false);
   assert.equal(detail.body.profileCompleteness.complete, false);
   assert.deepEqual(detail.body.profileCompleteness.missing, ["identityNumber", "mobile"]);
   const unenforced = await req("POST", `/applications/${first}/issue`, {}, s.approver);
-  assert.ok([200, 201].includes(unenforced.status), JSON.stringify(unenforced.body));
+  assert.equal(unenforced.status, 200, JSON.stringify(unenforced.body));
+  assert.equal(unenforced.body.id, firstApproval.body.certificate.id);
 
   // Only the office admin switches enforcement, and the change is audited.
   for (const who of ["staff", "approver", "citizen"])
@@ -111,8 +110,10 @@ test("Phase 3b: approvers see completeness; an enforcing office refuses issuance
     true,
   );
 
-  const second = await approvedFor(citizenId);
-  const refused = await req("POST", `/applications/${second}/issue`, {}, s.approver);
+  // Phase W: with enforcement on, the Chairman's approve itself is refused
+  // (409) — his approval is recorded but nothing is issued or charged.
+  const second = await submittedFor(citizenId);
+  const refused = await req("POST", `/applications/${second}/transition`, { action: "approve" }, s.approver);
   assert.equal(refused.status, 409, JSON.stringify(refused.body));
   assert.equal(refused.body.error.code, "PROFILE_INCOMPLETE");
   assert.deepEqual(refused.body.error.issues.missing, ["identityNumber", "mobile"]);

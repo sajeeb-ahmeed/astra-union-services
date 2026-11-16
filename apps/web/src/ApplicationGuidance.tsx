@@ -116,46 +116,56 @@ function guidanceFor({
     };
   if (["SUBMITTED", "RESUBMITTED"].includes(state))
     return {
-      title: text("যাচাইয়ের অপেক্ষায়", "Waiting for review"),
+      title: text(
+        "চেয়ারম্যানের যাচাইয়ের অপেক্ষায়",
+        "Waiting for the Chairman's verification",
+      ),
       description:
-        role === "reviewer"
+        role === "approver"
           ? text(
-              "আবেদনটি জমা হয়েছে। তথ্য ও সংযুক্তি দেখে যাচাই শুরু করুন। চূড়ান্ত অনুমোদন আলাদা অনুমোদনকারী দেবেন।",
-              "The application has been submitted. Check its information and attachments, then begin review. A separate authorised approver gives final approval.",
+              "আবেদনটি জমা হয়েছে। তথ্য ও সংযুক্তি দেখে সিদ্ধান্ত নিন: অনুমোদন করলেই সনদ ইস্যু হবে; প্রয়োজনে সংশোধন চাইতে, আবেদনকারীকে আসতে বলতে বা কারণসহ প্রত্যাখ্যান করতে পারবেন।",
+              "The application has been submitted. Check its information and attachments, then decide: approval issues the certificate at once; you can also request a correction, ask the applicant to come, or reject with a reason.",
             )
-          : text(
-              "আবেদনটি জমা হয়েছে। যাচাইকারী তথ্য পরীক্ষা করবেন; সংশোধন লাগলে এখানে জানানো হবে। এখন একই আবেদন আবার জমা দেওয়ার প্রয়োজন নেই।",
-              "The application has been submitted. A reviewer will check the information; any correction request will appear here. You do not need to submit the same application again now.",
-            ),
+          : role === "reviewer"
+            ? text(
+                "আবেদনটি জমা হয়েছে। তথ্য ও সংযুক্তি দেখতে পারবেন; যাচাই ও সিদ্ধান্ত চেয়ারম্যানের কাজ।",
+                "The application has been submitted. You can view its information and attachments; verification and the decision are the Chairman's work.",
+              )
+            : text(
+                "আবেদনটি জমা হয়েছে। চেয়ারম্যান তথ্য যাচাই করবেন; সংশোধন লাগলে এখানে জানানো হবে। এখন একই আবেদন আবার জমা দেওয়ার প্রয়োজন নেই।",
+                "The application has been submitted. The Chairman will verify the information; any correction request will appear here. You do not need to submit the same application again now.",
+              ),
       step: 1,
-      ...(role === "reviewer"
+      ...(role === "approver"
         ? {
             action: actions(
-              text("যাচাইয়ের বোতামে যান", "Go to review controls"),
+              text("সিদ্ধান্তের বোতামে যান", "Go to decision controls"),
             ),
           }
         : {}),
     };
   if (state === "UNDER_REVIEW")
+    // Legacy state from before Phase W (no transition leads here now); the Chairman decides it
+    // exactly like a submitted application.
     return {
-      title: text("যাচাই চলছে", "Under review"),
+      title: text("যাচাই চলছে", "Verification in progress"),
       description:
         role === "approver"
           ? text(
-              "তথ্য ও সংযুক্তি পর্যালোচনা করুন। এই সেবায় অনুমোদনের ক্ষমতা থাকলে অনুমোদন বা কারণসহ প্রত্যাখ্যান করুন। অনুমোদনের পরে সনদ আলাদাভাবে ইস্যু করতে হয়।",
-              "Review the information and attachments. If authorised for this service, approve or reject with a reason. Certificate issuance is a separate step after approval.",
+              "তথ্য ও সংযুক্তি দেখুন। এই সেবায় অনুমোদনের ক্ষমতা থাকলে অনুমোদন করুন — অনুমোদন করলেই সনদ ইস্যু হবে — অথবা কারণসহ প্রত্যাখ্যান করুন।",
+              "Check the information and attachments. If authorised for this service, approve — approval issues the certificate at once — or reject with a reason.",
             )
           : role === "reviewer"
             ? text(
-                "তথ্য ও সংযুক্তি যাচাই করুন। প্রয়োজন হলে কারণ লিখে সংশোধন চাইতে বা আবেদন প্রত্যাখ্যান করতে পারবেন। চূড়ান্ত অনুমোদন আলাদা অনুমোদনকারী দেবেন।",
-                "Check the information and attachments. Request corrections or reject with a reason when needed. A separate authorised approver gives final approval.",
+                "আবেদনটি যাচাইয়ের পর্যায়ে আছে। যাচাই ও সিদ্ধান্ত চেয়ারম্যানের কাজ।",
+                "This application is being verified. Verification and the decision are the Chairman's work.",
               )
             : text(
-                "অফিস আবেদনটি যাচাই করছে। সংশোধন বা সিদ্ধান্ত এলে এই পাতায় অবস্থা বদলাবে। অনুমোদন হলেই সনদ ইস্যু হয়ে যায় না।",
-                "The office is reviewing this application. Corrections or a decision will update its status here. Approval does not by itself issue a certificate.",
+                "অফিস আবেদনটি যাচাই করছে। সংশোধন বা সিদ্ধান্ত এলে এই পাতায় অবস্থা বদলাবে। চেয়ারম্যান অনুমোদন করলেই সনদ ইস্যু হবে।",
+                "The office is verifying this application. Corrections or a decision will update its status here. When the Chairman approves, the certificate is issued at once.",
               ),
-      step: 2,
-      ...(["reviewer", "approver"].includes(role)
+      step: 1,
+      ...(role === "approver"
         ? {
             action: actions(
               text("সিদ্ধান্তের বোতামে যান", "Go to decision controls"),
@@ -179,7 +189,7 @@ function guidanceFor({
           "সনদ ইস্যুর আগে ফি পরিশোধ সার্ভারে যাচাই হতে হবে। নিচে পেমেন্টের বর্তমান তথ্য দেখুন। অনলাইন পেমেন্ট চালু না থাকলে সংশ্লিষ্ট অফিসে যোগাযোগ করুন। অনুমোদনকে পরিশোধের রসিদ ধরে নেবেন না।",
           "Certificate issuance requires server-verified fee payment. Check the current payment information below. Contact the office if online payment is unavailable. Approval is not a payment receipt.",
         ),
-        step: 3,
+        step: 2,
         warning: true,
       };
     return {
@@ -200,7 +210,7 @@ function guidanceFor({
               "অনুমোদন হয়েছে। প্রযোজ্য ফি পরিশোধ যাচাইয়ের পরে অনুমোদিত কর্মকর্তা সনদ ইস্যু করবেন। পেমেন্টের বর্তমান তথ্য নিচে দেখুন; সনদ তৈরি হলে এখান থেকে PDF পাওয়া যাবে।",
               "Approval is recorded. An authorised officer must issue the certificate after any required fee verification. Check the current payment information below; the PDF will appear here after issuance.",
             ),
-      step: 3,
+      step: 2,
       ...(role === "approver"
         ? {
             action: actions(
@@ -218,7 +228,7 @@ function guidanceFor({
             "নিচে তৈরি হওয়া PDF ও QR যাচাইয়ের লিংক আছে। এই সনদে DEMO / NOT OFFICIAL চিহ্ন রয়েছে।",
             "Open the generated PDF and its QR verification below. This certificate is marked DEMO / NOT OFFICIAL.",
           ),
-          step: 4,
+          step: 3,
           action: {
             target: "application-certificate",
             label: text("সনদের PDF ও QR দেখুন", "View certificate PDF and QR"),
@@ -256,8 +266,7 @@ export function ApplicationGuidance(props: ApplicationGuidanceProps) {
       ? text("তথ্য সংশোধন", "Correct details")
       : text("খসড়া", "Draft"),
     corrections ? text("পুনরায় জমা", "Resubmit") : text("জমা", "Submitted"),
-    text("যাচাই", "Review"),
-    text("অনুমোদন", "Approval"),
+    text("যাচাই ও সিদ্ধান্ত", "Verification and decision"),
     text("সনদ", "Certificate"),
   ];
   return (

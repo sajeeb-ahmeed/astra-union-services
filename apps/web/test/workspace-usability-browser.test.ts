@@ -125,11 +125,11 @@ test(
         .waitFor();
       assert.match(
         await page.locator(".application-guidance").innerText(),
-        /review|office/i,
+        /verification|office/i,
       );
       assert.equal(
         await page
-          .getByRole("button", { name: "Approve application", exact: true })
+          .getByRole("button", { name: "Approve and issue certificate", exact: true })
           .count(),
         0,
       );
@@ -215,8 +215,8 @@ test(
     const browser = await launch();
     try {
       for (const [role, label, state] of [
-        ["reviewer", "Review submitted applications", "SUBMITTED"],
-        ["approver", "Review for approval", "UNDER_REVIEW"],
+        ["reviewer", "View submitted applications", "SUBMITTED"],
+        ["approver", "Verify submitted applications", "SUBMITTED"],
         ["finance", "View payments and receipts", ""],
       ] as const) {
         const context = await browser.newContext();

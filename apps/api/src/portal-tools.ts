@@ -129,13 +129,16 @@ protectedToolsRouter.get("/print-requests/:id/pdf",wrap(async(req,res)=>{
 
 protectedToolsRouter.get("/notifications",wrap(async(req,res)=>{
   const a=scoped(req);
-  const r=await transaction(a.tenantId,async(db)=>(await db.query("SELECT e.id,e.kind,e.created_at,r.read_at,c.number certificate_number FROM outbox_events e JOIN certificates c ON c.id=e.resource_id AND c.tenant_id=e.tenant_id JOIN applications ap ON ap.id=c.application_id AND ap.tenant_id=c.tenant_id JOIN citizens ct ON ct.id=ap.citizen_id AND ct.tenant_id=ap.tenant_id LEFT JOIN notification_receipts r ON r.event_id=e.id AND r.tenant_id=e.tenant_id AND r.user_id=$2 WHERE e.tenant_id=$1 AND ($3::boolean=false OR ct.user_id=$2) ORDER BY e.created_at DESC LIMIT 100",[a.tenantId,a.userId,a.role==="citizen"])).rows);
+  // Phase W: the feed carries application events as well as issuance. Submission events
+  // (resource_id = application id) are office-facing only; rejection and issuance events
+  // reach the citizen who owns the application, and the office feed sees everything.
+  const r=await transaction(a.tenantId,async(db)=>(await db.query("SELECT e.id,e.kind,e.detail,e.created_at,r.read_at,c.number certificate_number,ap.id application_id,ap.service_no FROM outbox_events e LEFT JOIN certificates c ON c.id=e.resource_id AND c.tenant_id=e.tenant_id JOIN applications ap ON ap.tenant_id=e.tenant_id AND ap.id=COALESCE(c.application_id,e.resource_id) JOIN citizens ct ON ct.id=ap.citizen_id AND ct.tenant_id=ap.tenant_id LEFT JOIN notification_receipts r ON r.event_id=e.id AND r.tenant_id=e.tenant_id AND r.user_id=$2 WHERE e.tenant_id=$1 AND (CASE WHEN e.kind IN ('APPLICATION_SUBMITTED','APPLICATION_RESUBMITTED') THEN $3::boolean=false ELSE ($3::boolean=false OR ct.user_id=$2) END) ORDER BY e.created_at DESC LIMIT 100",[a.tenantId,a.userId,a.role==="citizen"])).rows);
   res.json({items:r.map(camelRow),channel:"IN_APP"});
 }));
 protectedToolsRouter.post("/notifications/:id/read",wrap(async(req,res)=>{
   const a=scoped(req),eventId=id.parse(req.params.id);
   await transaction(a.tenantId,async(db)=>{
-    const allowed=(await db.query("SELECT e.id FROM outbox_events e JOIN certificates c ON c.id=e.resource_id AND c.tenant_id=e.tenant_id JOIN applications ap ON ap.id=c.application_id AND ap.tenant_id=c.tenant_id JOIN citizens ct ON ct.id=ap.citizen_id AND ct.tenant_id=ap.tenant_id WHERE e.id=$1 AND e.tenant_id=$2 AND ($3::boolean=false OR ct.user_id=$4)",[eventId,a.tenantId,a.role==="citizen",a.userId])).rowCount;
+    const allowed=(await db.query("SELECT e.id FROM outbox_events e LEFT JOIN certificates c ON c.id=e.resource_id AND c.tenant_id=e.tenant_id JOIN applications ap ON ap.tenant_id=e.tenant_id AND ap.id=COALESCE(c.application_id,e.resource_id) JOIN citizens ct ON ct.id=ap.citizen_id AND ct.tenant_id=ap.tenant_id WHERE e.id=$1 AND e.tenant_id=$2 AND (CASE WHEN e.kind IN ('APPLICATION_SUBMITTED','APPLICATION_RESUBMITTED') THEN $3::boolean=false ELSE ($3::boolean=false OR ct.user_id=$4) END)",[eventId,a.tenantId,a.role==="citizen",a.userId])).rowCount;
     if(!allowed)fail(404,"NOT_FOUND","Notification not found.");
     await db.query("INSERT INTO notification_receipts(tenant_id,event_id,user_id) VALUES($1,$2,$3) ON CONFLICT DO NOTHING",[a.tenantId,eventId,a.userId]);
   });res.json({ok:true});

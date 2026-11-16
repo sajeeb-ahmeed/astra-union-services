@@ -26,7 +26,7 @@ test("user guide browser: every role has its section in both languages, and it p
   try {
     await page.goto(`${origin}/guide`);
     await page.getByRole("heading", { name: "Astra user guide", exact: true }).waitFor();
-    for (const role of ["Citizens", "Office staff and entrepreneurs", "Secretary (verifier)", "Chairman (approver)", "Office admin and finance", "Platform owner"])
+    for (const role of ["Citizens", "Office staff and entrepreneurs", "Secretary", "Chairman (approver)", "Office admin and finance", "Platform owner"])
       await page.getByRole("heading", { name: role, exact: true }).waitFor();
     assert.ok((await page.locator(".user-guide ol li").count()) >= 20);
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), true);

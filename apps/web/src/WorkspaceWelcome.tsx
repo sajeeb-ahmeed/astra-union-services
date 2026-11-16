@@ -77,23 +77,23 @@ export function WorkspaceWelcome({
               {
                 title: {
                   bn: "জমা দেওয়া আবেদন দেখুন",
-                  en: "Review submitted applications",
+                  en: "View submitted applications",
                 },
                 hint: {
-                  bn: "তথ্য ও সংযুক্তি পরীক্ষা শুরু করুন।",
-                  en: "Start checking details and attachments.",
+                  bn: "চেয়ারম্যানের সিদ্ধান্তের অপেক্ষায় থাকা আবেদন দেখুন।",
+                  en: "See applications waiting for the Chairman's decision.",
                 },
                 page: "applications",
                 state: "SUBMITTED",
               },
               {
                 title: {
-                  bn: "পুনরায় জমা দেওয়া আবেদন",
-                  en: "Review resubmitted applications",
+                  bn: "পুনরায় জমা দেওয়া আবেদন দেখুন",
+                  en: "View resubmitted applications",
                 },
                 hint: {
-                  bn: "সংশোধনের পরে আসা আবেদন দেখুন।",
-                  en: "Check applications returned after corrections.",
+                  bn: "সংশোধনের পরে ফিরে আসা আবেদন দেখুন।",
+                  en: "See applications returned after corrections.",
                 },
                 page: "applications",
                 state: "RESUBMITTED",
@@ -101,8 +101,8 @@ export function WorkspaceWelcome({
               {
                 title: { bn: "সব আবেদন দেখুন", en: "View applications" },
                 hint: {
-                  bn: "চলমান পর্যালোচনা ও পুরোনো আবেদন খুঁজুন।",
-                  en: "Find ongoing reviews and earlier applications.",
+                  bn: "আগের আবেদন ও সিদ্ধান্ত খুঁজুন।",
+                  en: "Find earlier applications and decisions.",
                 },
                 page: "applications",
               },
@@ -111,24 +111,24 @@ export function WorkspaceWelcome({
             ? [
                 {
                   title: {
-                    bn: "অনুমোদনের জন্য দেখুন",
-                    en: "Review for approval",
+                    bn: "জমা দেওয়া আবেদন যাচাই করুন",
+                    en: "Verify submitted applications",
                   },
                   hint: {
-                    bn: "পর্যালোচনাধীন আবেদন ও তথ্য দেখুন।",
-                    en: "Read applications under review before deciding.",
+                    bn: "তথ্য দেখে অনুমোদন করলেই সনদ ইস্যু হবে, অথবা কারণসহ প্রত্যাখ্যান করুন।",
+                    en: "Check the details, then approve to issue the certificate or reject with a reason.",
                   },
                   page: "applications",
-                  state: "UNDER_REVIEW",
+                  state: "SUBMITTED",
                 },
                 {
                   title: {
-                    bn: "অনুমোদিত আবেদন দেখুন",
-                    en: "View approved applications",
+                    bn: "অনুমোদিত — ইস্যু বাকি",
+                    en: "Approved — issuance pending",
                   },
                   hint: {
-                    bn: "ফি ও ইস্যুর শর্ত পরীক্ষা করুন।",
-                    en: "Check fees and requirements before issuance.",
+                    bn: "অনুমোদন সংরক্ষিত আছে, কিন্তু ইস্যু আটকে ছিল (যেমন ফি বাকি বা ক্রেডিট কম)। খুলে ইস্যু শেষ করুন।",
+                    en: "Approval is recorded but issuance was blocked (for example unpaid fees or low credits). Open one to finish issuing.",
                   },
                   page: "applications",
                   state: "APPROVED",

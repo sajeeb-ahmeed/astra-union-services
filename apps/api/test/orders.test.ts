@@ -138,8 +138,16 @@ async function transition(
 }
 async function approve(id: string) {
   await transition(id, "submit", "citizen");
-  await transition(id, "review", "reviewer");
-  await transition(id, "approve", "approver");
+  // Phase W: no secretary review — the Chairman's approve issues at once.
+  const response = await request(
+    "POST",
+    `/applications/${id}/transition`,
+    { action: "approve" },
+    "approver",
+  );
+  assert.equal(response.status, 200, JSON.stringify(response.body));
+  assert.equal(response.body.state, "ISSUED");
+  return response.body;
 }
 async function counts() {
   return (
@@ -563,11 +571,11 @@ test("ORDER-07: correction preserves order language and snapshot; uncollected po
   assert.equal(wrong.status, 422);
   assert.equal(wrong.body.error.code, "ORDER_LANGUAGE_MISMATCH");
   await transition(ordered.id, "submit", "citizen");
-  await transition(ordered.id, "review", "reviewer");
+  // Phase W: corrections are the Chairman's decision now, not a secretary's.
   await transition(
     ordered.id,
     "request_correction",
-    "reviewer",
+    "approver",
     "Synthetic correction request",
   );
   const detail = (await request("GET", `/applications/${ordered.id}`)).body;
@@ -576,8 +584,16 @@ test("ORDER-07: correction preserves order language and snapshot; uncollected po
   });
   assert.equal(corrected.status, 200, JSON.stringify(corrected.body));
   await transition(ordered.id, "resubmit", "citizen");
-  await transition(ordered.id, "review", "reviewer");
-  await transition(ordered.id, "approve", "approver");
+  // The Chairman's approve attempts issuance and is stopped by the unpaid
+  // order; his approval is recorded and the application stays APPROVED.
+  const approval = await request(
+    "POST",
+    `/applications/${ordered.id}/transition`,
+    { action: "approve" },
+    "approver",
+  );
+  assert.equal(approval.status, 402, JSON.stringify(approval.body));
+  assert.equal(approval.body.error.code, "ORDER_PAYMENT_REQUIRED");
   const before = await counts();
   const balance = (await request("GET", "/wallet", undefined, "finance")).body
     .balance;
@@ -600,14 +616,18 @@ test("ORDER-07: correction preserves order language and snapshot; uncollected po
 });
 
 test("ORDER-08: a draft created before any policy retains its legacy path after publication", async () => {
-  await approve(legacy.id);
-  const result = await request(
+  // Phase W: the Chairman's approve issued the legacy certificate directly.
+  const approvedLegacy = await approve(legacy.id);
+  const result = { body: approvedLegacy.certificate };
+  assert.ok(result.body?.id, JSON.stringify(approvedLegacy));
+  const again = await request(
     "POST",
     `/applications/${legacy.id}/issue`,
     {},
     "approver",
   );
-  assert.equal(result.status, 201, JSON.stringify(result.body));
+  assert.equal(again.status, 200, JSON.stringify(again.body));
+  assert.equal(again.body.id, result.body.id);
   const detail = (await request("GET", `/applications/${legacy.id}`)).body;
   assert.equal(detail.application.orderMode, "LEGACY");
   assert.equal(detail.application.state, "ISSUED");
@@ -617,7 +637,7 @@ test("ORDER-08: a draft created before any policy retains its legacy path after 
   assert.equal(renewal.body.error.code, "ORDER_REQUIRED");
 });
 
-test("ORDER-09: explicit zero-fee policy still requires separate authorized approval and concurrent issuance deducts exactly once", async () => {
+test("ORDER-09: explicit zero-fee policy still requires the Chairman's authorized approval and issuance deducts exactly once", async () => {
   const response = await publish({
     expectedVersion: currentVersion,
     statutoryFeeMinor: 0,
@@ -657,7 +677,12 @@ test("ORDER-09: explicit zero-fee policy still requires separate authorized appr
     ).status,
     409,
   );
-  await approve(zeroApplication.id);
+  // Phase W: the Chairman's approve is the issuance; the balance is read
+  // before it so the single deduction is measured across the whole flow.
+  const balance = (await request("GET", "/wallet", undefined, "finance")).body
+    .balance;
+  const approvedZero = await approve(zeroApplication.id);
+  assert.ok(approvedZero.certificate?.id);
   assert.equal(
     (
       await request(
@@ -669,8 +694,6 @@ test("ORDER-09: explicit zero-fee policy still requires separate authorized appr
     ).status,
     403,
   );
-  const balance = (await request("GET", "/wallet", undefined, "finance")).body
-    .balance;
   const issues = await Promise.all([
     request(
       "POST",
@@ -690,6 +713,7 @@ test("ORDER-09: explicit zero-fee policy still requires separate authorized appr
     JSON.stringify(issues),
   );
   assert.equal(new Set(issues.map((result) => result.body.id)).size, 1);
+  assert.equal(issues[0]!.body.id, approvedZero.certificate.id);
   assert.equal(
     (await request("GET", "/wallet", undefined, "finance")).body.balance,
     balance - 1,
