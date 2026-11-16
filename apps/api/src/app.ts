@@ -360,7 +360,7 @@ app.get(
     res.json({
       status: "ok",
       database: "PostgreSQL",
-      mode: "DEMO_ONLY",
+      mode: issuanceMode() === "official" ? "OFFICIAL" : "DEMO_ONLY",
       // Whether each optional server key is in place (true/false only, never a value), so an operator can
       // confirm a deployment without signing in.
       features: {
@@ -1821,6 +1821,16 @@ app.post(
  * when off, the request falls through as if the route were never registered.
  */
 export const demoSettleEnabled = () => process.env.DEMO_SETTLE_ENABLED === "true";
+/**
+ * Issuance mode gate: "demo" unless ISSUANCE_MODE is exactly "official".
+ * In official mode the health endpoint reports OFFICIAL and the certificate
+ * template drops its DEMO branding (the factual not-a-government-document
+ * honesty lines stay in both modes). Read per call, like demoSettleEnabled,
+ * so tests and operators can flip it via the environment alone. Activation
+ * is the owner's decision; the default is always demo.
+ */
+export const issuanceMode = () =>
+  process.env.ISSUANCE_MODE === "official" ? "official" : "demo";
 app.post(
   "/api/v1/billing/orders/:id/demo-settle",
   (_req, _res, next) => next(demoSettleEnabled() ? undefined : "route"),

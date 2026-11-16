@@ -63,6 +63,8 @@ Legend: **Done** — built, tested and merged. **Sandbox** — built and tested;
 | Encrypted backup of the live database | Done for Neon; first backup restored with an exact match (15 Nov 2026). Offsite copy and schedule are the owner's steps | [Hosted deployment](HOSTED_DEPLOYMENT.md) |
 | Scanner and queue monitoring | Done: owner Operations panel with alerts | migration 037 |
 | Confirm server keys without signing in | Done: health reports true/false per key | #34 |
+| cPanel single-role deployment track | Done: bundle builder, single-role bootstrap/migration runner, Passenger entry, runbook; verified locally end-to-end (fresh single-role DB, boot, login, PDF). Live deploy awaits the owner's cPanel probe | [cPanel deployment](DEPLOY-CPANEL.md) |
+| Demo → official issuance flip | Done: `ISSUANCE_MODE=official` flips health to OFFICIAL and drops certificate DEMO branding (honesty lines kept); default unchanged. Activation is the owner's decision | `apps/api/src/app.ts`, `apps/api/src/certificate-template.ts` |
 
 ## Before release sign-off (Phase 7.4)
 

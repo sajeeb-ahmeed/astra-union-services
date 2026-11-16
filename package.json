@@ -27,7 +27,10 @@
     "db:initialize": "npm run db:bootstrap-role && npm run db:migrate && tsx scripts/initialize.ts",
     "test:scanner": "node --import tsx --test scripts/scanner/*.test.ts scripts/verify-hosted-attachments.test.ts",
     "scanner:check": "tsx scripts/scanner/real-engine.ts",
-    "scanner:run": "tsx scripts/scanner/run.ts"
+    "scanner:run": "tsx scripts/scanner/run.ts",
+    "db:bootstrap-cpanel": "tsx scripts/bootstrap-cpanel.ts",
+    "db:migrate-cpanel": "tsx scripts/migrate-cpanel.ts",
+    "db:initialize-cpanel": "npm run db:bootstrap-cpanel && npm run db:migrate-cpanel && tsx scripts/initialize.ts"
   },
   "dependencies": {
     "express": "5.2.1",
