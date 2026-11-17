@@ -67,7 +67,7 @@ jobs:
           docker logs astra-clamav
           exit 1
       - run: npx playwright install --with-deps chromium
-      - run: sudo apt-get update && sudo apt-get install -y fonts-noto-core
+      - run: sudo apt-get update && sudo apt-get install -y fonts-noto-core poppler-utils
       - run: npm run db:bootstrap-role && npm run db:migrate && npm run db:seed
       - name: Exercise real HTTP, PostgreSQL, malware detection and authorized issuance
         run: node --import tsx scripts/scanner/real-flow.ts
@@ -131,7 +131,7 @@ jobs:
           cache: npm
       - run: npm ci --no-audit --no-fund
       - run: npx playwright install --with-deps chromium
-      - run: sudo apt-get update && sudo apt-get install -y fonts-noto-core
+      - run: sudo apt-get update && sudo apt-get install -y fonts-noto-core poppler-utils
       - run: npm run db:bootstrap-role
       - run: npm run db:migrate
       - run: npm run db:seed
