@@ -208,7 +208,7 @@ test("geography browser: mobile registration stores selected geography and serve
     await page.goto(`${origin}/register`);
     assert.equal(await page.getByRole("button", { name: "Create account", exact: true }).isDisabled(), true);
     for (const [level, code] of Object.entries(geo)) await choose(page, level.replace("Code", ""), code);
-    await page.getByRole("button", { name: "Use a preview office", exact: true }).click();
+    await page.getByRole("button", { name: "Register with this office", exact: true }).click();
     const option = page.locator("#signup-office option[value]:not([value=''])").first();
     await option.waitFor({ state: "attached" });
     const office = await option.getAttribute("value");
@@ -235,7 +235,7 @@ test("geography browser: mobile registration stores selected geography and serve
     assert.equal(citizens.status(), 200);
     const ownCitizen = (await citizens.json()).items.find((citizen: any) => citizen.nameEn === fields.nameEn);
     assert.ok(ownCitizen);
-    assert.match(ownCitizen.syntheticReference, /^DEMO-.+/);
+    assert.match(ownCitizen.syntheticReference, /^REF-.+/);
     await page.request.post(`${origin}/api/v1/auth/logout`, { data: {}, headers: { "X-CSRF-Token": session.csrfToken } });
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), true);
     await page.screenshot({ path: "execution/screenshots/geography-registration-complete.png", fullPage: true });
@@ -260,7 +260,7 @@ test("language browser: preference persists across public pages and authenticate
       assert.doesNotMatch(await page.locator("#public-content").getByRole("heading").first().innerText({ timeout: 5000 }), /Page not found|পৃষ্ঠা পাওয়া যায়নি/, route);
     }
     await page.goto(`${origin}/login`);
-    await page.locator('#email').fill("admin@alpha.demo.test");
+    await page.locator('#email').fill("admin@alpha.local.test");
     await page.locator('#password').fill("Demo-Phase1!");
     await page.getByRole("button", { name: /প্রবেশ করুন|সাইন ইন/ }).click();
     await page.getByRole("button", { name: /বের হন|সাইন আউট|বের হয়ে যান/ }).waitFor();

@@ -26,7 +26,7 @@ async function login(name: string) {
   const r = await fetch(`${base}/api/v1/auth/login`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ email: `${name}@alpha.demo.test`, password: "Demo-Phase1!" }),
+    body: JSON.stringify({ email: `${name}@alpha.local.test`, password: "Demo-Phase1!" }),
   });
   const json = await r.json();
   assert.equal(r.status, 200, JSON.stringify(json));
@@ -182,6 +182,6 @@ test("Phase W: certificates (template 6, still selectable) carry one Chairman si
   assert.doesNotMatch(bn, /সচিব/);
   const bilingual = render("bilingual");
   assert.match(bilingual, /<strong>অনুমোদন ও ইস্যুকারী \/ Approved and issued by<\/strong><span>চেয়ারম্যান \/ Chairman<\/span>/);
-  // Still clearly a demonstration document.
-  assert.match(en, /DEMO \/ NOT OFFICIAL/);
+  // No demo branding anywhere on the rendered certificate.
+  assert.doesNotMatch(en, /DEMO \/ NOT OFFICIAL/);
 });

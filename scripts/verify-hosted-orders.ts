@@ -421,7 +421,7 @@ try {
       dateOfBirth: "1998-02-03",
       addressBn: "শুধুমাত্র পরীক্ষার কাল্পনিক ঠিকানা",
       addressEn: "Synthetic address for order QA only",
-      syntheticReference: `DEMO-ORDER-${runId}`,
+      syntheticReference: `REF-ORDER-${runId}`,
     }, "staff", "Register one synthetic QA citizen profile");
     status(citizen, 201, "Create synthetic citizen");
     uuid(citizen.body.id, "Citizen ID is invalid.");
@@ -437,7 +437,7 @@ try {
     const billing = await request("GET", "/billing", undefined, "admin");
     status(billing, 200, "Read sandbox plans");
     ensure(billing.body.sandbox === true, "Billing must explicitly be sandbox.");
-    const plan = billing.body.plans.find((value: any) => value.id === "demo-monthly");
+    const plan = billing.body.plans.find((value: any) => value.id === "standard-monthly");
     ensure(plan && plan.priceMinor === 0 && plan.grantCredits >= creditCost, "Requires the existing zero-money demo plan with enough credits.");
     const order = await request("POST", "/billing/orders", { kind: "subscription", planId: plan.id }, "admin", "Create zero-money QA subscription order");
     status(order, 201, "Create sandbox order");

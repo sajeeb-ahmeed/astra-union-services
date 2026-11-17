@@ -6,17 +6,12 @@ import {
   useLanguage,
   LanguageSwitcher,
 } from "./i18n.js";
-import React, { lazy, useEffect, useRef, useState } from "react";
+import React, { lazy, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import {
-  demoPayloads,
   operationalServiceNumbers,
   getServiceSchema,
-  getCatalogPreviewSchema,
-  validateForm,
-  type ValidationIssue,
 } from "@astra/shared-schemas";
 import { api, items } from "./api.js";
-import { useIsDemo } from "./mode.js";
 import emblem from "./assets/brand/emblem.webp";
 import { AsyncPanel } from "./AsyncPanel.js";
 import { DynamicForm } from "./DynamicForm.js";
@@ -36,15 +31,9 @@ import { ProfileCompleteness } from "./ProfileCompleteness.js";
 import { WorkspaceWelcome } from "./WorkspaceWelcome.js";
 import { withoutOrderLanguage } from "./order-schema.js";
 import { ServiceFlow } from "./ServiceFlow.js";
-import { OwnerAccountRequests } from "./OwnerAccountRequests.js";
-import { OwnerPointPrices, OwnerPointsPanel, PointsWallet } from "./PointsWallet.js";
-import { OwnerRecharges, RechargeRequests } from "./Recharge.js";
-import { OfficeRefunds } from "./Refunds.js";
-import { OwnerInclusionRequests } from "./OfficeInclusion.js";
-import { OwnerWitnessTypes } from "./WitnessGenerator.js";
-import { OwnerOperations } from "./OwnerOperations.js";
 import { WorkspaceDashboard } from "./WorkspaceDashboard.js";
 import { SidebarNav } from "./ui/SidebarNav.js";
+import { EmptyState, SkeletonRows } from "./ui/kit.js";
 import { udcNavigation, usesUdcNavigation } from "./workspace-navigation.js";
 import { ApplicationGuidance } from "./ApplicationGuidance.js";
 import "./workspace-usability.css";
@@ -62,6 +51,44 @@ import {
 } from "./GeographyFields.js";
 const AdminWorkspace = lazy(() =>
   import("./AdminWorkspace.js").then((m) => ({ default: m.AdminWorkspace })),
+);
+// UIUX-FIX-01 #15: owner-only and finance-only panels are lazy chunks, so
+// citizens/chairmen never download platform-management or finance code.
+const OwnerOperations = lazy(() =>
+  import("./OwnerOperations.js").then((m) => ({ default: m.OwnerOperations })),
+);
+const OwnerAccountRequests = lazy(() =>
+  import("./OwnerAccountRequests.js").then((m) => ({
+    default: m.OwnerAccountRequests,
+  })),
+);
+const OwnerRecharges = lazy(() =>
+  import("./Recharge.js").then((m) => ({ default: m.OwnerRecharges })),
+);
+const RechargeRequests = lazy(() =>
+  import("./Recharge.js").then((m) => ({ default: m.RechargeRequests })),
+);
+const OwnerInclusionRequests = lazy(() =>
+  import("./OfficeInclusion.js").then((m) => ({
+    default: m.OwnerInclusionRequests,
+  })),
+);
+const OwnerWitnessTypes = lazy(() =>
+  import("./WitnessGenerator.js").then((m) => ({
+    default: m.OwnerWitnessTypes,
+  })),
+);
+const PointsWallet = lazy(() =>
+  import("./PointsWallet.js").then((m) => ({ default: m.PointsWallet })),
+);
+const OwnerPointPrices = lazy(() =>
+  import("./PointsWallet.js").then((m) => ({ default: m.OwnerPointPrices })),
+);
+const OwnerPointsPanel = lazy(() =>
+  import("./PointsWallet.js").then((m) => ({ default: m.OwnerPointsPanel })),
+);
+const OfficeRefunds = lazy(() =>
+  import("./Refunds.js").then((m) => ({ default: m.OfficeRefunds })),
 );
 const AccountSecurity = lazy(() =>
   import("./AdminWorkspace.js").then((m) => ({ default: m.AccountSecurity })),
@@ -81,9 +108,6 @@ const ApplicationPayment = lazy(() =>
 );
 const PaymentsWorkspace = lazy(() =>
   import("./OnlinePayments.js").then((m) => ({ default: m.PaymentsWorkspace })),
-);
-const localDemo = ["127.0.0.1", "localhost", "::1", "[::1]"].includes(
-  location.hostname,
 );
 const labels: Record<string, string> = {
   home: "Overview",
@@ -138,9 +162,20 @@ export function WorkspaceApp({
   onPaymentReturnHandled: () => void;
 }) {
   const [language] = useLanguage();
-  const demo = useIsDemo();
+  // Phone layout (<=767px): card lists replace the wide tables; rendered conditionally so the
+  // table data is never duplicated in the DOM on larger screens.
+  const phoneLayout = useSyncExternalStore(
+    (notify) => {
+      const mq = window.matchMedia("(max-width: 767px)");
+      mq.addEventListener("change", notify);
+      return () => mq.removeEventListener("change", notify);
+    },
+    () => window.matchMedia("(max-width: 767px)").matches,
+    () => false,
+  );
   const [page, setPage] = useState("home"),
     [message, setMessage] = useState(""),
+    [errorMessage, setErrorMessage] = useState(""),
     [busy, setBusy] = useState(false);
   const [catalog, setCatalog] = useState<any[]>([]),
     [citizens, setCitizens] = useState<any[]>([]),
@@ -154,12 +189,7 @@ export function WorkspaceApp({
   const [flowCitizen, setFlowCitizen] = useState<any>(null);
   const [returnToFlow, setReturnToFlow] = useState(false);
   const [selectedService, setSelectedService] = useState(45),
-    [preview, setPreview] = useState(false),
-    [payload, setPayload] = useState<Record<string, any>>({}),
-    [citizenId, setCitizenId] = useState(""),
-    [selectedCitizen, setSelectedCitizen] = useState<any>(null),
     [returnToIntake, setReturnToIntake] = useState(false),
-    [issues, setIssues] = useState<readonly ValidationIssue[]>([]),
     [detail, setDetail] = useState<any>(null),
     [reason, setReason] = useState(""),
     [filter, setFilter] = useState(""),
@@ -174,7 +204,6 @@ export function WorkspaceApp({
     [appTo, setAppTo] = useState(""),
     [appRenewals, setAppRenewals] = useState(false);
   const [applicationReference, setApplicationReference] = useState("");
-  const [intakeOrder, setIntakeOrder] = useState<IntakeOrderState | null>(null);
   const [renewalOrder, setRenewalOrder] = useState<IntakeOrderState | null>(
     null,
   );
@@ -215,10 +244,11 @@ export function WorkspaceApp({
   async function run(fn: () => Promise<void>) {
     setBusy(true);
     setMessage("");
+    setErrorMessage("");
     try {
       await fn();
     } catch (e) {
-      setMessage((e as Error).message);
+      setErrorMessage((e as Error).message);
     } finally {
       setBusy(false);
     }
@@ -280,11 +310,6 @@ export function WorkspaceApp({
       );
     });
   }, [session]);
-  useEffect(() => {
-    setPayload({});
-    setPreview(false);
-    setIssues([]);
-  }, [selectedService]);
   const role = session?.user?.role || "",
     staff = ["staff", "admin"].includes(role),
     approver = role === "approver",
@@ -341,42 +366,6 @@ export function WorkspaceApp({
       `${service.service_no} ${service.name_bn} ${service.name_en}`,
     ).includes(normalizeSearch(search)),
   );
-  const errorSummary = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    if (issues.length) errorSummary.current?.focus();
-  }, [issues]);
-  function focusIssue(path: string) {
-    const field = Array.from(
-      document.querySelectorAll<HTMLElement>(
-        '[data-testid="service-application-form"] [data-field-path]',
-      ),
-    ).find((element) => element.dataset.fieldPath === path);
-    field?.focus();
-  }
-  function fieldLabel(path: string): string {
-    let definitions = schema.sections.flatMap((section) => [...section.fields]);
-    const labels: string[] = [];
-    for (const part of path.match(/[^.[\]]+/g) ?? []) {
-      if (/^\d+$/.test(part)) {
-        labels.push(
-          choose({ bn: "সারি", en: "Row" }) +
-            " " +
-            (Number(part) + 1).toLocaleString(
-              language === "bn" ? "bn-BD" : "en-GB",
-            ),
-        );
-        continue;
-      }
-      const field = definitions.find((field) => field.id === part);
-      if (!field) continue;
-      labels.push(choose(field.label));
-      definitions = [...(field.children ?? [])];
-    }
-    return (
-      labels.join(" → ") ||
-      choose({ bn: "তথ্য সংশোধন করুন", en: "Check this field" })
-    );
-  }
   function applicationDate(raw: string) {
     const date = new Date(raw);
     return Number.isNaN(date.getTime())
@@ -400,30 +389,7 @@ export function WorkspaceApp({
     }
     nav(next);
   }
-  const applicantChoices =
-    selectedCitizen && !citizens.some((c) => c.id === selectedCitizen.id)
-      ? [selectedCitizen, ...citizens]
-      : citizens;
-  function selectApplicant(
-    id: string,
-    citizen = applicantChoices.find((c) => c.id === id),
-  ) {
-    if (id !== citizenId) {
-      setPayload({});
-      setIssues([]);
-    }
-    setCitizenId(id);
-    setSelectedCitizen(citizen ?? null);
-  }
-  const operational =
-      operationalServiceNumbers.includes(selectedService) && !preview,
-    schema = operational
-      ? getServiceSchema(selectedService)
-      : getCatalogPreviewSchema(selectedService);
   const issueCost = detail?.serviceConfiguration?.creditCost ?? 1;
-  const intakeContext = `${citizenId}:${selectedService}`;
-  const orderConfigured =
-    intakeOrder?.context === intakeContext && intakeOrder.configured;
   const application = detail?.application || detail,
     detailPayload = detail?.payload || application?.payload || {};
   const renewalLanguage =
@@ -450,6 +416,7 @@ export function WorkspaceApp({
     setPage(next);
     setDetail(null);
     setMessage("");
+    setErrorMessage("");
     setSearch("");
   }
   function certificatePanel(cert: any) {
@@ -462,9 +429,7 @@ export function WorkspaceApp({
       >
         <div>
           <span className="eyebrow">
-            {demo
-              ? t("DEMO CERTIFICATE")
-              : choose({ bn: "সনদ", en: "CERTIFICATE" })}
+            {choose({ bn: "সনদ", en: "CERTIFICATE" })}
           </span>
           <h3>
             {tx(
@@ -556,7 +521,7 @@ export function WorkspaceApp({
           {tx(recordName(session.tenant) || "Platform owner")}
           <small>
             {tx(
-              session.tenant ? "Office workspace" : "Independent SaaS platform",
+              session.tenant ? "Office workspace" : "Union services platform",
             )}
           </small>
         </p>
@@ -629,7 +594,6 @@ export function WorkspaceApp({
         </nav>
         )}
         <div className="sidebar-bottom">
-          {demo && <span className="status">{t("DEMO WORKSPACE")}</span>}
           <p>
             {tx(
               session.user.displayName ||
@@ -650,11 +614,7 @@ export function WorkspaceApp({
                 setWallet(null);
                 setBilling(null);
                 setTenants([]);
-                setCitizenId("");
-                setSelectedCitizen(null);
                 setReturnToIntake(false);
-                setPayload({});
-                setIssues([]);
                 setCitizenSearch("");
                 setAppSearch("");
                 setApplicationReference("");
@@ -670,7 +630,7 @@ export function WorkspaceApp({
           </button>
         </div>
       </aside>
-      <main id="content">
+      <main id="content" aria-busy={busy || undefined}>
         <header>
           <div>
             <span className="eyebrow">
@@ -686,13 +646,19 @@ export function WorkspaceApp({
           </div>
           <div className="workspace-header-actions">
             <LanguageSwitcher />
-            {demo && <span className="demo-pill">{t("DEMO / NOT OFFICIAL")}</span>}
           </div>
         </header>
         {tx(
           message && (
-            <div role="status" className="notice message">
+            <div role="status" className="notice message success">
               {tx(message)}
+            </div>
+          ),
+        )}
+        {tx(
+          errorMessage && (
+            <div role="alert" className="notice message error">
+              {tx(errorMessage)}
             </div>
           ),
         )}
@@ -709,7 +675,6 @@ export function WorkspaceApp({
             serviceNo={flowService}
             initialCitizen={flowCitizen}
             tenant={session.tenant}
-            localDemo={localDemo}
             onOpenApplication={(id) => void run(() => openApplication(id))}
             onRegisterCitizen={() => {
               nav("citizens");
@@ -779,158 +744,41 @@ export function WorkspaceApp({
                 })}
               </p>
             </section>
-            {demo && (
-            <details className="panel workspace-information">
-              <summary>
-                {choose({
-                  bn: "সিস্টেমের বর্তমান সীমা ও সেবার তথ্য",
-                  en: "Current service availability and limitations",
-                })}
-              </summary>
-              <p>
-                {choose({
-                  bn: "৪৭টি সেবার ফর্ম ব্যবহার করা যায়। সনদগুলো DEMO / NOT OFFICIAL। পরিচয় যাচাই, সরকারি কর্তৃত্ব ও live payment collection চালু নেই।",
-                  en: "Forms are available for 47 services. Certificates are DEMO / NOT OFFICIAL. Identity verification, official issuing authority and live payment collection are not enabled.",
-                })}
-              </p>
-              <p>
-                {t(
-                  "All 47 services have independently authored operational demo forms. Original initial-field captures are separately available as read-only evidence previews. Original submission, payment and official issuance behavior remains unverified. ",
-                )}
-              </p>
-            </details>
-            )}
           </>
         )}
         {tx(
           page === "services" && (
             <>
-              {canApply && (
-                <ol
-                  className="intake-steps"
-                  aria-label={choose({
-                    bn: "আবেদনের ধাপ",
-                    en: "Application steps",
-                  })}
-                >
-                  <li aria-current={!citizenId ? "step" : undefined}>
-                    <a href="#intake-heading">
-                      <span>1</span>
-                      {choose({ bn: "নাগরিক বাছাই", en: "Choose citizen" })}
-                    </a>
-                  </li>
-                  <li
-                    aria-current={
-                      citizenId && !Object.keys(payload).length
-                        ? "step"
-                        : undefined
-                    }
-                  >
-                    <a href="#service-choice">
-                      <span>2</span>
-                      {choose({ bn: "সেবা বাছাই", en: "Choose service" })}
-                    </a>
-                  </li>
-                  <li
-                    aria-current={
-                      citizenId && Object.keys(payload).length
-                        ? "step"
-                        : undefined
-                    }
-                  >
-                    <a href="#service-form-panel">
-                      <span>3</span>
-                      {choose({
-                        bn: "তথ্য, ফি ও খসড়া",
-                        en: "Details, fees and draft",
-                      })}
-                    </a>
-                  </li>
-                </ol>
-              )}
-              {canApply && (
-                <section
-                  className="panel intake-panel"
-                  aria-labelledby="intake-heading"
-                >
-                  <div className="section-heading">
-                    <div>
-                      <span className="eyebrow">{t("NEW APPLICATION")}</span>
-                      <h2 id="intake-heading">
-                        {t("Choose the citizen first")}
-                      </h2>
-                    </div>
-                    {staff && (
-                      <button
-                        type="button"
-                        className="secondary"
-                        onClick={() => {
-                          nav("citizens");
-                          setReturnToIntake(true);
-                        }}
-                      >
-                        {t("Register a new citizen")}
-                      </button>
-                    )}
-                  </div>
-                  <p className="hint">
-                    {t(
-                      "Select an existing citizen, choose a service, then complete the application. New applications start with empty fields.",
-                    )}
-                  </p>
-                  <div className="form-grid">
-                    <div className="field">
-                      <label htmlFor="applicant-search">
-                        {t("Find applicant")}
-                      </label>
-                      <input
-                        id="applicant-search"
-                        placeholder={t("Name or unique demo reference")}
-                        value={citizenSearch}
-                        onChange={(e) => setCitizenSearch(e.target.value)}
-                      />
-                      <p className="hint">
-                        {t(
-                          "Searches your office records. Up to 100 matching citizens are shown.",
-                        )}
-                      </p>
-                    </div>
-                    <div className="field">
-                      <label htmlFor="applicant">{t("Citizen / নাগরিক")}</label>
-                      <select
-                        id="applicant"
-                        value={citizenId}
-                        onChange={(e) => selectApplicant(e.target.value)}
-                      >
-                        <option value="">{t("Choose citizen")}</option>
-                        {applicantChoices.map((c) => (
-                          <option value={c.id} key={c.id}>
-                            {choose({
-                              bn: c.nameBn || c.name_bn,
-                              en: c.nameEn || c.name_en,
-                            })}
-                          </option>
-                        ))}
-                      </select>
-                      <p className="hint">
-                        {t(
-                          "Changing the citizen clears unsaved application details.",
-                        )}
-                      </p>
-                    </div>
-                  </div>
-                  {selectedCitizen && (
-                    <p className="intake-selection" role="status">
-                      <strong>{t("Selected citizen")}: </strong>
-                      {choose({
-                        bn: selectedCitizen.nameBn || selectedCitizen.name_bn,
-                        en: selectedCitizen.nameEn || selectedCitizen.name_en,
-                      })}
-                    </p>
-                  )}
-                </section>
-              )}
               <section className="panel" id="service-choice">
+                <div className="section-heading">
+                  <div>
+                    <span className="eyebrow">{t("NEW APPLICATION")}</span>
+                    <h2 id="intake-heading">
+                      {choose({
+                        bn: "সেবা বাছাই করুন",
+                        en: "Choose a service",
+                      })}
+                    </h2>
+                  </div>
+                  {staff && canApply && (
+                    <button
+                      type="button"
+                      className="secondary"
+                      onClick={() => {
+                        nav("citizens");
+                        setReturnToIntake(true);
+                      }}
+                    >
+                      {t("Register a new citizen")}
+                    </button>
+                  )}
+                </div>
+                <p className="hint">
+                  {choose({
+                    bn: "সেবা বাছাই করলেই নির্দেশিত আবেদন শুরু হবে: নাগরিক, ফর্ম, ফি ও সরবরাহ, তারপর যাচাই করে জমা।",
+                    en: "Choose a service to start the guided application: citizen, form, fees and delivery, then review and submit.",
+                  })}
+                </p>
                 <label htmlFor="service-search">{t("Search services")}</label>
                 <input
                   id="service-search"
@@ -943,7 +791,7 @@ export function WorkspaceApp({
                     {matchingServices.length.toLocaleString(
                       language === "bn" ? "bn-BD" : "en-GB",
                     )}{" "}
-                    {choose({ bn: "টি সেবা পাওয়া গেছে", en: "services found" })}
+                    {choose({ bn: "টি সেবা পাওয়া গেছে", en: "services found" })}
                   </p>
                   {search && (
                     <button
@@ -955,21 +803,29 @@ export function WorkspaceApp({
                   )}
                 </div>
                 {!matchingServices.length && (
-                  <p className="service-empty">
-                    {choose({
-                      bn: "এই নামে সেবা পাওয়া যায়নি। নাম বা সেবার নম্বর দিয়ে আবার খুঁজুন।",
-                      en: "No matching service. Try a different name or service number.",
+                  <EmptyState
+                    title={choose({
+                      bn: "এই নামে সেবা পাওয়া যায়নি।",
+                      en: "No matching service.",
                     })}
-                  </p>
+                    hint={choose({
+                      bn: "নাম বা সেবার নম্বর দিয়ে আবার খুঁজুন।",
+                      en: "Try a different name or service number.",
+                    })}
+                  />
                 )}
                 <div className="catalog">
                   {tx(
                     matchingServices.map((s) => (
                       <button
-                        className={`service ${selectedService === s.service_no ? "selected" : ""}`}
+                        className="service"
                         key={s.service_no}
-                        aria-pressed={selectedService === s.service_no}
-                        onClick={() => setSelectedService(s.service_no)}
+                        disabled={!canApply}
+                        onClick={() => {
+                          setSelectedService(s.service_no);
+                          setFlowService(s.service_no);
+                          nav("flow");
+                        }}
                       >
                         <span className="service-number">
                           {tx(String(s.service_no).padStart(2, "0"))}
@@ -981,8 +837,8 @@ export function WorkspaceApp({
                           <em>
                             {tx(
                               operationalServiceNumbers.includes(s.service_no)
-                                ? "Working demo"
-                                : "Reference preview",
+                                ? "Available"
+                                : "Reference",
                             )}
                           </em>
                         </span>
@@ -990,204 +846,6 @@ export function WorkspaceApp({
                     )),
                   )}
                 </div>
-                <div className="selected-service-shortcut">
-                  <p>
-                    <small>
-                      {choose({ bn: "বাছাই করা সেবা", en: "Selected service" })}
-                    </small>
-                    <strong>{choose(schema.title)}</strong>
-                  </p>
-                  <a
-                    className="button secondary"
-                    href={
-                      canApply && !citizenId
-                        ? "#intake-heading"
-                        : "#service-form-panel"
-                    }
-                  >
-                    {choose(
-                      canApply && !citizenId
-                        ? {
-                            bn: "আগে নাগরিক বাছাই করুন",
-                            en: "Choose citizen first",
-                          }
-                        : { bn: "ফর্মে যান", en: "Go to form" },
-                    )}
-                  </a>
-                </div>
-              </section>
-              <section className="panel" id="service-form-panel">
-                <div className="section-heading">
-                  <div>
-                    <span className="eyebrow">
-                      {t("SERVICE ")}
-                      {tx(selectedService)}
-                      {t(" · SCHEMA V")}
-                      {tx(schema.version)}
-                    </span>
-                    <h2>{choose(schema.title)}</h2>
-                  </div>
-                  <span className="status">
-                    {tx(operational ? "DEMO ENABLED" : "READ-ONLY EVIDENCE")}
-                  </span>
-                </div>
-                <p className="hint">{tx(schema.evidence.limitation)}</p>
-                {tx(
-                  operationalServiceNumbers.includes(selectedService) && (
-                    <button
-                      type="button"
-                      className="secondary"
-                      onClick={() => setPreview(!preview)}
-                    >
-                      {tx(
-                        preview
-                          ? "Use independent demo form"
-                          : "View observed reference fields",
-                      )}
-                    </button>
-                  ),
-                )}
-                {tx(
-                  issues.length > 0 && (
-                    <div
-                      ref={errorSummary}
-                      role="alert"
-                      className="error-summary"
-                      tabIndex={-1}
-                    >
-                      <strong>
-                        {t("Correct these fields / নিচের ঘরগুলো সংশোধন করুন ")}
-                      </strong>
-                      <ul>
-                        {tx(
-                          issues.map((i) => (
-                            <li key={i.path}>
-                              <button
-                                className="text-button"
-                                type="button"
-                                onClick={() => focusIssue(i.path)}
-                              >
-                                {fieldLabel(i.path)}: {choose(i.message)}
-                              </button>
-                            </li>
-                          )),
-                        )}
-                      </ul>
-                    </div>
-                  ),
-                )}
-                {!operational || (canApply && citizenId) ? (
-                  <div
-                    className="application-form"
-                    data-testid="service-application-form"
-                  >
-                    <DynamicForm
-                      key={intakeContext}
-                      contextKey={intakeContext}
-                      schema={
-                        operational && orderConfigured
-                          ? withoutOrderLanguage(schema)
-                          : schema
-                      }
-                      citizenId={citizenId}
-                      value={operational ? payload : {}}
-                      onChange={setPayload}
-                      issues={issues}
-                      disabled={!operational}
-                    />
-                  </div>
-                ) : (
-                  <p className="notice" role="status">
-                    {t(
-                      canApply
-                        ? "Choose a citizen above to open this service's application form."
-                        : "Your role can view reference fields. Applications are created by citizens or authorized counter staff.",
-                    )}
-                  </p>
-                )}
-                {tx(
-                  operational && canApply && citizenId && (
-                    <>
-                      <ApplicationOrder
-                        key={intakeContext}
-                        context={intakeContext}
-                        serviceNo={selectedService}
-                        certificateLanguage={payload.delivery_language}
-                        officeName={recordName(session.tenant)}
-                        address={choose(
-                          chosenCitizenAddress(
-                            selectedCitizen,
-                            payload.address_source,
-                          ),
-                        )}
-                        onLanguageChange={(language) =>
-                          setPayload((current) => ({
-                            ...current,
-                            delivery_language: language,
-                          }))
-                        }
-                        onChange={setIntakeOrder}
-                      />
-                      <div className="actions">
-                        <button
-                          disabled={
-                            busy ||
-                            intakeOrder?.context !== intakeContext ||
-                            !intakeOrder.ready
-                          }
-                          onClick={() =>
-                            run(async () => {
-                              const result = validateForm(schema, payload);
-                              setIssues(result.issues);
-                              if (!result.valid) {
-                                throw Error(
-                                  "Please correct the highlighted fields.",
-                                );
-                              }
-                              if (!citizenId) throw Error("Choose a citizen.");
-                              const resultApi = await api(
-                                "/applications",
-                                "POST",
-                                {
-                                  citizenId,
-                                  serviceNo: selectedService,
-                                  payload,
-                                  ...(intakeOrder?.order
-                                    ? { order: intakeOrder.order }
-                                    : {}),
-                                },
-                              );
-                              await refresh();
-                              await openApplication(
-                                (resultApi.application || resultApi).id,
-                              );
-                              setPayload({});
-                              setIssues([]);
-                              setMessage(
-                                "Draft saved. Open the draft and submit it when ready.",
-                              );
-                            })
-                          }
-                        >
-                          {t("Save draft application ")}
-                        </button>
-                        {localDemo && (
-                          <button
-                            className="secondary"
-                            onClick={() => {
-                              setPayload(
-                                structuredClone(demoPayloads[selectedService]),
-                              );
-                              setIssues([]);
-                            }}
-                          >
-                            {t("Fill synthetic example ")}
-                          </button>
-                        )}
-                      </div>
-                    </>
-                  ),
-                )}
               </section>
             </>
           ),
@@ -1224,7 +882,7 @@ export function WorkspaceApp({
                   value={citizenSearch}
                   onChange={(e) => setCitizenSearch(e.target.value)}
                 />
-                <div className="table-wrap">
+                <div className="table-wrap responsive-table">
                   <table>
                     <thead>
                       <tr>
@@ -1250,12 +908,10 @@ export function WorkspaceApp({
                               </td>
                               <td>
                                 <span className="status">
-                                  {demo
-                                    ? t("SYNTHETIC DEMO")
-                                    : choose({
-                                        bn: "নিবন্ধিত",
-                                        en: "Registered",
-                                      })}
+                                  {choose({
+                                    bn: "নিবন্ধিত",
+                                    en: "Registered",
+                                  })}
                                 </span>
                               </td>
                               <td>
@@ -1282,6 +938,38 @@ export function WorkspaceApp({
                     </tbody>
                   </table>
                 </div>
+                {busy && !citizens.length && <SkeletonRows rows={5} />}
+                {phoneLayout && (
+                  <div className="ax-card-list">
+                  {tx(
+                    citizens.map((c) => (
+                      <article className="ax-card" key={c.id}>
+                        <div className="ax-card-head">
+                          <strong>{c.nameBn || c.name_bn}</strong>
+                          <span className="status">
+                            {choose({ bn: "নিবন্ধিত", en: "Registered" })}
+                          </span>
+                        </div>
+                        <small>{c.nameEn || c.name_en}</small>
+                        <code>{tx(c.id.slice(0, 8))}</code>
+                        <button
+                          type="button"
+                          className="secondary"
+                          aria-label={`${t("Details")}: ${c.nameEn || c.name_en}`}
+                          aria-expanded={detailsCitizenId === c.id}
+                          onClick={() =>
+                            setDetailsCitizenId(
+                              detailsCitizenId === c.id ? "" : c.id,
+                            )
+                          }
+                        >
+                          {t("Details")}
+                        </button>
+                      </article>
+                    )),
+                  )}
+                </div>
+                )}
               </section>
               {(() => {
                 const open = citizens.find((c) => c.id === detailsCitizenId);
@@ -1339,13 +1027,18 @@ export function WorkspaceApp({
                               "Citizen registered and selected. Complete the application below.",
                             );
                           } else if (returnToIntake) {
-                            selectApplicant(created.id, created);
+                            // One application flow: the new citizen is remembered
+                            // and pre-selected when a service is launched.
+                            setFlowCitizen(created);
                             setCitizenSearch("");
                             setCitizenQuery("");
                             setReturnToIntake(false);
                             nav("services");
                             setMessage(
-                              "Citizen registered and selected. Complete the application below.",
+                              choose({
+                                bn: "নাগরিক নিবন্ধিত হয়েছে। এখন সেবা বাছাই করুন।",
+                                en: "Citizen registered. Now choose a service.",
+                              }),
                             );
                           } else {
                             setMessage(
@@ -1421,14 +1114,7 @@ export function WorkspaceApp({
                 {tx(
                   (staff || role === "citizen") && (
                     <button
-                      onClick={() => {
-                        setSelectedService(45);
-                        selectApplicant("");
-                        setPayload({});
-                        setIssues([]);
-                        setPreview(false);
-                        nav("services");
-                      }}
+                      onClick={() => nav("services")}
                     >
                       {t("+ New application ")}
                     </button>
@@ -1478,7 +1164,7 @@ export function WorkspaceApp({
               <input
                 id="application-search"
                 placeholder={t(
-                  "Application ID, citizen name or demo reference",
+                  "Application ID, citizen name or reference",
                 )}
                 value={appSearch}
                 onChange={(e) => setAppSearch(e.target.value)}
@@ -1570,7 +1256,7 @@ export function WorkspaceApp({
                   </button>
                 )}
               </div>
-              <div className="table-wrap">
+              <div className="table-wrap responsive-table">
                 <table>
                   <thead>
                     <tr>
@@ -1622,47 +1308,83 @@ export function WorkspaceApp({
                     )}
                   </tbody>
                 </table>
-                {tx(
-                  !applications.length && (
-                    <div className="application-empty">
-                      <h3>
-                        {choose(
-                          filter || appSearch
-                            ? {
-                                bn: "মিলে এমন আবেদন নেই",
-                                en: "No matching applications",
-                              }
-                            : {
-                                bn: "এখনও কোনো আবেদন নেই",
-                                en: "No applications yet",
-                              },
-                        )}
-                      </h3>
-                      <p>
-                        {choose(
-                          filter || appSearch
-                            ? {
-                                bn: "অন্য নাম দিয়ে খুঁজুন অথবা ফিল্টার মুছে সব আবেদন দেখুন।",
-                                en: "Try another name or clear the filters to see all applications.",
-                              }
-                            : {
-                                bn: "নতুন আবেদন শুরু করলে এখানে সেটির অবস্থা দেখা যাবে।",
-                                en: "Applications will appear here with their progress.",
-                              },
-                        )}
-                      </p>
-                      {!filter && !appSearch && canApply && (
+              </div>
+              {tx(busy && !applications.length && <SkeletonRows rows={5} />)}
+              {tx(
+                !busy && !applications.length && (
+                  <EmptyState
+                    title={choose(
+                      filter || appSearch
+                        ? {
+                            bn: "মিলে এমন আবেদন নেই",
+                            en: "No matching applications",
+                          }
+                        : {
+                            bn: "এখনও কোনো আবেদন নেই",
+                            en: "No applications yet",
+                          },
+                    )}
+                    hint={choose(
+                      filter || appSearch
+                        ? {
+                            bn: "অন্য নাম দিয়ে খুঁজুন অথবা ফিল্টার মুছে সব আবেদন দেখুন।",
+                            en: "Try another name or clear the filters to see all applications.",
+                          }
+                        : {
+                            bn: "নতুন আবেদন শুরু করলে এখানে সেটির অবস্থা দেখা যাবে।",
+                            en: "Applications will appear here with their progress.",
+                          },
+                    )}
+                    action={
+                      !filter && !appSearch && canApply ? (
                         <button onClick={() => nav("services")}>
                           {choose({
                             bn: "প্রথম আবেদন শুরু করুন",
                             en: "Start your first application",
                           })}
                         </button>
-                      )}
-                    </div>
-                  ),
+                      ) : undefined
+                    }
+                  />
+                ),
+              )}
+              {phoneLayout && (
+                <div className="ax-card-list">
+                {tx(
+                  applications.map((a) => (
+                    <article className="ax-card" key={a.id}>
+                      <div className="ax-card-head">
+                        <code>{tx(a.id.slice(0, 8))}</code>
+                        <span className="status">{tx(a.state || a.status)}</span>
+                      </div>
+                      <strong>
+                        {t("#")}
+                        {tx(a.serviceNo || a.service_no)}
+                        {tx(" ")}
+                        {tx(
+                          recordName(
+                            catalog.find(
+                              (svc) =>
+                                svc.service_no ===
+                                (a.serviceNo || a.service_no),
+                            ),
+                          ),
+                        )}
+                      </strong>
+                      <small>
+                        {applicationDate(a.createdAt || a.created_at)}
+                      </small>
+                      <button
+                        className="text-button"
+                        onClick={() => run(() => openApplication(a.id))}
+                      >
+                        {t("Open application ")}
+                      </button>
+                    </article>
+                  )),
                 )}
               </div>
+              )}
               <div className="pagination">
                 <button
                   className="secondary"
@@ -2022,7 +1744,7 @@ export function WorkspaceApp({
                           {tx(
                             application.state === "ISSUED"
                               ? "Retry issuance safely"
-                              : `Issue demo certificate · ${issueCost} credit${issueCost === 1 ? "" : "s"}`,
+                              : `Issue certificate · ${issueCost} credit${issueCost === 1 ? "" : "s"}`,
                           )}
                         </button>
                       ),
@@ -2174,14 +1896,40 @@ export function WorkspaceApp({
               <OfficeRefunds />
               <section className="panel">
                 <h2>{t("Subscription and top-up")}</h2>
-                <p>
-                  {t(
-                    "Local sandbox settlement persists invoices, subscription grants and payment events. Demo prices are configuration fixtures awaiting commercial approval. ",
-                  )}
-                </p>
-                <pre className="compact-json">
-                  {tx(JSON.stringify(billing?.subscription, null, 2))}
-                </pre>
+                {billing?.subscription ? (
+                  <dl className="billing-summary">
+                    <div>
+                      <dt>{choose({ bn: "পরিকল্পনা", en: "Plan" })}</dt>
+                      <dd>
+                        {tx(
+                          (billing?.plans || []).find(
+                            (plan: any) =>
+                              plan.id === billing.subscription.planId,
+                          )?.name || "—",
+                        )}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt>{t("Status")}</dt>
+                      <dd>{tx(billing.subscription.status || "—")}</dd>
+                    </div>
+                    <div>
+                      <dt>
+                        {choose({ bn: "ক্রেডিট ব্যালান্স", en: "Credit balance" })}
+                      </dt>
+                      <dd>
+                        {tx(wallet?.balance ?? wallet?.wallet?.balance ?? 0)}
+                      </dd>
+                    </div>
+                  </dl>
+                ) : (
+                  <p className="hint">
+                    {choose({
+                      bn: "কোনো সক্রিয় সাবস্ক্রিপশন নেই",
+                      en: "No active subscription",
+                    })}
+                  </p>
+                )}
                 <div className="actions">
                   <button
                     onClick={() =>
@@ -2259,7 +2007,7 @@ export function WorkspaceApp({
                                       })
                                     }
                                   >
-                                    {t("Settle in local sandbox ")}
+                                    {t("Settle payment")}
                                   </button>
                                 ),
                               )}
@@ -2460,7 +2208,7 @@ export function WorkspaceApp({
                         name="reason"
                         required
                         minLength={5}
-                        defaultValue="Demo support adjustment"
+                        defaultValue=""
                       />
                       <button>{t("Record adjustment")}</button>
                     </form>
@@ -2472,9 +2220,7 @@ export function WorkspaceApp({
           ),
         )}
         <footer>
-          {t(
-            "DigitalUnion · Independently authored software · Independent demonstration · Reference evidence is limited to initial forms. ",
-          )}
+          {t("DigitalUnion · Smart Union, Smart Bangladesh")}
         </footer>
       </main>
     </div>

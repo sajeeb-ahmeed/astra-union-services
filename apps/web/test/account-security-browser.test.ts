@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
-import { workspacePage } from "./fixtures/workspace-nav.js";
+import { workspacePage, goToWorkspacePage } from "./fixtures/workspace-nav.js";
 import { chromium } from "playwright";
 
 test(
@@ -34,7 +34,7 @@ test(
     try {
       const setupLogin = await admin.request.post(
         `${origin}/api/v1/auth/login`,
-        { data: { email: "admin@alpha.demo.test", password: "Demo-Phase1!" } },
+        { data: { email: "admin@alpha.local.test", password: "Demo-Phase1!" } },
       );
       assert.equal(setupLogin.status(), 200);
       const created = await admin.request.post(`${origin}/api/v1/admin/users`, {
@@ -62,7 +62,7 @@ test(
         .locator(".login-form")
         .getByRole("button", { name: "Sign in", exact: true })
         .click();
-      await workspacePage(page, "profile").click();
+      await goToWorkspacePage(page, "profile");
       const panel = page.locator(
         'section[aria-labelledby="account-sessions-title"]',
       );
@@ -131,10 +131,8 @@ test(
         path: "execution/screenshots/account-security-mobile-bn.png",
       });
       await page.getByRole("button", { name: "English", exact: true }).click();
-      await page
-        .getByRole("navigation", { name: "Workspace navigation" })
-        .getByRole("button", { name: "Account security", exact: true })
-        .click();
+      // Phone layout: the sidebar is hidden by design; the page picker is the navigation.
+      await goToWorkspacePage(page, "security");
       await page
         .getByRole("heading", { name: "Active sign-ins", exact: true })
         .waitFor();

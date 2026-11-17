@@ -206,7 +206,7 @@ test("GEO-04: registration persists hierarchy, auto reference and rejects jurisd
   assert.equal(citizens.body.items.length, 1);
   citizenId = citizens.body.items[0].id;
   assert.deepEqual(citizens.body.items[0].geography, geo);
-  assert.match(citizens.body.items[0].syntheticReference, /^DEMO-/);
+  assert.match(citizens.body.items[0].syntheticReference, /^REF-/);
   assert.deepEqual(
     (await request("GET", "/profile", undefined, citizenSession)).body
       .geography,
@@ -329,7 +329,7 @@ test("GEO-07: legacy unmapped offices and reference-providing callers remain usa
     ...signup,
     email: `geo-old-${suffix}@example.test`,
     tenantId: legacy.id,
-    syntheticReference: `DEMO-GEO-${suffix}`,
+    syntheticReference: `REF-GEO-${suffix}`,
   });
   assert.equal(without.status, 201, JSON.stringify(without.body));
 });

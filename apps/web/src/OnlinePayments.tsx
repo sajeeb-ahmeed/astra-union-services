@@ -148,7 +148,7 @@ function checkMessage(result: string): Message {
   const messages: Record<string, Message> = {
     MATCHED: {
       bn: "গেটওয়ের লেনদেন যাচাই করে তথ্য মিলেছে।",
-      en: "The gateway transaction was independently checked and matched.",
+      en: "The gateway transaction was verified and matched.",
     },
     MISMATCH: {
       bn: "গেটওয়ের তথ্যে অমিল পাওয়া গেছে। মিল নিশ্চিত না হওয়া পর্যন্ত নতুন সনদ ইস্যু বন্ধ থাকবে।",
@@ -258,7 +258,7 @@ function GatewayNotice({ availability }: { availability: Availability }) {
         <p>
           <strong>SSLCommerz</strong> ·{" "}
           {availability.sslcommerz.environment === "SANDBOX"
-            ? label("পরীক্ষামূলক গেটওয়ে (কার্ড ও মোবাইল ব্যাংকিং)", "Sandbox gateway (cards and mobile wallets)")
+            ? label("স্যান্ডবক্স গেটওয়ে (কার্ড ও মোবাইল ব্যাংকিং)", "Sandbox gateway (cards and mobile wallets)")
             : label("কার্ড ও মোবাইল ব্যাংকিং গেটওয়ে প্রস্তুত", "Cards and mobile wallets ready")}
         </p>
       )}
@@ -266,7 +266,7 @@ function GatewayNotice({ availability }: { availability: Availability }) {
         <strong>bKash</strong> ·{" "}
         {availability.available
           ? availability.environment === "SANDBOX"
-            ? label("পরীক্ষামূলক গেটওয়ে", "Sandbox gateway")
+            ? label("স্যান্ডবক্স গেটওয়ে", "Sandbox gateway")
             : label("মার্চেন্ট গেটওয়ে প্রস্তুত", "Merchant gateway ready")
           : label("মার্চেন্ট সেটআপ প্রয়োজন", "Merchant setup required")}
       </p>
@@ -281,7 +281,7 @@ function GatewayNotice({ availability }: { availability: Availability }) {
       {(availability.environment === "SANDBOX" || availability.sslcommerz?.environment === "SANDBOX") && (
         <p className="notice">
           {label(
-            "এটি গেটওয়ের পরীক্ষামূলক পরিবেশ। প্রকৃত টাকা পরিশোধের প্রমাণ নয়।",
+            "এটি গেটওয়ের স্যান্ডবক্স পরিবেশ। প্রকৃত টাকা পরিশোধের প্রমাণ নয়।",
             "This is the gateway's sandbox environment. It is not evidence of a real-money payment.",
           )}
         </p>
@@ -762,7 +762,7 @@ export function PaymentsWorkspace({ role }: { role: string }) {
                         bKash ·{" "}
                         {payment.environment === "LIVE"
                           ? label("লাইভ", "Live")
-                          : label("পরীক্ষামূলক", "Sandbox")}
+                          : label("স্যান্ডবক্স", "Sandbox")}
                         <small>{statusLabel(payment.status)}</small>
                         {payment.paymentStatus === "REVIEW_REQUIRED" && (
                           <span className="status">

@@ -35,7 +35,27 @@ async function acquireRenderer() {
 function releaseRenderer() {
   const next = waitingRenders.shift();
   if (next) next();
-  else activeRenders--;
+  else {
+    activeRenders--;
+    if (activeRenders === 0) closeBrowserWhenIdle();
+  }
+}
+/**
+ * Constrained-host profile (cPanel/CloudLinux LVE): an idle Chromium holds
+ * ~250 MB and 5+ processes against the account limit around the clock, and
+ * its renderer children are the first processes killed when the limit is
+ * hit. So the browser is closed as soon as the render queue drains; the
+ * next render relaunches it. The promise is detached synchronously so a
+ * render starting during the close gets a fresh launch, never the closing
+ * browser.
+ */
+function closeBrowserWhenIdle() {
+  const pending = browserPromise;
+  if (!pending) return;
+  browserPromise = undefined;
+  void pending
+    .then((instance) => instance.close())
+    .catch(() => undefined);
 }
 async function browser() {
   if (!browserPromise) {
@@ -57,6 +77,15 @@ async function browser() {
       .launch({
         headless: true,
         executablePath: executable,
+        // Light mode for resource-limited shared hosting (CloudLinux LVE):
+        // one process instead of 5+, no zygote/GPU children, small footprint.
+        args: [
+          "--single-process",
+          "--no-zygote",
+          "--disable-gpu",
+          "--disable-dev-shm-usage",
+          "--no-sandbox",
+        ],
       })
       .then((instance) => {
         instance.once("disconnected", () => {

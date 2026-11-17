@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
-import { workspacePage } from "./fixtures/workspace-nav.js";
+import { workspacePage, goToWorkspacePage } from "./fixtures/workspace-nav.js";
 import { chromium, type Browser, type Page } from "playwright";
 const origin = "http://127.0.0.1:5173";
 async function browserInstance(): Promise<Browser> {
@@ -40,10 +40,10 @@ test(
       const errors: string[] = [];
       page.on("pageerror", (error) => errors.push(error.message));
       await page.addInitScript(() => localStorage.setItem("astra.language", "en"));
-      await signIn(page, "email", "approver@alpha.demo.test");
+      await signIn(page, "email", "approver@alpha.local.test");
       await page.getByRole("button", { name: "Sign out", exact: true }).waitFor();
 
-      await workspacePage(page, "security").click();
+      await goToWorkspacePage(page, "security");
       const panel = page.locator('section[aria-labelledby="sign-in-identifiers-title"]');
       await panel.waitFor();
       const mobileRow = panel.locator("dt", { hasText: "Mobile number" }).locator("xpath=following-sibling::dd[1]");
@@ -65,7 +65,7 @@ test(
       await page.getByRole("button", { name: "Sign out", exact: true }).waitFor();
 
       // Clean up the shared demo account.
-      await workspacePage(page, "security").click();
+      await goToWorkspacePage(page, "security");
       await panel.waitFor();
       await mobileRow.getByRole("button", { name: "Remove" }).click();
       await panel.locator("#identifier-current-password").fill(password);

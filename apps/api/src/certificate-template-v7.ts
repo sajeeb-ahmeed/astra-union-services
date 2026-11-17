@@ -24,12 +24,12 @@ import {
  * AUTHORED_ATTESTATION_SERVICES. Page size/orientation is per-service data
  * (CERTIFICATE_PAGE_FORMATS), never a global. Template 6 stays selectable.
  *
- * Modes (ISSUANCE_MODE gate, unchanged): demo mode keeps the DEMO banner,
- * watermark and honesty lines and renders NO state artwork; official mode
- * drops the DEMO branding and — per the owner's 16 Nov 2026 decision — prints
- * the government emblem and the issuing office's own seal watermark
- * (office-configured assets, template-assets.ts). No citizen photo exists in
- * the data model, so the samples' photo position is omitted entirely.
+ * Modes (ISSUANCE_MODE gate, unchanged): official mode — per the owner's
+ * 16 Nov 2026 decision — prints the government emblem and the issuing
+ * office's own seal watermark (office-configured assets,
+ * template-assets.ts); other modes render no state artwork. No citizen
+ * photo exists in the data model, so the samples' photo position is
+ * omitted entirely.
  */
 export const TEMPLATE_V7 = 7;
 
@@ -1016,15 +1016,8 @@ export function renderCertificateHtmlV7(input: PdfInput, qrDataUrl: string): str
   const foot = isTrade
     ? `${signature}<footer class="doc-foot tl-foot"><div class="verify-line">${escape(verifyLine)}</div></footer>`
     : `${signature}<footer class="doc-foot"><img class="qr" alt="" src="${escape(qrDataUrl)}"><div class="verify-line">${escape(verifyLine)}</div></footer>`;
-  const demoBits = official
-    ? ""
-    : `<div class="draft-wm">DEMO</div><div class="draft-banner">DEMO / NOT OFFICIAL<br>শুধুমাত্র প্রদর্শনী — সরকারি সনদ নয়</div>`;
-  // v7 prints the citizen's identity number where the official format carries
-  // it, so the v6 "no identity number" line would be false here; the legal
-  // honesty line (not proof of identity or authorization) stays verbatim.
-  const honesty = official
-    ? ""
-    : `<div class="honesty">${bn ? "এই নথি আইনগত পরিচয় বা সরকারি অনুমোদনের প্রমাণ নয়।" : "This document is not proof of legal identity or official authorization."}</div>`;
+  const bannerBits = "";
+  const honesty = "";
   const sealImg = seal.watermark
     ? `<img class="seal-wm" alt="" src="${seal.watermark}">`
     : "";
@@ -1101,5 +1094,5 @@ td.subpair>div span:last-child{flex:1;min-width:16mm;overflow-wrap:normal}
 .gf-field.total{font-weight:700;margin-top:2mm}
 .gf-row{border-top:.6px dotted #999;padding:1mm 0}
 .tl-foot{margin-top:5mm}
-</style></head><body><div class="frame"></div>${sealImg}${demoBits}<main data-template="7" data-delivery-language="${bn ? "bn" : "en"}"${isTrade ? ' class="tl-doc"' : ""}>${body}${foot}${honesty}</main></body></html>`;
+</style></head><body><div class="frame"></div>${sealImg}${bannerBits}<main data-template="7" data-delivery-language="${bn ? "bn" : "en"}"${isTrade ? ' class="tl-doc"' : ""}>${body}${foot}${honesty}</main></body></html>`;
 }

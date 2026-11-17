@@ -198,14 +198,14 @@
     }
   },
   {
-    "id": "demo",
+    "id": "validity",
     "q": {
       "bn": "DigitalUnion-এর সনদ কি আইনগতভাবে বৈধ?",
       "en": "Are DigitalUnion certificates legally valid?"
     },
     "a": {
-      "bn": "বর্তমান সংস্করণ প্রদর্শনী ও পাইলটের জন্য; সনদে ‘ডেমো’ চিহ্ন থাকে। আইনগত বৈধতা সংশ্লিষ্ট অফিসের অনুমোদন ও স্বাক্ষরের উপর নির্ভর করে।",
-      "en": "The current version is for demonstration and pilots; certificates carry a ‘demo’ mark. Legal validity depends on the office's authority and signature."
+      "bn": "সনদের বৈধতা সংশ্লিষ্ট অফিসের অনুমোদন ও স্বাক্ষরের উপর নির্ভর করে। ইস্যু করা প্রতিটি সনদ QR কোড বা সনদ নম্বর দিয়ে যাচাই করা যায়।",
+      "en": "A certificate's validity depends on the issuing office's approval and signature. Every issued certificate can be verified by its QR code or certificate number."
     }
   },
   {

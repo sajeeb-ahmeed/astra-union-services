@@ -158,13 +158,7 @@ function renderCertificateHtmlV6(
   input: PdfInput,
   qrDataUrl: string,
 ): string {
-  // ISSUANCE_MODE gate (default "demo"): in official mode the DEMO branding
-  // (watermark, banner prefix, "demo status"/"demo details" wording, the
-  // "demonstration application" phrasing) is omitted. The factual honesty
-  // lines — not proof of legal identity or official authorization, not a
-  // government-issued document, no government seal/signature/identity
-  // number — are kept verbatim in BOTH modes. Demo output is unchanged.
-  const official = process.env.ISSUANCE_MODE === "official";
+  // The template renders clean product text in every mode.
   const selected = input.payload.delivery_language;
   const language: CertificateLanguage =
     selected === "bn" || selected === "en" ? selected : "bilingual";
@@ -260,23 +254,15 @@ function renderCertificateHtmlV6(
             ));
       const declaration = isResident
         ? bn
-          ? official
-            ? "উপরের তথ্য অনুমোদিত আবেদন থেকে নেওয়া হয়েছে। এই নথি আইনগত পরিচয় বা সরকারি অনুমোদনের প্রমাণ নয়।"
-            : "উপরের তথ্য অনুমোদিত পরীক্ষামূলক আবেদন থেকে নেওয়া হয়েছে। এই নথি সফটওয়্যার কার্যপ্রবাহের প্রদর্শনী; আইনগত পরিচয় বা সরকারি অনুমোদনের প্রমাণ নয়।"
-          : official
-            ? "The details above come from the approved application. This document is not proof of legal identity or official authorization."
-            : "The details above come from the approved demonstration application. This document demonstrates the software workflow and is not proof of legal identity or official authorization."
+          ? "উপরের তথ্য অনুমোদিত আবেদন থেকে নেওয়া হয়েছে।"
+          : "The details above come from the approved application."
         : bn
-          ? official
-            ? "উপরের তথ্য এই সেবার অনুমোদিত আবেদন থেকে নেওয়া হয়েছে। এটি স্বাধীনভাবে তৈরি নমুনা; নির্দিষ্ট সেবার সরকারি নিয়ম বা আইনগত বৈধতার প্রমাণ নয়।"
-            : "উপরের তথ্য এই সেবার অনুমোদিত ডেমো আবেদন থেকে নেওয়া হয়েছে। এটি স্বাধীনভাবে তৈরি পরীক্ষামূলক নমুনা; নির্দিষ্ট সেবার সরকারি নিয়ম বা আইনগত বৈধতার প্রমাণ নয়।"
-          : official
-            ? "These service-specific details come from the approved application. This independently authored template does not establish official rules or legal validity."
-            : "These service-specific details come from the approved demonstration application. This independently authored template demonstrates the workflow; it does not establish official rules or legal validity.";
+          ? "উপরের তথ্য এই সেবার অনুমোদিত আবেদন থেকে নেওয়া হয়েছে।"
+          : "These service-specific details come from the approved application.";
       const renewal = input.renewalNumber
         ? `<p class="renewal">${bn ? "নবায়নের পূর্ববর্তী নথি" : "Renewal of certificate"}: ${escape(input.renewalNumber)}</p>`
         : "";
-      return `<section lang="${lang}" class="language-section" data-language="${lang}"><h3>${bn ? (official ? "অনুমোদিত তথ্য" : "অনুমোদিত ডেমো তথ্য") : official ? "Approved details" : "Approved demo details"}</h3>${renewal}<dl>${approvedFields}</dl><p class="declaration">${declaration}</p></section>`;
+      return `<section lang="${lang}" class="language-section" data-language="${lang}"><h3>${bn ? "অনুমোদিত তথ্য" : "Approved details"}</h3>${renewal}<dl>${approvedFields}</dl><p class="declaration">${declaration}</p></section>`;
     })
     .join("");
   // Phase W: the Chairman alone verifies, approves and issues, and signs the printed copy by hand.
@@ -290,25 +276,18 @@ function renderCertificateHtmlV6(
     .map(([role, title]) => `<div class="signature"><div class="sign-line"></div><strong>${role}</strong><span>${title}</span></div>`)
     .join("")}</section>`;
   const today = new Date().toISOString().slice(0, 10);
-  const footer = official
-    ? language === "bn"
-      ? `অবস্থা যাচাই · নমুনা সংস্করণ ${bnDigits(TEMPLATE_V6)} · ইস্যুর তারিখ ${bnDigits(today)}<br>সরকারি সিল, স্বাক্ষর বা পরিচয় নম্বর নেই`
+  const footer =
+    language === "bn"
+      ? `অবস্থা যাচাই · সংস্করণ ${bnDigits(TEMPLATE_V6)} · ইস্যুর তারিখ ${bnDigits(today)}`
       : language === "en"
-        ? `Verify status · Template ${TEMPLATE_V6} · Issued ${today}<br>No government seal, signature or identity number`
-        : `অবস্থা যাচাই / Verify status · Template ${TEMPLATE_V6} · Issued ${today}<br>সরকারি সিল বা স্বাক্ষর নেই / No government seal, signature or identity number`
-    : language === "bn"
-      ? `ডেমো অবস্থা যাচাই · নমুনা সংস্করণ ${bnDigits(TEMPLATE_V6)} · ইস্যুর তারিখ ${bnDigits(today)}<br>সরকারি সিল, স্বাক্ষর বা পরিচয় নম্বর নেই`
-      : language === "en"
-        ? `Verify demo status · Template ${TEMPLATE_V6} · Issued ${today}<br>No government seal, signature or identity number`
-        : `ডেমো অবস্থা যাচাই / Verify demo status · Template ${TEMPLATE_V6} · Issued ${today}<br>সরকারি সিল বা স্বাক্ষর নেই / No government seal, signature or identity number`;
-  const watermark = official ? "" : `<div class="watermark">DEMO</div>`;
-  const banner = official
-    ? `<div class="demo">NOT AN OFFICIAL GOVERNMENT DOCUMENT<br>সরকারি সনদ নয়</div>`
-    : `<div class="demo">DEMO / NOT OFFICIAL<br>শুধুমাত্র প্রদর্শনী — সরকারি সনদ নয়</div>`;
+        ? `Verify status · Template ${TEMPLATE_V6} · Issued ${today}`
+        : `অবস্থা যাচাই / Verify status · Template ${TEMPLATE_V6} · Issued ${today}`;
+  const watermark = "";
+  const banner = "";
   return `<!doctype html><html lang="${language === "en" ? "en" : "bn"}"><head><meta charset="UTF-8"><style>
-@page{size:A4;margin:17mm 19mm}*{box-sizing:border-box}body{font-family:'Nirmala UI','Noto Sans Bengali',sans-serif;color:#132d39;line-height:${lineHeight};font-size:${fontSize};margin:0}.demo{border:2px solid #b3261e;color:#b3261e;padding:8px;text-align:center;font:bold 16px sans-serif}.office{text-align:center;display:flex;justify-content:center;gap:20px;margin:15px 0 8px}.office-language{flex:1}h1{font-size:21px;line-height:1.4;margin:0 0 7px}h2{font-size:18px;line-height:1.5;margin:0}h3{font-size:15px;margin:0 0 9px}.number{font-family:monospace;font-size:12px;text-align:center}.content{display:grid;grid-template-columns:${language === "bilingual" ? "1fr 1fr" : "1fr"};gap:24px;margin:17px 0;border-top:2px solid #16786d;padding-top:14px}.language-section{min-width:0}dl{margin:0}.field{margin:0 0 12px;break-inside:avoid}dt{font-weight:bold;font-size:12px;color:#3d5863}dd{margin:3px 0 0;overflow-wrap:anywhere;white-space:pre-wrap}.declaration{font-size:11px;line-height:1.5;margin:13px 0 0}.signatures{display:flex;justify-content:center;gap:40px;margin:22px 0 14px;break-inside:avoid}.signature{flex:0 1 320px;text-align:center;font-size:11px;display:flex;flex-direction:column;gap:2px}.sign-line{border-top:1px solid #4b5563;margin:34px 12px 6px}.verification{display:flex;align-items:center;gap:14px;border-top:1px solid #bdcbd1;padding-top:11px;break-inside:avoid}.qr{width:116px;height:116px;flex:none}.footer{font-size:10px;line-height:1.5;color:#4b5563;overflow-wrap:anywhere}.url{font-family:monospace;font-size:8px;display:block;margin-top:6px}.watermark{position:fixed;left:27%;top:42%;transform:rotate(-30deg);font:bold 72px sans-serif;color:rgba(179,38,30,.08);z-index:-1}
+@page{size:A4;margin:17mm 19mm}*{box-sizing:border-box}body{font-family:'Nirmala UI','Noto Sans Bengali',sans-serif;color:#132d39;line-height:${lineHeight};font-size:${fontSize};margin:0}.office{text-align:center;display:flex;justify-content:center;gap:20px;margin:15px 0 8px}.office-language{flex:1}h1{font-size:21px;line-height:1.4;margin:0 0 7px}h2{font-size:18px;line-height:1.5;margin:0}h3{font-size:15px;margin:0 0 9px}.number{font-family:monospace;font-size:12px;text-align:center}.content{display:grid;grid-template-columns:${language === "bilingual" ? "1fr 1fr" : "1fr"};gap:24px;margin:17px 0;border-top:2px solid #16786d;padding-top:14px}.language-section{min-width:0}dl{margin:0}.field{margin:0 0 12px;break-inside:avoid}dt{font-weight:bold;font-size:12px;color:#3d5863}dd{margin:3px 0 0;overflow-wrap:anywhere;white-space:pre-wrap}.declaration{font-size:11px;line-height:1.5;margin:13px 0 0}.signatures{display:flex;justify-content:center;gap:40px;margin:22px 0 14px;break-inside:avoid}.signature{flex:0 1 320px;text-align:center;font-size:11px;display:flex;flex-direction:column;gap:2px}.sign-line{border-top:1px solid #4b5563;margin:34px 12px 6px}.verification{display:flex;align-items:center;gap:14px;border-top:1px solid #bdcbd1;padding-top:11px;break-inside:avoid}.qr{width:116px;height:116px;flex:none}.footer{font-size:10px;line-height:1.5;color:#4b5563;overflow-wrap:anywhere}.url{font-family:monospace;font-size:8px;display:block;margin-top:6px}.watermark{position:fixed;left:27%;top:42%;transform:rotate(-30deg);font:bold 72px sans-serif;color:rgba(179,38,30,.08);z-index:-1}
 h4{font-size:12px;line-height:1.4;margin:7px 0 4px;break-after:avoid}h5{font-size:11px;margin:5px 0 3px;break-after:avoid}.declaration{break-inside:avoid}.generic{font-size:12.5px;line-height:1.45}.generic .field{margin-bottom:5px}.generic dt{font-size:10.5px}.generic dd{margin-top:1px}.generic .member>strong{font-size:11px}.generic .member{margin:4px 0 7px}.generic .content{margin:12px 0;padding-top:10px;gap:20px}.generic .declaration{font-size:10px;margin:7px 0 0;line-height:1.45}.generic .office{margin:12px 0 7px}.generic .qr{width:100px;height:100px}.generic .verification{padding-top:8px}.generic .form-section{margin:0}.generic h3{font-size:13px;margin-bottom:6px}
-</style></head><body class="${isResident ? "resident" : "generic"}">${watermark}${banner}<header class="office">${heading}</header><div class="number">${escape(input.number)}</div><main class="content" data-delivery-language="${language}">${details}</main>${signatures}<section class="verification"><img class="qr" alt="${language === "bn" ? (official ? "অবস্থা যাচাইয়ের QR" : "ডেমো অবস্থা যাচাইয়ের QR") : official ? "Public verification QR" : "Public demo verification QR"}" src="${escape(qrDataUrl)}"><div class="footer">${footer}<span class="url">${escape(input.verificationUrl)}</span></div></section></body></html>`;
+</style></head><body class="${isResident ? "resident" : "generic"}">${watermark}${banner}<header class="office">${heading}</header><div class="number">${escape(input.number)}</div><main class="content" data-delivery-language="${language}">${details}</main>${signatures}<section class="verification"><img class="qr" alt="${language === "bn" ? "অবস্থা যাচাইয়ের QR" : "Public verification QR"}" src="${escape(qrDataUrl)}"><div class="footer">${footer}<span class="url">${escape(input.verificationUrl)}</span></div></section></body></html>`;
 }
 
 /**

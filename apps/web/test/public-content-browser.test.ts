@@ -38,7 +38,7 @@ test(
       await page.locator("#faq-refund").getByText(/3–5 working days/).waitFor();
 
       await page.goto(`${origin}/offices`);
-      await page.getByLabel("Office name", { exact: true }).fill("Demo Alpha Union");
+      await page.getByLabel("Office name", { exact: true }).fill("Alpha Union");
       await page.getByRole("button", { name: "Search offices", exact: true }).click();
       await page.getByRole("button", { name: "View office", exact: true }).first().click();
       const officers = page.locator(".designated-officers");

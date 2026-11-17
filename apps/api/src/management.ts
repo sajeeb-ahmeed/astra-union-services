@@ -482,7 +482,7 @@ publicManagementRouter.post(
         addressEn: z.string().min(4).max(500),
         syntheticReference: z
           .string()
-          .regex(/^DEMO-[A-Za-z0-9-]{3,50}$/)
+          .regex(/^REF-[A-Za-z0-9-]{3,50}$/)
           .optional(),
         geography: geographyInput.optional(),
         presentAddress: presentAddressInput.optional(),
@@ -539,7 +539,7 @@ publicManagementRouter.post(
           d.dateOfBirth,
           d.addressBn,
           d.addressEn,
-          d.syntheticReference ?? `DEMO-${randomUUID()}`,
+          d.syntheticReference ?? `REF-${randomUUID()}`,
           ...geographyValues(d.geography),
           ...(await presentAddressValues(db, d.presentAddress)),
         ],
@@ -866,7 +866,7 @@ managementRouter.put(
       const r = (
         await db.query(
           "INSERT INTO approval_authorizations(tenant_id,user_id,service_no,active,authority_note) VALUES($1,$2,$3,$4,$5) ON CONFLICT(tenant_id,user_id,service_no) DO UPDATE SET active=excluded.active,authority_note=excluded.authority_note RETURNING *",
-          [a.tenantId, id, no, d.active, `DEMO ONLY: ${d.authorityNote}`],
+          [a.tenantId, id, no, d.active, d.authorityNote],
         )
       ).rows[0];
       await audit(
@@ -1026,7 +1026,7 @@ managementRouter.post(
         );
       const t = (
         await db.query(
-          "INSERT INTO tenants(id,slug,name_bn,name_en,division,district,upazila,office_type,division_code,district_code,upazila_code,union_code,ward_code,demo) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,true) RETURNING *",
+          "INSERT INTO tenants(id,slug,name_bn,name_en,division,district,upazila,office_type,division_code,district_code,upazila_code,union_code,ward_code,demo) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,false) RETURNING *",
           [
             id,
             d.slug,
@@ -1052,14 +1052,14 @@ managementRouter.post(
       );
       await db.query("INSERT INTO tenant_wallets(tenant_id) VALUES($1)", [id]);
       await db.query(
-        "INSERT INTO tenant_subscriptions(tenant_id,plan_id,valid_until,status) VALUES($1,'demo-monthly',now(),'EXPIRED')",
+        "INSERT INTO tenant_subscriptions(tenant_id,plan_id,valid_until,status) VALUES($1,'standard-monthly',now(),'EXPIRED')",
         [id],
       );
       await db.query(
         "INSERT INTO tenant_service_configuration(tenant_id,service_no) SELECT $1,service_no FROM service_catalog",
         [id],
       );
-      await audit(db, id, a.userId, "TENANT_CREATED", id, { demo: true });
+      await audit(db, id, a.userId, "TENANT_CREATED", id, { demo: false });
       return officeRow(t);
     });
     res.status(201).json(item);

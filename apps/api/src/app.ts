@@ -148,7 +148,7 @@ async function authorization(db: DB, a: Auth, no: number) {
     fail(
       403,
       "APPROVAL_AUTHORITY_REQUIRED",
-      "An active service-specific demonstration approval authorization is required.",
+      "An active service-specific approval authorization is required.",
     );
 }
 async function loadApplication(db: DB, id: string, a: Auth, lock = false) {
@@ -300,7 +300,7 @@ async function settle(body: any, bodyHash: string) {
           order.kind === "subscription" ? "PLAN_GRANT" : "TOPUP",
           `payment:${order.id}`,
           order.created_by,
-          "Verified synthetic sandbox settlement",
+          "Verified payment settlement",
         ],
       );
       if (order.kind === "subscription") {
@@ -817,7 +817,7 @@ app.post(
         addressEn: z.string().min(4).max(500),
         syntheticReference: z
           .string()
-          .regex(/^DEMO-[A-Za-z0-9-]{3,50}$/)
+          .regex(/^REF-[A-Za-z0-9-]{3,50}$/)
           .optional(),
         geography: geographyInput.optional(),
         presentAddress: presentAddressInput.optional(),
@@ -844,7 +844,7 @@ app.post(
         (await db.query("SELECT 1 FROM citizens WHERE user_id=$1", [a.userId]))
           .rowCount
       )
-        fail(409, "PROFILE_EXISTS", "This demo account already has a profile.");
+        fail(409, "PROFILE_EXISTS", "This account already has a profile.");
       const r = (
         await db.query(
           "INSERT INTO citizens(tenant_id,user_id,full_name_bn,full_name_en,date_of_birth,address_bn,address_en,synthetic_reference,division_code,district_code,upazila_code,union_code,ward_code,present_same_as_permanent,present_address_bn,present_address_en,present_division_code,present_district_code,present_upazila_code,present_union_code,present_ward_code) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21) RETURNING *",
@@ -856,7 +856,7 @@ app.post(
             data.dateOfBirth,
             data.addressBn,
             data.addressEn,
-            data.syntheticReference ?? `DEMO-${randomUUID()}`,
+            data.syntheticReference ?? `REF-${randomUUID()}`,
             ...geographyValues(data.geography),
             ...(await presentAddressValues(db, data.presentAddress)),
           ],
@@ -1609,7 +1609,7 @@ async function finalizeIssuance(
         )
       ).rows[0];
       await db.query(
-        "INSERT INTO credit_ledger(tenant_id,delta,kind,idempotency_key,certificate_id,actor_id,reason,balance_after) VALUES($1,$2,'ISSUANCE',$3,$4,$5,'DEMO certificate issuance',0)",
+        "INSERT INTO credit_ledger(tenant_id,delta,kind,idempotency_key,certificate_id,actor_id,reason,balance_after) VALUES($1,$2,'ISSUANCE',$3,$4,$5,'Certificate issuance',0)",
         [a.tenantId, -cost, `issuance:${c.id}`, c.id, a.userId],
       );
       // Phase 5a: the owner-set point price, deducted once in the same transaction (402 keeps it approved).
@@ -2084,7 +2084,7 @@ app.post(
       if (data.kind === "subscription") {
         const plan = (
           await db.query("SELECT * FROM subscription_plans WHERE id=$1", [
-            data.planId ?? "demo-monthly",
+            data.planId ?? "standard-monthly",
           ])
         ).rows[0];
         if (!plan) fail(422, "PLAN_INVALID", "Plan not found.");
@@ -2113,10 +2113,11 @@ app.post(
 export const demoSettleEnabled = () => process.env.DEMO_SETTLE_ENABLED === "true";
 /**
  * Issuance mode gate: "demo" unless ISSUANCE_MODE is exactly "official".
- * In official mode the health endpoint reports OFFICIAL and the certificate
- * template drops its DEMO branding (the factual not-a-government-document
- * honesty lines stay in both modes). Read per call, like demoSettleEnabled,
- * so tests and operators can flip it via the environment alone. Activation
+ * In official mode the health endpoint reports OFFICIAL. Certificate
+ * templates carry no demo branding or disclaimer lines in ANY mode (owner
+ * purge, 17 Nov 2026); the mode gates only emblem/seal artwork and the
+ * certificate-number prefix. Read per call, like demoSettleEnabled, so
+ * tests and operators can flip it via the environment alone. Activation
  * is the owner's decision; the default is always demo.
  */
 export const issuanceMode = () =>

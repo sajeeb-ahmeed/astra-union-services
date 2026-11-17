@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 import { chromium, type Browser, type Page } from "playwright";
+import { goToWorkspacePage } from "./fixtures/workspace-nav.js";
 const origin = "http://127.0.0.1:5173";
 async function browserInstance(): Promise<Browser> {
   const local = path.join(process.env.LOCALAPPDATA || "", "ms-playwright");
@@ -20,10 +21,7 @@ async function browserInstance(): Promise<Browser> {
   return chromium.launch({ headless: true, executablePath: executable });
 }
 async function openProfile(page: Page) {
-  await page
-    .getByRole("navigation", { name: "Workspace navigation" })
-    .getByRole("button", { name: "My profile", exact: true })
-    .click();
+  await goToWorkspacePage(page, "My profile");
   await page.locator("#profile-present-same").waitFor();
 }
 async function save(page: Page) {
@@ -42,7 +40,7 @@ test(
       await page.goto(`${origin}/login`);
       await page
         .getByLabel("Email", { exact: true })
-        .fill("citizen@alpha.demo.test");
+        .fill("citizen@alpha.local.test");
       await page.getByLabel("Password", { exact: true }).fill("Demo-Phase1!");
       await page
         .locator(".login-form")

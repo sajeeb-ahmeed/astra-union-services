@@ -1,5 +1,4 @@
 import { useId } from "react";
-import { useIssuanceMode } from "./mode.js";
 import { choose, useLanguage } from "./i18n.js";
 
 export type ApplicationGuidanceProps = {
@@ -8,7 +7,7 @@ export type ApplicationGuidanceProps = {
   hasCertificate: boolean;
   revoked: boolean;
   order?: { totalMinor: number; paymentStatus: string } | null;
-  /** Phase UX: false only in a proven OFFICIAL deployment; demo deployments keep the honesty sentence. */
+  /** Retained for caller compatibility; guidance copy no longer varies by deployment mode. */
   demo?: boolean;
 };
 
@@ -35,7 +34,6 @@ function guidanceFor({
   hasCertificate,
   revoked,
   order,
-  demo,
 }: ApplicationGuidanceProps): Guidance {
   const applicant = ["citizen", "staff", "admin"].includes(role);
   if (revoked || state === "REVOKED")
@@ -180,7 +178,7 @@ function guidanceFor({
   if (["APPROVED", "ISSUANCE_PENDING"].includes(state)) {
     // COLLECTED is the application's server-computed payment state. A provider
     // attempt's PAID flag is not equivalent. The separate payment card refreshes
-    // independently, so guidance asks users to inspect its current information.
+    // on its own, so guidance asks users to inspect its current information.
     const feeNeedsVerification =
       !!order && order.totalMinor > 0 && order.paymentStatus !== "COLLECTED";
     if (feeNeedsVerification)
@@ -229,12 +227,8 @@ function guidanceFor({
       ? {
           title: text("সনদের PDF পাওয়া যাচ্ছে", "Certificate PDF available"),
           description: text(
-            "নিচে তৈরি হওয়া PDF ও QR যাচাইয়ের লিংক আছে।" +
-              (demo === false ? "" : " এই সনদে DEMO / NOT OFFICIAL চিহ্ন রয়েছে।"),
-            "Open the generated PDF and its QR verification below." +
-              (demo === false
-                ? ""
-                : " This certificate is marked DEMO / NOT OFFICIAL."),
+            "নিচে তৈরি হওয়া PDF ও QR যাচাইয়ের লিংক আছে।",
+            "Open the generated PDF and its QR verification below.",
           ),
           step: 3,
           action: {
@@ -267,8 +261,7 @@ function guidanceFor({
 export function ApplicationGuidance(props: ApplicationGuidanceProps) {
   useLanguage();
   const headingId = useId();
-  const mode = useIssuanceMode();
-  const guidance = guidanceFor({ ...props, demo: mode !== "OFFICIAL" });
+  const guidance = guidanceFor(props);
   const corrections = props.state === "CORRECTION_REQUIRED";
   const steps = [
     corrections

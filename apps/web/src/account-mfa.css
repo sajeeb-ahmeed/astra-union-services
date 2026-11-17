@@ -79,7 +79,7 @@
   color: #52665b;
   flex-shrink: 0;
 }
-@media (max-width: 600px) {
+@media (max-width: 767px) {
   .mfa-heading {
     flex-direction: column;
     gap: 0;

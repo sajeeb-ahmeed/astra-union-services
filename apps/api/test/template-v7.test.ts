@@ -188,7 +188,7 @@ test("v7 trade licence (BN): Bangla labels, digits and total", () => {
   assert.ok(!/prottoyon/i.test(html));
 });
 
-test("v7 modes: demo shows neither emblem nor seal; official shows both and no DEMO branding", () => {
+test("v7 modes: demo shows neither emblem nor seal; official shows both; neither carries DEMO branding or disclaimer lines", () => {
   const input: Partial<PdfInput> = {
     number: "DEMO-2026-ABC123",
     service: { service_no: 12, name_bn: "নাগরিকত্ব সনদ", name_en: "Citizenship certificate" },
@@ -197,10 +197,10 @@ test("v7 modes: demo shows neither emblem nor seal; official shows both and no D
   };
   delete process.env.ISSUANCE_MODE;
   const demo = render(input);
-  assert.ok(demo.includes("DEMO / NOT OFFICIAL"));
+  assert.ok(!demo.includes("DEMO / NOT OFFICIAL"));
   assert.ok(!demo.includes('class="emblem"'), "no emblem in demo mode");
   assert.ok(!demo.includes('class="seal-wm"'), "no seal watermark in demo mode");
-  assert.ok(demo.includes("এই নথি আইনগত পরিচয় বা সরকারি অনুমোদনের প্রমাণ নয়।"));
+  assert.ok(!demo.includes("এই নথি আইনগত পরিচয় বা সরকারি অনুমোদনের প্রমাণ নয়।"));
   process.env.ISSUANCE_MODE = "official";
   try {
     const official = render(input);
@@ -243,7 +243,7 @@ test("v7 deceased-subject, members table and authored attestation spot checks", 
     payload: { delivery_language: "bn", members: demoPayloads[2]!.members },
     schema: getServiceSchema(2),
   });
-  assert.ok(family.includes("নমুনা সদস্য"));
+  assert.ok(family.includes("পরিবারের সদস্য"));
   assert.ok(family.includes('class="data"'));
   const character = render({
     number: "DEMO-2026-C35",
@@ -387,7 +387,7 @@ test("template 6 remains selectable and byte-stable in shape", () => {
     qr,
     6,
   );
-  assert.ok(html.includes("DEMO / NOT OFFICIAL"));
+  assert.ok(!html.includes("DEMO / NOT OFFICIAL"));
   assert.ok(html.includes("Template 6"));
   assert.ok(!html.includes("সনদ নং:-"));
 });
@@ -411,7 +411,7 @@ async function login(name: string) {
   const r = await fetch(`${base}/api/v1/auth/login`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ email: `${name}@alpha.demo.test`, password: "Demo-Phase1!" }),
+    body: JSON.stringify({ email: `${name}@alpha.local.test`, password: "Demo-Phase1!" }),
   });
   const json = await r.json();
   assert.equal(r.status, 200, JSON.stringify(json));

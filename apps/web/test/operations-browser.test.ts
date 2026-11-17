@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 import { chromium, type Browser } from "playwright";
-import { workspacePage } from "./fixtures/workspace-nav.js";
+import { workspacePage, goToWorkspacePage } from "./fixtures/workspace-nav.js";
 const origin = "http://127.0.0.1:5173";
 async function browserInstance(): Promise<Browser> {
   const local = path.join(process.env.LOCALAPPDATA || "", "ms-playwright");
@@ -31,7 +31,7 @@ test("operations browser: the owner sees scanner health and pending queues first
     await page.getByLabel("Password", { exact: true }).fill("Demo-Phase1!");
     await page.locator(".login-form").getByRole("button", { name: "Sign in", exact: true }).click();
     await page.getByRole("button", { name: "Sign out", exact: true }).waitFor();
-    await workspacePage(page, "Platform management").click();
+    await goToWorkspacePage(page, "Platform management");
     const panel = page.locator(".owner-operations");
     await panel.getByRole("heading", { name: "Operations", exact: true }).waitFor();
     await panel.getByText("Waiting for scan", { exact: true }).waitFor();

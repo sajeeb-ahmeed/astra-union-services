@@ -4,7 +4,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { chromium, type Browser, type Page } from "playwright";
 import { signOut } from "./fixtures/session.js";
-import { workspacePage } from "./fixtures/workspace-nav.js";
+import { workspacePage, goToWorkspacePage } from "./fixtures/workspace-nav.js";
 import { demoPayloads } from "@astra/shared-schemas";
 const origin = "http://127.0.0.1:5173";
 async function browserInstance(): Promise<Browser> {
@@ -24,7 +24,7 @@ async function browserInstance(): Promise<Browser> {
 }
 async function signIn(page: Page, who: string) {
   await page.goto(`${origin}/login`);
-  await page.getByLabel("Email", { exact: true }).fill(`${who}@alpha.demo.test`);
+  await page.getByLabel("Email", { exact: true }).fill(`${who}@alpha.local.test`);
   await page.getByLabel("Password", { exact: true }).fill("Demo-Phase1!");
   await page.locator(".login-form").getByRole("button", { name: "Sign in", exact: true }).click();
   await page.getByRole("button", { name: "Sign out", exact: true }).waitFor();
@@ -32,7 +32,7 @@ async function signIn(page: Page, who: string) {
 /** API calls in the signed-in page's session (with its CSRF token). */
 /** Opens an application by its full id through the workspace's reference lookup. */
 async function openApplication(page: Page, id: string) {
-  await workspacePage(page, "Applications").click();
+  await goToWorkspacePage(page, "Applications");
   await page.locator("#application-reference").fill(id);
   await page.getByRole("button", { name: "Find record", exact: true }).click();
 }

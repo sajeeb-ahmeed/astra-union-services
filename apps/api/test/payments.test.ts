@@ -230,7 +230,7 @@ async function signup(role: string) {
       dateOfBirth: "1998-02-03",
       addressBn: "গোপন পরীক্ষার ঠিকানা",
       addressEn: "PRIVATE ADDRESS NOT FOR FINANCE",
-      syntheticReference: `DEMO-GATEWAY-${role}-${run}`,
+      syntheticReference: `REF-GATEWAY-${role}-${run}`,
     },
     "anonymous",
   );
@@ -390,7 +390,7 @@ before(async () => {
   const billing = await request(
     "POST",
     "/billing/orders",
-    { kind: "subscription", planId: "demo-monthly" },
+    { kind: "subscription", planId: "standard-monthly" },
     "finance",
   );
   assert.equal(

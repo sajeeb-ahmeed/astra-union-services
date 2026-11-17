@@ -121,7 +121,7 @@ before(async () => {
       dateOfBirth: "1998-02-03",
       addressBn: "পরীক্ষা ঠিকানা",
       addressEn: "Synthetic integration address",
-      syntheticReference: `DEMO-INTEGRATION-${run}`,
+      syntheticReference: `REF-INTEGRATION-${run}`,
     },
     "anonymous",
   );
@@ -132,7 +132,7 @@ before(async () => {
   const order = await request(
     "POST",
     "/billing/orders",
-    { kind: "subscription", planId: "demo-monthly" },
+    { kind: "subscription", planId: "standard-monthly" },
     "finance",
   );
   assert.equal(order.status, 201, JSON.stringify(order.body));
@@ -230,8 +230,9 @@ test("integration fix 3: an EN trade licence order issues an English licence whe
     "the Bangla statute line does not render on an EN order",
   );
 
-  // The same certificate verifies publicly; this office is a demo tenant, so
-  // the payload still reports demo:true here (fix 2's contrast comes next).
+  // The same certificate verifies publicly; offices created through the
+  // owner API are onboarded demo=false, so verify reports demo:false here
+  // (fix 2's explicit-flag contrast comes next).
   const byNumber = await request(
     "GET",
     `/verify/by-number/${encodeURIComponent(certificateNumber)}`,
@@ -240,7 +241,7 @@ test("integration fix 3: an EN trade licence order issues an English licence whe
   );
   assert.equal(byNumber.status, 200, JSON.stringify(byNumber.body));
   assert.equal(byNumber.body.status, "ISSUED");
-  assert.equal(byNumber.body.demo, true);
+  assert.equal(byNumber.body.demo, false);
 });
 
 test("integration fix 2: a production tenant can be onboarded demo=false and verify reports it truthfully", async () => {

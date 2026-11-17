@@ -3,9 +3,11 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 import { spawn, type ChildProcess } from "node:child_process";
-import { workspacePage } from "./fixtures/workspace-nav.js";
+import { workspacePage, goToWorkspacePage } from "./fixtures/workspace-nav.js";
 import { chromium, type Browser, type Page } from "playwright";
 import { signOut } from "./fixtures/session.js";
+import { fillApplicationForm } from "./fixtures/fill-form.js";
+import { demoPayloads } from "@astra/shared-schemas";
 const origin = "http://127.0.0.1:5173";
 let ownedStack: ChildProcess | undefined;
 async function ready() {
@@ -34,7 +36,7 @@ async function login(page: Page, role: string, tenant = "alpha") {
     .fill(
       role === "owner"
         ? "owner@astra.demo.test"
-        : `${role}@${tenant}.demo.test`,
+        : `${role}@${tenant}.local.test`,
     );
   await page.getByLabel("Password", { exact: true }).fill("Demo-Phase1!");
   await page.locator(".login-form").getByRole("button", { name: "Sign in", exact: true }).click();
@@ -48,7 +50,7 @@ async function nav(page: Page, name: string) {
     Citizens: "নাগরিক",
   };
   void bn;
-  await workspacePage(page, name).click();
+  await goToWorkspacePage(page, name);
 }
 async function openById(page: Page, id: string) {
   await nav(page, "Applications");
@@ -57,6 +59,35 @@ async function openById(page: Page, id: string) {
   await page
     .getByText(`APPLICATION ${id.slice(0, 8)}`, { exact: true })
     .waitFor();
+}
+// UIUX-FIX-01: applications start from the catalog and run through the guided flow; drafts are
+// saved from the flow's review step. completeFees walks the fees step like the flow tests do.
+function catalogTile(page: Page, serviceNo: string) {
+  return page.locator(".catalog .service").filter({
+    has: page.locator(`.service-number:text-is("${serviceNo}")`),
+  });
+}
+async function completeFees(page: Page) {
+  const next = page.getByRole("button", { name: "Next: review and submit" });
+  try {
+    await page.waitForFunction(
+      () => !(document.querySelector(".ax-flow-actions button:last-child") as HTMLButtonElement)?.disabled,
+      undefined,
+      { timeout: 8000 },
+    );
+    return next;
+  } catch {}
+  const language = page.locator("#order-language");
+  if (!(await language.inputValue())) await language.selectOption("bn");
+  const review = page.getByRole("button", { name: "Review fees" });
+  if (await review.count()) await review.click();
+  const accept = page.locator(".ax-flow input[type=checkbox]").last();
+  await accept.waitFor();
+  await accept.check();
+  await page.waitForFunction(
+    () => !(document.querySelector(".ax-flow-actions button:last-child") as HTMLButtonElement)?.disabled,
+  );
+  return next;
 }
 async function action(page: Page, text: string) {
   const response = page.waitForResponse(
@@ -105,25 +136,32 @@ test(
     try {
       await login(citizen, "citizen");
       await nav(citizen, "Service catalog");
+      await catalogTile(citizen, "45").click();
+      await citizen.locator(".ax-citizen input").first().check();
       await citizen
-        .getByLabel("Citizen", { exact: true })
-        .selectOption({ index: 1 });
-      await citizen
-        .getByRole("button", { name: "Fill synthetic example", exact: true })
+        .getByRole("button", { name: "Next: application form", exact: true })
         .click();
+      await fillApplicationForm(citizen, demoPayloads[45]);
       await citizen
         .getByLabel("Purpose (English)", { exact: false })
         .fill("Browser acceptance demonstration");
+      await citizen
+        .getByRole("button", { name: "Next: fees and delivery", exact: true })
+        .click();
+      await (await completeFees(citizen)).click();
       const createdResponse = citizen.waitForResponse(
         (r) =>
           r.url().endsWith("/applications") && r.request().method() === "POST",
       );
       await citizen
-        .getByRole("button", { name: "Save draft application", exact: true })
+        .getByRole("button", { name: "Save as draft only", exact: true })
         .click();
       const created = await createdResponse;
       assert.equal(created.status(), 201, await created.text());
       const application = await created.json();
+      await citizen
+        .getByRole("button", { name: "Open application", exact: true })
+        .click();
       await citizen
         .getByText(`APPLICATION ${application.id.slice(0, 8)}`, { exact: true })
         .waitFor();
@@ -137,7 +175,7 @@ test(
         0,
       );
       assert.equal(
-        await staff.getByRole("button", { name: /Issue demo/ }).count(),
+        await staff.getByRole("button", { name: /Issue certificate/ }).count(),
         0,
       );
       await staff.screenshot({
@@ -254,7 +292,7 @@ test(
       await verify.goto(certificate.verificationUrl);
       await verify.getByText("ISSUED", { exact: true }).waitFor();
       assert.equal(
-        await verify.getByText("Demo Citizen", { exact: true }).count(),
+        await verify.getByText("Karim Uddin", { exact: true }).count(),
         0,
       );
       await verify.screenshot({
@@ -313,42 +351,41 @@ test(
       await page
         .getByRole("button", { name: /02.*Family certificate/ })
         .click();
+      await page.locator(".ax-citizen input").first().check();
       await page
-        .getByLabel("Citizen", { exact: true })
-        .selectOption({ index: 1 });
-      await page
-        .getByRole("button", { name: "Fill synthetic example", exact: true })
+        .getByRole("button", { name: "Next: application form", exact: true })
         .click();
+      await fillApplicationForm(page, demoPayloads[2]);
       await page.getByRole("button", { name: "Remove 1", exact: true }).click();
       await page
-        .getByRole("button", { name: "Save draft application", exact: true })
+        .getByRole("button", { name: "Next: fees and delivery", exact: true })
         .click();
-      await page
-        .getByText("Please correct the highlighted fields.", { exact: true })
-        .waitFor();
+      // The flow surfaces validation as its error summary plus invalid fieldsets.
+      await page.locator(".ax-flow .error-summary").waitFor();
       assert.ok(await page.locator('fieldset[aria-invalid="true"]').count());
+      await fillApplicationForm(page, demoPayloads[2]);
       await page
-        .getByRole("button", { name: "Fill synthetic example", exact: true })
+        .getByRole("button", { name: "Next: fees and delivery", exact: true })
         .click();
+      await (await completeFees(page)).click();
       const familyResponse = page.waitForResponse(
         (r) =>
           r.url().endsWith("/applications") && r.request().method() === "POST",
       );
       await page
-        .getByRole("button", { name: "Save draft application", exact: true })
+        .getByRole("button", { name: "Save as draft only", exact: true })
         .click();
       assert.equal((await familyResponse).status(), 201);
       await page
-        .getByText("Draft saved. Open the draft and submit it when ready.", { exact: true })
+        .getByText("The application is saved as a draft; it is not submitted yet.", { exact: true })
         .waitFor();
       await nav(page, "Service catalog");
       await page.getByRole("button", { name: /42.*Trade license/ }).click();
+      await page.locator(".ax-citizen input").first().check();
       await page
-        .getByLabel("Citizen", { exact: true })
-        .selectOption({ index: 1 });
-      await page
-        .getByRole("button", { name: "Fill synthetic example", exact: true })
+        .getByRole("button", { name: "Next: application form", exact: true })
         .click();
+      await fillApplicationForm(page, demoPayloads[42]);
       await page
         .getByRole("button", { name: "Add supporting documents", exact: false })
         .click();
@@ -368,16 +405,20 @@ test(
       await page.getByTestId("attachment-status").waitFor();
       await page.getByText("Waiting for safety check", { exact: true }).waitFor();
       assert.equal(await page.getByRole("link", { name: "Download document", exact: true }).count(), 0);
+      await page
+        .getByRole("button", { name: "Next: fees and delivery", exact: true })
+        .click();
+      await (await completeFees(page)).click();
       const tradeResponse = page.waitForResponse(
         (r) =>
           r.url().endsWith("/applications") && r.request().method() === "POST",
       );
       await page
-        .getByRole("button", { name: "Save draft application", exact: true })
+        .getByRole("button", { name: "Save as draft only", exact: true })
         .click();
       assert.equal((await tradeResponse).status(), 201);
       await page
-        .getByText("Draft saved. Open the draft and submit it when ready.", { exact: true })
+        .getByText("The application is saved as a draft; it is not submitted yet.", { exact: true })
         .waitFor();
       await page.screenshot({
         path: "execution/screenshots/mobile-trade.png",
@@ -418,7 +459,7 @@ test(
           r.url().endsWith("/demo-settle") && r.request().method() === "POST",
       );
       await row
-        .getByRole("button", { name: "Settle in local sandbox", exact: true })
+        .getByRole("button", { name: "Settle payment", exact: true })
         .click();
       assert.equal((await settle).status(), 200);
       await page
@@ -509,7 +550,7 @@ test(
         .getByLabel("Search within your tenant", { exact: true })
         .fill(citizen.syntheticReference);
       await page.getByText(citizen.id.slice(0, 8), { exact: true }).waitFor();
-      assert.match(citizen.syntheticReference, /^DEMO-.+/);
+      assert.match(citizen.syntheticReference, /^REF-.+/);
       assert.equal(response.request().postDataJSON().geography.unionCode, union.code);
       const session = await (await context.request.get(`${origin}/api/v1/auth/me`)).json();
       const duplicate = await context.request.post(`${origin}/api/v1/citizens`, {
@@ -532,7 +573,7 @@ test(
       );
       const tenant = page
         .locator(".tenant-card")
-        .filter({ hasText: "Demo Alpha Union" });
+        .filter({ hasText: "Alpha Union" });
       await tenant.getByLabel("Credit adjustment", { exact: true }).fill("3");
       await tenant
         .getByLabel("Reason", { exact: true })

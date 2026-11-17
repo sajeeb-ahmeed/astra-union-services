@@ -20,7 +20,7 @@ async function req(method:string,path:string,data?:unknown,role?:string){
 before(async()=>{
   server=app.listen(0,"127.0.0.1");await new Promise<void>(r=>server.once("listening",r));base=`http://127.0.0.1:${(server.address() as any).port}`;
   for(const role of ["citizen","staff","finance","owner","beta"]){
-    const email=role==="owner"?"owner@astra.demo.test":role==="beta"?"staff@beta.demo.test":`${role}@alpha.demo.test`;
+    const email=role==="owner"?"owner@astra.demo.test":role==="beta"?"staff@beta.local.test":`${role}@alpha.local.test`;
     const r=await req("POST","/auth/login",{email,password:"Demo-Phase1!"});assert.equal(r.status,200,JSON.stringify(r.body));
     sessions[role]={cookie:r.headers.get("set-cookie")!.split(";")[0],csrf:r.body.csrfToken,user:r.body.user};
   }
@@ -36,7 +36,7 @@ test("Portal: feedback persists, only owner resolves, subscribe is idempotent an
   const inbox=await req("GET","/owner/feedback?status=OPEN",undefined,"owner");assert.ok(inbox.body.items.some((x:any)=>x.id===r.body.id));
   assert.equal((await req("PATCH",`/owner/feedback/${r.body.id}`,{status:"RESOLVED"},"owner")).status,200);
   const row=(await admin.query("SELECT status,resolved_by FROM support_requests WHERE id=$1",[r.body.id])).rows[0];assert.equal(row.status,"RESOLVED");assert.equal(row.resolved_by,sessions.owner.user.id);
-  for(let i=0;i<2;i++){const subscribed=await req("POST","/public/subscribe",{email});assert.equal(subscribed.status,202);assert.match(subscribed.body.message,/not configured/);}
+  for(let i=0;i<2;i++){const subscribed=await req("POST","/public/subscribe",{email});assert.equal(subscribed.status,202);assert.equal(subscribed.body.message,"Your interest is saved.");}
   assert.equal((await admin.query("SELECT count(*)::int n FROM subscriptions_interest WHERE email=$1",[email])).rows[0].n,1);
 });
 

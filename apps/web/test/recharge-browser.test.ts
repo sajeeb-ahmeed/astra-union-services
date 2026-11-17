@@ -4,7 +4,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { randomBytes } from "node:crypto";
 import { chromium, type Browser, type Page } from "playwright";
-import { workspacePage } from "./fixtures/workspace-nav.js";
+import { workspacePage, goToWorkspacePage } from "./fixtures/workspace-nav.js";
 import { signOut } from "./fixtures/session.js";
 const origin = "http://127.0.0.1:5173";
 async function browserInstance(): Promise<Browser> {
@@ -69,7 +69,7 @@ test(
     await page.addInitScript(() => { if (!localStorage.getItem("astra.language")) localStorage.setItem("astra.language", "en"); });
     try {
       await signIn(page, `admin@${slug}.test`, adminPassword);
-      await workspacePage(page, "Subscription & credits").click();
+      await goToWorkspacePage(page, "Subscription & credits");
       const recharge = page.locator(".recharge");
       await recharge.getByLabel("Deposit account", { exact: true }).selectOption(bank);
       await recharge.getByText("9999 8888").waitFor();
@@ -86,7 +86,7 @@ test(
       await signOut(page);
 
       await signIn(page, "owner@astra.demo.test", "Demo-Phase1!");
-      await workspacePage(page, "Platform management").click();
+      await goToWorkspacePage(page, "Platform management");
       const item = page.locator(".owner-recharges .recharge-item", { hasText: `TXN-${stamp}` });
       await item.waitFor();
       // Rejecting without a reason is refused by the server.
@@ -99,7 +99,7 @@ test(
       await signOut(page);
 
       await signIn(page, `admin@${slug}.test`, adminPassword);
-      await workspacePage(page, "Subscription & credits").click();
+      await goToWorkspacePage(page, "Subscription & credits");
       await page
         .locator(".recharge tbody tr", { hasText: `TXN-${stamp}` })
         .getByText("Rejected · Deposit not on the statement")

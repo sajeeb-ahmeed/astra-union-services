@@ -62,7 +62,7 @@ before(async () => {
   await new Promise<void>((resolve) => server.once("listening", resolve));
   base = `http://127.0.0.1:${(server.address() as any).port}`;
   await login("owner", "owner@astra.demo.test");
-  for (const name of ["staff", "reviewer", "approver", "admin", "citizen"]) await login(name, `${name}@alpha.demo.test`);
+  for (const name of ["staff", "reviewer", "approver", "admin", "citizen"]) await login(name, `${name}@alpha.local.test`);
   alphaId = (await admin.query("SELECT id FROM tenants WHERE slug='alpha'")).rows[0].id;
   citizenId = (await req("GET", "/citizens", undefined, s.citizen)).body.items[0].id;
 });

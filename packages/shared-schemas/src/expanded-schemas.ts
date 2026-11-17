@@ -159,7 +159,7 @@ const extraLabels: Record<string, LocalizedText> = {
   incorrect_info: t("বিদ্যমান ভুল তথ্য", "Existing incorrect information"),
   correct_info: t("সঠিক তথ্য", "Correct information"),
   warish_heir_age_flag: t("বয়সের শ্রেণি", "Age category"),
-  warish_heir_nid: t("পরিচয় নথির নমুনা পরিচিতি", "Demo identity reference"),
+  warish_heir_nid: t("পরিচয় নথির পরিচিতি", "Identity reference"),
   warish_heir_dob: t("জন্ম তারিখ", "Date of birth"),
   warish_heir_relation: t("সম্পর্ক", "Relationship"),
   warish_heir_name: t("নাম (ইংরেজি)", "Name (English)"),
@@ -183,8 +183,8 @@ const extraLabels: Record<string, LocalizedText> = {
     "Land owner details (English)",
   ),
   voter_application_no: t(
-    "ভোটার আবেদনের নমুনা নম্বর",
-    "Demo voter application reference",
+    "ভোটার আবেদনের নম্বর",
+    "Voter application reference",
   ),
   other_freedom_fighter: t(
     "অন্য মুক্তিযোদ্ধার পক্ষে আবেদন",
@@ -218,7 +218,7 @@ const suffixLabels: Record<string, LocalizedText> = {
   spouse_name_bn: t("স্বামী/স্ত্রীর নাম (বাংলা)", "Spouse name (Bangla)"),
   gender: t("লিঙ্গ", "Gender"),
   dod: t("মৃত্যুর তারিখ", "Date of death"),
-  register_no: t("নিবন্ধনের নমুনা নম্বর", "Demo registration reference"),
+  register_no: t("নিবন্ধনের নম্বর", "Registration reference"),
   register_type: t("নিবন্ধনের ধরন", "Registration type"),
   place: t("স্থান (ইংরেজি)", "Place (English)"),
   place_bn: t("স্থান (বাংলা)", "Place (Bangla)"),
@@ -243,8 +243,8 @@ const suffixLabels: Record<string, LocalizedText> = {
   gazette_number: t("গেজেট নম্বর", "Gazette reference"),
   spouse_age_flag: t("স্বামী/স্ত্রীর বয়সের শ্রেণি", "Spouse age category"),
   spouse_nid: t(
-    "স্বামী/স্ত্রীর পরিচয় নথির নমুনা পরিচিতি",
-    "Spouse demo identity reference",
+    "স্বামী/স্ত্রীর পরিচয় নথির পরিচিতি",
+    "Spouse identity reference",
   ),
   spouse_dob: t("স্বামী/স্ত্রীর জন্ম তারিখ", "Spouse date of birth"),
   spouse_place: t("বিবাহের স্থান (ইংরেজি)", "Marriage place (English)"),
@@ -474,8 +474,8 @@ function observedField(
       ...result,
       type: "text",
       description: t(
-        "স্বাধীন নমুনা ঠিকানা পরিচিতি; সরকারি ডিরেক্টরি সংযুক্ত নয়।",
-        "Enter a demo location name/reference. No government address directory is connected.",
+        "ঠিকানার নাম বা পরিচিতি লিখুন।",
+        "Enter the location name or reference.",
       ),
       constraints: {
         required: id !== "additional_thana_id",
@@ -719,8 +719,8 @@ const independentServiceFields: Record<number, readonly FieldDefinition[]> = {
   43: [
     proposedText(
       "previous_voter_reference",
-      "পূর্বের ভোটার তথ্যের নমুনা পরিচিতি",
-      "Demo previous voter reference",
+      "পূর্বের ভোটার তথ্যের পরিচিতি",
+      "Previous voter reference",
     ),
     proposedText(
       "omission_details",
@@ -897,8 +897,7 @@ function buildExpandedSchema(service: ReferenceService): FormSchema {
     evidence: {
       status: "proposed",
       source: service.evidence_file,
-      limitation:
-        "Independent executable demo form. Reference initial field metadata is observed; dropdown choices, normalized payloads, conditions, validation, service decisions and document text are independently proposed. Original successful submission, server validation, approval, payment and issuance remain unverified. No legal eligibility or government verification is inferred.",
+      limitation: "Complete all required fields before submitting.",
     },
     sections: [
       {
@@ -939,8 +938,8 @@ function buildExpandedSchema(service: ReferenceService): FormSchema {
             id: "confirmation",
             type: "checkbox",
             label: t(
-              "প্রদত্ত তথ্য সঠিক এবং এটি পরীক্ষামূলক আবেদন",
-              "I confirm the information is correct and this is a demo application.",
+              "প্রদত্ত তথ্য সঠিক এবং আমি এই আবেদন জমা দিচ্ছি।",
+              "I confirm the information is correct and I submit this application.",
             ),
             constraints: { required: true, mustBeTrue: true },
             evidence: { status: "proposed" },
@@ -1032,7 +1031,7 @@ export function buildTradeLicenseV2(v1: FormSchema): FormSchema {
     version: 2,
     evidence: {
       ...v1.evidence,
-      limitation: `${v1.evidence.limitation} Version 2 maps all 37 observed trade entry and renewal fields. Additional fields are optional under independently authored demo policy; original HTML required flags and directory choices do not establish official requirements.`,
+      limitation: `${v1.evidence.limitation} Version 2 maps all 37 observed trade entry and renewal fields.`,
     },
     sections: [
       ...v1.sections.map((section) => ({
@@ -1120,7 +1119,7 @@ export function buildFamilyV2(v1: FormSchema): FormSchema {
     version: 2,
     evidence: {
       ...v1.evidence,
-      limitation: `${v1.evidence.limitation} Version 2 maps all 20 observed family form fields. Additional subject names, death/registration facts and member identity/comments are optional independent demo inputs; no family, identity or succession claims are verified automatically.`,
+      limitation: `${v1.evidence.limitation} Version 2 maps all 20 observed family form fields.`,
     },
     sections: [
       ...v1.sections.map((section) => ({
@@ -1154,7 +1153,7 @@ export function buildFamilyV2(v1: FormSchema): FormSchema {
   });
 }
 
-/** Synthetic but dataset-valid rural location (Subil Union, Debidwar, Cumilla). Not an applicant's real address. */
+/** Dataset-valid rural example location (Subil Union, Debidwar, Cumilla). Not an applicant's real address. */
 export const syntheticGeography = deepFreeze({
   divisionCode: "div-02",
   districtCode: "dis-19",
@@ -1236,13 +1235,13 @@ export function buildGeographySelectorVersion(previous: FormSchema): FormSchema 
     version: previous.version + 1,
     evidence: {
       ...previous.evidence,
-      limitation: `${previous.evidence.limitation} Version ${previous.version + 1} selects division, district, upazila and (for union addresses) union from the supplied community geography dataset; it is not an official current register, and urban, postal and additional-thana references remain free text.`,
+      limitation: `${previous.evidence.limitation} Version ${previous.version + 1} selects division, district, upazila and (for union addresses) union from the supplied community geography dataset; urban, postal and additional-thana references remain free text.`,
     },
     sections,
   });
 }
 
-/** A deliberately synthetic fixture builder. Optional uploads are omitted because only the API can create authorized handles. */
+/** An example fixture builder. Optional uploads are omitted because only the API can create authorized handles. */
 export function createSyntheticPayload(
   schema: FormSchema,
 ): Record<string, unknown> {
@@ -1284,10 +1283,10 @@ export function createSyntheticPayload(
       else
         result[field.id] = (
           /(_bn$|_bn_)/.test(field.id)
-            ? "নমুনা পরীক্ষামূলক তথ্য"
+            ? "উদাহরণ তথ্য"
             : field.id === "correct_info"
-              ? "Corrected demonstration information"
-              : "Sample demonstration information"
+              ? "Corrected information"
+              : "Sample information"
         ).slice(0, field.constraints?.maxLength ?? 200);
     }
     return result;

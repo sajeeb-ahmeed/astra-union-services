@@ -122,8 +122,12 @@ fs.mkdirSync(path.join(out, "docs"), { recursive: true });
 fs.copyFileSync(path.join(root, "docs", "DEPLOY-CPANEL.md"), path.join(out, "docs", "DEPLOY-CPANEL.md"));
 
 // 3. Full production-capable node_modules (see header for the rationale).
+// dereference:false keeps the relative symlinks (.bin/*, @astra/*) intact —
+// dereferencing them produces absolute paths into the build machine's tree,
+// which break the bundle's .bin shims after the zip round-trip (BUNDLE-02).
 fs.cpSync(path.join(root, "node_modules"), path.join(out, "node_modules"), {
   recursive: true,
+  dereference: false,
   filter: (s) => !s.includes(`${path.sep}.cache${path.sep}`) && !s.endsWith(`${path.sep}.cache`),
 });
 

@@ -210,7 +210,7 @@ before(async () => {
       dateOfBirth: "1998-02-03",
       addressBn: "পরীক্ষা ঠিকানা",
       addressEn: "Synthetic order address",
-      syntheticReference: `DEMO-ORDERS-${run}`,
+      syntheticReference: `REF-ORDERS-${run}`,
     },
     "anonymous",
   );
@@ -220,7 +220,7 @@ before(async () => {
   const order = await request(
     "POST",
     "/billing/orders",
-    { kind: "subscription", planId: "demo-monthly" },
+    { kind: "subscription", planId: "standard-monthly" },
     "finance",
   );
   assert.equal(order.status, 201, JSON.stringify(order.body));

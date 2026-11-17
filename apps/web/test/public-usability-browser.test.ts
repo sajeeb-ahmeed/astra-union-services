@@ -169,7 +169,7 @@ test(
       const password = page.getByLabel("Password", { exact: true });
       await page
         .getByLabel("Email", { exact: true })
-        .fill("staff@alpha.demo.test");
+        .fill("staff@alpha.local.test");
       await password.fill("Demo-Phase1!");
       const toggle = form.getByRole("button", {
         name: "Show password",

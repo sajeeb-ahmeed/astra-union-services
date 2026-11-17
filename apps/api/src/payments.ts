@@ -282,12 +282,12 @@ function receiptHtml(number: string, snapshot: any) {
     delivery_fee: "Delivery fee / বিতরণ ফি",
   };
   return `<!doctype html><html lang="en"><head><meta charset="utf-8"><title>${escapeHtml(number)}</title><style>@page{size:A4;margin:22mm}body{font:14px 'Nirmala UI','Noto Sans Bengali',sans-serif;line-height:1.65;color:#153c38}h1{font-size:24px}h2{font-size:18px}.notice{border:2px solid #9b2828;padding:10px;color:#9b2828}table{border-collapse:collapse;width:100%;margin:22px 0}td,th{text-align:left;padding:8px;border-bottom:1px solid #b7ccc5}.value{text-align:right}small{font-size:11px}.ref{overflow-wrap:anywhere}</style></head><body>
-    <p class="notice">${snapshot.environment === "SANDBOX" ? "SANDBOX / TEST PAYMENT — NO REAL MONEY COLLECTED / পরীক্ষামূলক পেমেন্ট" : "ONLINE PAYMENT RECEIPT / অনলাইন পেমেন্ট রসিদ"}</p>
+    <p class="notice">${snapshot.environment === "SANDBOX" ? "SANDBOX PAYMENT — NO REAL MONEY COLLECTED" : "ONLINE PAYMENT RECEIPT / অনলাইন পেমেন্ট রসিদ"}</p>
     <h1>Payment receipt / পেমেন্ট রসিদ</h1><h2>${escapeHtml(snapshot.officeName)}<br>${escapeHtml(snapshot.officeNameBn)}</h2>
     <p class="ref">Receipt: ${escapeHtml(number)}<br>Applicant / আবেদনকারী: ${escapeHtml(snapshot.applicantName)} / ${escapeHtml(snapshot.applicantNameBn)}<br>Service: ${escapeHtml(snapshot.serviceNo)} — ${escapeHtml(snapshot.serviceName)}<br>Application: ${escapeHtml(snapshot.applicationId)}<br>${snapshot.provider === "SSLCOMMERZ" ? "SSLCommerz validation" : "bKash transaction"}: ${escapeHtml(snapshot.transactionId)}<br>Merchant invoice: ${escapeHtml(snapshot.invoice)}<br>Verified at: ${escapeHtml(snapshot.verifiedAt)}</p>
     <table><thead><tr><th>Fee component / ফি</th><th class="value">BDT / টাকা</th></tr></thead><tbody>${snapshot.components.map((component: any) => `<tr><td>${escapeHtml(labels[component.code] ?? component.code)}</td><td class="value">${money(component.amountMinor)}</td></tr>`).join("")}<tr><th>Total / মোট</th><th class="value">${money(snapshot.amountMinor)}</th></tr></tbody></table>
     ${snapshot.provider === "SSLCOMMERZ" ? "<p>Verified through the SSLCommerz session query and order validation APIs. This receipt records the application fee payment. It does not grant certificate approval.</p><p>এসএসএলকমার্জের সার্ভার যাচাইয়ের ভিত্তিতে আবেদন ফি পরিশোধের রসিদ। সনদের অনুমোদন আলাদা প্রক্রিয়া।</p>" : "<p>Verified through the bKash payment query and transaction search APIs. This receipt records the application fee payment. It does not grant certificate approval.</p><p>বিকাশের সার্ভার যাচাইয়ের ভিত্তিতে আবেদন ফি পরিশোধের রসিদ। সনদের অনুমোদন আলাদা প্রক্রিয়া।</p>"}
-    <small>Bank payout reconciliation is not connected. Certificate documents remain DEMO / NOT OFFICIAL until official signing is configured. No wallet PIN or OTP is stored by DigitalUnion.</small></body></html>`;
+    <small>No wallet PIN or OTP is stored by DigitalUnion.</small></body></html>`;
 }
 async function finalize(
   row: any,

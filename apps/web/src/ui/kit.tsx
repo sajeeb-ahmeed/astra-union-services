@@ -83,6 +83,51 @@ export function StatusPill({ children }: { children: React.ReactNode }) {
   return <span className="ax-pill">{children}</span>;
 }
 
+/**
+ * The one empty-state treatment (UIUX-FIX-01 #14): an icon, one line saying
+ * what happened, an optional hint, and the primary recovery action. Replaces
+ * the former .empty-state / .ax-home-empty / .service-empty /
+ * .application-empty / .ax-dashboard-empty variants.
+ */
+export function EmptyState({
+  title,
+  hint,
+  action,
+}: {
+  title: React.ReactNode;
+  hint?: React.ReactNode;
+  action?: React.ReactNode;
+}) {
+  return (
+    <div className="ax-empty-state">
+      <span className="ax-empty-icon" aria-hidden="true">
+        <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
+          <circle cx="10.5" cy="10.5" r="6.5" />
+          <path d="M15.5 15.5 21 21" />
+        </svg>
+      </span>
+      <h3>{title}</h3>
+      {hint && <p>{hint}</p>}
+      {action}
+    </div>
+  );
+}
+
+/** Shimmer placeholder rows shown while a table or list is loading. */
+export function SkeletonRows({ rows = 4 }: { rows?: number }) {
+  return (
+    <div className="ax-skeleton" role="status" aria-label="Loading">
+      {Array.from({ length: rows }, (_, i) => (
+        <div className="ax-skeleton-row" key={i} aria-hidden="true">
+          <span />
+          <span />
+          <span />
+        </div>
+      ))}
+    </div>
+  );
+}
+
 /** Numbered progress indicator for multi-step flows; the current step is announced as such. */
 export function Stepper({
   steps,

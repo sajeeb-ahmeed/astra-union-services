@@ -1,6 +1,5 @@
 import React, { useEffect, useState, useSyncExternalStore } from "react";
 import { choose, LanguageSwitcher, useLanguage } from "./i18n.js";
-import { useIsDemo } from "./mode.js";
 import "./ui/kit.js";
 import { SubscriptionForm } from "./SubscriptionForm.js";
 import logoLockup from "./assets/brand/logo-lockup.webp";
@@ -117,7 +116,6 @@ export function SiteHeader({
   navItems?: readonly { href: string; bn: string; en: string }[];
 }) {
   useLanguage();
-  const demo = useIsDemo();
   const phone = usePhone();
   const [drawer, setDrawer] = useState(false);
   useEffect(() => {
@@ -139,11 +137,6 @@ export function SiteHeader({
               en: "Welcome to digital citizen services",
             })}
           </span>
-          {demo && (
-            <span className="du-demo-flag">
-              {choose({ bn: "প্রদর্শনী · সরকারি নয়", en: "DEMO · NOT OFFICIAL" })}
-            </span>
-          )}
         </div>
       </div>
       <header className="du-header">
@@ -273,7 +266,6 @@ export function SiteFooter({
   bottomLine?: React.ReactNode;
 }) {
   useLanguage();
-  const demo = useIsDemo();
   const link = (href: string, bn: string, en: string) => (
     <li key={href}>
       <NavLink href={href} onNavigate={onNavigate} className="du-footlink">
@@ -295,21 +287,12 @@ export function SiteFooter({
               en: "Smart Union, Smart Bangladesh",
             })}
           </p>
-          {demo ? (
-            <p className="du-footer-note">
-              {choose({
-                bn: "এটি একটি স্বাধীন প্রদর্শনী ব্যবস্থা। এখানকার সনদ সরকারি নয়।",
-                en: "This is an independent demonstration. Certificates issued here are not official.",
-              })}
-            </p>
-          ) : (
-            <p className="du-footer-note">
-              {choose({
-                bn: "ইউনিয়ন পরিষদের নাগরিক সেবা — আবেদন, অবস্থা ও সনদ যাচাই এক ঠিকানায়।",
-                en: "Union Parishad citizen services — apply, track and verify in one place.",
-              })}
-            </p>
-          )}
+          <p className="du-footer-note">
+            {choose({
+              bn: "ইউনিয়ন পরিষদের নাগরিক সেবা — আবেদন, অবস্থা ও সনদ যাচাই এক ঠিকানায়।",
+              en: "Union Parishad citizen services — apply, track and verify in one place.",
+            })}
+          </p>
         </div>
         <nav aria-label={choose({ bn: "সেবা", en: "Services" })}>
           <h3>{choose({ bn: "সেবা", en: "Services" })}</h3>
@@ -347,9 +330,7 @@ export function SiteFooter({
           {bottomLine ?? (
             <span>
               © {new Date().getFullYear()} DigitalUnion
-              {demo
-                ? choose({ bn: " · সব সনদ DEMO / NOT OFFICIAL", en: " · All certificates are DEMO / NOT OFFICIAL" })
-                : choose({ bn: " · স্মার্ট ইউনিয়ন, স্মার্ট বাংলাদেশ", en: " · Smart Union, Smart Bangladesh" })}
+              {choose({ bn: " · স্মার্ট ইউনিয়ন, স্মার্ট বাংলাদেশ", en: " · Smart Union, Smart Bangladesh" })}
             </span>
           )}
         </div>

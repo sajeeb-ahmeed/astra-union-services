@@ -71,7 +71,7 @@
   padding-inline: 10px;
   font-size: 13px;
 }
-@media (max-width: 700px) {
+@media (max-width: 767px) {
   .public-quick-tasks {
     grid-template-columns: 1fr;
     gap: 8px;

@@ -2,10 +2,11 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
-import { workspacePage } from "./fixtures/workspace-nav.js";
+import { workspacePage, goToWorkspacePage } from "./fixtures/workspace-nav.js";
 import { chromium, type Browser, type Page } from "playwright";
 import { demoPayloads } from "@astra/shared-schemas";
 import { signOut } from "./fixtures/session.js";
+import { fillApplicationForm } from "./fixtures/fill-form.js";
 const origin = "http://127.0.0.1:5173";
 async function browserInstance(): Promise<Browser> {
   const local = path.join(process.env.LOCALAPPDATA || "", "ms-playwright");
@@ -30,7 +31,30 @@ async function login(page: Page, email: string, password = "Demo-Phase1!") {
   await page.getByRole("button", { name: "Sign out", exact: true }).waitFor();
 }
 async function nav(page: Page, name: RegExp) {
-  await workspacePage(page, name).click();
+  await goToWorkspacePage(page, name);
+}
+// UIUX-FIX-01: applications run through the guided flow; drafts are saved from its review step.
+async function completeFees(page: Page) {
+  const next = page.getByRole("button", { name: "Next: review and submit" });
+  try {
+    await page.waitForFunction(
+      () => !(document.querySelector(".ax-flow-actions button:last-child") as HTMLButtonElement)?.disabled,
+      undefined,
+      { timeout: 8000 },
+    );
+    return next;
+  } catch {}
+  const language = page.locator("#order-language");
+  if (!(await language.inputValue())) await language.selectOption("bn");
+  const review = page.getByRole("button", { name: "Review fees" });
+  if (await review.count()) await review.click();
+  const accept = page.locator(".ax-flow input[type=checkbox]").last();
+  await accept.waitFor();
+  await accept.check();
+  await page.waitForFunction(
+    () => !(document.querySelector(".ax-flow-actions button:last-child") as HTMLButtonElement)?.disabled,
+  );
+  return next;
 }
 async function request(
   page: Page,
@@ -492,8 +516,8 @@ test(
         await page.locator(`#signup-geo-${level} option[value="${code}"]`).waitFor({ state: "attached" });
         await page.locator(`#signup-geo-${level}`).selectOption(code);
       }
-      await page.getByRole("button", { name: "Use a preview office", exact: true }).click();
-      const alphaOption = page.locator("#signup-office option").filter({ hasText: "Demo Alpha Union" });
+      await page.getByRole("button", { name: "Register with this office", exact: true }).click();
+      const alphaOption = page.locator("#signup-office option").filter({ hasText: "Alpha Union" });
       await alphaOption.waitFor({ state: "attached" });
       const alphaId = await alphaOption.getAttribute("value");
       assert.ok(alphaId);
@@ -520,25 +544,28 @@ test(
       await login(page, email, password);
       await nav(page, /Service catalog|সেবার তালিকা/);
       await page.getByRole("button", { name: /^01.*/ }).click();
+      await page.locator(".ax-citizen input").first().check();
       await page
-        .getByLabel("Citizen", { exact: true })
-        .selectOption({ index: 1 });
-      await page
-        .getByRole("button", { name: "Fill synthetic example", exact: true })
+        .getByRole("button", { name: "Next: application form", exact: true })
         .click();
+      await fillApplicationForm(page, demoPayloads[1]);
+      await page
+        .getByRole("button", { name: "Next: fees and delivery", exact: true })
+        .click();
+      await (await completeFees(page)).click();
       const saved = page.waitForResponse(
         (r) =>
           r.url().endsWith("/applications") && r.request().method() === "POST",
       );
       await page
-        .getByRole("button", { name: "Save draft application", exact: true })
+        .getByRole("button", { name: "Save as draft only", exact: true })
         .click();
       const response = await saved;
       assert.equal(response.status(), 201, await response.text());
       const application = await response.json();
       assert.equal(application.serviceNo, 1);
       await page
-        .getByText("Draft saved. Open the draft and submit it when ready.", { exact: true })
+        .getByText("The application is saved as a draft; it is not submitted yet.", { exact: true })
         .waitFor();
       assert.equal(
         await page.evaluate(
@@ -591,7 +618,7 @@ test(
       publicPage = await publicContext.newPage();
     await staffContext.addInitScript(() => { if (!localStorage.getItem("astra.language")) localStorage.setItem("astra.language", "en"); });
     try {
-      await login(staff, "staff@alpha.demo.test");
+      await login(staff, "staff@alpha.local.test");
       const citizenList = await request(staff, "/citizens");
       const citizens = Array.isArray(citizenList.data)
         ? citizenList.data
@@ -616,7 +643,7 @@ test(
       );
       // Phase W: no secretary review — the Chairman approves the submitted
       // application and his approval issues the certificate.
-      await login(approver, "approver@alpha.demo.test");
+      await login(approver, "approver@alpha.local.test");
       assert.equal(
         (
           await request(

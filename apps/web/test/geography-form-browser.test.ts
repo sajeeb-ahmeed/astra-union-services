@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
-import { workspacePage } from "./fixtures/workspace-nav.js";
+import { workspacePage, goToWorkspacePage } from "./fixtures/workspace-nav.js";
 import { chromium, type Browser } from "playwright";
 const origin = "http://127.0.0.1:5173";
 async function browserInstance(): Promise<Browser> {
@@ -32,7 +32,7 @@ test(
       await page.goto(`${origin}/login`);
       await page
         .getByLabel("Email", { exact: true })
-        .fill("staff@alpha.demo.test");
+        .fill("staff@alpha.local.test");
       await page.getByLabel("Password", { exact: true }).fill("Demo-Phase1!");
       await page
         .locator(".login-form")
@@ -44,13 +44,14 @@ test(
       page.on("console", (message) => {
         if (message.type() === "error") errors.push(message.text());
       });
-      await workspacePage(page, "services").click();
-      await page
-        .locator("#applicant option:not([value=''])")
-        .first()
-        .waitFor({ state: "attached" });
-      await page.locator("#applicant").selectOption({ index: 1 });
+      await goToWorkspacePage(page, "services");
+      // UIUX-FIX-01: the catalog launches the guided flow; the form (with its geography
+      // cascades) lives on the flow's form step after the citizen step.
       await page.locator("button.service", { hasText: /^36/ }).click();
+      await page.locator(".ax-citizen input").first().check();
+      await page
+        .getByRole("button", { name: "Next: application form", exact: true })
+        .click();
       const form = page.getByTestId("service-application-form");
       await form.waitFor();
       const kind = form.locator("[data-field-path='noc_org_add_type']");

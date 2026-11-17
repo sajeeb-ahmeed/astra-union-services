@@ -168,7 +168,7 @@ export function AdditionalWorkspace({
       )}
       {tx(
         message && (
-          <div className="notice" role="status">
+          <div className="notice success" role="status">
             {tx(message)}
           </div>
         ),
@@ -354,7 +354,7 @@ export function AdditionalWorkspace({
               <h2>{t("তথ্য প্রিন্ট / Print requests")}</h2>
               <p>
                 {t(
-                  "Generate a private copy from saved citizen details. Holding values and witness statements are supplied by the applicant. Copies are marked DEMO and do not assess tax or certify a legal statement.",
+                  "Generate a private copy from saved citizen details. Holding values and witness statements are supplied by the applicant.",
                 )}
               </p>
               <form
@@ -376,7 +376,7 @@ export function AdditionalWorkspace({
               >
                 <div className="actions">
                   <Field
-                    label={t("Find applicant by name or synthetic reference")}
+                    label={t("Find applicant by name or reference")}
                     name="print-applicant-search"
                     value={citizenSearch}
                     onChange={setCitizenSearch}

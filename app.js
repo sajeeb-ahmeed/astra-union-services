@@ -1,41 +1,13 @@
 /**
- * cPanel / Phusion Passenger entry point.
- *
- * cPanel's "Setup Node.js App" starts the application by loading this file
- * (the startup file configured in the panel). The canonical server entry is
- * a TypeScript module (apps/api/src/server.ts) that Node cannot execute
- * directly; the Docker image runs it as:
- *
- *     node --import tsx apps/api/src/server.ts
- *
- * This shim reproduces exactly that: it spawns the same command as a child
- * process, forwards the panel's PORT/HOST environment untouched, relays
- * SIGINT/SIGTERM so Passenger's restarts shut the server down cleanly, and
- * exits with the child's exit code. All configuration comes from the
- * environment variables set in the cPanel panel (see docs/DEPLOY-CPANEL.md
- * and .env.cpanel.example); no settings live in this file.
+ * cPanel / LiteSpeed (lsnode) entry point — in-process, no top-level await.
+ * lsnode loads this file with require() from CommonJS, which rejects
+ * modules whose graph contains top-level await (ERR_REQUIRE_ASYNC_MODULE).
+ * The server is therefore loaded through a plain dynamic import() call.
  */
-import { spawn } from "node:child_process";
-import path from "node:path";
-import { fileURLToPath } from "node:url";
+import { register } from "tsx/esm/api";
 
-const root = path.dirname(fileURLToPath(import.meta.url));
-const child = spawn(
-  process.execPath,
-  ["--import", "tsx", "apps/api/src/server.ts"],
-  { cwd: root, env: process.env, stdio: "inherit" },
-);
-
-for (const signal of ["SIGINT", "SIGTERM"]) {
-  process.on(signal, () => {
-    child.kill(signal);
-  });
-}
-
-child.on("exit", (code, signal) => {
-  if (signal) {
-    process.kill(process.pid, signal);
-  } else {
-    process.exit(code ?? 1);
-  }
+register();
+import("./apps/api/src/server.ts").catch((error) => {
+  console.error(error);
+  process.exit(1);
 });

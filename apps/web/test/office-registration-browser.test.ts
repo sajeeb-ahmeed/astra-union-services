@@ -45,7 +45,7 @@ test(
       await page.waitForURL(`${origin}/register-office`);
 
       const office = page.locator("#office-reg-office");
-      const alpha = office.locator("option", { hasText: "Demo Alpha Union" });
+      const alpha = office.locator("option", { hasText: "Alpha Union" });
       await alpha.waitFor({ state: "attached" });
       await office.selectOption((await alpha.getAttribute("value"))!);
       const post = page.locator("#office-reg-post");

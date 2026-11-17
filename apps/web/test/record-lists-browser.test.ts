@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 import { chromium, type Browser } from "playwright";
-import { workspacePage } from "./fixtures/workspace-nav.js";
+import { workspacePage, goToWorkspacePage } from "./fixtures/workspace-nav.js";
 const origin = "http://127.0.0.1:5173";
 async function browserInstance(): Promise<Browser> {
   const local = path.join(process.env.LOCALAPPDATA || "", "ms-playwright");
@@ -30,11 +30,11 @@ test(
     await page.addInitScript(() => { if (!localStorage.getItem("astra.language")) localStorage.setItem("astra.language", "en"); });
     try {
       await page.goto(`${origin}/login`);
-      await page.getByLabel("Email", { exact: true }).fill("staff@alpha.demo.test");
+      await page.getByLabel("Email", { exact: true }).fill("staff@alpha.local.test");
       await page.getByLabel("Password", { exact: true }).fill("Demo-Phase1!");
       await page.locator(".login-form").getByRole("button", { name: "Sign in", exact: true }).click();
       await page.getByRole("button", { name: "Sign out", exact: true }).waitFor();
-      await workspacePage(page, "Applications").click();
+      await goToWorkspacePage(page, "Applications");
       const count = page.locator(".application-filter-tools [role=status]");
       await count.waitFor();
       const loaded = page.waitForResponse((r) => r.url().includes("/applications?") && r.url().includes("to=2000-01-02"));
