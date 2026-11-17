@@ -253,6 +253,88 @@ test("v7 deceased-subject, members table and authored attestation spot checks", 
   assert.ok(!AUTHORED_ATTESTATION_SERVICES.includes(37));
 });
 
+test("v7 attestation fixes (owner review 17 Nov): income fallbacks, remarriage wording, electricity land slots", () => {
+  // Service 23 (annual income) without an amount: fallback sentence, never empty.
+  const annualBn = render({
+    number: "DEMO-2026-A23",
+    service: { service_no: 23, name_bn: "বাৎসরিক আয় সনদ", name_en: "Annual income certificate" },
+    payload: { delivery_language: "bn" },
+    schema: getServiceSchema(23),
+  });
+  assert.ok(annualBn.includes("তাহার বার্ষিক আয় আবেদনে উল্লিখিত অনুযায়ী।"));
+  const annualEn = render({
+    number: "DEMO-2026-A23E",
+    service: { service_no: 23, name_bn: "বাৎসরিক আয় সনদ", name_en: "Annual income certificate" },
+    payload: { delivery_language: "en" },
+    schema: getServiceSchema(23),
+  });
+  assert.ok(annualEn.includes("Annual income is as stated in the application."));
+  // With an amount, the real sentence still wins and the fallback stays out.
+  const annualWithAmount = render({
+    number: "DEMO-2026-A23A",
+    service: { service_no: 23, name_bn: "বাৎসরিক আয় সনদ", name_en: "Annual income certificate" },
+    payload: { delivery_language: "en", income_info_amount: 240000 },
+    schema: getServiceSchema(23),
+  });
+  assert.ok(annualWithAmount.includes("Annual income is BDT 2,40,000."));
+  assert.ok(!annualWithAmount.includes("as stated in the application"));
+
+  // Service 29 (monthly income) without an amount: fallback sentence, never empty.
+  const monthlyBn = render({
+    number: "DEMO-2026-M29",
+    service: { service_no: 29, name_bn: "মাসিক আয় সনদ", name_en: "Monthly income certificate" },
+    payload: { delivery_language: "bn" },
+    schema: getServiceSchema(29),
+  });
+  assert.ok(monthlyBn.includes("তাহার মাসিক আয় আবেদনে উল্লিখিত অনুযায়ী।"));
+  const monthlyEn = render({
+    number: "DEMO-2026-M29E",
+    service: { service_no: 29, name_bn: "মাসিক আয় সনদ", name_en: "Monthly income certificate" },
+    payload: { delivery_language: "en" },
+    schema: getServiceSchema(29),
+  });
+  assert.ok(monthlyEn.includes("Monthly income is as stated in the application."));
+
+  // Service 13 (remarriage, EN): "remarried to <name>".
+  const remarriage = render({
+    number: "DEMO-2026-R13",
+    service: { service_no: 13, name_bn: "পুনঃবিবাহ সনদ", name_en: "Remarriage certificate" },
+    payload: { delivery_language: "en", application_husband_name_en: "Karim Uddin" },
+    schema: getServiceSchema(13),
+  });
+  assert.ok(remarriage.includes("The person has remarried to Karim Uddin."));
+  assert.ok(!remarriage.includes("has remarried Karim"));
+
+  // Service 6 (electricity): mouza only — no empty khatiyan/daag slots.
+  const elecBn = render({
+    number: "DEMO-2026-E6",
+    service: { service_no: 6, name_bn: "বিদ্যুৎ সংযোগ অনাপত্তি", name_en: "Electricity connection NOC" },
+    payload: { delivery_language: "bn", mouza: "বেলাবো" },
+    schema: getServiceSchema(6),
+  });
+  assert.ok(elecBn.includes("মৌজাঃ বেলাবো"));
+  assert.ok(!elecBn.includes("খতিয়ান"), "no khatiyan slot when absent");
+  assert.ok(!elecBn.includes("দাগ নং"), "no daag slot when absent");
+  const elecEn = render({
+    number: "DEMO-2026-E6E",
+    service: { service_no: 6, name_bn: "বিদ্যুৎ সংযোগ অনাপত্তি", name_en: "Electricity connection NOC" },
+    payload: { delivery_language: "en", mouza: "Belabo" },
+    schema: getServiceSchema(6),
+  });
+  assert.ok(elecEn.includes("Mouza: Belabo"));
+  assert.ok(!elecEn.includes("Khatiyan"), "no khatiyan slot when absent");
+  assert.ok(!elecEn.includes("Daag"), "no daag slot when absent");
+  // With the sub-values present, the full land clause still prints.
+  const elecFull = render({
+    number: "DEMO-2026-E6F",
+    service: { service_no: 6, name_bn: "বিদ্যুৎ সংযোগ অনাপত্তি", name_en: "Electricity connection NOC" },
+    payload: { delivery_language: "bn", mouza: "বেলাবো", khatiyan: "123", daag: "456" },
+    schema: getServiceSchema(6),
+  });
+  assert.ok(elecFull.includes("খতিয়ান নংঃ ১২৩"));
+  assert.ok(elecFull.includes("দাগ নংঃ ৪৫৬"));
+});
+
 test("template 6 remains selectable and byte-stable in shape", () => {
   const html = renderCertificateHtml(
     {
