@@ -173,13 +173,19 @@ export const ATTESTATIONS_BN: Record<number, Attestation> = {
     present(p.authority_delegation_letter_name_bn)
       ? `তাহার দাখিলকৃত ক্ষমতা অর্পণ পত্র অনুযায়ী ${text(p.authority_delegation_letter_name_bn)} তাহার প্রতিনিধি হিসেবে স্বীকৃত।`
       : "তাহার দাখিলকৃত ক্ষমতা অর্পণ পত্র অনুযায়ী মনোনীত ব্যক্তি তাহার প্রতিনিধি হিসেবে স্বীকৃত।",
-  6: (p) =>
-    joinSentences(
+  6: (p) => {
+    // The form schema produces electricity_connection_* keys; the clause must
+    // read those (bare mouza/khatiyan/daag are never produced — LIVEQA2 finding 1).
+    const mouza =
+      text(p.electricity_connection_mouza_name_bn) ||
+      text(p.electricity_connection_mouza_name);
+    return joinSentences(
       "তাহার নামে নতুন বিদ্যুৎ সংযোগ প্রদানের বিষয়ে এই কার্যালয়ের কোনো আপত্তি নাই।",
-      present(p.mouza)
-        ? `জমির বিবরণঃ মৌজাঃ ${text(p.mouza)}${present(p.khatiyan) ? `, খতিয়ান নংঃ ${bnDigits(p.khatiyan)}` : ""}${present(p.daag) ? `, দাগ নংঃ ${bnDigits(p.daag)}` : ""}।`
+      present(mouza)
+        ? `জমির বিবরণঃ মৌজাঃ ${mouza}${present(p.electricity_connection_khatiyan_no) ? `, খতিয়ান নংঃ ${bnDigits(p.electricity_connection_khatiyan_no)}` : ""}${present(p.electricity_connection_daag_no) ? `, দাগ নংঃ ${bnDigits(p.electricity_connection_daag_no)}` : ""}।`
         : "",
-    ),
+    );
+  },
   8: "তিনি রোহিঙ্গা নাগরিক নন; তিনি বাংলাদেশের নাগরিক এবং অত্র এলাকার স্থায়ী বাসিন্দা।",
   9: (p) =>
     joinSentences(
@@ -232,8 +238,8 @@ export const ATTESTATIONS_BN: Record<number, Attestation> = {
   20: (p) =>
     joinSentences(
       "তিনি একজন বীর মুক্তিযোদ্ধা।",
-      present(p.ff_id_no) ? `মুক্তিযোদ্ধা পরিচিতি নংঃ ${bnDigits(p.ff_id_no)}।` : "",
-      present(p.gazette_no) ? `গেজেট নংঃ ${bnDigits(p.gazette_no)}।` : "",
+      present(p.freedom_fighter_id_number) ? `মুক্তিযোদ্ধা পরিচিতি নংঃ ${bnDigits(p.freedom_fighter_id_number)}।` : "",
+      present(p.freedom_fighter_gazette_number) ? `গেজেট নংঃ ${bnDigits(p.freedom_fighter_gazette_number)}।` : "",
     ),
   21: (p) =>
     present(p.farming_activity)
@@ -338,13 +344,17 @@ export const ATTESTATIONS_EN: Record<number, Attestation> = {
     present(p.authority_delegation_letter_name_en ?? p.authority_delegation_letter_name)
       ? `Under the submitted letter of authority, ${text(p.authority_delegation_letter_name_en ?? p.authority_delegation_letter_name)} is recognised as the representative.`
       : "Under the submitted letter of authority, the nominated person is recognised as the representative.",
-  6: (p) =>
-    joinSentences(
+  6: (p) => {
+    const mouza =
+      text(p.electricity_connection_mouza_name) ||
+      text(p.electricity_connection_mouza_name_bn);
+    return joinSentences(
       "This office has no objection to a new electricity connection being provided in this name.",
-      present(p.mouza)
-        ? `Land details: Mouza: ${text(p.mouza)}${present(p.khatiyan) ? `, Khatiyan No: ${text(p.khatiyan)}` : ""}${present(p.daag) ? `, Daag No: ${text(p.daag)}` : ""}.`
+      present(mouza)
+        ? `Land details: Mouza: ${mouza}${present(p.electricity_connection_khatiyan_no) ? `, Khatiyan No: ${text(p.electricity_connection_khatiyan_no)}` : ""}${present(p.electricity_connection_daag_no) ? `, Daag No: ${text(p.electricity_connection_daag_no)}` : ""}.`
         : "",
-    ),
+    );
+  },
   8: "The person is not a Rohingya citizen; the person is a citizen of Bangladesh and a permanent resident of this area.",
   9: (p) =>
     joinSentences(
@@ -392,8 +402,8 @@ export const ATTESTATIONS_EN: Record<number, Attestation> = {
   20: (p) =>
     joinSentences(
       "The person is a valiant freedom fighter.",
-      present(p.ff_id_no) ? `Freedom fighter ID no: ${text(p.ff_id_no)}.` : "",
-      present(p.gazette_no) ? `Gazette no: ${text(p.gazette_no)}.` : "",
+      present(p.freedom_fighter_id_number) ? `Freedom fighter ID no: ${text(p.freedom_fighter_id_number)}.` : "",
+      present(p.freedom_fighter_gazette_number) ? `Gazette no: ${text(p.freedom_fighter_gazette_number)}.` : "",
     ),
   21: (p) =>
     present(p.farming_activity)
