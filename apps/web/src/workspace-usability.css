@@ -145,7 +145,7 @@
 #service-choice {
   scroll-margin-top: 24px;
 }
-@media (max-width: 1100px) {
+@media (max-width: 1279px) {
   .workspace-tasks {
     grid-template-columns: 1fr;
   }
@@ -153,7 +153,7 @@
     min-height: 0;
   }
 }
-@media (max-width: 700px) {
+@media (max-width: 767px) {
   .workspace-welcome {
     padding: 22px 18px;
   }
@@ -167,11 +167,10 @@
   .workspace-jump select {
     margin: 6px 0;
   }
+  /* One phone navigation mechanism: the jump select above. The sidebar nav
+     (legacy row and SidebarNav alike) is desktop/tablet only. */
   .shell aside nav {
-    margin-top: 8px;
-  }
-  .shell aside nav button {
-    padding: 8px 12px;
+    display: none;
   }
   .intake-steps {
     gap: 9px;
@@ -188,5 +187,39 @@
   }
   .application-guidance {
     padding: 16px;
+  }
+}
+
+/* Card-list alternative for the two highest-traffic tables (UIUX-FIX-01 #13):
+   on phones the applications and citizens lists read as stacked cards
+   instead of a sideways-scrolling spreadsheet. WorkspaceApp renders the
+   card list only in the phone layout (matchMedia), so this is display:flex
+   unconditionally and the table data is never duplicated in the DOM. */
+.ax-card-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 20px;
+}
+.ax-card {
+  border: 1px solid #dfe6e1;
+  border-radius: 12px;
+  padding: 14px 16px;
+  background: #fff;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: flex-start;
+}
+.ax-card-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+}
+@media (max-width: 767px) {
+  .table-wrap.responsive-table {
+    display: none;
   }
 }

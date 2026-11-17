@@ -6,11 +6,11 @@ import {
   type PdfInput,
 } from "../src/certificate-template.js";
 
-// ISSUANCE_MODE gate (default "demo"): health reports OFFICIAL and the
-// certificate template drops its DEMO branding only when the variable is
-// exactly "official". The factual honesty lines (not proof of legal
-// identity, not a government-issued document, no government seal) must be
-// present in BOTH modes. Env is restored after every test.
+// ISSUANCE_MODE gate (default "demo"): health reports OFFICIAL only when
+// the variable is exactly "official". Certificate templates carry NO demo
+// branding and NO disclaimer/honesty lines in ANY mode (owner purge,
+// 17 Nov 2026) — the mode now only gates emblem/seal artwork and the
+// certificate-number prefix plumbing. Env is restored after every test.
 let server: ReturnType<typeof app.listen>;
 let base: string;
 
@@ -66,19 +66,23 @@ test("issuance mode: health reports DEMO_ONLY by default and OFFICIAL when gated
   assert.equal(again.mode, "DEMO_ONLY");
 });
 
-test("issuance mode: template 6 certificate keeps the DEMO branding and honesty lines", () => {
+test("issuance mode: template 6 certificate carries no DEMO branding or disclaimer lines in any mode", () => {
   delete process.env.ISSUANCE_MODE;
   const html = renderCertificateHtml(residentInput, qr, 6);
-  assert.ok(html.includes('<div class="watermark">DEMO</div>'));
-  assert.ok(html.includes("DEMO / NOT OFFICIAL"));
-  assert.ok(html.includes("Approved demo details"));
-  assert.ok(html.includes("Verify demo status"));
-  assert.ok(html.includes("approved demonstration application"));
-  assert.ok(html.includes("not proof of legal identity or official authorization"));
-  assert.ok(html.includes("No government seal, signature or identity number"));
+  assert.ok(!html.includes('<div class="watermark">DEMO</div>'));
+  assert.ok(!html.includes("DEMO / NOT OFFICIAL"));
+  assert.ok(!html.includes("Approved demo details"));
+  assert.ok(!html.includes("Verify demo status"));
+  assert.ok(!html.includes("demonstration application"));
+  assert.ok(!html.includes("not proof of legal identity or official authorization"));
+  assert.ok(!html.includes("No government seal, signature or identity number"));
+  assert.ok(!html.includes("NOT AN OFFICIAL GOVERNMENT DOCUMENT"));
+  assert.ok(html.includes("Approved details"));
+  assert.ok(html.includes("Verify status"));
+  assert.ok(html.includes("The details above come from the approved application."));
 });
 
-test("issuance mode: template 6 official certificate drops DEMO branding but keeps the honesty lines", () => {
+test("issuance mode: template 6 official certificate is equally free of DEMO branding and disclaimers", () => {
   process.env.ISSUANCE_MODE = "official";
   try {
     const html = renderCertificateHtml(residentInput, qr, 6);
@@ -86,12 +90,12 @@ test("issuance mode: template 6 official certificate drops DEMO branding but kee
     assert.ok(!html.includes("demo status"));
     assert.ok(!html.includes("demo details"));
     assert.ok(!html.includes("demonstration application"));
-    assert.ok(html.includes("NOT AN OFFICIAL GOVERNMENT DOCUMENT"));
-    assert.ok(html.includes("সরকারি সনদ নয়"));
+    assert.ok(!html.includes("NOT AN OFFICIAL GOVERNMENT DOCUMENT"));
+    assert.ok(!html.includes("সরকারি সনদ নয়"));
+    assert.ok(!html.includes("not proof of legal identity or official authorization"));
+    assert.ok(!html.includes("No government seal, signature or identity number"));
     assert.ok(html.includes("Approved details"));
     assert.ok(html.includes("Verify status"));
-    assert.ok(html.includes("not proof of legal identity or official authorization"));
-    assert.ok(html.includes("No government seal, signature or identity number"));
   } finally {
     delete process.env.ISSUANCE_MODE;
   }

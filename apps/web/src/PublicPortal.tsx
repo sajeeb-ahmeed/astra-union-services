@@ -1,12 +1,13 @@
 import { MobileOtpField, type VerifiedMobile } from "./MobileOtpField.js";
 import { t, tx, choose } from "./i18n.js";
-import { useIsDemo } from "./mode.js";
 import { SiteFooter, SiteHeader } from "./PublicShell.js";
+import { EmptyState } from "./ui/kit.js";
 import React, { Suspense, lazy, useEffect, useRef, useState } from "react";
 // Phase 4c: the witness generator loads only on /witness, keeping the public start-up bundle small.
 const UserGuide = lazy(() => import("./UserGuide.js").then((m) => ({ default: m.UserGuide })));
 const WitnessGenerator = lazy(() => import("./WitnessGenerator.js").then((m) => ({ default: m.WitnessGenerator })));
 import "./public-usability.css";
+import "./public-portal.css";
 // Public pages need names only; canonical metadata parity is checked by the web tests.
 import serviceCatalog from "./public-service-catalog.json" with { type: "json" };
 import { api, items } from "./api.js";
@@ -54,7 +55,7 @@ function RecoveryForm() {
       <h1>{t("অ্যাকাউন্ট পুনরুদ্ধার / Account recovery")}</h1>
       <p>
         {t(
-          "Contact your office administrator using your existing trusted contact channel. After checking the request, they can provide a one-use recovery link valid for 15 minutes. This demonstration does not send OTP, email or SMS. ",
+          "Contact your office administrator using your existing trusted contact channel to recover your account. After checking the request, they can provide a one-use recovery link valid for 15 minutes. ",
         )}
       </p>
       {tx(
@@ -146,7 +147,6 @@ function RecoveryForm() {
   );
 }
 function ApplicationTracking() {
-  const demo = useIsDemo();
   const [id, setId] = useState(""),
     [result, setResult] = useState<any>(null),
     [message, setMessage] = useState(""),
@@ -203,7 +203,6 @@ function ApplicationTracking() {
               {t("Submitted record: ")}
               {tx(String(result.createdAt))}
             </small>
-            {demo && <p className="notice">{t("DEMO / NOT OFFICIAL")}</p>}
           </div>
         ),
       )}
@@ -325,7 +324,6 @@ export function PublicPortal({
   login: React.ReactNode;
   onNavigate?: () => void;
 }) {
-  const demo = useIsDemo();
   const serviceInformationRef = useRef<HTMLElement>(null);
   const initial = location.pathname.split("/")[1] || "home";
   // Phase 1: new public pages deep-link to one service as /services?service=N.
@@ -402,6 +400,12 @@ export function PublicPortal({
     if (page !== "help" || faq.length) return;
     import("./faq.json").then((m) => setFaq(m.default)).catch(() => setFaq([]));
   }, [page]);
+  // UIUX-FIX-01: there is exactly one public homepage — the PublicHome
+  // composition at "/". The portal no longer renders its own home view;
+  // any legacy "home" state redirects there.
+  useEffect(() => {
+    if (page === "home") location.replace("/");
+  }, [page]);
   function nav(next: string) {
     onNavigate?.();
     // Phase 1: "/" is the new public home, outside this legacy component.
@@ -476,10 +480,6 @@ export function PublicPortal({
       void loadNotices(
         Number(new URLSearchParams(location.search).get("page") || 1),
       );
-    if (page === "home")
-      api("/notices?pageSize=6")
-        .then((d) => setNotices(items(d)))
-        .catch(() => setNotices([]));
   }, [page]);
   useEffect(() => {
     if (page !== "register" || !signupGeography.unionCode) {
@@ -637,22 +637,22 @@ export function PublicPortal({
       )}
       {tx(
         !services.length && (
-          <div className="empty-state">
-            <p>{t("এই নামে কোনো সেবা পাওয়া যায়নি। No services match. ")}</p>
-            <p>
-              {choose({
-                bn: "নামের ছোট অংশ বা সেবার নম্বর দিয়ে আবার খুঁজুন।",
-                en: "Try a shorter name or a service number.",
-              })}
-            </p>
-            <button
-              type="button"
-              className="secondary"
-              onClick={clearServiceSearch}
-            >
-              {choose({ bn: "সব সেবা দেখুন", en: "Show all services" })}
-            </button>
-          </div>
+          <EmptyState
+            title={t("এই নামে কোনো সেবা পাওয়া যায়নি। No services match. ")}
+            hint={choose({
+              bn: "নামের ছোট অংশ বা সেবার নম্বর দিয়ে আবার খুঁজুন।",
+              en: "Try a shorter name or a service number.",
+            })}
+            action={
+              <button
+                type="button"
+                className="secondary"
+                onClick={clearServiceSearch}
+              >
+                {choose({ bn: "সব সেবা দেখুন", en: "Show all services" })}
+              </button>
+            }
+          />
         ),
       )}
       {tx(
@@ -687,7 +687,7 @@ export function PublicPortal({
               </li>
               <li>
                 {t(
-                  "Complete the service form and attach requested sample evidence. ",
+                  "Complete the service form and attach the requested documents. ",
                 )}
               </li>
               <li>
@@ -695,15 +695,10 @@ export function PublicPortal({
               </li>
               <li>
                 {t(
-                  "An authorized approver can issue a clearly marked demo document. View status in your account and verify its QR link. ",
+                  "An authorized approver can issue the certificate. View status in your account and verify its QR link. ",
                 )}
               </li>
             </ol>
-            <p className="notice">
-              {t(
-                "These independently authored workflows are demonstrations. Original government requirements, fees, identity checks and official certificate authority are not established by the reference audit. ",
-              )}
-            </p>
             <button onClick={() => nav("login")}>
               {t("Sign in to apply")}
             </button>
@@ -724,7 +719,6 @@ export function PublicPortal({
       <SiteHeader
         current={page === "home" ? "/" : `/${page}`}
         onNavigate={(href) => nav(href === "/" ? "home" : href.slice(1))}
-        bottomNav={false}
         navItems={[
           { href: "/", bn: "হোম", en: "Home" },
           { href: "/services", bn: "নাগরিক সেবা", en: "Services" },
@@ -754,189 +748,6 @@ export function PublicPortal({
         }
       />
       <main id="public-content">
-        {tx(
-          page === "home" && (
-            <>
-              <section className="public-hero">
-                <div className="public-container hero-grid">
-                  <div className="hero-copy">
-                    <span className="eyebrow">
-                      {t("YOUR OFFICE. YOUR SERVICES. ONLINE. ")}
-                    </span>
-                    <h1>
-                      {t("ঘরে বসেই নাগরিক সেবা, ")}
-                      <br />
-                      <em>{t("সহজ ও স্বচ্ছ প্রক্রিয়ায়।")}</em>
-                    </h1>
-                    <p>
-                      {t(
-                        "আবেদন থেকে সনদ যাচাই — ইউনিয়ন পরিষদের ডিজিটাল সেবার প্রতিটি ধাপে আপনার পাশে। ",
-                      )}
-                    </p>
-                    <div className="actions">
-                      <button onClick={() => nav("services")}>
-                        {t("সেবার জন্য আবেদন করুন → ")}
-                      </button>
-                      <button
-                        className="secondary"
-                        onClick={() => nav("offices")}
-                      >
-                        {t("আপনার অফিস খুঁজুন ")}
-                      </button>
-                    </div>
-                    <div
-                      className="public-quick-tasks"
-                      role="group"
-                      aria-label={choose({
-                        bn: "দ্রুত কাজ",
-                        en: "Quick tasks",
-                      })}
-                    >
-                      <button
-                        type="button"
-                        className="public-quick-task"
-                        onClick={() => nav("tracking")}
-                      >
-                        <strong>
-                          {choose({
-                            bn: "আবেদন কোথায় আছে?",
-                            en: "Check application progress",
-                          })}
-                        </strong>
-                        <span>
-                          {choose({
-                            bn: "রেফারেন্স নম্বর দিয়ে অবস্থা দেখুন →",
-                            en: "Use your application reference →",
-                          })}
-                        </span>
-                      </button>
-                      <button
-                        type="button"
-                        className="public-quick-task"
-                        onClick={() => nav("verify")}
-                      >
-                        <strong>
-                          {choose({
-                            bn: "সনদ যাচাই করুন",
-                            en: "Check a certificate",
-                          })}
-                        </strong>
-                        <span>
-                          {choose({
-                            bn: "সনদের যাচাই লিংক ব্যবহার করুন →",
-                            en: "Use its verification link →",
-                          })}
-                        </span>
-                      </button>
-                    </div>
-                  </div>
-                  <div className="hero-login">{tx(login)}</div>
-                </div>
-              </section>
-              <section className="public-container public-section">
-                {tx(servicesView(true))}
-              </section>
-              <section className="process-band">
-                <div className="public-container">
-                  <span className="eyebrow">{t("HOW IT WORKS")}</span>
-                  <h2>{t("চার ধাপেই সেবার আবেদন")}</h2>
-                  <div className="process-grid">
-                    {tx(
-                      [
-                        [
-                          "১",
-                          "নিবন্ধন করুন",
-                          demo
-                            ? "আপনার অফিস নির্বাচন করে ডেমো অ্যাকাউন্ট তৈরি করুন।"
-                            : choose({
-                                bn: "আপনার অফিস নির্বাচন করে অ্যাকাউন্ট তৈরি করুন।",
-                                en: "Choose your office and create your account.",
-                              }),
-                        ],
-                        [
-                          "২",
-                          "আবেদন জমা দিন",
-                          "সেবার তথ্য পূরণ করে প্রয়োজনীয় নথি সংযুক্ত করুন।",
-                        ],
-                        [
-                          "৩",
-                          "অগ্রগতি দেখুন",
-                          "পর্যালোচনা, সংশোধন ও অনুমোদনের অবস্থা জানুন।",
-                        ],
-                        [
-                          "৪",
-                          "সনদ সংগ্রহ করুন",
-                          demo
-                            ? "অনুমোদিত ডেমো সনদ ডাউনলোড ও QR যাচাই করুন।"
-                            : choose({
-                                bn: "অনুমোদিত সনদ ডাউনলোড করুন ও QR দিয়ে যাচাই করুন।",
-                                en: "Download the approved certificate and verify its QR code.",
-                              }),
-                        ],
-                      ].map(([n, title, text]) => (
-                        <div key={n}>
-                          <b>{tx(n)}</b>
-                          <h3>{tx(title)}</h3>
-                          <p>{tx(text)}</p>
-                        </div>
-                      )),
-                    )}
-                  </div>
-                </div>
-              </section>
-              <section className="public-container public-section">
-                <div className="public-section-heading">
-                  <div>
-                    <span className="eyebrow">{t("OFFICE UPDATES")}</span>
-                    <h2>{t("সর্বশেষ বিজ্ঞপ্তি")}</h2>
-                  </div>
-                  <button
-                    className="text-button"
-                    onClick={() => nav("notices")}
-                  >
-                    {t("সব বিজ্ঞপ্তি → ")}
-                  </button>
-                </div>
-                {tx(
-                  notices.length ? (
-                    <div className="notice-grid">
-                      {tx(
-                        notices.slice(0, 3).map((n) => (
-                          <article className="panel" key={n.id}>
-                            <h3>
-                              {choose({
-                                bn: value(n, "titleBn", "title_bn"),
-                                en: value(n, "titleEn", "title_en"),
-                              })}
-                            </h3>
-                            <p>
-                              {choose({
-                                bn: value(n, "bodyBn", "body_bn"),
-                                en: value(n, "bodyEn", "body_en"),
-                              })}
-                            </p>
-                            <small>
-                              {choose({
-                                bn: value(n, "officeBn", "office_bn"),
-                                en: value(n, "officeEn", "office_en"),
-                              })}
-                            </small>
-                          </article>
-                        )),
-                      )}
-                    </div>
-                  ) : (
-                    <p className="empty-state">
-                      {t(
-                        "অফিসের প্রকাশিত বিজ্ঞপ্তি এখানে দেখানো হবে। No published notices at this time. ",
-                      )}
-                    </p>
-                  ),
-                )}
-              </section>
-            </>
-          ),
-        )}
         {tx(
           page !== "home" && (
             <div className="public-container public-section">
@@ -1304,13 +1115,6 @@ export function PublicPortal({
                         )}
                       </p>
                     </header>
-                    {demo && (
-                      <p className="notice preview-disclosure">
-                        {t(
-                          "Public preview: use sample personal information. Identity verification and official certificate authority are not connected; issued documents remain marked DEMO / NOT OFFICIAL. ",
-                        )}
-                      </p>
-                    )}
                     {tx(
                       registered ? (
                         <div role="status" className="registration-success">
@@ -1548,7 +1352,7 @@ export function PublicPortal({
                                             }));
                                           }}
                                         >
-                                          {t("Use a preview office ")}
+                                          {t("Register with this office")}
                                         </button>
                                       ),
                                   )}
@@ -1557,7 +1361,7 @@ export function PublicPortal({
                                       <div className="preview-office-note">
                                         <p>
                                           {t(
-                                            "Preview offices accept sample registrations from any area. They are not verified government offices for your selected location. ",
+                                            "You can complete your registration with this office from any area.",
                                           )}
                                         </p>
                                         <button
@@ -1629,11 +1433,11 @@ export function PublicPortal({
                                   )}
                                 </>
                               ) : (
-                                <p className="empty-state">
-                                  {t(
+                                <EmptyState
+                                  title={t(
                                     "আগে আপনার ইউনিয়ন নির্বাচন করুন / Select your union above to find participating offices. ",
                                   )}
-                                </p>
+                                />
                               ),
                             )}
                           </div>
@@ -1774,7 +1578,7 @@ export function PublicPortal({
                     <h1>{t("সনদ যাচাই করুন")}</h1>
                     <p>
                       {t(
-                        "Enter the complete QR verification link or verification token from a DigitalUnion demo certificate. ",
+                        "Enter the complete QR verification link or verification token from your DigitalUnion certificate. ",
                       )}
                     </p>
                     <form
@@ -1923,47 +1727,27 @@ export function PublicPortal({
               {tx(
                 page === "policies" && (
                   <section className="panel prose">
-                    <h1>
-                      {demo
-                        ? t("ব্যবহারের নীতি / Demo policies")
-                        : choose({ bn: "ব্যবহারের নীতি", en: "Policies" })}
-                    </h1>
-                    <h2>
-                      {demo
-                        ? t("Independent demonstration")
-                        : choose({ bn: "সম্পর্কে", en: "About this service" })}
-                    </h2>
+                    <h1>{choose({ bn: "ব্যবহারের নীতি", en: "Policies" })}</h1>
+                    <h2>{choose({ bn: "সম্পর্কে", en: "About this service" })}</h2>
                     <p>
-                      {demo
-                        ? t(
-                            "DigitalUnion is independently authored software. It is not the reference operator or a government authority. All generated documents are visibly marked DEMO / NOT OFFICIAL. ",
-                          )
-                        : choose({
-                            bn: "DigitalUnion ইউনিয়ন পরিষদের নাগরিক সেবা প্রদানের সফটওয়্যার। এখানে ইস্যু করা সনদ সংশ্লিষ্ট ইউনিয়ন পরিষদের দাপ্তরিক নথি; প্রতিটি সনদের QR কোড বা নম্বর দিয়ে সত্যতা যাচাই করা যায়।",
-                            en: "DigitalUnion is the software Union Parishads use to deliver citizen services. Certificates issued here are the issuing Union Parishad's official documents; every certificate can be checked by its QR code or number.",
-                          })}
+                      {choose({
+                        bn: "DigitalUnion ইউনিয়ন পরিষদের নাগরিক সেবা প্রদানের সফটওয়্যার। এখানে ইস্যু করা সনদ সংশ্লিষ্ট ইউনিয়ন পরিষদের দাপ্তরিক নথি; প্রতিটি সনদের QR কোড বা নম্বর দিয়ে সত্যতা যাচাই করা যায়।",
+                        en: "DigitalUnion is the software Union Parishads use to deliver citizen services. Certificates issued here are the issuing Union Parishad's official documents; every certificate can be checked by its QR code or number.",
+                      })}
                     </p>
                     <h2>{t("Data and privacy")}</h2>
                     <p>
-                      {demo
-                        ? t(
-                            "Use synthetic identities and sample attachments. Application data, private files, document bytes and workflow history are stored in PostgreSQL. Tenant roles control access. Public QR verification excludes names, identity references and application contents. Operational logs and immutable audit entries may persist; do not enter sensitive personal information into this demonstration. ",
-                          )
-                        : choose({
-                            bn: "আবেদনের তথ্য, ব্যক্তিগত ফাইল ও ওয়ার্কফ্লো ইতিহাস নিরাপদে সংরক্ষিত থাকে। অফিসের ভূমিকা অনুযায়ী প্রবেশাধিকার নিয়ন্ত্রিত হয়। পাবলিক QR যাচাইয়ে নাম, পরিচয় নম্বর বা আবেদনের বিষয়বস্তু দেখানো হয় না।",
-                            en: "Application data, private files and workflow history are stored securely. Access is controlled by office roles. Public QR verification never shows names, identity numbers or application contents.",
-                          })}
+                      {choose({
+                        bn: "আবেদনের তথ্য, ব্যক্তিগত ফাইল ও ওয়ার্কফ্লো ইতিহাস নিরাপদে সংরক্ষিত থাকে। অফিসের ভূমিকা অনুযায়ী প্রবেশাধিকার নিয়ন্ত্রিত হয়। পাবলিক QR যাচাইয়ে নাম, পরিচয় নম্বর বা আবেদনের বিষয়বস্তু দেখানো হয় না।",
+                        en: "Application data, private files and workflow history are stored securely. Access is controlled by office roles. Public QR verification never shows names, identity numbers or application contents.",
+                      })}
                     </p>
                     <h2>{t("Commercial and official use")}</h2>
                     <p>
-                      {demo
-                        ? t(
-                            "Subscription and prepaid credits are software accounting demonstrations. Live pricing, payment providers, statutory fees, retention periods, legal privacy terms and official signatory authority require approved configuration and policies before deployment with real citizen data. ",
-                          )
-                        : choose({
-                            bn: "প্রতিটি সেবার ফি সংশ্লিষ্ট অফিসের প্রকাশিত ফি নীতি অনুযায়ী নির্ধারিত হয়। পরিশোধ যাচাইয়ের পরই রসিদ তৈরি হয়; শুধু পেমেন্ট পৃষ্ঠা থেকে ফিরে আসা পরিশোধের প্রমাণ নয়।",
-                            en: "Each service's fee follows the office's published fee policy. A receipt is created only after the payment is verified; returning from a payment page alone is not proof of payment.",
-                          })}
+                      {choose({
+                        bn: "প্রতিটি সেবার ফি সংশ্লিষ্ট অফিসের প্রকাশিত ফি নীতি অনুযায়ী নির্ধারিত হয়। পরিশোধ যাচাইয়ের পরই রসিদ তৈরি হয়; শুধু পেমেন্ট পৃষ্ঠা থেকে ফিরে আসা পরিশোধের প্রমাণ নয়।",
+                        en: "Each service's fee follows the office's published fee policy. A receipt is created only after the payment is verified; returning from a payment page alone is not proof of payment.",
+                      })}
                     </p>
                     <h2>{t("Security and access")}</h2>
                     <p>
@@ -2060,22 +1844,14 @@ export function PublicPortal({
           </>
         }
         bottomLine={
-          demo ? (
-            <>
-              {t("© ")}
-              {tx(new Date().getFullYear())}
-              {t(" DigitalUnion · All certificate output is DEMO / NOT OFFICIAL. ")}
-            </>
-          ) : (
-            <>
-              {t("© ")}
-              {tx(new Date().getFullYear())}{" "}
-              {choose({
-                bn: "DigitalUnion · স্মার্ট ইউনিয়ন, স্মার্ট বাংলাদেশ",
-                en: "DigitalUnion · Smart Union, Smart Bangladesh",
-              })}
-            </>
-          )
+          <>
+            {t("© ")}
+            {tx(new Date().getFullYear())}{" "}
+            {choose({
+              bn: "DigitalUnion · স্মার্ট ইউনিয়ন, স্মার্ট বাংলাদেশ",
+              en: "DigitalUnion · Smart Union, Smart Bangladesh",
+            })}
+          </>
         }
       />
     </div>

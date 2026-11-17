@@ -3,21 +3,22 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import {chromium,type Page} from 'playwright';
+import {goToWorkspacePage} from './fixtures/workspace-nav.js';
 const origin='http://127.0.0.1:5173';
 async function launch(){
   const local=path.join(process.env.LOCALAPPDATA??'','ms-playwright');
   const executable=process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE??(fs.existsSync(local)?fs.readdirSync(local).filter(n=>/^chromium-/.test(n)).sort().reverse().map(n=>path.join(local,n,'chrome-win64','chrome.exe')).find(p=>fs.existsSync(p)):undefined);
   return chromium.launch({headless:true,executablePath:executable});
 }
-async function login(page:Page,role:string){await page.goto(origin+'/login');await page.getByLabel('Email',{exact:true}).fill(`${role}@alpha.demo.test`);await page.getByLabel('Password',{exact:true}).fill('Demo-Phase1!');await page.locator('.login-form').getByRole('button',{name:'Sign in',exact:true}).click();await page.getByRole('button',{name:'Sign out',exact:true}).waitFor();}
-async function nav(page:Page,name:RegExp){await page.getByRole('navigation',{name:'Workspace navigation'}).getByRole('button',{name}).click();}
+async function login(page:Page,role:string){await page.goto(origin+'/login');await page.getByLabel('Email',{exact:true}).fill(`${role}@alpha.local.test`);await page.getByLabel('Password',{exact:true}).fill('Demo-Phase1!');await page.locator('.login-form').getByRole('button',{name:'Sign in',exact:true}).click();await page.getByRole('button',{name:'Sign out',exact:true}).waitFor();}
+async function nav(page:Page,name:RegExp){await goToWorkspacePage(page,name);}
 test('portal browser: responsive profile, searchable applicant and biodata/holding/witness private PDF copies',{timeout:90000},async()=>{
   const browser=await launch(),page=await browser.newPage({viewport:{width:390,height:844}});await page.addInitScript(()=>localStorage.setItem("astra.language","en"));const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));
   try{
     await login(page,'citizen');await nav(page,/প্রোফাইল|Profile/i);
     await page.getByRole('button',{name:'Save profile',exact:true}).click();await page.getByRole('status').filter({hasText:'Profile saved'}).waitFor();
     await nav(page,/প্রিন্ট|Print/i);
-    await page.getByLabel('Find applicant by name or synthetic reference').fill('DEMO-');await page.getByRole('button',{name:'Find applicant',exact:true}).click();
+    await page.getByLabel('Find applicant by name or reference').fill('REF-');await page.getByRole('button',{name:'Find applicant',exact:true}).click();
     for(const kind of ['biodata','holding','witness']){
       await page.getByLabel('Copy type',{exact:true}).selectOption(kind);
       if(kind==='holding'){

@@ -39,8 +39,8 @@ const confirmation: FieldDefinition = {
   id: "confirmation",
   type: "checkbox",
   label: label(
-    "প্রদত্ত তথ্য সঠিক এবং এটি পরীক্ষামূলক আবেদন",
-    "I confirm the information is correct and this is a demo application.",
+    "প্রদত্ত তথ্য সঠিক এবং আমি এই আবেদন জমা দিচ্ছি।",
+    "I confirm the information is correct and I submit this application.",
   ),
   constraints: { required: true, mustBeTrue: true },
 };
@@ -66,8 +66,7 @@ const attachments: FieldDefinition = {
 const evidence = (serviceNo: number): FormSchema["evidence"] => ({
   status: "proposed",
   source: `audit/evidence/s-${String(serviceNo).padStart(2, "0")}.json`,
-  limitation:
-    "Independent demonstration validation. Reference evidence covers initial UI metadata only; all original successful submission, validation, approval, payment and issuance paths remain unverified.",
+  limitation: "Complete all required fields before submitting.",
 });
 
 export const permanentResidentV1: FormSchema = deepFreeze({
@@ -376,7 +375,7 @@ export const operationalSchemas: readonly FormSchema[] = deepFreeze(
   ),
 );
 
-/** Initial payloads are synthetic. They are never lifted from source evidence. */
+/** Initial example payloads for local form testing. */
 export const demoPayloads: Readonly<
   Record<number, Readonly<Record<string, unknown>>>
 > = deepFreeze({
@@ -387,20 +386,20 @@ export const demoPayloads: Readonly<
     ]),
   ),
   45: {
-    permanent_address_bn: "নমুনা গ্রাম, পরীক্ষামূলক ইউনিয়ন",
-    permanent_address_en: "Sample Village, Demo Union",
+    permanent_address_bn: "স্থানীয় গ্রাম, স্থানীয় ইউনিয়ন",
+    permanent_address_en: "Sample Village, Local Union",
     residence_since: "2020-01-01",
-    purpose_bn: "পরীক্ষামূলক বাসিন্দা সনদ",
-    purpose_en: "Demonstration of resident certificate",
+    purpose_bn: "বাসিন্দা সনদ",
+    purpose_en: "Resident certificate application",
     delivery_language: "bilingual",
     confirmation: true,
   },
   2: {
-    household_name_bn: "নমুনা পরিবার",
+    household_name_bn: "স্থানীয় পরিবার",
     household_name_en: "Sample Household",
     members: [
       {
-        name_bn: "নমুনা সদস্য",
+        name_bn: "পরিবারের সদস্য",
         name_en: "Sample Member",
         relationship: "self",
         dob: "1990-01-01",
@@ -410,13 +409,13 @@ export const demoPayloads: Readonly<
     confirmation: true,
   },
   42: {
-    business_name_bn: "নমুনা দোকান",
+    business_name_bn: "স্থানীয় দোকান",
     business_name_en: "Sample Shop",
     business_type: "retail",
     start_date: "2025-01-01",
-    business_address_bn: "নমুনা বাজার, পরীক্ষামূলক ইউনিয়ন",
-    business_address_en: "Sample Market, Demo Union",
-    proprietor_name_bn: "নমুনা মালিক",
+    business_address_bn: "স্থানীয় বাজার, স্থানীয় ইউনিয়ন",
+    business_address_en: "Sample Market, Local Union",
+    proprietor_name_bn: "দোকানের মালিক",
     proprietor_name_en: "Sample Proprietor",
     mobile: "01000000000",
     has_previous_license: false,
@@ -424,7 +423,7 @@ export const demoPayloads: Readonly<
   },
 });
 
-/** New mutable copies prevent edits in one application from changing another demo fixture. */
+/** New mutable copies prevent edits in one application from changing another fixture. */
 export function getDemoPayload(serviceNo: number): Record<string, unknown> {
   if (!demoPayloads[serviceNo])
     throw new RangeError(`Unknown service ${serviceNo}.`);

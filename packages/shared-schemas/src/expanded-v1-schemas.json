@@ -9,7 +9,7 @@
     "evidence": {
       "source": "audit/evidence/s-01.json",
       "status": "proposed",
-      "limitation": "Independent executable demo form. Reference initial field metadata is observed; dropdown choices, normalized payloads, conditions, validation, service decisions and document text are independently proposed. Original successful submission, server validation, approval, payment and issuance remain unverified. No legal eligibility or government verification is inferred."
+      "limitation": "Complete all required fields before submitting."
     },
     "sections": [
       {
@@ -232,8 +232,8 @@
             "id": "confirmation",
             "type": "checkbox",
             "label": {
-              "bn": "প্রদত্ত তথ্য সঠিক এবং এটি পরীক্ষামূলক আবেদন",
-              "en": "I confirm the information is correct and this is a demo application."
+              "bn": "প্রদত্ত তথ্য সঠিক এবং আমি এই আবেদন জমা দিচ্ছি।",
+              "en": "I confirm the information is correct and I submit this application."
             },
             "evidence": {
               "status": "proposed"
@@ -258,7 +258,7 @@
     "evidence": {
       "source": "audit/evidence/s-03.json",
       "status": "proposed",
-      "limitation": "Independent executable demo form. Reference initial field metadata is observed; dropdown choices, normalized payloads, conditions, validation, service decisions and document text are independently proposed. Original successful submission, server validation, approval, payment and issuance remain unverified. No legal eligibility or government verification is inferred."
+      "limitation": "Complete all required fields before submitting."
     },
     "sections": [
       {
@@ -288,8 +288,8 @@
               "minLength": 2
             },
             "description": {
-              "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-              "en": "Field presence is observed; validation and choices are independently defined for this demo."
+              "bn": "",
+              "en": ""
             }
           },
           {
@@ -312,8 +312,8 @@
               "minLength": 2
             },
             "description": {
-              "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-              "en": "Field presence is observed; validation and choices are independently defined for this demo."
+              "bn": "",
+              "en": ""
             }
           },
           {
@@ -336,8 +336,8 @@
               "minLength": 2
             },
             "description": {
-              "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-              "en": "Field presence is observed; validation and choices are independently defined for this demo."
+              "bn": "",
+              "en": ""
             }
           },
           {
@@ -360,8 +360,8 @@
               "minLength": 2
             },
             "description": {
-              "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-              "en": "Field presence is observed; validation and choices are independently defined for this demo."
+              "bn": "",
+              "en": ""
             }
           },
           {
@@ -384,8 +384,8 @@
               "minLength": 2
             },
             "description": {
-              "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-              "en": "Field presence is observed; validation and choices are independently defined for this demo."
+              "bn": "",
+              "en": ""
             }
           },
           {
@@ -408,8 +408,8 @@
               "minLength": 2
             },
             "description": {
-              "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-              "en": "Field presence is observed; validation and choices are independently defined for this demo."
+              "bn": "",
+              "en": ""
             }
           },
           {
@@ -453,8 +453,8 @@
               "required": true
             },
             "description": {
-              "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-              "en": "Field presence is observed; validation and choices are independently defined for this demo."
+              "bn": "",
+              "en": ""
             }
           },
           {
@@ -477,8 +477,8 @@
               "minLength": 2
             },
             "description": {
-              "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-              "en": "Field presence is observed; validation and choices are independently defined for this demo."
+              "bn": "",
+              "en": ""
             }
           },
           {
@@ -501,8 +501,8 @@
               "minLength": 2
             },
             "description": {
-              "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-              "en": "Field presence is observed; validation and choices are independently defined for this demo."
+              "bn": "",
+              "en": ""
             }
           },
           {
@@ -539,16 +539,16 @@
               "required": true
             },
             "description": {
-              "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-              "en": "Field presence is observed; validation and choices are independently defined for this demo."
+              "bn": "",
+              "en": ""
             }
           },
           {
             "id": "warish_info_register_no",
             "type": "text",
             "label": {
-              "bn": "নিবন্ধনের নমুনা নম্বর",
-              "en": "Demo registration reference"
+              "bn": "নিবন্ধনের নম্বর",
+              "en": "Registration reference"
             },
             "evidence": {
               "source": "audit/evidence/s-03.json",
@@ -563,8 +563,8 @@
               "minLength": 2
             },
             "description": {
-              "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-              "en": "Field presence is observed; validation and choices are independently defined for this demo."
+              "bn": "",
+              "en": ""
             }
           },
           {
@@ -585,8 +585,8 @@
               "required": true
             },
             "description": {
-              "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-              "en": "Field presence is observed; validation and choices are independently defined for this demo."
+              "bn": "",
+              "en": ""
             }
           },
           {
@@ -631,16 +631,16 @@
                   "required": true
                 },
                 "description": {
-                  "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-                  "en": "Field presence is observed; validation and choices are independently defined for this demo."
+                  "bn": "",
+                  "en": ""
                 }
               },
               {
                 "id": "warish_heir_nid",
                 "type": "text",
                 "label": {
-                  "bn": "পরিচয় নথির নমুনা পরিচিতি",
-                  "en": "Demo identity reference"
+                  "bn": "পরিচয় নথির পরিচিতি",
+                  "en": "Identity reference"
                 },
                 "evidence": {
                   "source": "audit/evidence/s-03.json",
@@ -655,8 +655,8 @@
                   "minLength": 2
                 },
                 "description": {
-                  "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-                  "en": "Field presence is observed; validation and choices are independently defined for this demo."
+                  "bn": "",
+                  "en": ""
                 },
                 "visibleWhen": {
                   "field": "warish_heir_age_flag",
@@ -681,8 +681,8 @@
                   "required": true
                 },
                 "description": {
-                  "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-                  "en": "Field presence is observed; validation and choices are independently defined for this demo."
+                  "bn": "",
+                  "en": ""
                 }
               },
               {
@@ -747,8 +747,8 @@
                   "required": true
                 },
                 "description": {
-                  "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-                  "en": "Field presence is observed; validation and choices are independently defined for this demo."
+                  "bn": "",
+                  "en": ""
                 }
               },
               {
@@ -771,8 +771,8 @@
                   "minLength": 2
                 },
                 "description": {
-                  "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-                  "en": "Field presence is observed; validation and choices are independently defined for this demo."
+                  "bn": "",
+                  "en": ""
                 }
               },
               {
@@ -795,8 +795,8 @@
                   "minLength": 2
                 },
                 "description": {
-                  "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-                  "en": "Field presence is observed; validation and choices are independently defined for this demo."
+                  "bn": "",
+                  "en": ""
                 }
               },
               {
@@ -819,8 +819,8 @@
                   "minLength": 2
                 },
                 "description": {
-                  "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-                  "en": "Field presence is observed; validation and choices are independently defined for this demo."
+                  "bn": "",
+                  "en": ""
                 }
               },
               {
@@ -843,8 +843,8 @@
                   "maxLength": 11
                 },
                 "description": {
-                  "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-                  "en": "Field presence is observed; validation and choices are independently defined for this demo."
+                  "bn": "",
+                  "en": ""
                 }
               },
               {
@@ -867,8 +867,8 @@
                   "minLength": 2
                 },
                 "description": {
-                  "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-                  "en": "Field presence is observed; validation and choices are independently defined for this demo."
+                  "bn": "",
+                  "en": ""
                 }
               },
               {
@@ -891,8 +891,8 @@
                   "minLength": 2
                 },
                 "description": {
-                  "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-                  "en": "Field presence is observed; validation and choices are independently defined for this demo."
+                  "bn": "",
+                  "en": ""
                 }
               },
               {
@@ -1102,8 +1102,8 @@
             "id": "confirmation",
             "type": "checkbox",
             "label": {
-              "bn": "প্রদত্ত তথ্য সঠিক এবং এটি পরীক্ষামূলক আবেদন",
-              "en": "I confirm the information is correct and this is a demo application."
+              "bn": "প্রদত্ত তথ্য সঠিক এবং আমি এই আবেদন জমা দিচ্ছি।",
+              "en": "I confirm the information is correct and I submit this application."
             },
             "evidence": {
               "status": "proposed"
@@ -1128,7 +1128,7 @@
     "evidence": {
       "source": "audit/evidence/s-04.json",
       "status": "proposed",
-      "limitation": "Independent executable demo form. Reference initial field metadata is observed; dropdown choices, normalized payloads, conditions, validation, service decisions and document text are independently proposed. Original successful submission, server validation, approval, payment and issuance remain unverified. No legal eligibility or government verification is inferred."
+      "limitation": "Complete all required fields before submitting."
     },
     "sections": [
       {
@@ -1158,8 +1158,8 @@
               "minLength": 2
             },
             "description": {
-              "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-              "en": "Field presence is observed; validation and choices are independently defined for this demo."
+              "bn": "",
+              "en": ""
             }
           },
           {
@@ -1182,8 +1182,8 @@
               "minLength": 2
             },
             "description": {
-              "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-              "en": "Field presence is observed; validation and choices are independently defined for this demo."
+              "bn": "",
+              "en": ""
             }
           },
           {
@@ -1206,8 +1206,8 @@
               "minLength": 2
             },
             "description": {
-              "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-              "en": "Field presence is observed; validation and choices are independently defined for this demo."
+              "bn": "",
+              "en": ""
             }
           },
           {
@@ -1230,8 +1230,8 @@
               "minLength": 2
             },
             "description": {
-              "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-              "en": "Field presence is observed; validation and choices are independently defined for this demo."
+              "bn": "",
+              "en": ""
             }
           },
           {
@@ -1254,8 +1254,8 @@
               "minLength": 2
             },
             "description": {
-              "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-              "en": "Field presence is observed; validation and choices are independently defined for this demo."
+              "bn": "",
+              "en": ""
             }
           },
           {
@@ -1278,8 +1278,8 @@
               "minLength": 2
             },
             "description": {
-              "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-              "en": "Field presence is observed; validation and choices are independently defined for this demo."
+              "bn": "",
+              "en": ""
             }
           },
           {
@@ -1323,8 +1323,8 @@
               "required": true
             },
             "description": {
-              "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-              "en": "Field presence is observed; validation and choices are independently defined for this demo."
+              "bn": "",
+              "en": ""
             }
           },
           {
@@ -1347,8 +1347,8 @@
               "minLength": 2
             },
             "description": {
-              "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-              "en": "Field presence is observed; validation and choices are independently defined for this demo."
+              "bn": "",
+              "en": ""
             }
           },
           {
@@ -1371,8 +1371,8 @@
               "minLength": 2
             },
             "description": {
-              "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-              "en": "Field presence is observed; validation and choices are independently defined for this demo."
+              "bn": "",
+              "en": ""
             }
           },
           {
@@ -1393,8 +1393,8 @@
               "required": true
             },
             "description": {
-              "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-              "en": "Field presence is observed; validation and choices are independently defined for this demo."
+              "bn": "",
+              "en": ""
             }
           },
           {
@@ -1415,16 +1415,16 @@
               "required": true
             },
             "description": {
-              "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-              "en": "Field presence is observed; validation and choices are independently defined for this demo."
+              "bn": "",
+              "en": ""
             }
           },
           {
             "id": "warish_info_register_no",
             "type": "text",
             "label": {
-              "bn": "নিবন্ধনের নমুনা নম্বর",
-              "en": "Demo registration reference"
+              "bn": "নিবন্ধনের নম্বর",
+              "en": "Registration reference"
             },
             "evidence": {
               "source": "audit/evidence/s-04.json",
@@ -1439,8 +1439,8 @@
               "minLength": 2
             },
             "description": {
-              "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-              "en": "Field presence is observed; validation and choices are independently defined for this demo."
+              "bn": "",
+              "en": ""
             }
           },
           {
@@ -1505,8 +1505,8 @@
               "required": false
             },
             "description": {
-              "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-              "en": "Field presence is observed; validation and choices are independently defined for this demo."
+              "bn": "",
+              "en": ""
             }
           },
           {
@@ -1551,16 +1551,16 @@
                   "required": true
                 },
                 "description": {
-                  "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-                  "en": "Field presence is observed; validation and choices are independently defined for this demo."
+                  "bn": "",
+                  "en": ""
                 }
               },
               {
                 "id": "warish_heir_nid",
                 "type": "text",
                 "label": {
-                  "bn": "পরিচয় নথির নমুনা পরিচিতি",
-                  "en": "Demo identity reference"
+                  "bn": "পরিচয় নথির পরিচিতি",
+                  "en": "Identity reference"
                 },
                 "evidence": {
                   "source": "audit/evidence/s-04.json",
@@ -1575,8 +1575,8 @@
                   "minLength": 2
                 },
                 "description": {
-                  "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-                  "en": "Field presence is observed; validation and choices are independently defined for this demo."
+                  "bn": "",
+                  "en": ""
                 },
                 "visibleWhen": {
                   "field": "warish_heir_age_flag",
@@ -1601,8 +1601,8 @@
                   "required": true
                 },
                 "description": {
-                  "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-                  "en": "Field presence is observed; validation and choices are independently defined for this demo."
+                  "bn": "",
+                  "en": ""
                 }
               },
               {
@@ -1667,8 +1667,8 @@
                   "required": true
                 },
                 "description": {
-                  "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-                  "en": "Field presence is observed; validation and choices are independently defined for this demo."
+                  "bn": "",
+                  "en": ""
                 }
               },
               {
@@ -1691,8 +1691,8 @@
                   "minLength": 2
                 },
                 "description": {
-                  "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-                  "en": "Field presence is observed; validation and choices are independently defined for this demo."
+                  "bn": "",
+                  "en": ""
                 }
               },
               {
@@ -1715,8 +1715,8 @@
                   "minLength": 2
                 },
                 "description": {
-                  "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-                  "en": "Field presence is observed; validation and choices are independently defined for this demo."
+                  "bn": "",
+                  "en": ""
                 }
               },
               {
@@ -1739,8 +1739,8 @@
                   "minLength": 2
                 },
                 "description": {
-                  "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-                  "en": "Field presence is observed; validation and choices are independently defined for this demo."
+                  "bn": "",
+                  "en": ""
                 }
               },
               {
@@ -1763,8 +1763,8 @@
                   "maxLength": 11
                 },
                 "description": {
-                  "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-                  "en": "Field presence is observed; validation and choices are independently defined for this demo."
+                  "bn": "",
+                  "en": ""
                 }
               },
               {
@@ -1787,8 +1787,8 @@
                   "minLength": 2
                 },
                 "description": {
-                  "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-                  "en": "Field presence is observed; validation and choices are independently defined for this demo."
+                  "bn": "",
+                  "en": ""
                 }
               },
               {
@@ -1811,8 +1811,8 @@
                   "minLength": 2
                 },
                 "description": {
-                  "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-                  "en": "Field presence is observed; validation and choices are independently defined for this demo."
+                  "bn": "",
+                  "en": ""
                 }
               },
               {
@@ -1900,8 +1900,8 @@
                   "required": true
                 },
                 "description": {
-                  "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-                  "en": "Field presence is observed; validation and choices are independently defined for this demo."
+                  "bn": "",
+                  "en": ""
                 }
               },
               {
@@ -1928,8 +1928,8 @@
                   ]
                 },
                 "description": {
-                  "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-                  "en": "Field presence is observed; validation and choices are independently defined for this demo."
+                  "bn": "",
+                  "en": ""
                 }
               }
             ],
@@ -2059,8 +2059,8 @@
             "id": "confirmation",
             "type": "checkbox",
             "label": {
-              "bn": "প্রদত্ত তথ্য সঠিক এবং এটি পরীক্ষামূলক আবেদন",
-              "en": "I confirm the information is correct and this is a demo application."
+              "bn": "প্রদত্ত তথ্য সঠিক এবং আমি এই আবেদন জমা দিচ্ছি।",
+              "en": "I confirm the information is correct and I submit this application."
             },
             "evidence": {
               "status": "proposed"
@@ -2085,7 +2085,7 @@
     "evidence": {
       "source": "audit/evidence/s-05.json",
       "status": "proposed",
-      "limitation": "Independent executable demo form. Reference initial field metadata is observed; dropdown choices, normalized payloads, conditions, validation, service decisions and document text are independently proposed. Original successful submission, server validation, approval, payment and issuance remain unverified. No legal eligibility or government verification is inferred."
+      "limitation": "Complete all required fields before submitting."
     },
     "sections": [
       {
@@ -2129,8 +2129,8 @@
               "required": true
             },
             "description": {
-              "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-              "en": "Field presence is observed; validation and choices are independently defined for this demo."
+              "bn": "",
+              "en": ""
             }
           },
           {
@@ -2174,8 +2174,8 @@
               "required": true
             },
             "description": {
-              "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-              "en": "Field presence is observed; validation and choices are independently defined for this demo."
+              "bn": "",
+              "en": ""
             }
           },
           {
@@ -2198,8 +2198,8 @@
               "minLength": 2
             },
             "description": {
-              "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-              "en": "Field presence is observed; validation and choices are independently defined for this demo."
+              "bn": "",
+              "en": ""
             }
           },
           {
@@ -2222,8 +2222,8 @@
               "minLength": 2
             },
             "description": {
-              "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-              "en": "Field presence is observed; validation and choices are independently defined for this demo."
+              "bn": "",
+              "en": ""
             }
           },
           {
@@ -2246,8 +2246,8 @@
               "minLength": 2
             },
             "description": {
-              "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-              "en": "Field presence is observed; validation and choices are independently defined for this demo."
+              "bn": "",
+              "en": ""
             }
           },
           {
@@ -2270,8 +2270,8 @@
               "minLength": 2
             },
             "description": {
-              "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-              "en": "Field presence is observed; validation and choices are independently defined for this demo."
+              "bn": "",
+              "en": ""
             }
           },
           {
@@ -2316,16 +2316,16 @@
                   "required": true
                 },
                 "description": {
-                  "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-                  "en": "Field presence is observed; validation and choices are independently defined for this demo."
+                  "bn": "",
+                  "en": ""
                 }
               },
               {
                 "id": "warish_heir_nid",
                 "type": "text",
                 "label": {
-                  "bn": "পরিচয় নথির নমুনা পরিচিতি",
-                  "en": "Demo identity reference"
+                  "bn": "পরিচয় নথির পরিচিতি",
+                  "en": "Identity reference"
                 },
                 "evidence": {
                   "source": "audit/evidence/s-05.json",
@@ -2340,8 +2340,8 @@
                   "minLength": 2
                 },
                 "description": {
-                  "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-                  "en": "Field presence is observed; validation and choices are independently defined for this demo."
+                  "bn": "",
+                  "en": ""
                 },
                 "visibleWhen": {
                   "field": "warish_heir_age_flag",
@@ -2366,8 +2366,8 @@
                   "required": true
                 },
                 "description": {
-                  "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-                  "en": "Field presence is observed; validation and choices are independently defined for this demo."
+                  "bn": "",
+                  "en": ""
                 }
               },
               {
@@ -2432,8 +2432,8 @@
                   "required": true
                 },
                 "description": {
-                  "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-                  "en": "Field presence is observed; validation and choices are independently defined for this demo."
+                  "bn": "",
+                  "en": ""
                 }
               },
               {
@@ -2456,8 +2456,8 @@
                   "minLength": 2
                 },
                 "description": {
-                  "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-                  "en": "Field presence is observed; validation and choices are independently defined for this demo."
+                  "bn": "",
+                  "en": ""
                 }
               },
               {
@@ -2480,8 +2480,8 @@
                   "minLength": 2
                 },
                 "description": {
-                  "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-                  "en": "Field presence is observed; validation and choices are independently defined for this demo."
+                  "bn": "",
+                  "en": ""
                 }
               },
               {
@@ -2504,8 +2504,8 @@
                   "minLength": 2
                 },
                 "description": {
-                  "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-                  "en": "Field presence is observed; validation and choices are independently defined for this demo."
+                  "bn": "",
+                  "en": ""
                 }
               },
               {
@@ -2528,8 +2528,8 @@
                   "maxLength": 11
                 },
                 "description": {
-                  "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-                  "en": "Field presence is observed; validation and choices are independently defined for this demo."
+                  "bn": "",
+                  "en": ""
                 }
               },
               {
@@ -2552,8 +2552,8 @@
                   "minLength": 2
                 },
                 "description": {
-                  "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-                  "en": "Field presence is observed; validation and choices are independently defined for this demo."
+                  "bn": "",
+                  "en": ""
                 }
               },
               {
@@ -2576,8 +2576,8 @@
                   "minLength": 2
                 },
                 "description": {
-                  "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-                  "en": "Field presence is observed; validation and choices are independently defined for this demo."
+                  "bn": "",
+                  "en": ""
                 }
               },
               {
@@ -2787,8 +2787,8 @@
             "id": "confirmation",
             "type": "checkbox",
             "label": {
-              "bn": "প্রদত্ত তথ্য সঠিক এবং এটি পরীক্ষামূলক আবেদন",
-              "en": "I confirm the information is correct and this is a demo application."
+              "bn": "প্রদত্ত তথ্য সঠিক এবং আমি এই আবেদন জমা দিচ্ছি।",
+              "en": "I confirm the information is correct and I submit this application."
             },
             "evidence": {
               "status": "proposed"
@@ -2813,7 +2813,7 @@
     "evidence": {
       "source": "audit/evidence/s-06.json",
       "status": "proposed",
-      "limitation": "Independent executable demo form. Reference initial field metadata is observed; dropdown choices, normalized payloads, conditions, validation, service decisions and document text are independently proposed. Original successful submission, server validation, approval, payment and issuance remain unverified. No legal eligibility or government verification is inferred."
+      "limitation": "Complete all required fields before submitting."
     },
     "sections": [
       {
@@ -2864,8 +2864,8 @@
               "required": true
             },
             "description": {
-              "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-              "en": "Field presence is observed; validation and choices are independently defined for this demo."
+              "bn": "",
+              "en": ""
             }
           },
           {
@@ -2888,8 +2888,8 @@
               "minLength": 2
             },
             "description": {
-              "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-              "en": "Field presence is observed; validation and choices are independently defined for this demo."
+              "bn": "",
+              "en": ""
             }
           },
           {
@@ -2912,8 +2912,8 @@
               "minLength": 2
             },
             "description": {
-              "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-              "en": "Field presence is observed; validation and choices are independently defined for this demo."
+              "bn": "",
+              "en": ""
             }
           },
           {
@@ -2936,8 +2936,8 @@
               "minLength": 2
             },
             "description": {
-              "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-              "en": "Field presence is observed; validation and choices are independently defined for this demo."
+              "bn": "",
+              "en": ""
             }
           },
           {
@@ -2960,8 +2960,8 @@
               "minLength": 2
             },
             "description": {
-              "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-              "en": "Field presence is observed; validation and choices are independently defined for this demo."
+              "bn": "",
+              "en": ""
             }
           },
           {
@@ -2984,8 +2984,8 @@
               "minLength": 2
             },
             "description": {
-              "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-              "en": "Field presence is observed; validation and choices are independently defined for this demo."
+              "bn": "",
+              "en": ""
             }
           },
           {
@@ -3152,8 +3152,8 @@
             "id": "confirmation",
             "type": "checkbox",
             "label": {
-              "bn": "প্রদত্ত তথ্য সঠিক এবং এটি পরীক্ষামূলক আবেদন",
-              "en": "I confirm the information is correct and this is a demo application."
+              "bn": "প্রদত্ত তথ্য সঠিক এবং আমি এই আবেদন জমা দিচ্ছি।",
+              "en": "I confirm the information is correct and I submit this application."
             },
             "evidence": {
               "status": "proposed"
@@ -3178,7 +3178,7 @@
     "evidence": {
       "source": "audit/evidence/s-07.json",
       "status": "proposed",
-      "limitation": "Independent executable demo form. Reference initial field metadata is observed; dropdown choices, normalized payloads, conditions, validation, service decisions and document text are independently proposed. Original successful submission, server validation, approval, payment and issuance remain unverified. No legal eligibility or government verification is inferred."
+      "limitation": "Complete all required fields before submitting."
     },
     "sections": [
       {
@@ -3208,8 +3208,8 @@
               "minLength": 2
             },
             "description": {
-              "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-              "en": "Field presence is observed; validation and choices are independently defined for this demo."
+              "bn": "",
+              "en": ""
             }
           },
           {
@@ -3232,8 +3232,8 @@
               "minLength": 2
             },
             "description": {
-              "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-              "en": "Field presence is observed; validation and choices are independently defined for this demo."
+              "bn": "",
+              "en": ""
             }
           },
           {
@@ -3256,8 +3256,8 @@
               "minLength": 2
             },
             "description": {
-              "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-              "en": "Field presence is observed; validation and choices are independently defined for this demo."
+              "bn": "",
+              "en": ""
             }
           },
           {
@@ -3280,8 +3280,8 @@
               "minLength": 2
             },
             "description": {
-              "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-              "en": "Field presence is observed; validation and choices are independently defined for this demo."
+              "bn": "",
+              "en": ""
             }
           },
           {
@@ -3304,8 +3304,8 @@
               "minLength": 2
             },
             "description": {
-              "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-              "en": "Field presence is observed; validation and choices are independently defined for this demo."
+              "bn": "",
+              "en": ""
             }
           },
           {
@@ -3328,8 +3328,8 @@
               "minLength": 2
             },
             "description": {
-              "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-              "en": "Field presence is observed; validation and choices are independently defined for this demo."
+              "bn": "",
+              "en": ""
             }
           },
           {
@@ -3352,8 +3352,8 @@
               "minLength": 2
             },
             "description": {
-              "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-              "en": "Field presence is observed; validation and choices are independently defined for this demo."
+              "bn": "",
+              "en": ""
             }
           },
           {
@@ -3376,8 +3376,8 @@
               "minLength": 2
             },
             "description": {
-              "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-              "en": "Field presence is observed; validation and choices are independently defined for this demo."
+              "bn": "",
+              "en": ""
             }
           },
           {
@@ -3400,8 +3400,8 @@
               "minLength": 2
             },
             "description": {
-              "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-              "en": "Field presence is observed; validation and choices are independently defined for this demo."
+              "bn": "",
+              "en": ""
             }
           },
           {
@@ -3424,8 +3424,8 @@
               "minLength": 2
             },
             "description": {
-              "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-              "en": "Field presence is observed; validation and choices are independently defined for this demo."
+              "bn": "",
+              "en": ""
             }
           },
           {
@@ -3448,8 +3448,8 @@
               "minLength": 2
             },
             "description": {
-              "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-              "en": "Field presence is observed; validation and choices are independently defined for this demo."
+              "bn": "",
+              "en": ""
             }
           },
           {
@@ -3472,8 +3472,8 @@
               "minLength": 2
             },
             "description": {
-              "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-              "en": "Field presence is observed; validation and choices are independently defined for this demo."
+              "bn": "",
+              "en": ""
             }
           },
           {
@@ -3494,8 +3494,8 @@
               "required": true
             },
             "description": {
-              "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-              "en": "Field presence is observed; validation and choices are independently defined for this demo."
+              "bn": "",
+              "en": ""
             }
           },
           {
@@ -3516,16 +3516,16 @@
               "required": true
             },
             "description": {
-              "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-              "en": "Field presence is observed; validation and choices are independently defined for this demo."
+              "bn": "",
+              "en": ""
             }
           },
           {
             "id": "dead_info_register_no",
             "type": "text",
             "label": {
-              "bn": "নিবন্ধনের নমুনা নম্বর",
-              "en": "Demo registration reference"
+              "bn": "নিবন্ধনের নম্বর",
+              "en": "Registration reference"
             },
             "evidence": {
               "source": "audit/evidence/s-07.json",
@@ -3540,8 +3540,8 @@
               "minLength": 2
             },
             "description": {
-              "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-              "en": "Field presence is observed; validation and choices are independently defined for this demo."
+              "bn": "",
+              "en": ""
             }
           },
           {
@@ -3606,8 +3606,8 @@
               "required": false
             },
             "description": {
-              "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-              "en": "Field presence is observed; validation and choices are independently defined for this demo."
+              "bn": "",
+              "en": ""
             }
           },
           {
@@ -3672,8 +3672,8 @@
               "required": true
             },
             "description": {
-              "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-              "en": "Field presence is observed; validation and choices are independently defined for this demo."
+              "bn": "",
+              "en": ""
             }
           },
           {
@@ -3718,8 +3718,8 @@
                   "required": true
                 },
                 "description": {
-                  "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-                  "en": "Field presence is observed; validation and choices are independently defined for this demo."
+                  "bn": "",
+                  "en": ""
                 }
               },
               {
@@ -3746,8 +3746,8 @@
                   ]
                 },
                 "description": {
-                  "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-                  "en": "Field presence is observed; validation and choices are independently defined for this demo."
+                  "bn": "",
+                  "en": ""
                 }
               }
             ],
@@ -3877,8 +3877,8 @@
             "id": "confirmation",
             "type": "checkbox",
             "label": {
-              "bn": "প্রদত্ত তথ্য সঠিক এবং এটি পরীক্ষামূলক আবেদন",
-              "en": "I confirm the information is correct and this is a demo application."
+              "bn": "প্রদত্ত তথ্য সঠিক এবং আমি এই আবেদন জমা দিচ্ছি।",
+              "en": "I confirm the information is correct and I submit this application."
             },
             "evidence": {
               "status": "proposed"
@@ -3903,7 +3903,7 @@
     "evidence": {
       "source": "audit/evidence/s-08.json",
       "status": "proposed",
-      "limitation": "Independent executable demo form. Reference initial field metadata is observed; dropdown choices, normalized payloads, conditions, validation, service decisions and document text are independently proposed. Original successful submission, server validation, approval, payment and issuance remain unverified. No legal eligibility or government verification is inferred."
+      "limitation": "Complete all required fields before submitting."
     },
     "sections": [
       {
@@ -3933,8 +3933,8 @@
               "minLength": 2
             },
             "description": {
-              "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-              "en": "Field presence is observed; validation and choices are independently defined for this demo."
+              "bn": "",
+              "en": ""
             }
           },
           {
@@ -3957,8 +3957,8 @@
               "minLength": 2
             },
             "description": {
-              "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-              "en": "Field presence is observed; validation and choices are independently defined for this demo."
+              "bn": "",
+              "en": ""
             }
           },
           {
@@ -3981,8 +3981,8 @@
               "minLength": 2
             },
             "description": {
-              "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-              "en": "Field presence is observed; validation and choices are independently defined for this demo."
+              "bn": "",
+              "en": ""
             }
           },
           {
@@ -4005,8 +4005,8 @@
               "minLength": 2
             },
             "description": {
-              "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-              "en": "Field presence is observed; validation and choices are independently defined for this demo."
+              "bn": "",
+              "en": ""
             }
           },
           {
@@ -4051,16 +4051,16 @@
                   "required": true
                 },
                 "description": {
-                  "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-                  "en": "Field presence is observed; validation and choices are independently defined for this demo."
+                  "bn": "",
+                  "en": ""
                 }
               },
               {
                 "id": "warish_heir_nid",
                 "type": "text",
                 "label": {
-                  "bn": "পরিচয় নথির নমুনা পরিচিতি",
-                  "en": "Demo identity reference"
+                  "bn": "পরিচয় নথির পরিচিতি",
+                  "en": "Identity reference"
                 },
                 "evidence": {
                   "source": "audit/evidence/s-08.json",
@@ -4075,8 +4075,8 @@
                   "minLength": 2
                 },
                 "description": {
-                  "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-                  "en": "Field presence is observed; validation and choices are independently defined for this demo."
+                  "bn": "",
+                  "en": ""
                 },
                 "visibleWhen": {
                   "field": "warish_heir_age_flag",
@@ -4101,8 +4101,8 @@
                   "required": true
                 },
                 "description": {
-                  "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-                  "en": "Field presence is observed; validation and choices are independently defined for this demo."
+                  "bn": "",
+                  "en": ""
                 }
               },
               {
@@ -4167,8 +4167,8 @@
                   "required": true
                 },
                 "description": {
-                  "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-                  "en": "Field presence is observed; validation and choices are independently defined for this demo."
+                  "bn": "",
+                  "en": ""
                 }
               },
               {
@@ -4191,8 +4191,8 @@
                   "minLength": 2
                 },
                 "description": {
-                  "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-                  "en": "Field presence is observed; validation and choices are independently defined for this demo."
+                  "bn": "",
+                  "en": ""
                 }
               },
               {
@@ -4215,8 +4215,8 @@
                   "minLength": 2
                 },
                 "description": {
-                  "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-                  "en": "Field presence is observed; validation and choices are independently defined for this demo."
+                  "bn": "",
+                  "en": ""
                 }
               },
               {
@@ -4239,8 +4239,8 @@
                   "minLength": 2
                 },
                 "description": {
-                  "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-                  "en": "Field presence is observed; validation and choices are independently defined for this demo."
+                  "bn": "",
+                  "en": ""
                 }
               },
               {
@@ -4263,8 +4263,8 @@
                   "maxLength": 11
                 },
                 "description": {
-                  "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-                  "en": "Field presence is observed; validation and choices are independently defined for this demo."
+                  "bn": "",
+                  "en": ""
                 }
               },
               {
@@ -4287,8 +4287,8 @@
                   "minLength": 2
                 },
                 "description": {
-                  "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-                  "en": "Field presence is observed; validation and choices are independently defined for this demo."
+                  "bn": "",
+                  "en": ""
                 }
               },
               {
@@ -4311,8 +4311,8 @@
                   "minLength": 2
                 },
                 "description": {
-                  "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-                  "en": "Field presence is observed; validation and choices are independently defined for this demo."
+                  "bn": "",
+                  "en": ""
                 }
               },
               {
@@ -4522,8 +4522,8 @@
             "id": "confirmation",
             "type": "checkbox",
             "label": {
-              "bn": "প্রদত্ত তথ্য সঠিক এবং এটি পরীক্ষামূলক আবেদন",
-              "en": "I confirm the information is correct and this is a demo application."
+              "bn": "প্রদত্ত তথ্য সঠিক এবং আমি এই আবেদন জমা দিচ্ছি।",
+              "en": "I confirm the information is correct and I submit this application."
             },
             "evidence": {
               "status": "proposed"
@@ -4548,7 +4548,7 @@
     "evidence": {
       "source": "audit/evidence/s-09.json",
       "status": "proposed",
-      "limitation": "Independent executable demo form. Reference initial field metadata is observed; dropdown choices, normalized payloads, conditions, validation, service decisions and document text are independently proposed. Original successful submission, server validation, approval, payment and issuance remain unverified. No legal eligibility or government verification is inferred."
+      "limitation": "Complete all required fields before submitting."
     },
     "sections": [
       {
@@ -4562,8 +4562,8 @@
             "id": "voter_application_no",
             "type": "text",
             "label": {
-              "bn": "ভোটার আবেদনের নমুনা নম্বর",
-              "en": "Demo voter application reference"
+              "bn": "ভোটার আবেদনের নম্বর",
+              "en": "Voter application reference"
             },
             "evidence": {
               "source": "audit/evidence/s-09.json",
@@ -4578,8 +4578,8 @@
               "minLength": 2
             },
             "description": {
-              "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-              "en": "Field presence is observed; validation and choices are independently defined for this demo."
+              "bn": "",
+              "en": ""
             }
           },
           {
@@ -4624,16 +4624,16 @@
                   "required": true
                 },
                 "description": {
-                  "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-                  "en": "Field presence is observed; validation and choices are independently defined for this demo."
+                  "bn": "",
+                  "en": ""
                 }
               },
               {
                 "id": "warish_heir_nid",
                 "type": "text",
                 "label": {
-                  "bn": "পরিচয় নথির নমুনা পরিচিতি",
-                  "en": "Demo identity reference"
+                  "bn": "পরিচয় নথির পরিচিতি",
+                  "en": "Identity reference"
                 },
                 "evidence": {
                   "source": "audit/evidence/s-09.json",
@@ -4648,8 +4648,8 @@
                   "minLength": 2
                 },
                 "description": {
-                  "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-                  "en": "Field presence is observed; validation and choices are independently defined for this demo."
+                  "bn": "",
+                  "en": ""
                 },
                 "visibleWhen": {
                   "field": "warish_heir_age_flag",
@@ -4674,8 +4674,8 @@
                   "required": true
                 },
                 "description": {
-                  "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-                  "en": "Field presence is observed; validation and choices are independently defined for this demo."
+                  "bn": "",
+                  "en": ""
                 }
               },
               {
@@ -4740,8 +4740,8 @@
                   "required": true
                 },
                 "description": {
-                  "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-                  "en": "Field presence is observed; validation and choices are independently defined for this demo."
+                  "bn": "",
+                  "en": ""
                 }
               },
               {
@@ -4764,8 +4764,8 @@
                   "minLength": 2
                 },
                 "description": {
-                  "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-                  "en": "Field presence is observed; validation and choices are independently defined for this demo."
+                  "bn": "",
+                  "en": ""
                 }
               },
               {
@@ -4788,8 +4788,8 @@
                   "minLength": 2
                 },
                 "description": {
-                  "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-                  "en": "Field presence is observed; validation and choices are independently defined for this demo."
+                  "bn": "",
+                  "en": ""
                 }
               },
               {
@@ -4812,8 +4812,8 @@
                   "minLength": 2
                 },
                 "description": {
-                  "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-                  "en": "Field presence is observed; validation and choices are independently defined for this demo."
+                  "bn": "",
+                  "en": ""
                 }
               },
               {
@@ -4836,8 +4836,8 @@
                   "maxLength": 11
                 },
                 "description": {
-                  "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-                  "en": "Field presence is observed; validation and choices are independently defined for this demo."
+                  "bn": "",
+                  "en": ""
                 }
               },
               {
@@ -4860,8 +4860,8 @@
                   "minLength": 2
                 },
                 "description": {
-                  "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-                  "en": "Field presence is observed; validation and choices are independently defined for this demo."
+                  "bn": "",
+                  "en": ""
                 }
               },
               {
@@ -4884,8 +4884,8 @@
                   "minLength": 2
                 },
                 "description": {
-                  "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-                  "en": "Field presence is observed; validation and choices are independently defined for this demo."
+                  "bn": "",
+                  "en": ""
                 }
               },
               {
@@ -5095,8 +5095,8 @@
             "id": "confirmation",
             "type": "checkbox",
             "label": {
-              "bn": "প্রদত্ত তথ্য সঠিক এবং এটি পরীক্ষামূলক আবেদন",
-              "en": "I confirm the information is correct and this is a demo application."
+              "bn": "প্রদত্ত তথ্য সঠিক এবং আমি এই আবেদন জমা দিচ্ছি।",
+              "en": "I confirm the information is correct and I submit this application."
             },
             "evidence": {
               "status": "proposed"
@@ -5121,7 +5121,7 @@
     "evidence": {
       "source": "audit/evidence/s-10.json",
       "status": "proposed",
-      "limitation": "Independent executable demo form. Reference initial field metadata is observed; dropdown choices, normalized payloads, conditions, validation, service decisions and document text are independently proposed. Original successful submission, server validation, approval, payment and issuance remain unverified. No legal eligibility or government verification is inferred."
+      "limitation": "Complete all required fields before submitting."
     },
     "sections": [
       {
@@ -5325,8 +5325,8 @@
             "id": "confirmation",
             "type": "checkbox",
             "label": {
-              "bn": "প্রদত্ত তথ্য সঠিক এবং এটি পরীক্ষামূলক আবেদন",
-              "en": "I confirm the information is correct and this is a demo application."
+              "bn": "প্রদত্ত তথ্য সঠিক এবং আমি এই আবেদন জমা দিচ্ছি।",
+              "en": "I confirm the information is correct and I submit this application."
             },
             "evidence": {
               "status": "proposed"
@@ -5351,7 +5351,7 @@
     "evidence": {
       "source": "audit/evidence/s-11.json",
       "status": "proposed",
-      "limitation": "Independent executable demo form. Reference initial field metadata is observed; dropdown choices, normalized payloads, conditions, validation, service decisions and document text are independently proposed. Original successful submission, server validation, approval, payment and issuance remain unverified. No legal eligibility or government verification is inferred."
+      "limitation": "Complete all required fields before submitting."
     },
     "sections": [
       {
@@ -5557,8 +5557,8 @@
             "id": "confirmation",
             "type": "checkbox",
             "label": {
-              "bn": "প্রদত্ত তথ্য সঠিক এবং এটি পরীক্ষামূলক আবেদন",
-              "en": "I confirm the information is correct and this is a demo application."
+              "bn": "প্রদত্ত তথ্য সঠিক এবং আমি এই আবেদন জমা দিচ্ছি।",
+              "en": "I confirm the information is correct and I submit this application."
             },
             "evidence": {
               "status": "proposed"
@@ -5583,7 +5583,7 @@
     "evidence": {
       "source": "audit/evidence/s-12.json",
       "status": "proposed",
-      "limitation": "Independent executable demo form. Reference initial field metadata is observed; dropdown choices, normalized payloads, conditions, validation, service decisions and document text are independently proposed. Original successful submission, server validation, approval, payment and issuance remain unverified. No legal eligibility or government verification is inferred."
+      "limitation": "Complete all required fields before submitting."
     },
     "sections": [
       {
@@ -5773,8 +5773,8 @@
             "id": "confirmation",
             "type": "checkbox",
             "label": {
-              "bn": "প্রদত্ত তথ্য সঠিক এবং এটি পরীক্ষামূলক আবেদন",
-              "en": "I confirm the information is correct and this is a demo application."
+              "bn": "প্রদত্ত তথ্য সঠিক এবং আমি এই আবেদন জমা দিচ্ছি।",
+              "en": "I confirm the information is correct and I submit this application."
             },
             "evidence": {
               "status": "proposed"
@@ -5799,7 +5799,7 @@
     "evidence": {
       "source": "audit/evidence/s-13.json",
       "status": "proposed",
-      "limitation": "Independent executable demo form. Reference initial field metadata is observed; dropdown choices, normalized payloads, conditions, validation, service decisions and document text are independently proposed. Original successful submission, server validation, approval, payment and issuance remain unverified. No legal eligibility or government verification is inferred."
+      "limitation": "Complete all required fields before submitting."
     },
     "sections": [
       {
@@ -5829,8 +5829,8 @@
               "minLength": 2
             },
             "description": {
-              "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-              "en": "Field presence is observed; validation and choices are independently defined for this demo."
+              "bn": "",
+              "en": ""
             }
           },
           {
@@ -5853,8 +5853,8 @@
               "minLength": 2
             },
             "description": {
-              "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-              "en": "Field presence is observed; validation and choices are independently defined for this demo."
+              "bn": "",
+              "en": ""
             }
           },
           {
@@ -6021,8 +6021,8 @@
             "id": "confirmation",
             "type": "checkbox",
             "label": {
-              "bn": "প্রদত্ত তথ্য সঠিক এবং এটি পরীক্ষামূলক আবেদন",
-              "en": "I confirm the information is correct and this is a demo application."
+              "bn": "প্রদত্ত তথ্য সঠিক এবং আমি এই আবেদন জমা দিচ্ছি।",
+              "en": "I confirm the information is correct and I submit this application."
             },
             "evidence": {
               "status": "proposed"
@@ -6047,7 +6047,7 @@
     "evidence": {
       "source": "audit/evidence/s-14.json",
       "status": "proposed",
-      "limitation": "Independent executable demo form. Reference initial field metadata is observed; dropdown choices, normalized payloads, conditions, validation, service decisions and document text are independently proposed. Original successful submission, server validation, approval, payment and issuance remain unverified. No legal eligibility or government verification is inferred."
+      "limitation": "Complete all required fields before submitting."
     },
     "sections": [
       {
@@ -6237,8 +6237,8 @@
             "id": "confirmation",
             "type": "checkbox",
             "label": {
-              "bn": "প্রদত্ত তথ্য সঠিক এবং এটি পরীক্ষামূলক আবেদন",
-              "en": "I confirm the information is correct and this is a demo application."
+              "bn": "প্রদত্ত তথ্য সঠিক এবং আমি এই আবেদন জমা দিচ্ছি।",
+              "en": "I confirm the information is correct and I submit this application."
             },
             "evidence": {
               "status": "proposed"
@@ -6263,7 +6263,7 @@
     "evidence": {
       "source": "audit/evidence/s-15.json",
       "status": "proposed",
-      "limitation": "Independent executable demo form. Reference initial field metadata is observed; dropdown choices, normalized payloads, conditions, validation, service decisions and document text are independently proposed. Original successful submission, server validation, approval, payment and issuance remain unverified. No legal eligibility or government verification is inferred."
+      "limitation": "Complete all required fields before submitting."
     },
     "sections": [
       {
@@ -6453,8 +6453,8 @@
             "id": "confirmation",
             "type": "checkbox",
             "label": {
-              "bn": "প্রদত্ত তথ্য সঠিক এবং এটি পরীক্ষামূলক আবেদন",
-              "en": "I confirm the information is correct and this is a demo application."
+              "bn": "প্রদত্ত তথ্য সঠিক এবং আমি এই আবেদন জমা দিচ্ছি।",
+              "en": "I confirm the information is correct and I submit this application."
             },
             "evidence": {
               "status": "proposed"
@@ -6479,7 +6479,7 @@
     "evidence": {
       "source": "audit/evidence/s-16.json",
       "status": "proposed",
-      "limitation": "Independent executable demo form. Reference initial field metadata is observed; dropdown choices, normalized payloads, conditions, validation, service decisions and document text are independently proposed. Original successful submission, server validation, approval, payment and issuance remain unverified. No legal eligibility or government verification is inferred."
+      "limitation": "Complete all required fields before submitting."
     },
     "sections": [
       {
@@ -6683,8 +6683,8 @@
             "id": "confirmation",
             "type": "checkbox",
             "label": {
-              "bn": "প্রদত্ত তথ্য সঠিক এবং এটি পরীক্ষামূলক আবেদন",
-              "en": "I confirm the information is correct and this is a demo application."
+              "bn": "প্রদত্ত তথ্য সঠিক এবং আমি এই আবেদন জমা দিচ্ছি।",
+              "en": "I confirm the information is correct and I submit this application."
             },
             "evidence": {
               "status": "proposed"
@@ -6709,7 +6709,7 @@
     "evidence": {
       "source": "audit/evidence/s-17.json",
       "status": "proposed",
-      "limitation": "Independent executable demo form. Reference initial field metadata is observed; dropdown choices, normalized payloads, conditions, validation, service decisions and document text are independently proposed. Original successful submission, server validation, approval, payment and issuance remain unverified. No legal eligibility or government verification is inferred."
+      "limitation": "Complete all required fields before submitting."
     },
     "sections": [
       {
@@ -6739,8 +6739,8 @@
               "minLength": 2
             },
             "description": {
-              "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-              "en": "Field presence is observed; validation and choices are independently defined for this demo."
+              "bn": "",
+              "en": ""
             }
           },
           {
@@ -6763,8 +6763,8 @@
               "minLength": 2
             },
             "description": {
-              "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-              "en": "Field presence is observed; validation and choices are independently defined for this demo."
+              "bn": "",
+              "en": ""
             }
           },
           {
@@ -6931,8 +6931,8 @@
             "id": "confirmation",
             "type": "checkbox",
             "label": {
-              "bn": "প্রদত্ত তথ্য সঠিক এবং এটি পরীক্ষামূলক আবেদন",
-              "en": "I confirm the information is correct and this is a demo application."
+              "bn": "প্রদত্ত তথ্য সঠিক এবং আমি এই আবেদন জমা দিচ্ছি।",
+              "en": "I confirm the information is correct and I submit this application."
             },
             "evidence": {
               "status": "proposed"
@@ -6957,7 +6957,7 @@
     "evidence": {
       "source": "audit/evidence/s-18.json",
       "status": "proposed",
-      "limitation": "Independent executable demo form. Reference initial field metadata is observed; dropdown choices, normalized payloads, conditions, validation, service decisions and document text are independently proposed. Original successful submission, server validation, approval, payment and issuance remain unverified. No legal eligibility or government verification is inferred."
+      "limitation": "Complete all required fields before submitting."
     },
     "sections": [
       {
@@ -7001,8 +7001,8 @@
               "required": true
             },
             "description": {
-              "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-              "en": "Field presence is observed; validation and choices are independently defined for this demo."
+              "bn": "",
+              "en": ""
             }
           },
           {
@@ -7185,8 +7185,8 @@
             "id": "confirmation",
             "type": "checkbox",
             "label": {
-              "bn": "প্রদত্ত তথ্য সঠিক এবং এটি পরীক্ষামূলক আবেদন",
-              "en": "I confirm the information is correct and this is a demo application."
+              "bn": "প্রদত্ত তথ্য সঠিক এবং আমি এই আবেদন জমা দিচ্ছি।",
+              "en": "I confirm the information is correct and I submit this application."
             },
             "evidence": {
               "status": "proposed"
@@ -7211,7 +7211,7 @@
     "evidence": {
       "source": "audit/evidence/s-19.json",
       "status": "proposed",
-      "limitation": "Independent executable demo form. Reference initial field metadata is observed; dropdown choices, normalized payloads, conditions, validation, service decisions and document text are independently proposed. Original successful submission, server validation, approval, payment and issuance remain unverified. No legal eligibility or government verification is inferred."
+      "limitation": "Complete all required fields before submitting."
     },
     "sections": [
       {
@@ -7255,8 +7255,8 @@
               "required": true
             },
             "description": {
-              "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-              "en": "Field presence is observed; validation and choices are independently defined for this demo."
+              "bn": "",
+              "en": ""
             }
           },
           {
@@ -7300,8 +7300,8 @@
               "required": true
             },
             "description": {
-              "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-              "en": "Field presence is observed; validation and choices are independently defined for this demo."
+              "bn": "",
+              "en": ""
             }
           },
           {
@@ -7324,8 +7324,8 @@
               "minLength": 2
             },
             "description": {
-              "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-              "en": "Field presence is observed; validation and choices are independently defined for this demo."
+              "bn": "",
+              "en": ""
             }
           },
           {
@@ -7348,8 +7348,8 @@
               "minLength": 2
             },
             "description": {
-              "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-              "en": "Field presence is observed; validation and choices are independently defined for this demo."
+              "bn": "",
+              "en": ""
             }
           },
           {
@@ -7516,8 +7516,8 @@
             "id": "confirmation",
             "type": "checkbox",
             "label": {
-              "bn": "প্রদত্ত তথ্য সঠিক এবং এটি পরীক্ষামূলক আবেদন",
-              "en": "I confirm the information is correct and this is a demo application."
+              "bn": "প্রদত্ত তথ্য সঠিক এবং আমি এই আবেদন জমা দিচ্ছি।",
+              "en": "I confirm the information is correct and I submit this application."
             },
             "evidence": {
               "status": "proposed"
@@ -7542,7 +7542,7 @@
     "evidence": {
       "source": "audit/evidence/s-20.json",
       "status": "proposed",
-      "limitation": "Independent executable demo form. Reference initial field metadata is observed; dropdown choices, normalized payloads, conditions, validation, service decisions and document text are independently proposed. Original successful submission, server validation, approval, payment and issuance remain unverified. No legal eligibility or government verification is inferred."
+      "limitation": "Complete all required fields before submitting."
     },
     "sections": [
       {
@@ -7570,8 +7570,8 @@
               "required": true
             },
             "description": {
-              "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-              "en": "Field presence is observed; validation and choices are independently defined for this demo."
+              "bn": "",
+              "en": ""
             }
           },
           {
@@ -7594,8 +7594,8 @@
               "minLength": 2
             },
             "description": {
-              "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-              "en": "Field presence is observed; validation and choices are independently defined for this demo."
+              "bn": "",
+              "en": ""
             },
             "visibleWhen": {
               "field": "other_freedom_fighter",
@@ -7622,8 +7622,8 @@
               "minLength": 2
             },
             "description": {
-              "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-              "en": "Field presence is observed; validation and choices are independently defined for this demo."
+              "bn": "",
+              "en": ""
             },
             "visibleWhen": {
               "field": "other_freedom_fighter",
@@ -7692,8 +7692,8 @@
               "required": true
             },
             "description": {
-              "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-              "en": "Field presence is observed; validation and choices are independently defined for this demo."
+              "bn": "",
+              "en": ""
             },
             "visibleWhen": {
               "field": "other_freedom_fighter",
@@ -7720,8 +7720,8 @@
               "minLength": 2
             },
             "description": {
-              "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-              "en": "Field presence is observed; validation and choices are independently defined for this demo."
+              "bn": "",
+              "en": ""
             }
           },
           {
@@ -7744,8 +7744,8 @@
               "minLength": 2
             },
             "description": {
-              "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-              "en": "Field presence is observed; validation and choices are independently defined for this demo."
+              "bn": "",
+              "en": ""
             }
           },
           {
@@ -7768,8 +7768,8 @@
               "minLength": 2
             },
             "description": {
-              "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-              "en": "Field presence is observed; validation and choices are independently defined for this demo."
+              "bn": "",
+              "en": ""
             }
           },
           {
@@ -7790,8 +7790,8 @@
               "required": false
             },
             "description": {
-              "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-              "en": "Field presence is observed; validation and choices are independently defined for this demo."
+              "bn": "",
+              "en": ""
             }
           },
           {
@@ -7814,8 +7814,8 @@
               "minLength": 2
             },
             "description": {
-              "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-              "en": "Field presence is observed; validation and choices are independently defined for this demo."
+              "bn": "",
+              "en": ""
             }
           },
           {
@@ -7838,8 +7838,8 @@
               "minLength": 2
             },
             "description": {
-              "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-              "en": "Field presence is observed; validation and choices are independently defined for this demo."
+              "bn": "",
+              "en": ""
             }
           },
           {
@@ -7883,8 +7883,8 @@
               "required": true
             },
             "description": {
-              "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-              "en": "Field presence is observed; validation and choices are independently defined for this demo."
+              "bn": "",
+              "en": ""
             }
           },
           {
@@ -7907,8 +7907,8 @@
               "minLength": 2
             },
             "description": {
-              "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-              "en": "Field presence is observed; validation and choices are independently defined for this demo."
+              "bn": "",
+              "en": ""
             }
           },
           {
@@ -8075,8 +8075,8 @@
             "id": "confirmation",
             "type": "checkbox",
             "label": {
-              "bn": "প্রদত্ত তথ্য সঠিক এবং এটি পরীক্ষামূলক আবেদন",
-              "en": "I confirm the information is correct and this is a demo application."
+              "bn": "প্রদত্ত তথ্য সঠিক এবং আমি এই আবেদন জমা দিচ্ছি।",
+              "en": "I confirm the information is correct and I submit this application."
             },
             "evidence": {
               "status": "proposed"
@@ -8101,7 +8101,7 @@
     "evidence": {
       "source": "audit/evidence/s-21.json",
       "status": "proposed",
-      "limitation": "Independent executable demo form. Reference initial field metadata is observed; dropdown choices, normalized payloads, conditions, validation, service decisions and document text are independently proposed. Original successful submission, server validation, approval, payment and issuance remain unverified. No legal eligibility or government verification is inferred."
+      "limitation": "Complete all required fields before submitting."
     },
     "sections": [
       {
@@ -8307,8 +8307,8 @@
             "id": "confirmation",
             "type": "checkbox",
             "label": {
-              "bn": "প্রদত্ত তথ্য সঠিক এবং এটি পরীক্ষামূলক আবেদন",
-              "en": "I confirm the information is correct and this is a demo application."
+              "bn": "প্রদত্ত তথ্য সঠিক এবং আমি এই আবেদন জমা দিচ্ছি।",
+              "en": "I confirm the information is correct and I submit this application."
             },
             "evidence": {
               "status": "proposed"
@@ -8333,7 +8333,7 @@
     "evidence": {
       "source": "audit/evidence/s-22.json",
       "status": "proposed",
-      "limitation": "Independent executable demo form. Reference initial field metadata is observed; dropdown choices, normalized payloads, conditions, validation, service decisions and document text are independently proposed. Original successful submission, server validation, approval, payment and issuance remain unverified. No legal eligibility or government verification is inferred."
+      "limitation": "Complete all required fields before submitting."
     },
     "sections": [
       {
@@ -8367,8 +8367,8 @@
               ]
             },
             "description": {
-              "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-              "en": "Field presence is observed; validation and choices are independently defined for this demo."
+              "bn": "",
+              "en": ""
             }
           },
           {
@@ -8535,8 +8535,8 @@
             "id": "confirmation",
             "type": "checkbox",
             "label": {
-              "bn": "প্রদত্ত তথ্য সঠিক এবং এটি পরীক্ষামূলক আবেদন",
-              "en": "I confirm the information is correct and this is a demo application."
+              "bn": "প্রদত্ত তথ্য সঠিক এবং আমি এই আবেদন জমা দিচ্ছি।",
+              "en": "I confirm the information is correct and I submit this application."
             },
             "evidence": {
               "status": "proposed"
@@ -8561,7 +8561,7 @@
     "evidence": {
       "source": "audit/evidence/s-23.json",
       "status": "proposed",
-      "limitation": "Independent executable demo form. Reference initial field metadata is observed; dropdown choices, normalized payloads, conditions, validation, service decisions and document text are independently proposed. Original successful submission, server validation, approval, payment and issuance remain unverified. No legal eligibility or government verification is inferred."
+      "limitation": "Complete all required fields before submitting."
     },
     "sections": [
       {
@@ -8591,8 +8591,8 @@
               "required": true
             },
             "description": {
-              "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-              "en": "Field presence is observed; validation and choices are independently defined for this demo."
+              "bn": "",
+              "en": ""
             }
           },
           {
@@ -8615,8 +8615,8 @@
               "minLength": 2
             },
             "description": {
-              "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-              "en": "Field presence is observed; validation and choices are independently defined for this demo."
+              "bn": "",
+              "en": ""
             }
           },
           {
@@ -8637,8 +8637,8 @@
               "required": true
             },
             "description": {
-              "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-              "en": "Field presence is observed; validation and choices are independently defined for this demo."
+              "bn": "",
+              "en": ""
             }
           },
           {
@@ -8661,8 +8661,8 @@
               "minLength": 2
             },
             "description": {
-              "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-              "en": "Field presence is observed; validation and choices are independently defined for this demo."
+              "bn": "",
+              "en": ""
             }
           },
           {
@@ -8685,8 +8685,8 @@
               "minLength": 2
             },
             "description": {
-              "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-              "en": "Field presence is observed; validation and choices are independently defined for this demo."
+              "bn": "",
+              "en": ""
             }
           },
           {
@@ -8707,8 +8707,8 @@
               "required": true
             },
             "description": {
-              "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-              "en": "Field presence is observed; validation and choices are independently defined for this demo."
+              "bn": "",
+              "en": ""
             }
           },
           {
@@ -8773,8 +8773,8 @@
               "required": true
             },
             "description": {
-              "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-              "en": "Field presence is observed; validation and choices are independently defined for this demo."
+              "bn": "",
+              "en": ""
             },
             "visibleWhen": {
               "field": "other_person",
@@ -8801,8 +8801,8 @@
               "minLength": 2
             },
             "description": {
-              "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-              "en": "Field presence is observed; validation and choices are independently defined for this demo."
+              "bn": "",
+              "en": ""
             },
             "visibleWhen": {
               "field": "other_person",
@@ -8829,8 +8829,8 @@
               "minLength": 2
             },
             "description": {
-              "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-              "en": "Field presence is observed; validation and choices are independently defined for this demo."
+              "bn": "",
+              "en": ""
             },
             "visibleWhen": {
               "field": "other_person",
@@ -9001,8 +9001,8 @@
             "id": "confirmation",
             "type": "checkbox",
             "label": {
-              "bn": "প্রদত্ত তথ্য সঠিক এবং এটি পরীক্ষামূলক আবেদন",
-              "en": "I confirm the information is correct and this is a demo application."
+              "bn": "প্রদত্ত তথ্য সঠিক এবং আমি এই আবেদন জমা দিচ্ছি।",
+              "en": "I confirm the information is correct and I submit this application."
             },
             "evidence": {
               "status": "proposed"
@@ -9027,7 +9027,7 @@
     "evidence": {
       "source": "audit/evidence/s-24.json",
       "status": "proposed",
-      "limitation": "Independent executable demo form. Reference initial field metadata is observed; dropdown choices, normalized payloads, conditions, validation, service decisions and document text are independently proposed. Original successful submission, server validation, approval, payment and issuance remain unverified. No legal eligibility or government verification is inferred."
+      "limitation": "Complete all required fields before submitting."
     },
     "sections": [
       {
@@ -9233,8 +9233,8 @@
             "id": "confirmation",
             "type": "checkbox",
             "label": {
-              "bn": "প্রদত্ত তথ্য সঠিক এবং এটি পরীক্ষামূলক আবেদন",
-              "en": "I confirm the information is correct and this is a demo application."
+              "bn": "প্রদত্ত তথ্য সঠিক এবং আমি এই আবেদন জমা দিচ্ছি।",
+              "en": "I confirm the information is correct and I submit this application."
             },
             "evidence": {
               "status": "proposed"
@@ -9259,7 +9259,7 @@
     "evidence": {
       "source": "audit/evidence/s-25.json",
       "status": "proposed",
-      "limitation": "Independent executable demo form. Reference initial field metadata is observed; dropdown choices, normalized payloads, conditions, validation, service decisions and document text are independently proposed. Original successful submission, server validation, approval, payment and issuance remain unverified. No legal eligibility or government verification is inferred."
+      "limitation": "Complete all required fields before submitting."
     },
     "sections": [
       {
@@ -9289,8 +9289,8 @@
               "minLength": 2
             },
             "description": {
-              "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-              "en": "Field presence is observed; validation and choices are independently defined for this demo."
+              "bn": "",
+              "en": ""
             }
           },
           {
@@ -9313,8 +9313,8 @@
               "minLength": 2
             },
             "description": {
-              "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-              "en": "Field presence is observed; validation and choices are independently defined for this demo."
+              "bn": "",
+              "en": ""
             }
           },
           {
@@ -9351,16 +9351,16 @@
               "required": true
             },
             "description": {
-              "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-              "en": "Field presence is observed; validation and choices are independently defined for this demo."
+              "bn": "",
+              "en": ""
             }
           },
           {
             "id": "marriage_info_spouse_nid",
             "type": "text",
             "label": {
-              "bn": "স্বামী/স্ত্রীর পরিচয় নথির নমুনা পরিচিতি",
-              "en": "Spouse demo identity reference"
+              "bn": "স্বামী/স্ত্রীর পরিচয় নথির পরিচিতি",
+              "en": "Spouse identity reference"
             },
             "evidence": {
               "source": "audit/evidence/s-25.json",
@@ -9375,8 +9375,8 @@
               "minLength": 2
             },
             "description": {
-              "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-              "en": "Field presence is observed; validation and choices are independently defined for this demo."
+              "bn": "",
+              "en": ""
             }
           },
           {
@@ -9397,8 +9397,8 @@
               "required": true
             },
             "description": {
-              "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-              "en": "Field presence is observed; validation and choices are independently defined for this demo."
+              "bn": "",
+              "en": ""
             }
           },
           {
@@ -9421,8 +9421,8 @@
               "minLength": 2
             },
             "description": {
-              "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-              "en": "Field presence is observed; validation and choices are independently defined for this demo."
+              "bn": "",
+              "en": ""
             }
           },
           {
@@ -9445,8 +9445,8 @@
               "minLength": 2
             },
             "description": {
-              "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-              "en": "Field presence is observed; validation and choices are independently defined for this demo."
+              "bn": "",
+              "en": ""
             }
           },
           {
@@ -9467,8 +9467,8 @@
               "required": true
             },
             "description": {
-              "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-              "en": "Field presence is observed; validation and choices are independently defined for this demo."
+              "bn": "",
+              "en": ""
             }
           },
           {
@@ -9635,8 +9635,8 @@
             "id": "confirmation",
             "type": "checkbox",
             "label": {
-              "bn": "প্রদত্ত তথ্য সঠিক এবং এটি পরীক্ষামূলক আবেদন",
-              "en": "I confirm the information is correct and this is a demo application."
+              "bn": "প্রদত্ত তথ্য সঠিক এবং আমি এই আবেদন জমা দিচ্ছি।",
+              "en": "I confirm the information is correct and I submit this application."
             },
             "evidence": {
               "status": "proposed"
@@ -9661,7 +9661,7 @@
     "evidence": {
       "source": "audit/evidence/s-26.json",
       "status": "proposed",
-      "limitation": "Independent executable demo form. Reference initial field metadata is observed; dropdown choices, normalized payloads, conditions, validation, service decisions and document text are independently proposed. Original successful submission, server validation, approval, payment and issuance remain unverified. No legal eligibility or government verification is inferred."
+      "limitation": "Complete all required fields before submitting."
     },
     "sections": [
       {
@@ -9691,8 +9691,8 @@
               "minLength": 2
             },
             "description": {
-              "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-              "en": "Field presence is observed; validation and choices are independently defined for this demo."
+              "bn": "",
+              "en": ""
             }
           },
           {
@@ -9715,8 +9715,8 @@
               "minLength": 2
             },
             "description": {
-              "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-              "en": "Field presence is observed; validation and choices are independently defined for this demo."
+              "bn": "",
+              "en": ""
             }
           },
           {
@@ -9753,16 +9753,16 @@
               "required": true
             },
             "description": {
-              "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-              "en": "Field presence is observed; validation and choices are independently defined for this demo."
+              "bn": "",
+              "en": ""
             }
           },
           {
             "id": "marriage_info_spouse_nid",
             "type": "text",
             "label": {
-              "bn": "স্বামী/স্ত্রীর পরিচয় নথির নমুনা পরিচিতি",
-              "en": "Spouse demo identity reference"
+              "bn": "স্বামী/স্ত্রীর পরিচয় নথির পরিচিতি",
+              "en": "Spouse identity reference"
             },
             "evidence": {
               "source": "audit/evidence/s-26.json",
@@ -9777,8 +9777,8 @@
               "minLength": 2
             },
             "description": {
-              "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-              "en": "Field presence is observed; validation and choices are independently defined for this demo."
+              "bn": "",
+              "en": ""
             }
           },
           {
@@ -9799,8 +9799,8 @@
               "required": true
             },
             "description": {
-              "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-              "en": "Field presence is observed; validation and choices are independently defined for this demo."
+              "bn": "",
+              "en": ""
             }
           },
           {
@@ -9823,8 +9823,8 @@
               "minLength": 2
             },
             "description": {
-              "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-              "en": "Field presence is observed; validation and choices are independently defined for this demo."
+              "bn": "",
+              "en": ""
             }
           },
           {
@@ -9847,8 +9847,8 @@
               "minLength": 2
             },
             "description": {
-              "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-              "en": "Field presence is observed; validation and choices are independently defined for this demo."
+              "bn": "",
+              "en": ""
             }
           },
           {
@@ -9869,8 +9869,8 @@
               "required": true
             },
             "description": {
-              "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-              "en": "Field presence is observed; validation and choices are independently defined for this demo."
+              "bn": "",
+              "en": ""
             }
           },
           {
@@ -10037,8 +10037,8 @@
             "id": "confirmation",
             "type": "checkbox",
             "label": {
-              "bn": "প্রদত্ত তথ্য সঠিক এবং এটি পরীক্ষামূলক আবেদন",
-              "en": "I confirm the information is correct and this is a demo application."
+              "bn": "প্রদত্ত তথ্য সঠিক এবং আমি এই আবেদন জমা দিচ্ছি।",
+              "en": "I confirm the information is correct and I submit this application."
             },
             "evidence": {
               "status": "proposed"
@@ -10063,7 +10063,7 @@
     "evidence": {
       "source": "audit/evidence/s-27.json",
       "status": "proposed",
-      "limitation": "Independent executable demo form. Reference initial field metadata is observed; dropdown choices, normalized payloads, conditions, validation, service decisions and document text are independently proposed. Original successful submission, server validation, approval, payment and issuance remain unverified. No legal eligibility or government verification is inferred."
+      "limitation": "Complete all required fields before submitting."
     },
     "sections": [
       {
@@ -10253,8 +10253,8 @@
             "id": "confirmation",
             "type": "checkbox",
             "label": {
-              "bn": "প্রদত্ত তথ্য সঠিক এবং এটি পরীক্ষামূলক আবেদন",
-              "en": "I confirm the information is correct and this is a demo application."
+              "bn": "প্রদত্ত তথ্য সঠিক এবং আমি এই আবেদন জমা দিচ্ছি।",
+              "en": "I confirm the information is correct and I submit this application."
             },
             "evidence": {
               "status": "proposed"
@@ -10279,7 +10279,7 @@
     "evidence": {
       "source": "audit/evidence/s-28.json",
       "status": "proposed",
-      "limitation": "Independent executable demo form. Reference initial field metadata is observed; dropdown choices, normalized payloads, conditions, validation, service decisions and document text are independently proposed. Original successful submission, server validation, approval, payment and issuance remain unverified. No legal eligibility or government verification is inferred."
+      "limitation": "Complete all required fields before submitting."
     },
     "sections": [
       {
@@ -10483,8 +10483,8 @@
             "id": "confirmation",
             "type": "checkbox",
             "label": {
-              "bn": "প্রদত্ত তথ্য সঠিক এবং এটি পরীক্ষামূলক আবেদন",
-              "en": "I confirm the information is correct and this is a demo application."
+              "bn": "প্রদত্ত তথ্য সঠিক এবং আমি এই আবেদন জমা দিচ্ছি।",
+              "en": "I confirm the information is correct and I submit this application."
             },
             "evidence": {
               "status": "proposed"
@@ -10509,7 +10509,7 @@
     "evidence": {
       "source": "audit/evidence/s-29.json",
       "status": "proposed",
-      "limitation": "Independent executable demo form. Reference initial field metadata is observed; dropdown choices, normalized payloads, conditions, validation, service decisions and document text are independently proposed. Original successful submission, server validation, approval, payment and issuance remain unverified. No legal eligibility or government verification is inferred."
+      "limitation": "Complete all required fields before submitting."
     },
     "sections": [
       {
@@ -10539,8 +10539,8 @@
               "required": true
             },
             "description": {
-              "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-              "en": "Field presence is observed; validation and choices are independently defined for this demo."
+              "bn": "",
+              "en": ""
             }
           },
           {
@@ -10563,8 +10563,8 @@
               "minLength": 2
             },
             "description": {
-              "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-              "en": "Field presence is observed; validation and choices are independently defined for this demo."
+              "bn": "",
+              "en": ""
             }
           },
           {
@@ -10585,8 +10585,8 @@
               "required": true
             },
             "description": {
-              "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-              "en": "Field presence is observed; validation and choices are independently defined for this demo."
+              "bn": "",
+              "en": ""
             }
           },
           {
@@ -10609,8 +10609,8 @@
               "minLength": 2
             },
             "description": {
-              "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-              "en": "Field presence is observed; validation and choices are independently defined for this demo."
+              "bn": "",
+              "en": ""
             }
           },
           {
@@ -10633,8 +10633,8 @@
               "minLength": 2
             },
             "description": {
-              "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-              "en": "Field presence is observed; validation and choices are independently defined for this demo."
+              "bn": "",
+              "en": ""
             }
           },
           {
@@ -10655,8 +10655,8 @@
               "required": true
             },
             "description": {
-              "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-              "en": "Field presence is observed; validation and choices are independently defined for this demo."
+              "bn": "",
+              "en": ""
             }
           },
           {
@@ -10721,8 +10721,8 @@
               "required": true
             },
             "description": {
-              "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-              "en": "Field presence is observed; validation and choices are independently defined for this demo."
+              "bn": "",
+              "en": ""
             },
             "visibleWhen": {
               "field": "other_person",
@@ -10749,8 +10749,8 @@
               "minLength": 2
             },
             "description": {
-              "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-              "en": "Field presence is observed; validation and choices are independently defined for this demo."
+              "bn": "",
+              "en": ""
             },
             "visibleWhen": {
               "field": "other_person",
@@ -10777,8 +10777,8 @@
               "minLength": 2
             },
             "description": {
-              "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-              "en": "Field presence is observed; validation and choices are independently defined for this demo."
+              "bn": "",
+              "en": ""
             },
             "visibleWhen": {
               "field": "other_person",
@@ -10949,8 +10949,8 @@
             "id": "confirmation",
             "type": "checkbox",
             "label": {
-              "bn": "প্রদত্ত তথ্য সঠিক এবং এটি পরীক্ষামূলক আবেদন",
-              "en": "I confirm the information is correct and this is a demo application."
+              "bn": "প্রদত্ত তথ্য সঠিক এবং আমি এই আবেদন জমা দিচ্ছি।",
+              "en": "I confirm the information is correct and I submit this application."
             },
             "evidence": {
               "status": "proposed"
@@ -10975,7 +10975,7 @@
     "evidence": {
       "source": "audit/evidence/s-30.json",
       "status": "proposed",
-      "limitation": "Independent executable demo form. Reference initial field metadata is observed; dropdown choices, normalized payloads, conditions, validation, service decisions and document text are independently proposed. Original successful submission, server validation, approval, payment and issuance remain unverified. No legal eligibility or government verification is inferred."
+      "limitation": "Complete all required fields before submitting."
     },
     "sections": [
       {
@@ -11197,8 +11197,8 @@
             "id": "confirmation",
             "type": "checkbox",
             "label": {
-              "bn": "প্রদত্ত তথ্য সঠিক এবং এটি পরীক্ষামূলক আবেদন",
-              "en": "I confirm the information is correct and this is a demo application."
+              "bn": "প্রদত্ত তথ্য সঠিক এবং আমি এই আবেদন জমা দিচ্ছি।",
+              "en": "I confirm the information is correct and I submit this application."
             },
             "evidence": {
               "status": "proposed"
@@ -11223,7 +11223,7 @@
     "evidence": {
       "source": "audit/evidence/s-31.json",
       "status": "proposed",
-      "limitation": "Independent executable demo form. Reference initial field metadata is observed; dropdown choices, normalized payloads, conditions, validation, service decisions and document text are independently proposed. Original successful submission, server validation, approval, payment and issuance remain unverified. No legal eligibility or government verification is inferred."
+      "limitation": "Complete all required fields before submitting."
     },
     "sections": [
       {
@@ -11253,8 +11253,8 @@
               "minLength": 2
             },
             "description": {
-              "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-              "en": "Field presence is observed; validation and choices are independently defined for this demo."
+              "bn": "",
+              "en": ""
             }
           },
           {
@@ -11277,8 +11277,8 @@
               "minLength": 2
             },
             "description": {
-              "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-              "en": "Field presence is observed; validation and choices are independently defined for this demo."
+              "bn": "",
+              "en": ""
             }
           },
           {
@@ -11301,8 +11301,8 @@
               "minLength": 2
             },
             "description": {
-              "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-              "en": "Field presence is observed; validation and choices are independently defined for this demo."
+              "bn": "",
+              "en": ""
             }
           },
           {
@@ -11325,8 +11325,8 @@
               "minLength": 2
             },
             "description": {
-              "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-              "en": "Field presence is observed; validation and choices are independently defined for this demo."
+              "bn": "",
+              "en": ""
             }
           },
           {
@@ -11349,8 +11349,8 @@
               "minLength": 2
             },
             "description": {
-              "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-              "en": "Field presence is observed; validation and choices are independently defined for this demo."
+              "bn": "",
+              "en": ""
             }
           },
           {
@@ -11373,8 +11373,8 @@
               "minLength": 2
             },
             "description": {
-              "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-              "en": "Field presence is observed; validation and choices are independently defined for this demo."
+              "bn": "",
+              "en": ""
             }
           },
           {
@@ -11397,8 +11397,8 @@
               "minLength": 2
             },
             "description": {
-              "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-              "en": "Field presence is observed; validation and choices are independently defined for this demo."
+              "bn": "",
+              "en": ""
             }
           },
           {
@@ -11421,8 +11421,8 @@
               "minLength": 2
             },
             "description": {
-              "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-              "en": "Field presence is observed; validation and choices are independently defined for this demo."
+              "bn": "",
+              "en": ""
             }
           },
           {
@@ -11445,8 +11445,8 @@
               "minLength": 2
             },
             "description": {
-              "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-              "en": "Field presence is observed; validation and choices are independently defined for this demo."
+              "bn": "",
+              "en": ""
             }
           },
           {
@@ -11469,8 +11469,8 @@
               "minLength": 2
             },
             "description": {
-              "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-              "en": "Field presence is observed; validation and choices are independently defined for this demo."
+              "bn": "",
+              "en": ""
             }
           },
           {
@@ -11491,8 +11491,8 @@
               "required": true
             },
             "description": {
-              "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-              "en": "Field presence is observed; validation and choices are independently defined for this demo."
+              "bn": "",
+              "en": ""
             }
           },
           {
@@ -11513,16 +11513,16 @@
               "required": true
             },
             "description": {
-              "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-              "en": "Field presence is observed; validation and choices are independently defined for this demo."
+              "bn": "",
+              "en": ""
             }
           },
           {
             "id": "dead_info_register_no",
             "type": "text",
             "label": {
-              "bn": "নিবন্ধনের নমুনা নম্বর",
-              "en": "Demo registration reference"
+              "bn": "নিবন্ধনের নম্বর",
+              "en": "Registration reference"
             },
             "evidence": {
               "source": "audit/evidence/s-31.json",
@@ -11537,8 +11537,8 @@
               "minLength": 2
             },
             "description": {
-              "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-              "en": "Field presence is observed; validation and choices are independently defined for this demo."
+              "bn": "",
+              "en": ""
             }
           },
           {
@@ -11603,8 +11603,8 @@
               "required": false
             },
             "description": {
-              "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-              "en": "Field presence is observed; validation and choices are independently defined for this demo."
+              "bn": "",
+              "en": ""
             }
           },
           {
@@ -11669,8 +11669,8 @@
               "required": true
             },
             "description": {
-              "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-              "en": "Field presence is observed; validation and choices are independently defined for this demo."
+              "bn": "",
+              "en": ""
             }
           },
           {
@@ -11715,8 +11715,8 @@
                   "required": true
                 },
                 "description": {
-                  "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-                  "en": "Field presence is observed; validation and choices are independently defined for this demo."
+                  "bn": "",
+                  "en": ""
                 }
               },
               {
@@ -11743,8 +11743,8 @@
                   ]
                 },
                 "description": {
-                  "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-                  "en": "Field presence is observed; validation and choices are independently defined for this demo."
+                  "bn": "",
+                  "en": ""
                 }
               }
             ],
@@ -11874,8 +11874,8 @@
             "id": "confirmation",
             "type": "checkbox",
             "label": {
-              "bn": "প্রদত্ত তথ্য সঠিক এবং এটি পরীক্ষামূলক আবেদন",
-              "en": "I confirm the information is correct and this is a demo application."
+              "bn": "প্রদত্ত তথ্য সঠিক এবং আমি এই আবেদন জমা দিচ্ছি।",
+              "en": "I confirm the information is correct and I submit this application."
             },
             "evidence": {
               "status": "proposed"
@@ -11900,7 +11900,7 @@
     "evidence": {
       "source": "audit/evidence/s-32.json",
       "status": "proposed",
-      "limitation": "Independent executable demo form. Reference initial field metadata is observed; dropdown choices, normalized payloads, conditions, validation, service decisions and document text are independently proposed. Original successful submission, server validation, approval, payment and issuance remain unverified. No legal eligibility or government verification is inferred."
+      "limitation": "Complete all required fields before submitting."
     },
     "sections": [
       {
@@ -12106,8 +12106,8 @@
             "id": "confirmation",
             "type": "checkbox",
             "label": {
-              "bn": "প্রদত্ত তথ্য সঠিক এবং এটি পরীক্ষামূলক আবেদন",
-              "en": "I confirm the information is correct and this is a demo application."
+              "bn": "প্রদত্ত তথ্য সঠিক এবং আমি এই আবেদন জমা দিচ্ছি।",
+              "en": "I confirm the information is correct and I submit this application."
             },
             "evidence": {
               "status": "proposed"
@@ -12132,7 +12132,7 @@
     "evidence": {
       "source": "audit/evidence/s-33.json",
       "status": "proposed",
-      "limitation": "Independent executable demo form. Reference initial field metadata is observed; dropdown choices, normalized payloads, conditions, validation, service decisions and document text are independently proposed. Original successful submission, server validation, approval, payment and issuance remain unverified. No legal eligibility or government verification is inferred."
+      "limitation": "Complete all required fields before submitting."
     },
     "sections": [
       {
@@ -12176,8 +12176,8 @@
               "required": true
             },
             "description": {
-              "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-              "en": "Field presence is observed; validation and choices are independently defined for this demo."
+              "bn": "",
+              "en": ""
             }
           },
           {
@@ -12243,8 +12243,8 @@
                   "required": true
                 },
                 "description": {
-                  "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-                  "en": "Field presence is observed; validation and choices are independently defined for this demo."
+                  "bn": "",
+                  "en": ""
                 }
               },
               {
@@ -12267,8 +12267,8 @@
                   "minLength": 2
                 },
                 "description": {
-                  "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-                  "en": "Field presence is observed; validation and choices are independently defined for this demo."
+                  "bn": "",
+                  "en": ""
                 }
               },
               {
@@ -12292,8 +12292,8 @@
                   "differentFrom": "incorrect_info"
                 },
                 "description": {
-                  "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-                  "en": "Field presence is observed; validation and choices are independently defined for this demo."
+                  "bn": "",
+                  "en": ""
                 }
               }
             ],
@@ -12476,8 +12476,8 @@
             "id": "confirmation",
             "type": "checkbox",
             "label": {
-              "bn": "প্রদত্ত তথ্য সঠিক এবং এটি পরীক্ষামূলক আবেদন",
-              "en": "I confirm the information is correct and this is a demo application."
+              "bn": "প্রদত্ত তথ্য সঠিক এবং আমি এই আবেদন জমা দিচ্ছি।",
+              "en": "I confirm the information is correct and I submit this application."
             },
             "evidence": {
               "status": "proposed"
@@ -12502,7 +12502,7 @@
     "evidence": {
       "source": "audit/evidence/s-34.json",
       "status": "proposed",
-      "limitation": "Independent executable demo form. Reference initial field metadata is observed; dropdown choices, normalized payloads, conditions, validation, service decisions and document text are independently proposed. Original successful submission, server validation, approval, payment and issuance remain unverified. No legal eligibility or government verification is inferred."
+      "limitation": "Complete all required fields before submitting."
     },
     "sections": [
       {
@@ -12692,8 +12692,8 @@
             "id": "confirmation",
             "type": "checkbox",
             "label": {
-              "bn": "প্রদত্ত তথ্য সঠিক এবং এটি পরীক্ষামূলক আবেদন",
-              "en": "I confirm the information is correct and this is a demo application."
+              "bn": "প্রদত্ত তথ্য সঠিক এবং আমি এই আবেদন জমা দিচ্ছি।",
+              "en": "I confirm the information is correct and I submit this application."
             },
             "evidence": {
               "status": "proposed"
@@ -12718,7 +12718,7 @@
     "evidence": {
       "source": "audit/evidence/s-35.json",
       "status": "proposed",
-      "limitation": "Independent executable demo form. Reference initial field metadata is observed; dropdown choices, normalized payloads, conditions, validation, service decisions and document text are independently proposed. Original successful submission, server validation, approval, payment and issuance remain unverified. No legal eligibility or government verification is inferred."
+      "limitation": "Complete all required fields before submitting."
     },
     "sections": [
       {
@@ -12746,8 +12746,8 @@
               "required": true
             },
             "description": {
-              "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-              "en": "Field presence is observed; validation and choices are independently defined for this demo."
+              "bn": "",
+              "en": ""
             }
           },
           {
@@ -12798,8 +12798,8 @@
               "required": true
             },
             "description": {
-              "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-              "en": "Field presence is observed; validation and choices are independently defined for this demo."
+              "bn": "",
+              "en": ""
             },
             "visibleWhen": {
               "field": "marital_status_radio",
@@ -12970,8 +12970,8 @@
             "id": "confirmation",
             "type": "checkbox",
             "label": {
-              "bn": "প্রদত্ত তথ্য সঠিক এবং এটি পরীক্ষামূলক আবেদন",
-              "en": "I confirm the information is correct and this is a demo application."
+              "bn": "প্রদত্ত তথ্য সঠিক এবং আমি এই আবেদন জমা দিচ্ছি।",
+              "en": "I confirm the information is correct and I submit this application."
             },
             "evidence": {
               "status": "proposed"
@@ -12996,7 +12996,7 @@
     "evidence": {
       "source": "audit/evidence/s-36.json",
       "status": "proposed",
-      "limitation": "Independent executable demo form. Reference initial field metadata is observed; dropdown choices, normalized payloads, conditions, validation, service decisions and document text are independently proposed. Original successful submission, server validation, approval, payment and issuance remain unverified. No legal eligibility or government verification is inferred."
+      "limitation": "Complete all required fields before submitting."
     },
     "sections": [
       {
@@ -13026,8 +13026,8 @@
               "minLength": 2
             },
             "description": {
-              "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-              "en": "Field presence is observed; validation and choices are independently defined for this demo."
+              "bn": "",
+              "en": ""
             }
           },
           {
@@ -13050,8 +13050,8 @@
               "minLength": 2
             },
             "description": {
-              "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-              "en": "Field presence is observed; validation and choices are independently defined for this demo."
+              "bn": "",
+              "en": ""
             }
           },
           {
@@ -13074,8 +13074,8 @@
               "minLength": 2
             },
             "description": {
-              "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-              "en": "Field presence is observed; validation and choices are independently defined for this demo."
+              "bn": "",
+              "en": ""
             }
           },
           {
@@ -13098,8 +13098,8 @@
               "minLength": 2
             },
             "description": {
-              "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-              "en": "Field presence is observed; validation and choices are independently defined for this demo."
+              "bn": "",
+              "en": ""
             }
           },
           {
@@ -13122,8 +13122,8 @@
               "minLength": 2
             },
             "description": {
-              "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-              "en": "Field presence is observed; validation and choices are independently defined for this demo."
+              "bn": "",
+              "en": ""
             }
           },
           {
@@ -13146,8 +13146,8 @@
               "minLength": 2
             },
             "description": {
-              "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-              "en": "Field presence is observed; validation and choices are independently defined for this demo."
+              "bn": "",
+              "en": ""
             }
           },
           {
@@ -13170,8 +13170,8 @@
               "minLength": 2
             },
             "description": {
-              "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-              "en": "Field presence is observed; validation and choices are independently defined for this demo."
+              "bn": "",
+              "en": ""
             }
           },
           {
@@ -13194,8 +13194,8 @@
               "minLength": 2
             },
             "description": {
-              "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-              "en": "Field presence is observed; validation and choices are independently defined for this demo."
+              "bn": "",
+              "en": ""
             }
           },
           {
@@ -13218,8 +13218,8 @@
               "maxLength": 254
             },
             "description": {
-              "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-              "en": "Field presence is observed; validation and choices are independently defined for this demo."
+              "bn": "",
+              "en": ""
             }
           },
           {
@@ -13242,8 +13242,8 @@
               "maxLength": 11
             },
             "description": {
-              "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-              "en": "Field presence is observed; validation and choices are independently defined for this demo."
+              "bn": "",
+              "en": ""
             }
           },
           {
@@ -13266,8 +13266,8 @@
               "minLength": 2
             },
             "description": {
-              "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-              "en": "Field presence is observed; validation and choices are independently defined for this demo."
+              "bn": "",
+              "en": ""
             }
           },
           {
@@ -13290,8 +13290,8 @@
               "minLength": 2
             },
             "description": {
-              "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-              "en": "Field presence is observed; validation and choices are independently defined for this demo."
+              "bn": "",
+              "en": ""
             }
           },
           {
@@ -13314,8 +13314,8 @@
               "minLength": 2
             },
             "description": {
-              "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-              "en": "Field presence is observed; validation and choices are independently defined for this demo."
+              "bn": "",
+              "en": ""
             }
           },
           {
@@ -13338,8 +13338,8 @@
               "minLength": 2
             },
             "description": {
-              "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-              "en": "Field presence is observed; validation and choices are independently defined for this demo."
+              "bn": "",
+              "en": ""
             }
           },
           {
@@ -13362,8 +13362,8 @@
               "minLength": 2
             },
             "description": {
-              "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-              "en": "Field presence is observed; validation and choices are independently defined for this demo."
+              "bn": "",
+              "en": ""
             }
           },
           {
@@ -13386,8 +13386,8 @@
               "minLength": 2
             },
             "description": {
-              "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-              "en": "Field presence is observed; validation and choices are independently defined for this demo."
+              "bn": "",
+              "en": ""
             }
           },
           {
@@ -13410,8 +13410,8 @@
               "minLength": 2
             },
             "description": {
-              "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-              "en": "Field presence is observed; validation and choices are independently defined for this demo."
+              "bn": "",
+              "en": ""
             }
           },
           {
@@ -13434,8 +13434,8 @@
               "minLength": 2
             },
             "description": {
-              "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-              "en": "Field presence is observed; validation and choices are independently defined for this demo."
+              "bn": "",
+              "en": ""
             }
           },
           {
@@ -13458,8 +13458,8 @@
               "minLength": 2
             },
             "description": {
-              "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-              "en": "Field presence is observed; validation and choices are independently defined for this demo."
+              "bn": "",
+              "en": ""
             }
           },
           {
@@ -13482,8 +13482,8 @@
               "minLength": 2
             },
             "description": {
-              "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-              "en": "Field presence is observed; validation and choices are independently defined for this demo."
+              "bn": "",
+              "en": ""
             }
           },
           {
@@ -13506,8 +13506,8 @@
               "required": true
             },
             "description": {
-              "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-              "en": "Field presence is observed; validation and choices are independently defined for this demo."
+              "bn": "",
+              "en": ""
             }
           },
           {
@@ -13551,8 +13551,8 @@
               "required": true
             },
             "description": {
-              "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-              "en": "Field presence is observed; validation and choices are independently defined for this demo."
+              "bn": "",
+              "en": ""
             }
           },
           {
@@ -13575,8 +13575,8 @@
               "minLength": 2
             },
             "description": {
-              "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-              "en": "Field presence is observed; validation and choices are independently defined for this demo."
+              "bn": "",
+              "en": ""
             }
           },
           {
@@ -13599,8 +13599,8 @@
               "minLength": 2
             },
             "description": {
-              "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-              "en": "Field presence is observed; validation and choices are independently defined for this demo."
+              "bn": "",
+              "en": ""
             }
           },
           {
@@ -13644,8 +13644,8 @@
               "required": true
             },
             "description": {
-              "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-              "en": "Field presence is observed; validation and choices are independently defined for this demo."
+              "bn": "",
+              "en": ""
             }
           },
           {
@@ -13668,8 +13668,8 @@
               "minLength": 2
             },
             "description": {
-              "bn": "স্বাধীন নমুনা ঠিকানা পরিচিতি; সরকারি ডিরেক্টরি সংযুক্ত নয়।",
-              "en": "Enter a demo location name/reference. No government address directory is connected."
+              "bn": "ঠিকানার নাম বা পরিচিতি লিখুন।",
+              "en": "Enter the location name or reference."
             }
           },
           {
@@ -13692,8 +13692,8 @@
               "minLength": 2
             },
             "description": {
-              "bn": "স্বাধীন নমুনা ঠিকানা পরিচিতি; সরকারি ডিরেক্টরি সংযুক্ত নয়।",
-              "en": "Enter a demo location name/reference. No government address directory is connected."
+              "bn": "ঠিকানার নাম বা পরিচিতি লিখুন।",
+              "en": "Enter the location name or reference."
             }
           },
           {
@@ -13716,8 +13716,8 @@
               "minLength": 2
             },
             "description": {
-              "bn": "স্বাধীন নমুনা ঠিকানা পরিচিতি; সরকারি ডিরেক্টরি সংযুক্ত নয়।",
-              "en": "Enter a demo location name/reference. No government address directory is connected."
+              "bn": "ঠিকানার নাম বা পরিচিতি লিখুন।",
+              "en": "Enter the location name or reference."
             }
           },
           {
@@ -13740,8 +13740,8 @@
               "minLength": 2
             },
             "description": {
-              "bn": "স্বাধীন নমুনা ঠিকানা পরিচিতি; সরকারি ডিরেক্টরি সংযুক্ত নয়।",
-              "en": "Enter a demo location name/reference. No government address directory is connected."
+              "bn": "ঠিকানার নাম বা পরিচিতি লিখুন।",
+              "en": "Enter the location name or reference."
             }
           },
           {
@@ -13764,8 +13764,8 @@
               "minLength": 2
             },
             "description": {
-              "bn": "স্বাধীন নমুনা ঠিকানা পরিচিতি; সরকারি ডিরেক্টরি সংযুক্ত নয়।",
-              "en": "Enter a demo location name/reference. No government address directory is connected."
+              "bn": "ঠিকানার নাম বা পরিচিতি লিখুন।",
+              "en": "Enter the location name or reference."
             }
           },
           {
@@ -13788,8 +13788,8 @@
               "minLength": 2
             },
             "description": {
-              "bn": "স্বাধীন নমুনা ঠিকানা পরিচিতি; সরকারি ডিরেক্টরি সংযুক্ত নয়।",
-              "en": "Enter a demo location name/reference. No government address directory is connected."
+              "bn": "ঠিকানার নাম বা পরিচিতি লিখুন।",
+              "en": "Enter the location name or reference."
             },
             "visibleWhen": {
               "field": "noc_org_add_type",
@@ -13816,8 +13816,8 @@
               "minLength": 2
             },
             "description": {
-              "bn": "স্বাধীন নমুনা ঠিকানা পরিচিতি; সরকারি ডিরেক্টরি সংযুক্ত নয়।",
-              "en": "Enter a demo location name/reference. No government address directory is connected."
+              "bn": "ঠিকানার নাম বা পরিচিতি লিখুন।",
+              "en": "Enter the location name or reference."
             },
             "visibleWhen": {
               "field": "noc_org_add_type",
@@ -13844,8 +13844,8 @@
               "minLength": 2
             },
             "description": {
-              "bn": "স্বাধীন নমুনা ঠিকানা পরিচিতি; সরকারি ডিরেক্টরি সংযুক্ত নয়।",
-              "en": "Enter a demo location name/reference. No government address directory is connected."
+              "bn": "ঠিকানার নাম বা পরিচিতি লিখুন।",
+              "en": "Enter the location name or reference."
             },
             "visibleWhen": {
               "field": "noc_org_add_type",
@@ -13873,8 +13873,8 @@
               "required": true
             },
             "description": {
-              "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-              "en": "Field presence is observed; validation and choices are independently defined for this demo."
+              "bn": "",
+              "en": ""
             }
           },
           {
@@ -14041,8 +14041,8 @@
             "id": "confirmation",
             "type": "checkbox",
             "label": {
-              "bn": "প্রদত্ত তথ্য সঠিক এবং এটি পরীক্ষামূলক আবেদন",
-              "en": "I confirm the information is correct and this is a demo application."
+              "bn": "প্রদত্ত তথ্য সঠিক এবং আমি এই আবেদন জমা দিচ্ছি।",
+              "en": "I confirm the information is correct and I submit this application."
             },
             "evidence": {
               "status": "proposed"
@@ -14067,7 +14067,7 @@
     "evidence": {
       "source": "audit/evidence/s-37.json",
       "status": "proposed",
-      "limitation": "Independent executable demo form. Reference initial field metadata is observed; dropdown choices, normalized payloads, conditions, validation, service decisions and document text are independently proposed. Original successful submission, server validation, approval, payment and issuance remain unverified. No legal eligibility or government verification is inferred."
+      "limitation": "Complete all required fields before submitting."
     },
     "sections": [
       {
@@ -14125,8 +14125,8 @@
               "required": true
             },
             "description": {
-              "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-              "en": "Field presence is observed; validation and choices are independently defined for this demo."
+              "bn": "",
+              "en": ""
             }
           },
           {
@@ -14325,8 +14325,8 @@
             "id": "confirmation",
             "type": "checkbox",
             "label": {
-              "bn": "প্রদত্ত তথ্য সঠিক এবং এটি পরীক্ষামূলক আবেদন",
-              "en": "I confirm the information is correct and this is a demo application."
+              "bn": "প্রদত্ত তথ্য সঠিক এবং আমি এই আবেদন জমা দিচ্ছি।",
+              "en": "I confirm the information is correct and I submit this application."
             },
             "evidence": {
               "status": "proposed"
@@ -14351,7 +14351,7 @@
     "evidence": {
       "source": "audit/evidence/s-38.json",
       "status": "proposed",
-      "limitation": "Independent executable demo form. Reference initial field metadata is observed; dropdown choices, normalized payloads, conditions, validation, service decisions and document text are independently proposed. Original successful submission, server validation, approval, payment and issuance remain unverified. No legal eligibility or government verification is inferred."
+      "limitation": "Complete all required fields before submitting."
     },
     "sections": [
       {
@@ -14423,8 +14423,8 @@
               "required": true
             },
             "description": {
-              "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-              "en": "Field presence is observed; validation and choices are independently defined for this demo."
+              "bn": "",
+              "en": ""
             }
           },
           {
@@ -14607,8 +14607,8 @@
             "id": "confirmation",
             "type": "checkbox",
             "label": {
-              "bn": "প্রদত্ত তথ্য সঠিক এবং এটি পরীক্ষামূলক আবেদন",
-              "en": "I confirm the information is correct and this is a demo application."
+              "bn": "প্রদত্ত তথ্য সঠিক এবং আমি এই আবেদন জমা দিচ্ছি।",
+              "en": "I confirm the information is correct and I submit this application."
             },
             "evidence": {
               "status": "proposed"
@@ -14633,7 +14633,7 @@
     "evidence": {
       "source": "audit/evidence/s-39.json",
       "status": "proposed",
-      "limitation": "Independent executable demo form. Reference initial field metadata is observed; dropdown choices, normalized payloads, conditions, validation, service decisions and document text are independently proposed. Original successful submission, server validation, approval, payment and issuance remain unverified. No legal eligibility or government verification is inferred."
+      "limitation": "Complete all required fields before submitting."
     },
     "sections": [
       {
@@ -14663,8 +14663,8 @@
               "minLength": 2
             },
             "description": {
-              "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-              "en": "Field presence is observed; validation and choices are independently defined for this demo."
+              "bn": "",
+              "en": ""
             }
           },
           {
@@ -14687,8 +14687,8 @@
               "minLength": 2
             },
             "description": {
-              "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-              "en": "Field presence is observed; validation and choices are independently defined for this demo."
+              "bn": "",
+              "en": ""
             }
           },
           {
@@ -14709,8 +14709,8 @@
               "required": true
             },
             "description": {
-              "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-              "en": "Field presence is observed; validation and choices are independently defined for this demo."
+              "bn": "",
+              "en": ""
             }
           },
           {
@@ -14731,8 +14731,8 @@
               "required": true
             },
             "description": {
-              "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-              "en": "Field presence is observed; validation and choices are independently defined for this demo."
+              "bn": "",
+              "en": ""
             },
             "visibleWhen": {
               "field": "spi_is_dead",
@@ -14757,8 +14757,8 @@
               "required": true
             },
             "description": {
-              "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-              "en": "Field presence is observed; validation and choices are independently defined for this demo."
+              "bn": "",
+              "en": ""
             }
           },
           {
@@ -14823,8 +14823,8 @@
               "required": true
             },
             "description": {
-              "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-              "en": "Field presence is observed; validation and choices are independently defined for this demo."
+              "bn": "",
+              "en": ""
             },
             "visibleWhen": {
               "field": "relation_person",
@@ -14851,8 +14851,8 @@
               "minLength": 2
             },
             "description": {
-              "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-              "en": "Field presence is observed; validation and choices are independently defined for this demo."
+              "bn": "",
+              "en": ""
             },
             "visibleWhen": {
               "field": "relation_person",
@@ -14879,8 +14879,8 @@
               "minLength": 2
             },
             "description": {
-              "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-              "en": "Field presence is observed; validation and choices are independently defined for this demo."
+              "bn": "",
+              "en": ""
             },
             "visibleWhen": {
               "field": "relation_person",
@@ -15051,8 +15051,8 @@
             "id": "confirmation",
             "type": "checkbox",
             "label": {
-              "bn": "প্রদত্ত তথ্য সঠিক এবং এটি পরীক্ষামূলক আবেদন",
-              "en": "I confirm the information is correct and this is a demo application."
+              "bn": "প্রদত্ত তথ্য সঠিক এবং আমি এই আবেদন জমা দিচ্ছি।",
+              "en": "I confirm the information is correct and I submit this application."
             },
             "evidence": {
               "status": "proposed"
@@ -15077,7 +15077,7 @@
     "evidence": {
       "source": "audit/evidence/s-40.json",
       "status": "proposed",
-      "limitation": "Independent executable demo form. Reference initial field metadata is observed; dropdown choices, normalized payloads, conditions, validation, service decisions and document text are independently proposed. Original successful submission, server validation, approval, payment and issuance remain unverified. No legal eligibility or government verification is inferred."
+      "limitation": "Complete all required fields before submitting."
     },
     "sections": [
       {
@@ -15283,8 +15283,8 @@
             "id": "confirmation",
             "type": "checkbox",
             "label": {
-              "bn": "প্রদত্ত তথ্য সঠিক এবং এটি পরীক্ষামূলক আবেদন",
-              "en": "I confirm the information is correct and this is a demo application."
+              "bn": "প্রদত্ত তথ্য সঠিক এবং আমি এই আবেদন জমা দিচ্ছি।",
+              "en": "I confirm the information is correct and I submit this application."
             },
             "evidence": {
               "status": "proposed"
@@ -15309,7 +15309,7 @@
     "evidence": {
       "source": "audit/evidence/s-41.json",
       "status": "proposed",
-      "limitation": "Independent executable demo form. Reference initial field metadata is observed; dropdown choices, normalized payloads, conditions, validation, service decisions and document text are independently proposed. Original successful submission, server validation, approval, payment and issuance remain unverified. No legal eligibility or government verification is inferred."
+      "limitation": "Complete all required fields before submitting."
     },
     "sections": [
       {
@@ -15339,8 +15339,8 @@
               "minLength": 2
             },
             "description": {
-              "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-              "en": "Field presence is observed; validation and choices are independently defined for this demo."
+              "bn": "",
+              "en": ""
             }
           },
           {
@@ -15363,8 +15363,8 @@
               "minLength": 2
             },
             "description": {
-              "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-              "en": "Field presence is observed; validation and choices are independently defined for this demo."
+              "bn": "",
+              "en": ""
             }
           },
           {
@@ -15387,8 +15387,8 @@
               "minLength": 2
             },
             "description": {
-              "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-              "en": "Field presence is observed; validation and choices are independently defined for this demo."
+              "bn": "",
+              "en": ""
             }
           },
           {
@@ -15411,8 +15411,8 @@
               "minLength": 2
             },
             "description": {
-              "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-              "en": "Field presence is observed; validation and choices are independently defined for this demo."
+              "bn": "",
+              "en": ""
             }
           },
           {
@@ -15435,8 +15435,8 @@
               "minLength": 2
             },
             "description": {
-              "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-              "en": "Field presence is observed; validation and choices are independently defined for this demo."
+              "bn": "",
+              "en": ""
             }
           },
           {
@@ -15459,8 +15459,8 @@
               "minLength": 2
             },
             "description": {
-              "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-              "en": "Field presence is observed; validation and choices are independently defined for this demo."
+              "bn": "",
+              "en": ""
             }
           },
           {
@@ -15483,8 +15483,8 @@
               "minLength": 2
             },
             "description": {
-              "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-              "en": "Field presence is observed; validation and choices are independently defined for this demo."
+              "bn": "",
+              "en": ""
             }
           },
           {
@@ -15507,8 +15507,8 @@
               "minLength": 2
             },
             "description": {
-              "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-              "en": "Field presence is observed; validation and choices are independently defined for this demo."
+              "bn": "",
+              "en": ""
             }
           },
           {
@@ -15531,8 +15531,8 @@
               "required": true
             },
             "description": {
-              "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-              "en": "Field presence is observed; validation and choices are independently defined for this demo."
+              "bn": "",
+              "en": ""
             }
           },
           {
@@ -15576,8 +15576,8 @@
               "required": true
             },
             "description": {
-              "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-              "en": "Field presence is observed; validation and choices are independently defined for this demo."
+              "bn": "",
+              "en": ""
             }
           },
           {
@@ -15600,8 +15600,8 @@
               "minLength": 2
             },
             "description": {
-              "bn": "স্বাধীন নমুনা ঠিকানা পরিচিতি; সরকারি ডিরেক্টরি সংযুক্ত নয়।",
-              "en": "Enter a demo location name/reference. No government address directory is connected."
+              "bn": "ঠিকানার নাম বা পরিচিতি লিখুন।",
+              "en": "Enter the location name or reference."
             }
           },
           {
@@ -15624,8 +15624,8 @@
               "minLength": 2
             },
             "description": {
-              "bn": "স্বাধীন নমুনা ঠিকানা পরিচিতি; সরকারি ডিরেক্টরি সংযুক্ত নয়।",
-              "en": "Enter a demo location name/reference. No government address directory is connected."
+              "bn": "ঠিকানার নাম বা পরিচিতি লিখুন।",
+              "en": "Enter the location name or reference."
             }
           },
           {
@@ -15648,8 +15648,8 @@
               "minLength": 2
             },
             "description": {
-              "bn": "স্বাধীন নমুনা ঠিকানা পরিচিতি; সরকারি ডিরেক্টরি সংযুক্ত নয়।",
-              "en": "Enter a demo location name/reference. No government address directory is connected."
+              "bn": "ঠিকানার নাম বা পরিচিতি লিখুন।",
+              "en": "Enter the location name or reference."
             }
           },
           {
@@ -15672,8 +15672,8 @@
               "minLength": 2
             },
             "description": {
-              "bn": "স্বাধীন নমুনা ঠিকানা পরিচিতি; সরকারি ডিরেক্টরি সংযুক্ত নয়।",
-              "en": "Enter a demo location name/reference. No government address directory is connected."
+              "bn": "ঠিকানার নাম বা পরিচিতি লিখুন।",
+              "en": "Enter the location name or reference."
             }
           },
           {
@@ -15696,8 +15696,8 @@
               "minLength": 2
             },
             "description": {
-              "bn": "স্বাধীন নমুনা ঠিকানা পরিচিতি; সরকারি ডিরেক্টরি সংযুক্ত নয়।",
-              "en": "Enter a demo location name/reference. No government address directory is connected."
+              "bn": "ঠিকানার নাম বা পরিচিতি লিখুন।",
+              "en": "Enter the location name or reference."
             }
           },
           {
@@ -15720,8 +15720,8 @@
               "minLength": 2
             },
             "description": {
-              "bn": "স্বাধীন নমুনা ঠিকানা পরিচিতি; সরকারি ডিরেক্টরি সংযুক্ত নয়।",
-              "en": "Enter a demo location name/reference. No government address directory is connected."
+              "bn": "ঠিকানার নাম বা পরিচিতি লিখুন।",
+              "en": "Enter the location name or reference."
             },
             "visibleWhen": {
               "field": "primises_license_org_add_type",
@@ -15748,8 +15748,8 @@
               "minLength": 2
             },
             "description": {
-              "bn": "স্বাধীন নমুনা ঠিকানা পরিচিতি; সরকারি ডিরেক্টরি সংযুক্ত নয়।",
-              "en": "Enter a demo location name/reference. No government address directory is connected."
+              "bn": "ঠিকানার নাম বা পরিচিতি লিখুন।",
+              "en": "Enter the location name or reference."
             },
             "visibleWhen": {
               "field": "primises_license_org_add_type",
@@ -15776,8 +15776,8 @@
               "minLength": 2
             },
             "description": {
-              "bn": "স্বাধীন নমুনা ঠিকানা পরিচিতি; সরকারি ডিরেক্টরি সংযুক্ত নয়।",
-              "en": "Enter a demo location name/reference. No government address directory is connected."
+              "bn": "ঠিকানার নাম বা পরিচিতি লিখুন।",
+              "en": "Enter the location name or reference."
             },
             "visibleWhen": {
               "field": "primises_license_org_add_type",
@@ -15805,8 +15805,8 @@
               "required": true
             },
             "description": {
-              "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-              "en": "Field presence is observed; validation and choices are independently defined for this demo."
+              "bn": "",
+              "en": ""
             }
           },
           {
@@ -15829,8 +15829,8 @@
               "minLength": 2
             },
             "description": {
-              "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-              "en": "Field presence is observed; validation and choices are independently defined for this demo."
+              "bn": "",
+              "en": ""
             }
           },
           {
@@ -15997,8 +15997,8 @@
             "id": "confirmation",
             "type": "checkbox",
             "label": {
-              "bn": "প্রদত্ত তথ্য সঠিক এবং এটি পরীক্ষামূলক আবেদন",
-              "en": "I confirm the information is correct and this is a demo application."
+              "bn": "প্রদত্ত তথ্য সঠিক এবং আমি এই আবেদন জমা দিচ্ছি।",
+              "en": "I confirm the information is correct and I submit this application."
             },
             "evidence": {
               "status": "proposed"
@@ -16023,7 +16023,7 @@
     "evidence": {
       "source": "audit/evidence/s-43.json",
       "status": "proposed",
-      "limitation": "Independent executable demo form. Reference initial field metadata is observed; dropdown choices, normalized payloads, conditions, validation, service decisions and document text are independently proposed. Original successful submission, server validation, approval, payment and issuance remain unverified. No legal eligibility or government verification is inferred."
+      "limitation": "Complete all required fields before submitting."
     },
     "sections": [
       {
@@ -16037,8 +16037,8 @@
             "id": "previous_voter_reference",
             "type": "text",
             "label": {
-              "bn": "পূর্বের ভোটার তথ্যের নমুনা পরিচিতি",
-              "en": "Demo previous voter reference"
+              "bn": "পূর্বের ভোটার তথ্যের পরিচিতি",
+              "en": "Previous voter reference"
             },
             "evidence": {
               "status": "proposed"
@@ -16229,8 +16229,8 @@
             "id": "confirmation",
             "type": "checkbox",
             "label": {
-              "bn": "প্রদত্ত তথ্য সঠিক এবং এটি পরীক্ষামূলক আবেদন",
-              "en": "I confirm the information is correct and this is a demo application."
+              "bn": "প্রদত্ত তথ্য সঠিক এবং আমি এই আবেদন জমা দিচ্ছি।",
+              "en": "I confirm the information is correct and I submit this application."
             },
             "evidence": {
               "status": "proposed"
@@ -16255,7 +16255,7 @@
     "evidence": {
       "source": "audit/evidence/s-44.json",
       "status": "proposed",
-      "limitation": "Independent executable demo form. Reference initial field metadata is observed; dropdown choices, normalized payloads, conditions, validation, service decisions and document text are independently proposed. Original successful submission, server validation, approval, payment and issuance remain unverified. No legal eligibility or government verification is inferred."
+      "limitation": "Complete all required fields before submitting."
     },
     "sections": [
       {
@@ -16461,8 +16461,8 @@
             "id": "confirmation",
             "type": "checkbox",
             "label": {
-              "bn": "প্রদত্ত তথ্য সঠিক এবং এটি পরীক্ষামূলক আবেদন",
-              "en": "I confirm the information is correct and this is a demo application."
+              "bn": "প্রদত্ত তথ্য সঠিক এবং আমি এই আবেদন জমা দিচ্ছি।",
+              "en": "I confirm the information is correct and I submit this application."
             },
             "evidence": {
               "status": "proposed"
@@ -16487,7 +16487,7 @@
     "evidence": {
       "source": "audit/evidence/s-46.json",
       "status": "proposed",
-      "limitation": "Independent executable demo form. Reference initial field metadata is observed; dropdown choices, normalized payloads, conditions, validation, service decisions and document text are independently proposed. Original successful submission, server validation, approval, payment and issuance remain unverified. No legal eligibility or government verification is inferred."
+      "limitation": "Complete all required fields before submitting."
     },
     "sections": [
       {
@@ -16517,8 +16517,8 @@
               "minLength": 2
             },
             "description": {
-              "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-              "en": "Field presence is observed; validation and choices are independently defined for this demo."
+              "bn": "",
+              "en": ""
             }
           },
           {
@@ -16541,8 +16541,8 @@
               "minLength": 2
             },
             "description": {
-              "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-              "en": "Field presence is observed; validation and choices are independently defined for this demo."
+              "bn": "",
+              "en": ""
             }
           },
           {
@@ -16565,8 +16565,8 @@
               "minLength": 2
             },
             "description": {
-              "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-              "en": "Field presence is observed; validation and choices are independently defined for this demo."
+              "bn": "",
+              "en": ""
             }
           },
           {
@@ -16589,8 +16589,8 @@
               "minLength": 2
             },
             "description": {
-              "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-              "en": "Field presence is observed; validation and choices are independently defined for this demo."
+              "bn": "",
+              "en": ""
             }
           },
           {
@@ -16613,8 +16613,8 @@
               "minLength": 2
             },
             "description": {
-              "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-              "en": "Field presence is observed; validation and choices are independently defined for this demo."
+              "bn": "",
+              "en": ""
             }
           },
           {
@@ -16637,8 +16637,8 @@
               "minLength": 2
             },
             "description": {
-              "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-              "en": "Field presence is observed; validation and choices are independently defined for this demo."
+              "bn": "",
+              "en": ""
             }
           },
           {
@@ -16661,8 +16661,8 @@
               "minLength": 2
             },
             "description": {
-              "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-              "en": "Field presence is observed; validation and choices are independently defined for this demo."
+              "bn": "",
+              "en": ""
             }
           },
           {
@@ -16685,8 +16685,8 @@
               "minLength": 2
             },
             "description": {
-              "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-              "en": "Field presence is observed; validation and choices are independently defined for this demo."
+              "bn": "",
+              "en": ""
             }
           },
           {
@@ -16709,8 +16709,8 @@
               "maxLength": 254
             },
             "description": {
-              "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-              "en": "Field presence is observed; validation and choices are independently defined for this demo."
+              "bn": "",
+              "en": ""
             }
           },
           {
@@ -16733,8 +16733,8 @@
               "maxLength": 11
             },
             "description": {
-              "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-              "en": "Field presence is observed; validation and choices are independently defined for this demo."
+              "bn": "",
+              "en": ""
             }
           },
           {
@@ -16757,8 +16757,8 @@
               "minLength": 2
             },
             "description": {
-              "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-              "en": "Field presence is observed; validation and choices are independently defined for this demo."
+              "bn": "",
+              "en": ""
             }
           },
           {
@@ -16781,8 +16781,8 @@
               "minLength": 2
             },
             "description": {
-              "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-              "en": "Field presence is observed; validation and choices are independently defined for this demo."
+              "bn": "",
+              "en": ""
             }
           },
           {
@@ -16805,8 +16805,8 @@
               "minLength": 2
             },
             "description": {
-              "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-              "en": "Field presence is observed; validation and choices are independently defined for this demo."
+              "bn": "",
+              "en": ""
             }
           },
           {
@@ -16829,8 +16829,8 @@
               "minLength": 2
             },
             "description": {
-              "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-              "en": "Field presence is observed; validation and choices are independently defined for this demo."
+              "bn": "",
+              "en": ""
             }
           },
           {
@@ -16853,8 +16853,8 @@
               "required": false
             },
             "description": {
-              "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-              "en": "Field presence is observed; validation and choices are independently defined for this demo."
+              "bn": "",
+              "en": ""
             }
           },
           {
@@ -16877,8 +16877,8 @@
               "required": false
             },
             "description": {
-              "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-              "en": "Field presence is observed; validation and choices are independently defined for this demo."
+              "bn": "",
+              "en": ""
             }
           },
           {
@@ -16901,8 +16901,8 @@
               "required": false
             },
             "description": {
-              "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-              "en": "Field presence is observed; validation and choices are independently defined for this demo."
+              "bn": "",
+              "en": ""
             }
           },
           {
@@ -16925,8 +16925,8 @@
               "required": false
             },
             "description": {
-              "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-              "en": "Field presence is observed; validation and choices are independently defined for this demo."
+              "bn": "",
+              "en": ""
             }
           },
           {
@@ -16949,8 +16949,8 @@
               "required": false
             },
             "description": {
-              "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-              "en": "Field presence is observed; validation and choices are independently defined for this demo."
+              "bn": "",
+              "en": ""
             }
           },
           {
@@ -16973,8 +16973,8 @@
               "required": false
             },
             "description": {
-              "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-              "en": "Field presence is observed; validation and choices are independently defined for this demo."
+              "bn": "",
+              "en": ""
             }
           },
           {
@@ -17141,8 +17141,8 @@
             "id": "confirmation",
             "type": "checkbox",
             "label": {
-              "bn": "প্রদত্ত তথ্য সঠিক এবং এটি পরীক্ষামূলক আবেদন",
-              "en": "I confirm the information is correct and this is a demo application."
+              "bn": "প্রদত্ত তথ্য সঠিক এবং আমি এই আবেদন জমা দিচ্ছি।",
+              "en": "I confirm the information is correct and I submit this application."
             },
             "evidence": {
               "status": "proposed"
@@ -17167,7 +17167,7 @@
     "evidence": {
       "source": "audit/evidence/s-47.json",
       "status": "proposed",
-      "limitation": "Independent executable demo form. Reference initial field metadata is observed; dropdown choices, normalized payloads, conditions, validation, service decisions and document text are independently proposed. Original successful submission, server validation, approval, payment and issuance remain unverified. No legal eligibility or government verification is inferred."
+      "limitation": "Complete all required fields before submitting."
     },
     "sections": [
       {
@@ -17225,8 +17225,8 @@
               "required": true
             },
             "description": {
-              "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-              "en": "Field presence is observed; validation and choices are independently defined for this demo."
+              "bn": "",
+              "en": ""
             }
           },
           {
@@ -17249,8 +17249,8 @@
               "minLength": 2
             },
             "description": {
-              "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-              "en": "Field presence is observed; validation and choices are independently defined for this demo."
+              "bn": "",
+              "en": ""
             }
           },
           {
@@ -17273,8 +17273,8 @@
               "minLength": 2
             },
             "description": {
-              "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-              "en": "Field presence is observed; validation and choices are independently defined for this demo."
+              "bn": "",
+              "en": ""
             }
           },
           {
@@ -17297,8 +17297,8 @@
               "minLength": 2
             },
             "description": {
-              "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-              "en": "Field presence is observed; validation and choices are independently defined for this demo."
+              "bn": "",
+              "en": ""
             }
           },
           {
@@ -17321,8 +17321,8 @@
               "minLength": 2
             },
             "description": {
-              "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-              "en": "Field presence is observed; validation and choices are independently defined for this demo."
+              "bn": "",
+              "en": ""
             }
           },
           {
@@ -17345,8 +17345,8 @@
               "minLength": 2
             },
             "description": {
-              "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-              "en": "Field presence is observed; validation and choices are independently defined for this demo."
+              "bn": "",
+              "en": ""
             }
           },
           {
@@ -17369,8 +17369,8 @@
               "minLength": 2
             },
             "description": {
-              "bn": "নমুনা আবেদনের নিয়ম স্বাধীনভাবে নির্ধারিত।",
-              "en": "Field presence is observed; validation and choices are independently defined for this demo."
+              "bn": "",
+              "en": ""
             }
           },
           {
@@ -17537,8 +17537,8 @@
             "id": "confirmation",
             "type": "checkbox",
             "label": {
-              "bn": "প্রদত্ত তথ্য সঠিক এবং এটি পরীক্ষামূলক আবেদন",
-              "en": "I confirm the information is correct and this is a demo application."
+              "bn": "প্রদত্ত তথ্য সঠিক এবং আমি এই আবেদন জমা দিচ্ছি।",
+              "en": "I confirm the information is correct and I submit this application."
             },
             "evidence": {
               "status": "proposed"

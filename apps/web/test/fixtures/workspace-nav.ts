@@ -44,3 +44,23 @@ export function workspacePage(page: Page, nameOrLabel: string | RegExp) {
       : Object.entries(pageByLabel).find(([label]) => nameOrLabel.test(label))?.[1];
   return navigation.locator(`[data-page="${key}"]`);
 }
+
+/**
+ * Navigate to a workspace page in either layout: on wide screens the sidebar entry is clicked; on phone
+ * widths the sidebar is hidden by design and the page-picker select (#workspace-jump) is the navigation.
+ * The picker's option values are page keys for plain pages in both navigation variants.
+ */
+export async function goToWorkspacePage(page: Page, nameOrLabel: string | RegExp) {
+  const key =
+    typeof nameOrLabel === "string"
+      ? (pageByLabel[nameOrLabel] ?? nameOrLabel)
+      : Object.entries(pageByLabel).find(([label]) => nameOrLabel.test(label))?.[1];
+  // The layout switch is a pure function of viewport width (767px band), so decide from the
+  // viewport rather than racing element visibility while the shell mounts.
+  const width = page.viewportSize()?.width ?? 1280;
+  if (width <= 767) {
+    await page.locator("#workspace-jump").selectOption(String(key));
+    return;
+  }
+  await workspacePage(page, nameOrLabel).click();
+}

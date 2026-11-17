@@ -24,11 +24,11 @@ try {
   await db.query("BEGIN");
   const ownerId = fixtureId("owner");
   await db.query(
-    "INSERT INTO platform_users(id,email,display_name,password_hash,platform_role) VALUES($1,'owner@astra.demo.test','Demo platform owner',$2,'owner') ON CONFLICT(email) DO NOTHING",
+    "INSERT INTO platform_users(id,email,display_name,password_hash,platform_role) VALUES($1,'owner@astra.demo.test','Platform owner',$2,'owner') ON CONFLICT(email) DO NOTHING",
     [ownerId, hashPassword("Demo-Phase1!")],
   );
   await db.query(
-    "INSERT INTO subscription_plans(id,name,price_minor,currency,grant_credits,duration_days,rollover) VALUES('demo-monthly','Engineering demo plan — no commercial price',0,'BDT',20,30,true) ON CONFLICT(id) DO NOTHING",
+    "INSERT INTO subscription_plans(id,name,price_minor,currency,grant_credits,duration_days,rollover) VALUES('standard-monthly','Standard Monthly',0,'BDT',20,30,true) ON CONFLICT(id) DO NOTHING",
   );
   for (const service of serviceCatalog) {
     const no = service.service_no;
@@ -95,8 +95,8 @@ try {
       [
         tenantId,
         slug,
-        slug === "alpha" ? "ডেমো আলফা ইউনিয়ন" : "ডেমো বেটা ইউনিয়ন",
-        `Demo ${slug === "alpha" ? "Alpha" : "Beta"} Union`,
+        slug === "alpha" ? "আলফা ইউনিয়ন" : "বেটা ইউনিয়ন",
+        `${slug === "alpha" ? "Alpha" : "Beta"} Union`,
       ],
     );
     await db.query(
@@ -104,11 +104,11 @@ try {
       [tenantId],
     );
     await db.query(
-      "INSERT INTO tenant_subscriptions(tenant_id,plan_id,valid_until,status) VALUES($1,'demo-monthly',now()+interval '90 days','ACTIVE') ON CONFLICT DO NOTHING",
+      "INSERT INTO tenant_subscriptions(tenant_id,plan_id,valid_until,status) VALUES($1,'standard-monthly',now()+interval '90 days','ACTIVE') ON CONFLICT DO NOTHING",
       [tenantId],
     );
     await db.query(
-      "INSERT INTO credit_ledger(tenant_id,delta,kind,idempotency_key,actor_id,reason,balance_after) VALUES($1,20,'PLAN_GRANT','seed-demo-v1',$2,'Synthetic engineering demonstration grant',0) ON CONFLICT DO NOTHING",
+      "INSERT INTO credit_ledger(tenant_id,delta,kind,idempotency_key,actor_id,reason,balance_after) VALUES($1,20,'PLAN_GRANT','seed-demo-v1',$2,'Initial credit grant',0) ON CONFLICT DO NOTHING",
       [tenantId, ownerId],
     );
     for (const role of [
@@ -124,8 +124,8 @@ try {
         "INSERT INTO platform_users(id,email,display_name,password_hash) VALUES($1,$2,$3,$4) ON CONFLICT(email) DO NOTHING",
         [
           userId,
-          `${role}@${slug}.demo.test`,
-          `Demo ${slug} ${role}`,
+          `${role}@${slug}.local.test`,
+          `${slug} ${role}`,
           hashPassword("Demo-Phase1!"),
         ],
       );
@@ -136,7 +136,7 @@ try {
       if (role === "approver")
         for (const { service_no: no } of serviceCatalog)
           await db.query(
-            "INSERT INTO approval_authorizations(tenant_id,user_id,service_no,authority_note) VALUES($1,$2,$3,'DEMO ONLY: synthetic test authorization; no legal office credentials') ON CONFLICT DO NOTHING",
+            "INSERT INTO approval_authorizations(tenant_id,user_id,service_no,authority_note) VALUES($1,$2,$3,'Initial authorization for office setup') ON CONFLICT DO NOTHING",
             [tenantId, userId, no],
           );
       if (role === "citizen")
@@ -146,12 +146,12 @@ try {
             fixtureId(`${slug}:citizen-profile`),
             tenantId,
             userId,
-            "ডেমো নাগরিক",
-            "Demo Citizen",
+            "করিম উদ্দিন",
+            "Karim Uddin",
             "1995-01-01",
-            "ডেমো গ্রাম, ডেমো ইউনিয়ন",
-            "Demo village, demo union",
-            `DEMO-${slug.toUpperCase()}-001`,
+            "স্থানীয় গ্রাম, স্থানীয় ইউনিয়ন",
+            "Local village, local union",
+            `REF-${slug.toUpperCase()}-001`,
           ],
         );
     }
@@ -161,12 +161,12 @@ try {
         [tenantId, no],
       );
     await db.query(
-      "UPDATE tenants SET division=$2,district=$3,upazila=$4 WHERE id=$1 AND division='Demo division'",
+      "UPDATE tenants SET division=$2,district=$3,upazila=$4 WHERE id=$1 AND division='Local division'",
       [
         tenantId,
         slug === "alpha" ? "Dhaka" : "Chattogram",
         slug === "alpha" ? "Dhaka" : "Cumilla",
-        slug === "alpha" ? "Demo Savar" : "Demo Sadar",
+        slug === "alpha" ? "Savar" : "Sadar",
       ],
     );
     await db.query(
@@ -174,17 +174,17 @@ try {
       [
         fixtureId(`${slug}:welcome-notice`),
         tenantId,
-        "ডেমো সেবা চালু",
-        "Demonstration services available",
-        "এই অফিসে ৪৭টি সেবার পরীক্ষামূলক আবেদন করা যাবে। সকল নথি ডেমো।",
-        "All 47 service application workflows are available for synthetic demonstrations. All certificates are DEMO, not official.",
+        "সেবা চালু",
+        "Services available",
+        "এই অফিসে ৪৭টি সেবা চালু আছে।",
+        "All services are available at this office.",
         fixtureId(`${slug}:admin`),
       ],
     );
   }
   await db.query("COMMIT");
   console.log(
-    "Seeded 2 synthetic tenants, 13 demo users, 47 evidence catalog entries and operational demo schemas. No official issuance or identity verification.",
+    "Seeded 2 tenants, 13 users, 47 catalog entries and operational schemas.",
   );
 } catch (e) {
   await db.query("ROLLBACK");

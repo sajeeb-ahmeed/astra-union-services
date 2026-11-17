@@ -4,7 +4,7 @@ import { choose, useLanguage } from "./i18n.js";
 import serviceCatalog from "./public-service-catalog.json" with { type: "json" };
 import { CivicIcon } from "./PublicPortal.js";
 import { PublicShell } from "./PublicShell.js";
-import { RailPanel, ServiceTile, StatCard, StatusPill, TitleBand } from "./ui/kit.js";
+import { EmptyState, RailPanel, ServiceTile, StatCard, StatusPill, TitleBand } from "./ui/kit.js";
 import "./public-home.css";
 
 /** Accepts a full QR link (…/verify/<token>) or the bare token. */
@@ -129,17 +129,21 @@ export function PublicHome({ login }: { login?: React.ReactNode } = {}) {
               ))}
             </div>
           ) : (
-            <div className="ax-home-empty">
-              <p>
-                {choose({
-                  bn: "এই নামে কোনো সেবা পাওয়া যায়নি। নামের ছোট অংশ বা নম্বর দিয়ে খুঁজুন।",
-                  en: "No service matches. Try part of the name or the number.",
-                })}
-              </p>
-              <button type="button" className="secondary" onClick={() => setQuery("")}>
-                {choose({ bn: "সব সেবা দেখুন", en: "Show all services" })}
-              </button>
-            </div>
+            <EmptyState
+              title={choose({
+                bn: "এই নামে কোনো সেবা পাওয়া যায়নি।",
+                en: "No service matches.",
+              })}
+              hint={choose({
+                bn: "নামের ছোট অংশ বা নম্বর দিয়ে খুঁজুন।",
+                en: "Try part of the name or the number.",
+              })}
+              action={
+                <button type="button" className="secondary" onClick={() => setQuery("")}>
+                  {choose({ bn: "সব সেবা দেখুন", en: "Show all services" })}
+                </button>
+              }
+            />
           )}
         </section>
         <aside className="ax-home-rail">

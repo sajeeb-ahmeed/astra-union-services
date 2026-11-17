@@ -24,7 +24,7 @@ before(async () => {
   await new Promise<void>((resolve) => server.once("listening", resolve));
   base = `http://127.0.0.1:${(server.address() as any).port}`;
   await login("owner", "owner@astra.demo.test");
-  await login("admin", "admin@alpha.demo.test");
+  await login("admin", "admin@alpha.local.test");
 });
 after(async () => {
   await new Promise<void>((resolve) => server.close(() => resolve()));

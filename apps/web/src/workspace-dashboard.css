@@ -61,7 +61,7 @@
   min-width: min(280px, 100%);
 }
 .ax-dashboard-search input {
-  min-height: 42px;
+  min-height: 44px;
 }
 .ax-dashboard-grid {
   display: grid;
@@ -81,7 +81,7 @@
   color: var(--ax-muted);
 }
 
-@media (max-width: 640px) {
+@media (max-width: 767px) {
   .ax-dashboard-stats {
     grid-template-columns: 1fr;
   }

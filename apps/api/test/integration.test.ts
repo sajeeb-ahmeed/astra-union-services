@@ -54,7 +54,7 @@ async function login(name: string) {
   const email =
     name === "owner"
       ? "owner@astra.demo.test"
-      : `${name.split(":")[1]}@${name.split(":")[0]}.demo.test`;
+      : `${name.split(":")[1]}@${name.split(":")[0]}.local.test`;
   const r = await request("POST", "/auth/login", {
     email,
     password: "Demo-Phase1!",
@@ -167,7 +167,7 @@ test("OPS-01: real PostgreSQL, all 47 catalog entries and schema versions", asyn
   );
 });
 test("CIT-01 / TEN-01 / TEN-02 / AUTH-01: synthetic registration, duplicate handling and tenant scopes", async () => {
-  const reference = `DEMO-TEST-${randomUUID().slice(0, 8)}`;
+  const reference = `REF-TEST-${randomUUID().slice(0, 8)}`;
   const data = {
     nameBn: "পরীক্ষা ডেমো নাগরিক",
     nameEn: "Synthetic Test Citizen",
@@ -822,7 +822,7 @@ test("WAL-05 / BILL-01 / BILL-02: verified sandbox settlements are replay-safe a
   const planOrder = await request(
     "POST",
     "/billing/orders",
-    { kind: "subscription", planId: "demo-monthly" },
+    { kind: "subscription", planId: "standard-monthly" },
     finance,
   );
   assert.equal(planOrder.status, 201);
@@ -1155,7 +1155,7 @@ test("CER-01: current resident PDFs contain approved purpose/residency and genui
       "data:image/png;base64,DEMO",
       6,
     );
-    assert.ok(html.includes("DEMO / NOT OFFICIAL"));
+    assert.ok(!html.includes("DEMO / NOT OFFICIAL"));
     const body = html.match(/<main\b[^>]*>([\s\S]*?)<\/main>/)![1]!;
     assert.ok(html.includes(`data-delivery-language="${language}"`));
     if (language !== "en") {

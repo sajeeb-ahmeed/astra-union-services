@@ -64,7 +64,7 @@ export const certificateRow = (r: any, verificationUrl: string | null = null) =>
         revokedAt: r.revoked_at,
         verificationUrl,
         pdfUrl: `/api/v1/certificates/${r.id}/pdf`,
-        demo: true,
+        demo: process.env.ISSUANCE_MODE === "official" ? false : true,
       }
     : null;
 export class ApiError extends Error {

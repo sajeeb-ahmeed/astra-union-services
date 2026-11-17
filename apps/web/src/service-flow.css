@@ -109,7 +109,7 @@
 .ax-flow-reference {
   overflow-wrap: anywhere;
 }
-@media (max-width: 640px) {
+@media (max-width: 767px) {
   .ax-flow-panel {
     padding: var(--ax-space-4);
   }

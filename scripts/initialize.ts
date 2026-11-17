@@ -16,9 +16,9 @@ try{
       await client.query('INSERT INTO service_versions(service_no,version,schema_json,schema_hash) VALUES($1,$2,$3,$4) ON CONFLICT DO NOTHING',[schema.serviceNo,schema.version,json,hash]);
     }
   }
-  await client.query("INSERT INTO subscription_plans(id,name,price_minor,currency,grant_credits,duration_days,rollover) VALUES('demo-monthly','Engineering demo plan — no commercial price',0,'BDT',20,30,true) ON CONFLICT DO NOTHING");
+  await client.query("INSERT INTO subscription_plans(id,name,price_minor,currency,grant_credits,duration_days,rollover) VALUES('standard-monthly','Standard Monthly',0,'BDT',20,30,true) ON CONFLICT DO NOTHING");
   const existing=(await client.query('SELECT platform_role FROM platform_users WHERE email=$1',[email.toLowerCase()])).rows[0];
   if(existing&&existing.platform_role!=='owner')throw Error('This email already belongs to another role. No privilege escalation performed.');
   await client.query("INSERT INTO platform_users(email,display_name,password_hash,platform_role) VALUES($1,'Platform owner',$2,'owner') ON CONFLICT DO NOTHING",[email.toLowerCase(),hashPassword(password)]);
-  await client.query('COMMIT');console.log('Published catalog and demo plan initialized; owner account available. Existing passwords preserved. No sample tenant/citizen accounts created.');
+  await client.query('COMMIT');console.log('Published catalog and standard plan initialized; owner account available. Existing passwords preserved. No sample tenant/citizen accounts created.');
 }catch(e){await client.query('ROLLBACK');throw e;}finally{client.release();await db.end();}

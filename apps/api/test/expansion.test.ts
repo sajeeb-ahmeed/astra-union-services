@@ -93,7 +93,7 @@ async function signup(key: string, tenant: any) {
       dateOfBirth: "1998-02-03",
       addressBn: "পরীক্ষা ঠিকানা",
       addressEn: "Test address only",
-      syntheticReference: `DEMO-${key}-${run}`,
+      syntheticReference: `REF-${key}-${run}`,
     });
   assert.equal(r.status, 201, JSON.stringify(r.body));
   await login(key, email);
@@ -160,7 +160,7 @@ before(async () => {
   const order = await req(
     "POST",
     "/billing/orders",
-    { kind: "subscription", planId: "demo-monthly" },
+    { kind: "subscription", planId: "standard-monthly" },
     s.finance,
   );
   assert.equal(order.status, 201, JSON.stringify(order.body));
@@ -877,8 +877,8 @@ test("PDF-ALL: service templates retain approved family rows, trade data and HTM
       "data:image/png;base64,DEMO",
       6,
     );
-    assert.ok(html.includes("DEMO / NOT OFFICIAL"));
-    assert.ok(html.includes("Approved demo details"));
+    assert.ok(!html.includes("DEMO / NOT OFFICIAL"));
+    assert.ok(html.includes("Approved details"));
     if (no === 2) assert.ok(html.includes('class="member"'));
     if (no === 42) {
       assert.ok(html.includes("DEMO-PREVIOUS"));

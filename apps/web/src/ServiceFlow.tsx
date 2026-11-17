@@ -1,6 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
 import {
-  demoPayloads,
   getServiceSchema,
   validateForm,
   type ValidationIssue,
@@ -34,7 +33,6 @@ export function ServiceFlow({
   serviceNo,
   initialCitizen = null,
   tenant,
-  localDemo,
   onOpenApplication,
   onRegisterCitizen,
   onExit,
@@ -44,7 +42,6 @@ export function ServiceFlow({
   /** A citizen registered from inside the flow; the flow resumes at the form with them selected. */
   initialCitizen?: any;
   tenant: any;
-  localDemo: boolean;
   onOpenApplication: (id: string) => void;
   onRegisterCitizen: () => void;
   onExit: () => void;
@@ -257,18 +254,6 @@ export function ServiceFlow({
               <button type="button" className="secondary" onClick={() => go(0)}>
                 {choose({ bn: "← নাগরিক", en: "← Citizen" })}
               </button>
-              {localDemo && (
-                <button
-                  type="button"
-                  className="secondary"
-                  onClick={() => {
-                    setPayload(structuredClone(demoPayloads[serviceNo]));
-                    setIssues([]);
-                  }}
-                >
-                  {choose({ bn: "নমুনা তথ্য বসান", en: "Fill synthetic example" })}
-                </button>
-              )}
               <button
                 type="button"
                 onClick={() => {

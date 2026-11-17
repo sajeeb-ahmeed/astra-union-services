@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 import { chromium, type Browser, type Page } from "playwright";
-import { workspacePage } from "./fixtures/workspace-nav.js";
+import { workspacePage, goToWorkspacePage } from "./fixtures/workspace-nav.js";
 const origin = "http://127.0.0.1:5173";
 async function browserInstance(): Promise<Browser> {
   const local = path.join(process.env.LOCALAPPDATA || "", "ms-playwright");
@@ -38,12 +38,12 @@ test(
     const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
     await page.addInitScript(() => { if (!localStorage.getItem("astra.language")) localStorage.setItem("astra.language", "en"); });
     try {
-      await signIn(page, "staff@alpha.demo.test");
+      await signIn(page, "staff@alpha.local.test");
       const errors: string[] = [];
       page.on("console", (message) => {
         if (message.type() === "error") errors.push(message.text());
       });
-      await workspacePage(page, "Citizens").click();
+      await goToWorkspacePage(page, "Citizens");
       const name = `Details Browser Citizen ${Date.now()}`;
       await page.getByLabel("Name (English)", { exact: true }).fill(name);
       await page.getByLabel("Name (Bangla)", { exact: true }).fill("বিস্তারিত পরীক্ষার নাগরিক");
@@ -114,8 +114,8 @@ test(
     const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
     await page.addInitScript(() => { if (!localStorage.getItem("astra.language")) localStorage.setItem("astra.language", "en"); });
     try {
-      await signIn(page, "citizen@alpha.demo.test");
-      await workspacePage(page, "My profile").click();
+      await signIn(page, "citizen@alpha.local.test");
+      await goToWorkspacePage(page, "My profile");
       const panel = page.locator(".citizen-details-editor");
       await panel.waitFor();
       await panel.getByRole("button", { name: "Save details", exact: true }).waitFor();
@@ -134,8 +134,8 @@ test(
     const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
     await page.addInitScript(() => { if (!localStorage.getItem("astra.language")) localStorage.setItem("astra.language", "en"); });
     try {
-      await signIn(page, "staff@alpha.demo.test");
-      await workspacePage(page, "Citizens").click();
+      await signIn(page, "staff@alpha.local.test");
+      await goToWorkspacePage(page, "Citizens");
       // A fresh citizen without an ID number or mobile decision is incomplete.
       const name = `Completeness Browser Citizen ${Date.now()}`;
       const created = await page.evaluate(async (nameEn) => {
@@ -159,7 +159,7 @@ test(
       }, name);
       assert.equal(created.status, 201, JSON.stringify(created.body));
       await page.reload();
-      await workspacePage(page, "Citizens").click();
+      await goToWorkspacePage(page, "Citizens");
       await page.getByRole("button", { name: `Details: ${name}`, exact: true }).click();
       const indicator = page.locator(".citizen-details-editor [data-testid=profile-completeness]");
       await indicator.getByText("Profile incomplete", { exact: true }).waitFor();
@@ -171,8 +171,8 @@ test(
       await indicator.getByText("Profile complete", { exact: true }).waitFor();
       await page.getByRole("button", { name: "Sign out", exact: true }).click();
 
-      await signIn(page, "admin@alpha.demo.test");
-      await workspacePage(page, "Office administration").click();
+      await signIn(page, "admin@alpha.local.test");
+      await goToWorkspacePage(page, "Office administration");
       await page.getByRole("tab", { name: "Office profile", exact: true }).click();
       const toggle = page.locator("#require-complete-profile");
       await toggle.waitFor();
@@ -198,8 +198,8 @@ test(
     const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
     await page.addInitScript(() => { if (!localStorage.getItem("astra.language")) localStorage.setItem("astra.language", "en"); });
     try {
-      await signIn(page, "staff@alpha.demo.test");
-      await workspacePage(page, "Citizens").click();
+      await signIn(page, "staff@alpha.local.test");
+      await goToWorkspacePage(page, "Citizens");
       const first = page.getByRole("button", { name: /^Details: / }).first();
       await first.click();
       const section = page.locator(".citizen-details-editor .identity-document");

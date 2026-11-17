@@ -1,4 +1,4 @@
-/** Independently authored product contract. Reference observations never define authority. */
+/** Product contract for DigitalUnion services. */
 export type LocalizedText = Readonly<{ bn: string; en: string }>;
 export type EvidenceStatus =
   | "observed"

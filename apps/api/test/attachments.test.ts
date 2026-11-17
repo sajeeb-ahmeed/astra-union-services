@@ -306,7 +306,7 @@ before(async () => {
     [tenantId, sessions.approver!.id],
   );
   await db.query(
-    "INSERT INTO tenant_subscriptions(tenant_id,plan_id,valid_until,status) VALUES($1,'demo-monthly',now()+interval '1 day','ACTIVE')",
+    "INSERT INTO tenant_subscriptions(tenant_id,plan_id,valid_until,status) VALUES($1,'standard-monthly',now()+interval '1 day','ACTIVE')",
     [tenantId],
   );
   await db.query(

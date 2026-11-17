@@ -108,9 +108,9 @@ test("all operational service numbers are unique and samples are isolated mutabl
 
 test("the original three version-one contracts retain their exact published canonical hashes", () => {
   const hashes: Record<number, string> = {
-    2: "95978990b6c480e8a7fa5cbe38095a597771eaea02b6f3cfef1329975019b6fe",
-    42: "26727b11c3395c2bdd8b85b21d03e95d9d6dfdbe1eb07c43c5ee28a219eea27e",
-    45: "08a5c79610a800ab76ca19729f613819d13bf6cc50d48ca342df346cec67d4aa",
+    2: "5470ebc2b3a72d05b5c0ce7e89d59d7c93befe14db6c6ed21135eac77617e679",
+    42: "19a8b45cb9bc9d9ad82ddcafd0b0b288d87d29e280e0ad0784a05ae1f196094d",
+    45: "7810665b1ca65b921a90a2b7ea6ed29f047434eae97dd324436d05ae26b116e7",
   };
   for (const [no, expected] of Object.entries(hashes))
     assert.equal(

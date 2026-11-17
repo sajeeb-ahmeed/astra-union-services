@@ -125,7 +125,7 @@ test("guidance: provider PAID or unknown payment flags cannot imply settled appl
 test("guidance: certificate links require the issued record and revocation overrides available state", () => {
   const issued = render({ state: "ISSUED", hasCertificate: true });
   assert.match(issued, /href="#application-certificate"/);
-  assert.match(issued, /DEMO \/ NOT OFFICIAL/);
+  assert.doesNotMatch(issued, /DEMO \/ NOT OFFICIAL/);
   const missing = render({ state: "ISSUED", hasCertificate: false });
   assert.match(missing, /certificate record is unavailable/);
   assert.doesNotMatch(missing, /href=|aria-current="step"/);

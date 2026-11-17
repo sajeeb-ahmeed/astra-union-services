@@ -3,6 +3,8 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 import { chromium, type Browser, type Page } from "playwright";
+import { fillApplicationForm } from "./fixtures/fill-form.js";
+import { demoPayloads } from "@astra/shared-schemas";
 const origin = "http://127.0.0.1:5173";
 async function browserInstance(): Promise<Browser> {
   const local = path.join(process.env.LOCALAPPDATA || "", "ms-playwright");
@@ -22,7 +24,7 @@ async function browserInstance(): Promise<Browser> {
 async function signIn(page: Page, query: string) {
   await page.addInitScript(() => localStorage.setItem("astra.language", "en"));
   await page.goto(`${origin}/${query}`);
-  await page.getByLabel("Email", { exact: true }).fill("staff@alpha.demo.test");
+  await page.getByLabel("Email", { exact: true }).fill("staff@alpha.local.test");
   await page.getByLabel("Password", { exact: true }).fill("Demo-Phase1!");
   await page.locator(".login-form").getByRole("button", { name: "Sign in", exact: true }).click();
   await page.getByRole("button", { name: "Sign out", exact: true }).waitFor();
@@ -73,11 +75,11 @@ test(
       await page.locator(".ax-citizen input").first().check();
       await next1.click();
 
-      // Step 2: form validation blocks an empty form, then the synthetic example passes.
+      // Step 2: form validation blocks an empty form, then the filled example data passes.
       await stepHeading(page).getByText("Application form", { exact: true }).waitFor();
       await page.getByRole("button", { name: "Next: fees and delivery" }).click();
       await page.locator(".ax-flow .error-summary").waitFor();
-      await page.getByRole("button", { name: "Fill synthetic example" }).click();
+      await fillApplicationForm(page, demoPayloads[45]);
       await page.getByRole("button", { name: "Next: fees and delivery" }).click();
 
       // Step 3: fees. Offices with a fee policy need a language, a quote and acceptance.

@@ -27,16 +27,6 @@
   min-height: 38px;
   padding-block: 6px;
 }
-.du-demo-flag {
-  background: #ffb703;
-  color: #4a3200;
-  border-radius: 999px;
-  padding: 2px 10px;
-  font-weight: 700;
-  font-size: 13px;
-  white-space: nowrap;
-}
-
 .du-header {
   position: sticky;
   top: 0;
@@ -278,7 +268,7 @@
 .du-footer .du-footlink {
   display: inline-flex;
   align-items: center;
-  min-height: 40px;
+  min-height: 44px;
   padding: 6px 0;
   border: 0;
   background: none;

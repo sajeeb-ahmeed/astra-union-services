@@ -1,0 +1,365 @@
+/* Legacy public-portal styles (.public-site tree), split out of the
+   global stylesheet (UIUX-FIX-01 #15). Imported by PublicPortal only. */
+
+.public-container {
+  width: min(1220px, calc(100% - 64px));
+  margin-inline: auto;
+}
+
+.public-site button, .public-site .button {
+  border-radius: 4px;
+  border-color: #0b7040;
+  background: #0b7040;
+}
+
+.public-site button:hover {
+  background: #185c2c;
+}
+
+.public-site button.secondary {
+  background: #fff;
+  color: #216b35;
+}
+
+.public-site button.secondary:hover {
+  background: #ecf5e9;
+}
+
+.public-site .text-button {
+  color: #226639;
+  background: transparent;
+  border: 0;
+}
+
+.public-service > span b {
+  float: right;
+}
+
+.office-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 20px;
+}
+
+.directory-filters input {
+  margin-bottom: 0;
+}
+
+.directory-filters button {
+  align-self: end;
+}
+
+.office-card p {
+  font-size: 13px;
+  min-height: 24px;
+}
+
+@media (max-width: 1279px) {
+.public-container {
+    width: calc(100% - 40px);
+  }
+.office-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 767px) {
+.public-container {
+    width: calc(100% - 30px);
+  }
+.public-section {
+    padding-block: 32px;
+  }
+.public-site .public-service {
+    padding: 20px 13px 0;
+    min-height: 210px;
+  }
+.public-service strong {
+    font-size: 14px;
+  }
+.public-service small {
+    font-size: 12px;
+  }
+.public-service > span {
+    width: calc(100% + 26px);
+    font-size: 12px;
+    padding: 9px 12px;
+  }
+.office-grid {
+    grid-template-columns: 1fr;
+  }
+.directory-filters {
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
+.directory-filters label {
+    font-size: 12px;
+  }
+.directory-filters input {
+    min-width: 0;
+  }
+.public-section h1 {
+    font-size: 27px;
+  }
+.public-site .skip {
+    left: 10px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+.public-site * {
+    scroll-behavior: auto !important;
+    transition: none !important;
+  }
+}
+
+@media (max-width: 480px) {
+.public-site .public-service {
+    padding-inline: 9px;
+  }
+.public-service > span {
+    width: calc(100% + 18px);
+  }
+}
+
+.directory-filters .geography-fields {
+  grid-column: 1 / -1;
+  margin: 0;
+}
+
+.registration-heading {
+  max-width: 760px;
+}
+
+.registration-heading p {
+  color: #5a6d62;
+  line-height: 1.7;
+}
+
+.registration-panel .preview-disclosure {
+  font-size: 12px;
+  line-height: 1.7;
+  border: 1px solid #e3e9e6;
+  background: #f8faf9;
+  color: #596a60;
+  border-radius: 8px;
+  padding: 12px 16px;
+}
+
+.registration-step {
+  display: flex;
+  gap: 13px;
+  align-items: flex-start;
+  margin: 28px 0 16px;
+}
+
+.registration-step h2 {
+  margin: 0 0 5px;
+  font-size: 20px;
+  color: #233c2d;
+}
+
+.registration-step p {
+  margin: 0;
+  color: #6a7970;
+  font-size: 13px;
+  line-height: 1.65;
+}
+
+.registration-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px 24px;
+  margin-top: 24px;
+  border-top: 1px solid #e4ebe6;
+  padding-top: 24px;
+}
+
+.registration-actions > span {
+  font-size: 13px;
+  color: #627568;
+}
+
+@media (max-width: 767px) {
+.registration-panel {
+    padding: 24px 20px;
+  }
+.registration-step h2 {
+    font-size: 18px;
+  }
+}
+
+@media (max-width: 480px) {
+.registration-panel {
+    padding: 22px 16px;
+  }
+.registration-actions > button {
+    width: 100%;
+  }
+}
+
+.public-site {
+  color: var(--astra-ink);
+  background: #fff;
+}
+
+.public-section {
+  padding-block: 55px;
+}
+
+.public-site .public-service {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid #dee6d6;
+  overflow: hidden;
+  align-items: flex-start;
+  text-align: left;
+  padding: 24px 22px 0;
+  border-radius: 11px;
+  border-color: var(--astra-line);
+  color: #2b4432;
+  background: #fff;
+  min-height: 211px;
+  transition: border-color 140ms ease, background-color 140ms ease;
+}
+
+.public-site .public-service:hover {
+  transform: none;
+  box-shadow: none;
+  background: #fbfdfb;
+  border-color: #abc3ad;
+}
+
+.public-service svg {
+  width: 36px;
+  height: 36px;
+  color: #598565;
+  margin-bottom: 18px;
+}
+
+.public-service strong {
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.6;
+}
+
+.public-service small {
+  font-size: 12px;
+  font-weight: 400;
+  margin: 4px 0 15px;
+  color: #7a897d;
+}
+
+.public-service > span {
+  border-top: 1px solid #e5ecdf;
+  margin-top: auto;
+  text-align: left;
+  width: calc(100% + 44px);
+  margin-left: -22px;
+  background: #fafcf9;
+  border-color: #e9eee7;
+  color: #6c836d;
+  font-size: 12px;
+  padding: 11px 22px;
+}
+
+.directory-filters {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px 22px;
+  align-items: end;
+  background: #fff;
+}
+
+.breadcrumbs {
+  margin-bottom: 20px;
+  font-size: 12px;
+  color: #7b8a7d;
+}
+
+.office-card svg {
+  margin-bottom: 17px;
+  color: #648166;
+  width: 34px;
+  height: 34px;
+}
+
+.office-card h2 {
+  font-size: 19px;
+}
+
+.office-card h3 {
+  font-size: 13px;
+  font-weight: 400;
+  color: #7a897b;
+}
+
+.registration-panel {
+  max-width: 1040px;
+  margin-inline: auto;
+  padding: 38px 42px;
+}
+
+.registration-heading h1 {
+  margin: 8px 0 12px;
+  font-size: 30px;
+  font-weight: 600;
+}
+
+.registration-panel .geography-fields {
+  background: #fafcf9;
+}
+
+.public-service small, .office-card h3, .breadcrumbs {
+  color: #60725f;
+}
+
+@media (max-width: 767px) {
+.public-section {
+    padding-block: 37px;
+  }
+.public-site .public-service {
+    padding: 20px 17px 0;
+    min-height: 196px;
+  }
+.public-service strong {
+    font-size: 14px;
+  }
+.public-service > span {
+    width: calc(100% + 34px);
+    margin-left: -17px;
+    padding: 10px 17px;
+    font-size: 12px;
+  }
+.public-service svg {
+    width: 32px;
+    height: 32px;
+    margin-bottom: 13px;
+  }
+.registration-panel {
+    padding: 26px 22px;
+  }
+.registration-heading h1 {
+    font-size: 25px;
+  }
+}
+
+@media (max-width: 480px) {
+.public-container {
+    width: calc(100% - 32px);
+  }
+.registration-step {
+    gap: 10px;
+  }
+.registration-heading h1 {
+    font-size: 24px;
+  }
+.directory-filters {
+    grid-template-columns: minmax(0, 1fr);
+  }
+.public-service > span {
+    font-size: 12px;
+    line-height: 1.6;
+  }
+}

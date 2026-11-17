@@ -531,7 +531,7 @@ async function main() {
       runId: id,
       sourceRunId: primary.runId,
       foreignRunId: foreign.runId,
-      syntheticReference: `DEMO-ATT-${id}`,
+      syntheticReference: `REF-ATT-${id}`,
       tenantId: primary.offices.primary.id,
       baselineApplicationId: primary.applications.positive,
       baselineCertificateId: primary.certificateId,

@@ -45,8 +45,8 @@ test(
         await page.locator(`#signup-geo-${level} option[value="${code}"]`).waitFor({ state: "attached" });
         await page.locator(`#signup-geo-${level}`).selectOption(code);
       }
-      await page.getByRole("button", { name: "Use a preview office", exact: true }).click();
-      const alphaOption = page.locator("#signup-office option").filter({ hasText: "Demo Alpha Union" });
+      await page.getByRole("button", { name: "Register with this office", exact: true }).click();
+      const alphaOption = page.locator("#signup-office option").filter({ hasText: "Alpha Union" });
       await alphaOption.waitFor({ state: "attached" });
       await page.getByLabel("Select office", { exact: true }).selectOption((await alphaOption.getAttribute("value"))!);
       for (const [label, value] of Object.entries({

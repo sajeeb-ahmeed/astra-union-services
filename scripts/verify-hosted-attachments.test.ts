@@ -36,7 +36,7 @@ globalThis.fetch=async (input, options={})=>{
  if(route==='/payments/configuration')return reply({available:false,configured:false,environment:'DISABLED',bankSettlement:'NOT_CONNECTED',nagad:{configured:false}});
  if(route==='/applications/baseline-app')return reply({application:{state:'APPROVED'},payload:{synthetic:true}});
  if(route==='/certificates/baseline-cert/pdf')return reply(Buffer.from('%PDF synthetic baseline'));
- if(route==='/citizens'&&method==='POST'){assert.match(body.syntheticReference,/^DEMO-ATT-/);return reply({id:ids.citizen},201);}
+ if(route==='/citizens'&&method==='POST'){assert.match(body.syntheticReference,/^REF-ATT-/);return reply({id:ids.citizen},201);}
  if(route==='/attachments'&&method==='POST'){
    const bytes=Buffer.from(body.base64,'base64');assert.equal(body.citizenId,ids.citizen);assert.equal(body.mimeType,'application/pdf');
    state.uploads++;assert.ok(state.uploads<=2);

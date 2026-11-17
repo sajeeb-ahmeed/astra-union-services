@@ -3,6 +3,9 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 import { chromium, type Browser, type Page } from "playwright";
+import { fillApplicationForm } from "./fixtures/fill-form.js";
+import { goToWorkspacePage } from "./fixtures/workspace-nav.js";
+import { demoPayloads } from "@astra/shared-schemas";
 
 const origin = "http://127.0.0.1:5173";
 const password = "Order-browser-test-2026!";
@@ -33,7 +36,7 @@ async function login(page: Page, email: string) {
   await page.getByRole("button", { name: "Sign out", exact: true }).waitFor();
 }
 async function nav(page: Page, name: string) {
-  await page.getByRole("navigation", { name: "Workspace navigation" }).getByRole("button", { name, exact: true }).click();
+  await goToWorkspacePage(page, name);
 }
 async function language(page: Page, name: "English" | "বাংলা") {
   await page.getByRole("group", { name: "Language / ভাষা" }).getByRole("button", { name, exact: true }).click();
@@ -123,13 +126,21 @@ test("order browser: explicit office fees, citizen-first quote acceptance, bilin
     assert.equal(await citizen.getByRole("button", { name: "Office administration", exact: true }).count(), 0);
     await nav(citizen, "Service catalog");
     assert.equal(await citizen.locator("#order-language").count(), 0, "Select a citizen before configuring an order");
-    await citizen.locator("#applicant option:not([value=''])").first().waitFor({ state: "attached" });
-    await citizen.locator("#applicant").selectOption({ index: 1 });
-    await citizen.locator("#order-language").waitFor();
-    const save = citizen.getByRole("button", { name: "Save draft application", exact: true });
-    assert.equal(await save.isDisabled(), true, "Configured policy must be reviewed and accepted");
-    await citizen.getByRole("button", { name: "Fill synthetic example", exact: true }).click();
+    await citizen.locator(".catalog .service").filter({ has: citizen.locator('.service-number:text-is("45")') }).click();
+    await citizen.locator(".ax-citizen input").first().check();
+    await citizen.getByRole("button", { name: "Next: application form", exact: true }).click();
+    await fillApplicationForm(citizen, demoPayloads[45]);
     await citizen.getByLabel("Purpose (English)", { exact: false }).fill("Preserved custom order purpose");
+    // Form values survive an interface-language switch before the fees step is reached.
+    await language(citizen, "বাংলা");
+    assert.equal(await citizen.locator("[id$='purpose_en']").inputValue(), "Preserved custom order purpose");
+    await language(citizen, "English");
+    await citizen.getByRole("button", { name: "Next: fees and delivery", exact: true }).click();
+    await citizen.locator("#order-language").waitFor();
+    // In the guided flow the fees step's Next button carries the gate the intake's draft button
+    // carried: it stays disabled until the configured policy has been reviewed and accepted.
+    const save = citizen.getByRole("button", { name: "Next: review and submit", exact: true });
+    assert.equal(await save.isDisabled(), true, "Configured policy must be reviewed and accepted");
     await citizen.locator("#order-language").selectOption("en");
     await citizen.locator("#order-delivery").selectOption("digital_copy");
     await citizen.locator("#order-urgency").selectOption("urgent");
@@ -145,7 +156,6 @@ test("order browser: explicit office fees, citizen-first quote acceptance, bilin
     assert.equal(await save.isEnabled(), true);
     await language(citizen, "বাংলা");
     assert.equal(await citizen.locator("#order-language").inputValue(), "en", "Interface language does not change certificate language");
-    assert.equal(await citizen.locator("[id$='purpose_en']").inputValue(), "Preserved custom order purpose");
     assert.equal(await citizen.getByRole("checkbox", { name: "আমি সনদের পছন্দ ও ফি বিবরণ যাচাই করেছি।", exact: true }).isChecked(), true);
     await citizen.getByRole("region", { name: "আবেদনের ফি বিবরণ" }).waitFor();
     assert.equal(await citizen.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), true);
@@ -183,8 +193,9 @@ test("order browser: explicit office fees, citizen-first quote acceptance, bilin
     assert.equal(await save.isDisabled(), true);
     await citizen.getByRole("button", { name: "Review fees", exact: true }).click();
     await citizen.getByRole("checkbox", { name: "I have reviewed the certificate options and fee breakdown.", exact: true }).check();
-    const createdPromise = citizen.waitForResponse((response) => response.url().endsWith("/applications") && response.request().method() === "POST");
     await save.click();
+    const createdPromise = citizen.waitForResponse((response) => response.url().endsWith("/applications") && response.request().method() === "POST");
+    await citizen.getByRole("button", { name: "Save as draft only", exact: true }).click();
     const created = await createdPromise;
     assert.equal(created.status(), 201, await created.text());
     const application = await created.json();
@@ -192,6 +203,7 @@ test("order browser: explicit office fees, citizen-first quote acceptance, bilin
       policyVersion: 1,
       preferences: { addressBasis: "registered_profile", certificateLanguage: "en", deliveryMode: "office_collection", urgency: "normal" },
     });
+    await citizen.getByRole("button", { name: "Open application", exact: true }).click();
     await citizen.getByText(`APPLICATION ${application.id.slice(0, 8)}`, { exact: true }).waitFor();
     const summary = citizen.getByRole("region", { name: "Application fee breakdown" });
     assert.match(await summary.innerText(), /115\.75/);

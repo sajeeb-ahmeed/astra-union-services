@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { randomBytes } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
-import { workspacePage } from "./fixtures/workspace-nav.js";
+import { workspacePage, goToWorkspacePage } from "./fixtures/workspace-nav.js";
 import { chromium, type Browser } from "playwright";
 const origin = "http://127.0.0.1:5173";
 async function browserInstance(): Promise<Browser> {
@@ -33,11 +33,11 @@ test(
       page.on("pageerror", (error) => errors.push(error.message));
       await page.addInitScript(() => localStorage.setItem("astra.language", "en"));
       await page.goto(`${origin}/login`);
-      await page.getByLabel("Email", { exact: true }).fill("admin@alpha.demo.test");
+      await page.getByLabel("Email", { exact: true }).fill("admin@alpha.local.test");
       await page.getByLabel("Password", { exact: true }).fill("Demo-Phase1!");
       await page.locator(".login-form").getByRole("button", { name: "Sign in", exact: true }).click();
       await page.getByRole("button", { name: "Sign out", exact: true }).waitFor();
-      await workspacePage(page, "Office administration").click();
+      await goToWorkspacePage(page, "Office administration");
 
       const post = page.getByLabel("Office post", { exact: true });
       await post.locator("option", { hasText: "UP Secretary" }).waitFor({ state: "attached" });
@@ -47,7 +47,7 @@ test(
       await post.selectOption("up_secretary");
       assert.equal(await page.getByLabel("Staff role", { exact: true }).count(), 0, "a post fixes the role");
 
-      const email = `secretary-${Date.now()}@alpha.demo.test`;
+      const email = `secretary-${Date.now()}@alpha.local.test`;
       await page.getByLabel("Staff email", { exact: false }).fill(email);
       await page.getByLabel("Staff display name", { exact: false }).fill("Synthetic UP Secretary");
       await page.getByLabel("Initial password", { exact: false }).fill(randomBytes(18).toString("base64url")); // generated per run

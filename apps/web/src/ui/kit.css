@@ -73,7 +73,7 @@
   position: absolute;
   top: 6px;
   left: 8px;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 700;
   color: var(--ax-muted);
 }
@@ -128,7 +128,10 @@
   flex: 1 1 auto;
 }
 .ax-sidebar-nav .ax-sidebar-item {
-  display: block;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-height: 44px;
   text-align: left;
   color: #e4eee8;
   padding: 9px 15px;
@@ -145,7 +148,7 @@
 }
 .ax-sidebar-nav .ax-sidebar-item.is-soon small {
   display: block;
-  font-size: 11px;
+  font-size: 12px;
   color: #8eab9f;
 }
 /* Fourteen UDC items must fit a typical laptop height, so they are a little denser than the legacy list. */
@@ -161,13 +164,144 @@
   margin-top: 0;
   line-height: 1.2;
 }
-@media (min-width: 901px) {
-  .shell aside .ax-sidebar-nav .ax-sidebar-item {
-    min-height: 34px;
-    padding-block: 6px;
-  }
+/* (The former ≥901px 34px sidebar exception is removed: the 44px tap-target
+   floor applies at every width; the nav scrolls instead — see .ax-sidebar-nav.) */
+@media (min-width: 768px) {
   .shell aside:has(.ax-sidebar-nav) .office {
     margin: 18px 0;
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* Interactive state matrix — the single definition, token-driven.    */
+/* Base colours live in style.css; every state lives here so a state   */
+/* change is made exactly once.                                        */
+/* ------------------------------------------------------------------ */
+button:not(:disabled):active,
+.button:not(:disabled):active {
+  filter: brightness(0.93);
+}
+.ax-tile:active {
+  transform: translateY(0);
+  filter: brightness(0.97);
+}
+input:hover,
+select:hover,
+textarea:hover {
+  border-color: var(--du-green-500, #2e9e5b);
+}
+button:disabled,
+.button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+button[aria-busy="true"],
+.button[aria-busy="true"] {
+  cursor: wait;
+}
+button[aria-busy="true"]::after,
+.button[aria-busy="true"]::after {
+  content: "";
+  flex: 0 0 auto;
+  width: 14px;
+  height: 14px;
+  margin-left: 8px;
+  border-radius: 50%;
+  border: 2px solid currentColor;
+  border-top-color: transparent;
+  animation: ax-spin 0.7s linear infinite;
+}
+@keyframes ax-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  button[aria-busy="true"]::after,
+  .button[aria-busy="true"]::after {
+    animation: none;
+  }
+}
+/* Tap-target floor (44px) for controls the base styles leave short. */
+.tabs button,
+.pagination button {
+  min-height: 44px;
+}
+
+/* Empty state — one treatment everywhere (UIUX-FIX-01 #14). */
+.ax-empty-state {
+  border: 1.5px dashed var(--ax-line);
+  border-radius: var(--ax-radius-lg);
+  padding: var(--ax-space-5) var(--ax-space-4);
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--ax-space-2);
+}
+.ax-empty-icon {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: var(--ax-green-50);
+  color: var(--ax-green-600);
+}
+.ax-empty-state h3 {
+  margin: 0;
+  font-size: var(--ax-text-lg);
+  color: var(--ax-green-800);
+}
+.ax-empty-state p {
+  margin: 0;
+  color: var(--ax-muted);
+  font-size: var(--ax-text-sm);
+}
+
+/* Loading skeletons (UIUX-FIX-01 #14). */
+.ax-skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ax-space-2);
+  padding: var(--ax-space-3) 0;
+}
+.ax-skeleton-row {
+  display: flex;
+  gap: var(--ax-space-3);
+}
+.ax-skeleton-row span {
+  height: 18px;
+  border-radius: 6px;
+  background: linear-gradient(
+    90deg,
+    var(--ax-green-50) 25%,
+    var(--ax-green-100) 50%,
+    var(--ax-green-50) 75%
+  );
+  background-size: 200% 100%;
+  animation: ax-shimmer 1.4s ease-in-out infinite;
+}
+.ax-skeleton-row span:nth-child(1) {
+  flex: 2 1 0;
+}
+.ax-skeleton-row span:nth-child(2) {
+  flex: 3 1 0;
+}
+.ax-skeleton-row span:nth-child(3) {
+  flex: 1 1 0;
+}
+@keyframes ax-shimmer {
+  from {
+    background-position: 200% 0;
+  }
+  to {
+    background-position: -200% 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ax-skeleton-row span {
+    animation: none;
   }
 }
 
@@ -222,7 +356,7 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-@media (max-width: 700px) {
+@media (max-width: 767px) {
   .ax-stepper li:not(.is-current) .ax-step-label {
     display: none;
   }

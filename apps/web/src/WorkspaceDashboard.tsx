@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { choose, useLanguage } from "./i18n.js";
 import { CivicIcon } from "./PublicPortal.js";
-import { StatCard } from "./ui/kit.js";
+import { EmptyState, StatCard } from "./ui/kit.js";
 import "./workspace-dashboard.css";
 
 const count = (value: number | null | undefined) =>
@@ -107,12 +107,16 @@ export function WorkspaceDashboard({
             ))}
           </div>
         ) : (
-          <p className="ax-dashboard-empty">
-            {choose({
-              bn: "এই নামে কোনো সেবা নেই। নাম বা নম্বরের অংশ দিয়ে খুঁজুন।",
-              en: "No service matches. Try part of the name or number.",
+          <EmptyState
+            title={choose({
+              bn: "এই নামে কোনো সেবা নেই।",
+              en: "No service matches.",
             })}
-          </p>
+            hint={choose({
+              bn: "নাম বা নম্বরের অংশ দিয়ে খুঁজুন।",
+              en: "Try part of the name or number.",
+            })}
+          />
         )}
       </section>
     </div>

@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 import { chromium, type Browser, type Page } from "playwright";
-import { workspacePage } from "./fixtures/workspace-nav.js";
+import { workspacePage, goToWorkspacePage } from "./fixtures/workspace-nav.js";
 import { signOut } from "./fixtures/session.js";
 const origin = "http://127.0.0.1:5173";
 async function browserInstance(): Promise<Browser> {
@@ -39,7 +39,7 @@ test(
     // Service 47's price is global: the test restores it to 0 before finishing.
     try {
       await signIn(page, "owner@astra.demo.test");
-      await workspacePage(page, "Platform management").click();
+      await goToWorkspacePage(page, "Platform management");
       const prices = page.locator(".owner-point-prices");
       await prices.waitFor();
       const row = prices.locator("tbody tr").nth(46);
@@ -53,7 +53,7 @@ test(
         () => (document.querySelectorAll(".owner-point-prices tbody tr")[46]?.querySelector("input") as HTMLInputElement)?.value === "0.00",
       );
 
-      const card = page.locator(".tenant-card", { hasText: "Demo Alpha Union" }).first();
+      const card = page.locator(".tenant-card", { hasText: "Alpha Union" }).first();
       await card.locator("summary", { hasText: "Points wallet" }).click();
       const form = card.locator(".points-adjust");
       await form.getByText(/Current balance: \d/).waitFor();
@@ -63,8 +63,8 @@ test(
       await form.getByText("Points adjusted.", { exact: true }).waitFor();
       await signOut(page);
 
-      await signIn(page, "admin@alpha.demo.test");
-      await workspacePage(page, "Subscription & credits").click();
+      await signIn(page, "admin@alpha.local.test");
+      await goToWorkspacePage(page, "Subscription & credits");
       const wallet = page.locator(".points-wallet");
       await wallet.getByRole("heading", { name: "Points wallet", exact: true }).waitFor();
       await wallet.getByText("Adjustment", { exact: true }).first().waitFor();
@@ -73,8 +73,8 @@ test(
 
       // Take the test credit back out so the shared demo office is unchanged.
       await signIn(page, "owner@astra.demo.test");
-      await workspacePage(page, "Platform management").click();
-      const again = page.locator(".tenant-card", { hasText: "Demo Alpha Union" }).first();
+      await goToWorkspacePage(page, "Platform management");
+      const again = page.locator(".tenant-card", { hasText: "Alpha Union" }).first();
       await again.locator("summary", { hasText: "Points wallet" }).click();
       const back = again.locator(".points-adjust");
       await back.getByText(/Current balance: \d/).waitFor();

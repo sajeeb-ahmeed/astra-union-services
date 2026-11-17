@@ -74,7 +74,7 @@ try {
   for (const name of ["staff", "citizen", "reviewer", "approver", "foreign"]) {
     const r = await request("POST", "/auth/login", {
       email:
-        name === "foreign" ? "staff@beta.demo.test" : `${name}@alpha.demo.test`,
+        name === "foreign" ? "staff@beta.local.test" : `${name}@alpha.local.test`,
       password: "Demo-Phase1!",
     });
     assert.equal(r.status, 200);

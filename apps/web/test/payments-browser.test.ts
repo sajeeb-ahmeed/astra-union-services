@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 import { chromium, type Browser, type Page } from "playwright";
+import { goToWorkspacePage } from "./fixtures/workspace-nav.js";
 import { getDemoPayload } from "@astra/shared-schemas";
 
 const origin = "http://127.0.0.1:5173";
@@ -56,10 +57,7 @@ async function login(page: Page, role: string) {
   await page.getByRole("button", { name: "Sign out", exact: true }).waitFor();
 }
 async function nav(page: Page, name: string) {
-  await page
-    .getByRole("navigation", { name: "Workspace navigation" })
-    .getByRole("button", { name, exact: true })
-    .click();
+  await goToWorkspacePage(page, name);
 }
 before(async () => {
   const local = path.join(process.env.LOCALAPPDATA || "", "ms-playwright");

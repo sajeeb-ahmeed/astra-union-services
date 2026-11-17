@@ -88,7 +88,7 @@ async function signup(role: string, tenantId: string) {
     dateOfBirth: "1998-02-03",
     addressBn: "পরীক্ষা ঠিকানা",
     addressEn: "Synthetic lookup address",
-    syntheticReference: `DEMO-LOOKUP-${role}-${run}`,
+    syntheticReference: `REF-LOOKUP-${role}-${run}`,
   });
   assert.equal(response.status, 201, JSON.stringify(response.body));
   await login(role, email);
@@ -158,7 +158,7 @@ before(async () => {
     "/billing/orders",
     {
       kind: "subscription",
-      planId: "demo-monthly",
+      planId: "standard-monthly",
     },
     "finance",
   );

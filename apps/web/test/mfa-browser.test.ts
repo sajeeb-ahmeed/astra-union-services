@@ -9,7 +9,7 @@ import {
   type BrowserContext,
   type Page,
 } from "playwright";
-import { workspacePage } from "./fixtures/workspace-nav.js";
+import { workspacePage, goToWorkspacePage } from "./fixtures/workspace-nav.js";
 import { signOut } from "./fixtures/session.js";
 
 const origin = "http://127.0.0.1:5173";
@@ -49,7 +49,7 @@ async function createUser(browser: Browser, label: string) {
   const email = `mfa-browser-${label}-${crypto.randomUUID()}@example.test`;
   try {
     const login = await admin.request.post(`${origin}/api/v1/auth/login`, {
-      data: { email: "admin@alpha.demo.test", password: "Demo-Phase1!" },
+      data: { email: "admin@alpha.local.test", password: "Demo-Phase1!" },
     });
     assert.equal(login.status(), 200);
     const created = await admin.request.post(`${origin}/api/v1/admin/users`, {
@@ -81,10 +81,7 @@ async function login(page: Page, email: string) {
     .click();
 }
 async function openSecurity(page: Page) {
-  await page
-    .getByRole("navigation", { name: "Workspace navigation", exact: true })
-    .getByRole("button", { name: "Account security", exact: true })
-    .click();
+  await goToWorkspacePage(page, "security");
   const panel = page.locator(".account-mfa");
   await panel.getByTestId("mfa-status").waitFor();
   return panel;
@@ -146,7 +143,7 @@ test(
         0,
       );
       await page.unroute("**/api/v1/auth/mfa");
-      await workspacePage(page, "home").click();
+      await goToWorkspacePage(page, "home");
       panel = await openSecurity(page);
       await panel
         .getByLabel("Current password for setup", { exact: true })
@@ -166,7 +163,7 @@ test(
         false,
         "Displaying a QR must not enable MFA.",
       );
-      await workspacePage(page, "home").click();
+      await goToWorkspacePage(page, "home");
       panel = await openSecurity(page);
       assert.equal(await panel.getByRole("img").count(), 0);
       assert.equal(await panel.getByTestId("mfa-setup-key").count(), 0);

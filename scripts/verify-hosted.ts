@@ -382,7 +382,7 @@ try {
       dateOfBirth: "1998-02-03",
       addressBn: "কাল্পনিক পরীক্ষামূলক ঠিকানা",
       addressEn: "Synthetic hosted QA address only",
-      syntheticReference: `DEMO-HOSTED-${runId}`,
+      syntheticReference: `REF-HOSTED-${runId}`,
     });
     status(r, 201, "Citizen signup");
     assert.equal(r.body.verificationState, "SYNTHETIC_DEMO");
@@ -610,11 +610,11 @@ try {
         sessions.finance,
       );
       status(billing, 200, "Billing plans");
-      const plan = billing.body.plans.find((p: any) => p.id === "demo-monthly");
+      const plan = billing.body.plans.find((p: any) => p.id === "standard-monthly");
       assert.ok(plan);
       assert.equal(plan.priceMinor, 0);
       for (const body of [
-        { kind: "subscription", planId: "demo-monthly" },
+        { kind: "subscription", planId: "standard-monthly" },
         { kind: "topup", credits: 7 },
       ]) {
         const order = await request(

@@ -4,7 +4,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { randomBytes } from "node:crypto";
 import { chromium, type Browser } from "playwright";
-import { workspacePage } from "./fixtures/workspace-nav.js";
+import { workspacePage, goToWorkspacePage } from "./fixtures/workspace-nav.js";
 const origin = "http://127.0.0.1:5173";
 async function browserInstance(): Promise<Browser> {
   const local = path.join(process.env.LOCALAPPDATA || "", "ms-playwright");
@@ -59,7 +59,7 @@ test(
       await page.getByLabel("Password", { exact: true }).fill(adminPassword);
       await page.locator(".login-form").getByRole("button", { name: "Sign in", exact: true }).click();
       await page.getByRole("button", { name: "Sign out", exact: true }).waitFor();
-      await workspacePage(page, "Office administration").click();
+      await goToWorkspacePage(page, "Office administration");
       await page.getByRole("tab", { name: "Online payments", exact: true }).click();
       const panel = page.locator(".sslcommerz-merchant");
       await panel.getByTestId("merchant-status").getByText("Not set up").waitFor();
@@ -71,7 +71,7 @@ test(
       assert.equal(await panel.getByLabel("Store password", { exact: true }).inputValue(), "");
       assert.equal((await page.content()).includes(storePassword), false);
       await page.reload();
-      await workspacePage(page, "Office administration").click();
+      await goToWorkspacePage(page, "Office administration");
       await page.getByRole("tab", { name: "Online payments", exact: true }).click();
       await panel.getByTestId("merchant-status").getByText("Active").waitFor();
       assert.equal(await panel.getByLabel("Store ID", { exact: true }).inputValue(), "astra-browser-test");
@@ -87,7 +87,7 @@ test(
       await bkash.getByTestId("bkash-status").getByText("Active").waitFor();
       assert.equal((await page.content()).includes(storePassword), false);
       // Phase 5d: the office's refund panel is on the billing page for admin and finance.
-      await workspacePage(page, "Subscription & credits").click();
+      await goToWorkspacePage(page, "Subscription & credits");
       await page.locator(".office-refunds").getByText("No refund requests.", { exact: true }).waitFor();
     } finally {
       await browser.close();

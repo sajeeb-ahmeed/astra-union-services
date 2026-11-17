@@ -4,7 +4,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { randomBytes } from "node:crypto";
 import { chromium, type Browser } from "playwright";
-import { workspacePage } from "./fixtures/workspace-nav.js";
+import { workspacePage, goToWorkspacePage } from "./fixtures/workspace-nav.js";
 const origin = "http://127.0.0.1:5173";
 async function browserInstance(): Promise<Browser> {
   const local = path.join(process.env.LOCALAPPDATA || "", "ms-playwright");
@@ -59,7 +59,7 @@ test(
       await page.getByLabel("Password", { exact: true }).fill(adminPassword);
       await page.locator(".login-form").getByRole("button", { name: "Sign in", exact: true }).click();
       await page.getByRole("button", { name: "Sign out", exact: true }).waitFor();
-      await workspacePage(page, "Office administration").click();
+      await goToWorkspacePage(page, "Office administration");
       await page.getByRole("tab", { name: "Coupons", exact: true }).click();
       await page.getByLabel("Code", { exact: true }).fill("welcome10");
       await page.getByLabel("Discount (%)", { exact: true }).fill("10");

@@ -6,7 +6,8 @@
  */
 @font-face {
   font-family: "Noto Sans Bengali";
-  src: url("./assets/fonts/noto-sans-bengali-bengali-400-normal.woff2") format("woff2");
+  /* Served from public/ at a stable URL so index.html can preload it (#15). */
+  src: url("/fonts/noto-sans-bengali-bengali-400-normal.woff2") format("woff2");
   font-weight: 400;
   font-style: normal;
   font-display: swap;

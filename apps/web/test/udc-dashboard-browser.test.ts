@@ -37,7 +37,7 @@ test(
       const errors: string[] = [];
       page.on("pageerror", (error) => errors.push(error.message));
       await page.addInitScript(() => localStorage.setItem("astra.language", "en"));
-      await signIn(page, "staff@alpha.demo.test");
+      await signIn(page, "staff@alpha.local.test");
       await page.getByRole("heading", { name: "Dashboard", level: 1 }).waitFor();
       const sidebar = page.getByRole("navigation", { name: "Workspace navigation" });
       // The list may scroll on short screens, but every item is reachable.
@@ -86,7 +86,7 @@ test(
       // Office admins keep the full legacy sidebar (administration, billing, reports) with the dashboard home.
       const plain = await browser.newPage({ viewport: { width: 1366, height: 900 } });
       await plain.addInitScript(() => localStorage.setItem("astra.language", "en"));
-      await signIn(plain, "admin@alpha.demo.test");
+      await signIn(plain, "admin@alpha.local.test");
       await plain.locator(".ax-dashboard").waitFor();
       assert.equal(await plain.locator(".ax-sidebar-nav").count(), 0);
       assert.equal(
@@ -96,14 +96,14 @@ test(
       // A citizen's workspace is unchanged.
       const citizen = await browser.newPage({ viewport: { width: 1366, height: 900 } });
       await citizen.addInitScript(() => localStorage.setItem("astra.language", "en"));
-      await signIn(citizen, "citizen@alpha.demo.test");
+      await signIn(citizen, "citizen@alpha.local.test");
       assert.equal(await citizen.locator(".ax-dashboard").count(), 0);
       assert.equal(await citizen.locator(".ax-sidebar-nav").count(), 0);
 
       // An office admin may read the balance, so the first figure is a number.
       const admin = await browser.newPage({ viewport: { width: 390, height: 844 } });
       await admin.addInitScript(() => localStorage.setItem("astra.language", "en"));
-      await signIn(admin, "admin@alpha.demo.test");
+      await signIn(admin, "admin@alpha.local.test");
       await admin.locator(".ax-dashboard").waitFor();
       await admin.waitForFunction(() => /\d/.test(document.querySelector(".ax-dashboard .ax-stat strong")?.textContent ?? ""));
       assert.equal(

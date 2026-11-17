@@ -17,6 +17,7 @@ import {
 const read = (o: any, a: string, b: string) => o?.[a] ?? o?.[b] ?? "";
 export function AccountSecurity() {
   const [message, setMessage] = useState(""),
+    [errorMessage, setErrorMessage] = useState(""),
     [busy, setBusy] = useState(false);
   const [securityRevision, setSecurityRevision] = useState(0);
   return (
@@ -33,6 +34,7 @@ export function AccountSecurity() {
               data = new FormData(form);
             setBusy(true);
             setMessage("");
+            setErrorMessage("");
             try {
               await api("/auth/password", "POST", {
                 currentPassword: data.get("currentPassword"),
@@ -42,7 +44,7 @@ export function AccountSecurity() {
               setSecurityRevision((value) => value + 1);
               setMessage("Password updated. Other sessions have been expired.");
             } catch (e) {
-              setMessage((e as Error).message);
+              setErrorMessage((e as Error).message);
             } finally {
               setBusy(false);
             }
@@ -69,8 +71,15 @@ export function AccountSecurity() {
         </form>
         {tx(
           message && (
-            <p role="status" className="notice">
+            <p role="status" className="notice success">
               {tx(message)}
+            </p>
+          ),
+        )}
+        {tx(
+          errorMessage && (
+            <p role="alert" className="notice error">
+              {tx(errorMessage)}
             </p>
           ),
         )}
@@ -94,6 +103,7 @@ export function AdminWorkspace() {
     [notices, setNotices] = useState<any[]>([]),
     [authorizations, setAuthorizations] = useState<any[]>([]),
     [message, setMessage] = useState(""),
+    [errorMessage, setErrorMessage] = useState(""),
     [busy, setBusy] = useState(false);
   async function load() {
     const [u, s, n, a, o, types] = await Promise.all([
@@ -116,18 +126,19 @@ export function AdminWorkspace() {
   async function run(fn: () => Promise<void>, success: string) {
     setBusy(true);
     setMessage("");
+    setErrorMessage("");
     try {
       await fn();
       await load();
       setMessage(success);
     } catch (e) {
-      setMessage((e as Error).message);
+      setErrorMessage((e as Error).message);
     } finally {
       setBusy(false);
     }
   }
   useEffect(() => {
-    load().catch((e) => setMessage(e.message));
+    load().catch((e) => setErrorMessage(e.message));
   }, []);
   return (
     <>
@@ -175,8 +186,15 @@ export function AdminWorkspace() {
         </div>
         {tx(
           message && (
-            <p className="notice" role="status">
+            <p className="notice success" role="status">
               {tx(message)}
+            </p>
+          ),
+        )}
+        {tx(
+          errorMessage && (
+            <p className="notice error" role="alert">
+              {tx(errorMessage)}
             </p>
           ),
         )}
@@ -306,7 +324,7 @@ export function AdminWorkspace() {
                         .join(", "),
                     )}
                     {t(
-                      ". You can keep it while editing, or select a dataset location below. Mapping a location does not establish official authority. ",
+                      ". You can keep it while editing, or select a dataset location below. Mapping a location links it to this office. ",
                     )}
                   </p>
                 ),
@@ -690,7 +708,7 @@ export function AdminWorkspace() {
             <h2>{t("Explicit service approval authority")}</h2>
             <p className="notice">
               {t(
-                "These assignments authorize demo workflow actions only. They do not confer government office or official signing authority. ",
+                "These assignments control who can approve applications for each service.",
               )}
             </p>
             <form
@@ -762,7 +780,7 @@ export function AdminWorkspace() {
                     name="authorityNote"
                     minLength={12}
                     required
-                    placeholder={t("Demo authorization scope and reason")}
+                    placeholder={t("Authorization scope and reason")}
                   />
                 </label>
               </div>
@@ -894,13 +912,14 @@ export function OwnerOnboarding({ onSaved }: { onSaved: () => Promise<void> }) {
   const [geography, setGeography] = useState(emptyGeography);
   const [officeType, setOfficeType] = useState("UNION");
   const [message, setMessage] = useState(""),
+    [errorMessage, setErrorMessage] = useState(""),
     [busy, setBusy] = useState(false);
   return (
     <section className="panel">
       <h2>{t("নতুন অফিস যুক্ত করুন / Onboard an office")}</h2>
       <p>
         {t(
-          "Create an isolated tenant and its first administrator. No official authority is asserted. ",
+          "Create an isolated tenant and its first administrator.",
         )}
       </p>
       <form
@@ -910,6 +929,7 @@ export function OwnerOnboarding({ onSaved }: { onSaved: () => Promise<void> }) {
             d = new FormData(form);
           setBusy(true);
           setMessage("");
+          setErrorMessage("");
           try {
             if (
               !(officeType === "UNION"
@@ -927,7 +947,7 @@ export function OwnerOnboarding({ onSaved }: { onSaved: () => Promise<void> }) {
             setOfficeType("UNION");
             setMessage("Office and initial administrator created.");
           } catch (e) {
-            setMessage((e as Error).message);
+            setErrorMessage((e as Error).message);
           } finally {
             setBusy(false);
           }
@@ -1005,8 +1025,15 @@ export function OwnerOnboarding({ onSaved }: { onSaved: () => Promise<void> }) {
       </form>
       {tx(
         message && (
-          <p role="status" className="notice">
+          <p role="status" className="notice success">
             {tx(message)}
+          </p>
+        ),
+      )}
+      {tx(
+        errorMessage && (
+          <p role="alert" className="notice error">
+            {tx(errorMessage)}
           </p>
         ),
       )}

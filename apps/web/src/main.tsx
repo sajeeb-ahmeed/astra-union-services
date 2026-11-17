@@ -2,7 +2,11 @@ import React, { lazy, useCallback, useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { api } from "./api.js";
 import { t, tx, choose, useLanguage, LanguageSwitcher } from "./i18n.js";
-import { PublicPortal } from "./PublicPortal.js";
+const PublicPortal = lazy(() =>
+  import("./PublicPortal.js").then((module) => ({
+    default: module.PublicPortal,
+  })),
+);
 import { IssuanceModeProvider } from "./mode.js";
 import emblem from "./assets/brand/emblem.webp";
 import { AsyncPanel, LoadingPanel } from "./AsyncPanel.js";
@@ -31,24 +35,6 @@ if (location.pathname === "/payments/return") {
   // A callback only selects an authenticated record. Query parameters never prove payment.
   history.replaceState({}, "", "/login");
 }
-const localDemo = ["127.0.0.1", "localhost", "::1", "[::1]"].includes(
-  location.hostname,
-);
-const accounts = [
-  "citizen",
-  "staff",
-  "reviewer",
-  "approver",
-  "admin",
-  "finance",
-]
-  .map((r) => `${r}@alpha.demo.test`)
-  .concat([
-    "staff@beta.demo.test",
-    "approver@beta.demo.test",
-    "owner@astra.demo.test",
-  ]);
-
 function CertificateVerification({
   publicToken,
   certificateNumber,
@@ -59,18 +45,6 @@ function CertificateVerification({
   useLanguage();
   const [verification, setVerification] = useState<any>(null);
   const [publicError, setPublicError] = useState("");
-  const [issuanceMode, setIssuanceMode] = useState<string | null>(null);
-  useEffect(() => {
-    let active = true;
-    // The DEMO notice belongs to the demonstration system only; an official
-    // (production) deployment verifies real documents and shows no demo text.
-    api("/health")
-      .then((h) => active && setIssuanceMode(String(h.mode ?? "")))
-      .catch(() => active && setIssuanceMode(""));
-    return () => {
-      active = false;
-    };
-  }, []);
   useEffect(() => {
     let active = true;
     // Phase Y: official-format documents print /verify?searchText={certificateNo};
@@ -143,13 +117,6 @@ function CertificateVerification({
                   )),
                 )}
               </dl>
-              {issuanceMode !== "OFFICIAL" && (
-                <p className="notice">
-                  {t(
-                    "DEMO / NOT OFFICIAL — synthetic certificate for software verification. ",
-                  )}
-                </p>
-              )}
             </>
           ) : (
             <p role="alert">{tx(publicError || "Checking certificate…")}</p>
@@ -162,18 +129,12 @@ function CertificateVerification({
 
 function SignedOutPortal({
   onLogin,
-  prefillDemo,
 }: {
   onLogin: (session: any) => void;
-  prefillDemo: boolean;
 }) {
   useLanguage();
-  const [email, setEmail] = useState(
-    localDemo && prefillDemo ? accounts[1] : "",
-  );
-  const [password, setPassword] = useState(
-    localDemo && prefillDemo ? "Demo-Phase1!" : "",
-  );
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -286,19 +247,11 @@ function SignedOutPortal({
                   id="email"
                   type={identifierType === "email" ? "email" : "text"}
                   inputMode={identifierType === "email" ? "email" : "numeric"}
-                  list={identifierType === "email" ? "accounts" : undefined}
                   autoComplete="username"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
                 />
-                <datalist id="accounts">
-                  {tx(
-                    (localDemo ? accounts : []).map((a) => (
-                      <option key={a} value={a} />
-                    )),
-                  )}
-                </datalist>
                 <label htmlFor="password">{t("Password")}</label>
                 <div className="password-control">
                   <input
@@ -335,30 +288,6 @@ function SignedOutPortal({
               <a className="login-recovery" href="/recover">
                 {t("Forgot password? Recover your account ")}
               </a>
-              {tx(
-                localDemo && (
-                  <details>
-                    <summary>{t("Local demo accounts")}</summary>
-                    <p>
-                      {t("Password: ")}
-                      <code>{t("Demo-Phase1!")}</code>
-                    </p>
-                    <div className="demo-accounts">
-                      {tx(
-                        (localDemo ? accounts : []).map((a) => (
-                          <button
-                            className="text-button"
-                            key={a}
-                            onClick={() => setEmail(a)}
-                          >
-                            {tx(a)}
-                          </button>
-                        )),
-                      )}
-                    </div>
-                  </details>
-                ),
-              )}
             </>
           )}
         </section>
@@ -372,7 +301,11 @@ function SignedOutPortal({
         <OfficeRegistrationPage />
       </AsyncPanel>
     );
-  return <PublicPortal onNavigate={clearLoginSecrets} login={loginForm} />;
+  return (
+    <AsyncPanel>
+      <PublicPortal onNavigate={clearLoginSecrets} login={loginForm} />
+    </AsyncPanel>
+  );
 }
 
 /**
@@ -399,7 +332,6 @@ function humanSignInError(error: unknown): string {
 function SessionApp() {
   const [session, setSession] = useState<any>(null);
   const [loaded, setLoaded] = useState(false);
-  const [signedOut, setSignedOut] = useState(false);
   const [pendingPaymentReturn, setPendingPaymentReturn] = useState(
     paymentReturnApplication,
   );
@@ -418,14 +350,12 @@ function SessionApp() {
     };
   }, []);
   if (!loaded) return <LoadingPanel />;
-  if (!session)
-    return <SignedOutPortal onLogin={setSession} prefillDemo={!signedOut} />;
+  if (!session) return <SignedOutPortal onLogin={setSession} />;
   return (
     <AsyncPanel>
       <WorkspaceApp
         session={session}
         onSignOut={() => {
-          setSignedOut(true);
           setSession(null);
         }}
         paymentReturnApplication={pendingPaymentReturn}

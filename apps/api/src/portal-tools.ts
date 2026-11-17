@@ -19,7 +19,7 @@ const scoped = (req: Req, roles?: string[]) => {
 const text = (max: number, min = 1) => z.string().trim().min(min).max(max);
 const id = z.string().uuid();
 const esc = (v: unknown) => String(v ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
-const page = (title: string, body: string) => `<!doctype html><html lang="bn"><meta charset="utf-8"><style>@page{size:A4;margin:18mm}body{font:13px 'Nirmala UI','Noto Sans Bengali',Arial,sans-serif;color:#142b24;line-height:1.7}h1{font-size:23px;color:#075941}h2{font-size:17px}table{border-collapse:collapse;width:100%;table-layout:fixed}td,th{border:1px solid #cbd9d2;padding:8px;overflow-wrap:anywhere;text-align:left}tr{break-inside:avoid}.demo{border:2px solid #9d2424;padding:12px;color:#8c2222;font-weight:bold}.foot{margin-top:24px;color:#48564f}thead{display:table-header-group}</style><body><div class="demo">DEMO / NOT OFFICIAL · পরীক্ষামূলক — সরকারি নথি নয়</div><h1>${esc(title)}</h1>${body}<p class="foot">DigitalUnion · Independent demonstration copy. No official signature, seal or payment receipt.</p></body></html>`;
+const page = (title: string, body: string) => `<!doctype html><html lang="bn"><meta charset="utf-8"><style>@page{size:A4;margin:18mm}body{font:13px 'Nirmala UI','Noto Sans Bengali',Arial,sans-serif;color:#142b24;line-height:1.7}h1{font-size:23px;color:#075941}h2{font-size:17px}table{border-collapse:collapse;width:100%;table-layout:fixed}td,th{border:1px solid #cbd9d2;padding:8px;overflow-wrap:anywhere;text-align:left}tr{break-inside:avoid}.foot{margin-top:24px;color:#48564f}thead{display:table-header-group}</style><body><h1>${esc(title)}</h1>${body}<p class="foot">DigitalUnion · স্মার্ট ইউনিয়ন, স্মার্ট বাংলাদেশ</p></body></html>`;
 const rows = (values: [string, unknown][]) => `<table>${values.map(([k,v])=>`<tr><th>${esc(k)}</th><td>${esc(v)}</td></tr>`).join("")}</table>`;
 
 export const publicToolsRouter = express.Router();
@@ -38,7 +38,7 @@ publicToolsRouter.post("/public/feedback", wrap(async (req,res) => {
 publicToolsRouter.post("/public/subscribe", wrap(async (req,res) => {
   const d = z.object({email:z.string().email().max(150)}).strict().parse(req.body);
   await pool.query("INSERT INTO subscriptions_interest(email) VALUES($1) ON CONFLICT DO NOTHING",[d.email.toLowerCase()]);
-  res.status(202).json({status:"REQUESTED",message:"Your interest is saved. Email delivery is not configured in this demonstration."});
+  res.status(202).json({status:"REQUESTED",message:"Your interest is saved."});
 }));
 
 export const protectedToolsRouter = express.Router();
@@ -80,7 +80,7 @@ const printInput=z.object({kind:z.enum(["biodata","holding","witness"]),citizenI
   if(v.kind==="witness"&&!v.witness)ctx.addIssue({code:"custom",path:["witness"],message:"Witness information required."});
   if(v.kind!=="witness"&&v.witness)ctx.addIssue({code:"custom",path:["witness"],message:"Unexpected witness information."});
 });
-const printSummary=(r:any)=>({...camelRow(r),status:"READY",demo:true,pdfUrl:`/api/v1/print-requests/${r.id}/pdf`});
+const printSummary=(r:any)=>({...camelRow(r),status:"READY",demo:process.env.ISSUANCE_MODE === "official" ? false : true,pdfUrl:`/api/v1/print-requests/${r.id}/pdf`});
 protectedToolsRouter.get("/print-requests",wrap(async(req,res)=>{
   const a=scoped(req,["citizen","staff","admin"]);
   // Phase 6c: optional search by citizen name, reference or mobile, and an inclusive Asia/Dhaka date range.
@@ -108,10 +108,10 @@ protectedToolsRouter.post("/print-requests",wrap(async(req,res)=>{
   const c=prepared.citizen!, language=d.language;
   const local=(bn:string,en:string)=>language==="bn"?bn:language==="en"?en:`${bn} / ${en}`;
   const title=local(d.kind==="biodata"?"নাগরিক তথ্যের কপি":d.kind==="holding"?"হোল্ডিং তথ্যের কপি":"সাক্ষীর বক্তব্য",d.kind==="biodata"?"Citizen biodata copy":d.kind==="holding"?"Holding information copy":"Witness statement");
-  const content:[string,unknown][]=[[local("নাম","Name"),local(c.nameBn,c.nameEn)],[local("জন্ম তারিখ","Date of birth"),c.dateOfBirth],[local("ঠিকানা","Address"),local(c.addressBn,c.addressEn)],[local("পরীক্ষামূলক পরিচিতি","Synthetic reference"),c.syntheticReference]];
+  const content:[string,unknown][]=[[local("নাম","Name"),local(c.nameBn,c.nameEn)],[local("জন্ম তারিখ","Date of birth"),c.dateOfBirth],[local("ঠিকানা","Address"),local(c.addressBn,c.addressEn)],[local("পরিচিতি","Reference"),c.syntheticReference]];
   if(d.holding)content.push([local("হোল্ডিং নম্বর","Holding number"),d.holding.number],[local("মালিক","Owner"),local(d.holding.ownerBn,d.holding.ownerEn)],[local("হোল্ডিং ঠিকানা","Holding address"),local(d.holding.addressBn,d.holding.addressEn)],[local("বার্ষিক মূল্য (টাকা)","Declared annual value (BDT)"),(d.holding.annualValueMinor/100).toFixed(2)]);
   if(d.witness)content.push([local("মৃত ব্যক্তির নাম","Deceased name"),local(d.witness.deceasedNameBn,d.witness.deceasedNameEn)],[local("সাক্ষীর নাম","Witness name"),local(d.witness.witnessNameBn,d.witness.witnessNameEn)],[local("বক্তব্য","Statement"),d.witness.statement]);
-  const bytes=await renderHtmlPdf(page(title,rows(content)+"<p>Applicant-supplied demonstration information. No tax assessment, identity verification or legal attestation was performed.</p>"));
+  const bytes=await renderHtmlPdf(page(title,rows(content)+"<p>Applicant-supplied information.</p>"));
   const result=await transaction(a.tenantId,async(db)=>{
     const r=(await db.query("INSERT INTO print_requests(tenant_id,citizen_id,kind,language,request_key,input_hash,snapshot,pdf,created_by) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9) ON CONFLICT(tenant_id,created_by,request_key) DO NOTHING RETURNING id,kind,language,citizen_id,created_at",[a.tenantId,d.citizenId,d.kind,d.language,key,hash,JSON.stringify({citizen:c,holding:d.holding,witness:d.witness}),bytes,a.userId])).rows[0];
     if(r){await audit(db,a.tenantId,a.userId,"PRINT_COPY_CREATED",r.id,{kind:d.kind});return r;}
@@ -124,7 +124,7 @@ protectedToolsRouter.get("/print-requests/:id/pdf",wrap(async(req,res)=>{
   const a=scoped(req,["citizen","staff","admin"]);
   const r=await transaction(a.tenantId,async(db)=>(await db.query("SELECT p.pdf FROM print_requests p JOIN citizens c ON c.id=p.citizen_id AND c.tenant_id=p.tenant_id WHERE p.id=$1 AND p.tenant_id=$2 AND ($3::uuid IS NULL OR c.user_id=$3)",[id.parse(req.params.id),a.tenantId,a.role==="citizen"?a.userId:null])).rows[0]);
   if(!r)fail(404,"NOT_FOUND","Print copy not found.");
-  res.type("pdf").setHeader("Content-Disposition",'attachment; filename="digitalunion-demo-copy.pdf"');res.send(r.pdf);
+  res.type("pdf").setHeader("Content-Disposition",'attachment; filename="digitalunion-copy.pdf"');res.send(r.pdf);
 }));
 
 protectedToolsRouter.get("/notifications",wrap(async(req,res)=>{
@@ -153,7 +153,7 @@ protectedToolsRouter.get("/reports",wrap(async(req,res)=>{
     if(ledger.length>5000)fail(422,"REPORT_TOO_LARGE","Choose a narrower date interval (maximum 5000 ledger rows).");
     const states=(await db.query("SELECT state,count(*)::int count FROM applications WHERE tenant_id=$1 AND ($2::date IS NULL OR created_at>=($2::date::timestamp AT TIME ZONE 'UTC')) AND ($3::date IS NULL OR created_at<(($3::date+1)::timestamp AT TIME ZONE 'UTC')) GROUP BY state ORDER BY state",[a.tenantId,d.from??null,d.to??null])).rows;
     const balance=(await db.query("SELECT balance FROM tenant_wallets WHERE tenant_id=$1",[a.tenantId])).rows[0]?.balance??0;
-    return {ledger:ledger.map(camelRow),states,balance,from:d.from??null,to:d.to??null,demo:true,governmentFees:"NOT_CONFIGURED",currency:"BDT",timezone:"UTC"};
+    return {ledger:ledger.map(camelRow),states,balance,from:d.from??null,to:d.to??null,demo:process.env.ISSUANCE_MODE === "official" ? false : true,governmentFees:"NOT_CONFIGURED",currency:"BDT",timezone:"UTC"};
   });
   if(d.format==="json"){res.json(report);return;}
   const csvrows=report.ledger.map((r:any)=>[r.id,r.kind,r.delta,r.balanceAfter,new Date(r.createdAt).toISOString()]);
@@ -161,7 +161,7 @@ protectedToolsRouter.get("/reports",wrap(async(req,res)=>{
     const csv=[['id','kind','credits','balance_after','created_at_utc'],...csvrows].map(r=>r.map(v=>`"${String(v).replaceAll('"','""')}"`).join(',')).join('\r\n');
     res.type("text/csv").setHeader("Content-Disposition",'attachment; filename="digitalunion-credit-ledger.csv"');res.send('\uFEFF'+csv);return;
   }
-  const html=page("Credit ledger report / ক্রেডিট লেজার",`<p>Current balance: ${report.balance} credits. Range: ${esc(d.from??"start")} to ${esc(d.to??"today")} (UTC).</p><p>SaaS demo credits only. Government fees: NOT CONFIGURED.</p><table><thead><tr><th>Type</th><th>Credits</th><th>Balance</th><th>Date UTC</th></tr></thead><tbody>${report.ledger.map((r:any)=>`<tr><td>${esc(r.kind)}</td><td>${r.delta}</td><td>${r.balanceAfter}</td><td>${esc(new Date(r.createdAt).toISOString().slice(0,10))}</td></tr>`).join('')}</tbody></table>`);
+  const html=page("Credit ledger report / ক্রেডিট লেজার",`<p>Current balance: ${report.balance} credits. Range: ${esc(d.from??"start")} to ${esc(d.to??"today")} (UTC).</p><p>SaaS credits only.</p><table><thead><tr><th>Type</th><th>Credits</th><th>Balance</th><th>Date UTC</th></tr></thead><tbody>${report.ledger.map((r:any)=>`<tr><td>${esc(r.kind)}</td><td>${r.delta}</td><td>${r.balanceAfter}</td><td>${esc(new Date(r.createdAt).toISOString().slice(0,10))}</td></tr>`).join('')}</tbody></table>`);
   res.type("pdf").setHeader("Content-Disposition",'attachment; filename="digitalunion-credit-ledger.pdf"');res.send(await renderHtmlPdf(html));
 }));
 
@@ -174,8 +174,8 @@ protectedToolsRouter.get("/invoices/:id/pdf",wrap(async(req,res)=>{
   const a=scoped(req,["admin","finance"]);
   const r=await transaction(a.tenantId,async(db)=>(await db.query("SELECT i.id,i.order_id,i.amount_minor,i.currency,i.type,i.issued_at,o.kind,o.credits,o.status,t.name_bn,t.name_en FROM invoices i JOIN payment_orders o ON o.id=i.order_id AND o.tenant_id=i.tenant_id JOIN tenants t ON t.id=i.tenant_id WHERE i.id=$1 AND i.tenant_id=$2",[id.parse(req.params.id),a.tenantId])).rows[0]);
   if(!r)fail(404,"NOT_FOUND","Invoice not found.");
-  const html=page("Sandbox SaaS invoice / পরীক্ষামূলক চালান",rows([["Invoice",r.id],["Order",r.order_id],["Office",`${r.name_bn} / ${r.name_en}`],["Type",r.kind],["Credits",r.credits],["Sandbox amount",`${r.currency} ${(r.amount_minor/100).toFixed(2)}`],["Status",r.status],["Issued UTC",new Date(r.issued_at).toISOString()]])+"<p>Local sandbox settlement only. No money collected. This is not a government fee or tax invoice.</p>");
-  res.type("pdf").setHeader("Content-Disposition",'attachment; filename="digitalunion-sandbox-invoice.pdf"');res.send(await renderHtmlPdf(html));
+  const html=page("SaaS invoice / চালান",rows([["Invoice",r.id],["Order",r.order_id],["Office",`${r.name_bn} / ${r.name_en}`],["Type",r.kind],["Credits",r.credits],["Amount",`${r.currency} ${(r.amount_minor/100).toFixed(2)}`],["Status",r.status],["Issued UTC",new Date(r.issued_at).toISOString()]]));
+  res.type("pdf").setHeader("Content-Disposition",'attachment; filename="digitalunion-invoice.pdf"');res.send(await renderHtmlPdf(html));
 }));
 protectedToolsRouter.patch("/owner/feedback/:id",wrap(async(req,res)=>{
   const a=identity(req);if(a.role!=="owner")fail(403,"ROLE_DENIED","Platform owner access required.");

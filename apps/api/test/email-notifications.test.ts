@@ -76,13 +76,13 @@ before(async () => {
     )
   ).rows[0].id;
   // Seeded alpha office actors for the workflow tests (same fixtures as approval-chain).
-  await login("staff@alpha.demo.test", "Demo-Phase1!");
-  await login("approver@alpha.demo.test", "Demo-Phase1!");
-  const citizen = await login("citizen@alpha.demo.test", "Demo-Phase1!");
+  await login("staff@alpha.local.test", "Demo-Phase1!");
+  await login("approver@alpha.local.test", "Demo-Phase1!");
+  const citizen = await login("citizen@alpha.local.test", "Demo-Phase1!");
   citizenId = (await request("GET", "/citizens", undefined, citizen)).body.items[0].id;
   const row = (
     await db.query(
-      "SELECT c.contact_mobile FROM citizens c JOIN platform_users u ON u.id=c.user_id WHERE u.email='citizen@alpha.demo.test'",
+      "SELECT c.contact_mobile FROM citizens c JOIN platform_users u ON u.id=c.user_id WHERE u.email='citizen@alpha.local.test'",
     )
   ).rows[0];
   originalContactMobile = row.contact_mobile;
@@ -203,7 +203,7 @@ test("Phase X: resend is rate-limited, retires the old link, and stops once veri
 });
 
 async function submittedApplication() {
-  const staff = sessions.get("staff@alpha.demo.test")!;
+  const staff = sessions.get("staff@alpha.local.test")!;
   const created = await request(
     "POST",
     "/applications",
@@ -221,12 +221,12 @@ test("Phase X: issuance emails and texts the citizen with the certificate number
   const id = await submittedApplication();
   mailSent.length = 0;
   smsSent.length = 0;
-  const approver = sessions.get("approver@alpha.demo.test")!;
+  const approver = sessions.get("approver@alpha.local.test")!;
   const approved = await request("POST", `/applications/${id}/transition`, { action: "approve" }, approver);
   assert.equal(approved.status, 200, JSON.stringify(approved.body));
   assert.equal(approved.body.state, "ISSUED");
   const number = approved.body.certificate.number as string;
-  const mail = mailTo("citizen@alpha.demo.test");
+  const mail = mailTo("citizen@alpha.local.test");
   assert.ok(mail, "an issuance email reached the citizen");
   assert.ok(mail.text.includes(number), "the email carries the certificate number");
   const sms = smsSent.find((m) => m.purpose === "certificate_issued");
@@ -239,12 +239,12 @@ test("Phase X: rejection emails and texts the citizen with the chairman's reason
   const id = await submittedApplication();
   mailSent.length = 0;
   smsSent.length = 0;
-  const approver = sessions.get("approver@alpha.demo.test")!;
+  const approver = sessions.get("approver@alpha.local.test")!;
   const reason = "Phase X test — supporting documents do not match";
   const rejected = await request("POST", `/applications/${id}/transition`, { action: "reject", reason }, approver);
   assert.equal(rejected.status, 200, JSON.stringify(rejected.body));
   assert.equal(rejected.body.state, "REJECTED");
-  const mail = mailTo("citizen@alpha.demo.test");
+  const mail = mailTo("citizen@alpha.local.test");
   assert.ok(mail, "a rejection email reached the citizen");
   assert.ok(mail.text.includes(reason), "the email carries the reason verbatim");
   const sms = smsSent.find((m) => m.purpose === "application_rejected");
@@ -263,7 +263,7 @@ test("Phase X: without providers the status is honestly unavailable and business
     assert.equal(created.status, 201, JSON.stringify(created.body));
     assert.equal(created.body.emailVerification, "unavailable");
     const id = await submittedApplication();
-    const approver = sessions.get("approver@alpha.demo.test")!;
+    const approver = sessions.get("approver@alpha.local.test")!;
     const approved = await request("POST", `/applications/${id}/transition`, { action: "approve" }, approver);
     assert.equal(approved.status, 200, JSON.stringify(approved.body));
     assert.equal(approved.body.state, "ISSUED");

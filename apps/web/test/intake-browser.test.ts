@@ -2,10 +2,15 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
-import { workspacePage } from "./fixtures/workspace-nav.js";
+import { goToWorkspacePage } from "./fixtures/workspace-nav.js";
+import { fillApplicationForm } from "./fixtures/fill-form.js";
 import { chromium, type Browser, type Page } from "playwright";
 import { demoPayloads } from "@astra/shared-schemas";
 
+// UIUX-FIX-01: the services page is now a launch catalog — every application (staff or citizen) runs
+// through the guided ServiceFlow. These tests drive that flow: catalog tile → citizen step → form step
+// → fees step → review step (where drafts are saved). The retired intake-only reference-fields preview
+// has no equivalent and its assertions were dropped with the capability.
 const origin = "http://127.0.0.1:5173";
 async function browserInstance(): Promise<Browser> {
   const local = path.join(process.env.LOCALAPPDATA || "", "ms-playwright");
@@ -24,7 +29,7 @@ async function browserInstance(): Promise<Browser> {
 }
 async function login(page: Page) {
   await page.goto(`${origin}/login`);
-  await page.getByLabel("Email", { exact: true }).fill("staff@alpha.demo.test");
+  await page.getByLabel("Email", { exact: true }).fill("staff@alpha.local.test");
   await page.getByLabel("Password", { exact: true }).fill("Demo-Phase1!");
   await page
     .locator(".login-form")
@@ -33,7 +38,12 @@ async function login(page: Page) {
   await page.getByRole("button", { name: "Sign out", exact: true }).waitFor();
 }
 async function nav(page: Page, name: string) {
-  await workspacePage(page, name).click();
+  await goToWorkspacePage(page, name);
+}
+function catalogTile(page: Page, serviceNo: string) {
+  return page.locator(".catalog .service").filter({
+    has: page.locator(`.service-number:text-is("${serviceNo}")`),
+  });
 }
 async function assertBlank(page: Page) {
   const form = page.getByTestId("service-application-form");
@@ -47,6 +57,28 @@ async function assertBlank(page: Page) {
     true,
   );
   assert.equal(await form.locator("input[type=checkbox]:checked").count(), 0);
+}
+async function completeFees(page: Page) {
+  const next = page.getByRole("button", { name: "Next: review and submit" });
+  try {
+    await page.waitForFunction(
+      () => !(document.querySelector(".ax-flow-actions button:last-child") as HTMLButtonElement)?.disabled,
+      undefined,
+      { timeout: 8000 },
+    );
+    return next;
+  } catch {}
+  const language = page.locator("#order-language");
+  if (!(await language.inputValue())) await language.selectOption("bn");
+  const review = page.getByRole("button", { name: "Review fees" });
+  if (await review.count()) await review.click();
+  const accept = page.locator(".ax-flow input[type=checkbox]").last();
+  await accept.waitFor();
+  await accept.check();
+  await page.waitForFunction(
+    () => !(document.querySelector(".ax-flow-actions button:last-child") as HTMLButtonElement)?.disabled,
+  );
+  return next;
 }
 
 test(
@@ -62,6 +94,7 @@ test(
     try {
       await login(page);
       await nav(page, "Service catalog");
+      // The catalog itself carries no form and no draft button: choosing a service launches the flow.
       assert.equal(
         await page.getByTestId("service-application-form").count(),
         0,
@@ -72,60 +105,57 @@ test(
           .count(),
         0,
       );
-      await page
-        .locator("#applicant option:not([value=''])")
+      await catalogTile(page, "45").click();
+      // Citizen step comes first; the first listed citizen is pre-listed and selectable.
+      const firstCitizen = page.locator(".ax-citizen input").first();
+      await firstCitizen.waitFor();
+      await firstCitizen.check();
+      const chosenCitizenLabel = await page
+        .locator("label.ax-citizen")
         .first()
-        .waitFor({ state: "attached" });
-      await page.locator("#applicant").selectOption({ index: 1 });
-      const firstCitizen = await page.locator("#applicant").inputValue();
+        .innerText();
+      await page
+        .getByRole("button", { name: "Next: application form", exact: true })
+        .click();
       await assertBlank(page);
       await page
         .getByLabel("Purpose (English)", { exact: false })
         .fill("Unsaved applicant entered purpose");
       await page.getByRole("button", { name: "বাংলা", exact: true }).click();
-      assert.equal(await page.locator("#applicant").inputValue(), firstCitizen);
       assert.equal(
         await page.locator("[id$='purpose_en']").inputValue(),
         "Unsaved applicant entered purpose",
       );
-      assert.match(await page.locator(".service.selected").innerText(), /45/);
+      assert.match(await page.locator(".ax-eyebrow").innerText(), /৪৫/);
+      // The chosen citizen survives the language switch: going back shows the same citizen checked.
+      await page.getByRole("button", { name: "← নাগরিক", exact: true }).click();
+      assert.equal(await page.locator(".ax-citizen input:checked").count(), 1);
+      // The label localises the citizen's name with the UI language; the reference is stable.
+      const refOf = (text: string) => text.match(/REF-[0-9a-f-]+/)?.[0];
+      assert.equal(
+        refOf(await page.locator("label.ax-citizen:has(input:checked)").innerText()),
+        refOf(chosenCitizenLabel),
+      );
       await page.getByRole("button", { name: "English", exact: true }).click();
+      // A different service starts a fresh, empty application.
       await page
-        .getByRole("button", {
-          name: "View observed reference fields",
-          exact: true,
-        })
+        .getByRole("button", { name: "Cancel and return to dashboard", exact: true })
         .click();
-      assert.equal(
-        await page
-          .getByRole("button", { name: "Save draft application", exact: true })
-          .count(),
-        0,
-      );
-      assert.equal(
-        await page
-          .getByTestId("service-application-form")
-          .locator("input:enabled, textarea:enabled, select:enabled")
-          .count(),
-        0,
-      );
+      await page.locator('.ax-dashboard .ax-tile[data-service="42"]').click();
+      await page.locator(".ax-citizen input").first().check();
       await page
-        .getByRole("button", { name: "Use independent demo form", exact: true })
+        .getByRole("button", { name: "Next: application form", exact: true })
         .click();
-      assert.equal(
-        await page
-          .getByLabel("Purpose (English)", { exact: false })
-          .inputValue(),
-        "Unsaved applicant entered purpose",
-      );
-      await page.getByRole("button", { name: /42.*Trade license/ }).click();
       await assertBlank(page);
+      // Registering a new citizen from inside the flow returns to the same service with them chosen.
+      await page.getByRole("button", { name: "← Citizen", exact: true }).click();
       await page
         .getByRole("button", { name: "Register a new citizen", exact: true })
         .click();
+      const newName = `Intake Browser Citizen ${Date.now()}`;
       await page
         .getByLabel("Name (English)", { exact: true })
-        .fill(`Intake Browser Citizen ${Date.now()}`);
+        .fill(newName);
       await page
         .getByLabel("Name (Bangla)", { exact: true })
         .fill("ইনটেক পরীক্ষার নমুনা নাগরিক");
@@ -163,20 +193,18 @@ test(
         .click();
       const response = await registered;
       assert.equal(response.status(), 201, await response.text());
-      const created = await response.json();
-      await page
-        .getByText(
-          "Citizen registered and selected. Complete the application below.",
-          { exact: true },
-        )
-        .waitFor();
-      assert.equal(await page.locator("#applicant").inputValue(), created.id);
-      assert.match(await page.locator(".service.selected").innerText(), /42/);
+      // Back in the flow for service 42, at the form step, with the new citizen as applicant.
+      await page.locator(".ax-flow").waitFor();
+      assert.match(await page.locator(".ax-flow").innerText(), new RegExp(newName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+      assert.match(await page.locator(".ax-flow-title").innerText(), /Trade licen/);
       await assertBlank(page);
-      assert.ok(
+      // Sample insertion was removed from the product entirely: the flow
+      // offers no "Fill example" shortcut on any hostname.
+      assert.equal(
         await page
-          .getByRole("button", { name: "Fill synthetic example", exact: true })
-          .isVisible(),
+          .getByRole("button", { name: "Fill example", exact: true })
+          .count(),
+        0,
       );
       assert.equal(
         await page.evaluate(
@@ -192,7 +220,7 @@ test(
 );
 
 test(
-  "intake browser: hosted hostname hides sample insertion and exact reference opens own application",
+  "intake browser: hosted hostname has no sample insertion and exact reference opens own application",
   { timeout: 90000 },
   async () => {
     const browser = await browserInstance();
@@ -258,25 +286,32 @@ test(
           .getByRole("button", { name: "Sign out", exact: true })
           .waitFor();
         await nav(hostedPage, "Service catalog");
+        await catalogTile(hostedPage, "45").click();
+        await hostedPage.locator(".ax-citizen input").first().waitFor();
+        await hostedPage.locator(".ax-citizen input").first().check();
         await hostedPage
-          .locator("#applicant option:not([value=''])")
-          .first()
-          .waitFor({ state: "attached" });
-        await hostedPage.locator("#applicant").selectOption({ index: 1 });
+          .getByRole("button", { name: "Next: application form", exact: true })
+          .click();
         await assertBlank(hostedPage);
         assert.equal(
           await hostedPage
             .getByRole("button", {
-              name: "Fill synthetic example",
+              name: "Fill example",
               exact: true,
             })
             .count(),
           0,
         );
+        // Draft saving lives on the flow's review step on every hostname.
+        await fillApplicationForm(hostedPage, demoPayloads[45]);
+        await hostedPage
+          .getByRole("button", { name: "Next: fees and delivery", exact: true })
+          .click();
+        await completeFees(hostedPage).then((next) => next.click());
         assert.ok(
           await hostedPage
             .getByRole("button", {
-              name: "Save draft application",
+              name: "Save as draft only",
               exact: true,
             })
             .isVisible(),

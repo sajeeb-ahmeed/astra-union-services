@@ -13,7 +13,7 @@ const server = app.listen(port, host, () =>
   console.log(
     process.env.ISSUANCE_MODE === "official"
       ? `DigitalUnion server on http://${host}:${port}; PostgreSQL; official issuance enabled.`
-      : `DigitalUnion DEMO server on http://${host}:${port}; PostgreSQL; official issuance disabled.`,
+      : `DigitalUnion server on http://${host}:${port}; PostgreSQL; official issuance disabled.`,
   ),
 );
 server.requestTimeout = 30_000;
