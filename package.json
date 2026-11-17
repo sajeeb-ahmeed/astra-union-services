@@ -11,6 +11,7 @@
     "dev": "tsx scripts/dev.ts",
     "dev:api": "tsx watch apps/api/src/server.ts",
     "dev:web": "vite --config apps/web/vite.config.ts",
+    "prebuild": "node scripts/decode-assets.mjs",
     "build": "tsc --noEmit && vite build --config apps/web/vite.config.ts && node scripts/compress-assets.mjs",
     "typecheck": "tsc --noEmit",
     "db:migrate": "tsx scripts/migrate.ts",

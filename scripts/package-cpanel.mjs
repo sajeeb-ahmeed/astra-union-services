@@ -32,6 +32,33 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const out = path.join(root, "dist-cpanel");
 if (!out.startsWith(root + path.sep)) throw Error("Bundle path escapes the repository root.");
 
+// 0. Binary assets travel through GitHub as .b64 text (see
+// scripts/decode-assets.mjs). In a clean GitHub checkout the raw binaries
+// are absent, and the bundle copies apps/api/assets verbatim — so decode
+// first whenever a .b64 sibling has no materialised binary. Local
+// checkouts hold the real binaries, so this is a no-op there.
+(function decodeMissingBinaries() {
+  const assetDirs = [
+    path.join(root, "apps", "api", "assets"),
+    path.join(root, "apps", "web", "src", "assets"),
+    path.join(root, "apps", "web", "public"),
+  ];
+  let missing = false;
+  function scan(dir) {
+    if (missing || !fs.existsSync(dir)) return;
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+      const p = path.join(dir, entry.name);
+      if (entry.isDirectory()) scan(p);
+      else if (entry.isFile() && entry.name.endsWith(".b64") && !fs.existsSync(p.slice(0, -".b64".length))) missing = true;
+    }
+  }
+  for (const dir of assetDirs) scan(dir);
+  if (missing) {
+    console.log("Binary assets missing (clean GitHub checkout) — decoding .b64 assets first…");
+    execFileSync("node", [path.join(root, "scripts", "decode-assets.mjs")], { cwd: root, stdio: "inherit" });
+  }
+})();
+
 // 1. The web bundle must exist (the API serves it same-origin in production).
 const manifest = path.join(root, "apps/web/dist/.vite/manifest.json");
 if (!fs.existsSync(manifest)) {
