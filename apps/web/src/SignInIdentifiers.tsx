@@ -12,6 +12,8 @@ const kinds = [
 export function SignInIdentifiers() {
   useLanguage();
   const [state, setState] = useState<any>(null);
+  // Phase X: email verification state (from /auth/me) and whether delivery is configured.
+  const [emailState, setEmailState] = useState<{ verified: boolean; available: boolean } | null>(null);
   const [editing, setEditing] = useState<string | null>(null);
   const [value, setValue] = useState("");
   const [currentPassword, setCurrentPassword] = useState("");
@@ -21,8 +23,15 @@ export function SignInIdentifiers() {
     api("/account/identifiers")
       .then(setState)
       .catch((error) => setMessage((error as Error).message));
+  const loadEmailState = () =>
+    Promise.all([api("/auth/me"), api("/auth/email/status")])
+      .then(([me, status]) =>
+        setEmailState({ verified: Boolean(me?.user?.emailVerified), available: Boolean(status?.available) }),
+      )
+      .catch(() => setEmailState(null));
   useEffect(() => {
     void load();
+    void loadEmailState();
   }, []);
   async function act(fn: () => Promise<unknown>, done: string) {
     setBusy(true);
@@ -62,7 +71,42 @@ export function SignInIdentifiers() {
       {state && (
         <dl className="identifier-list">
           <dt>{choose({ bn: "ইমেইল", en: "Email" })}</dt>
-          <dd>{state.email}</dd>
+          <dd>
+            <span>{state.email}</span>{" "}
+            {emailState?.verified ? (
+              <span>{choose({ bn: "· যাচাইকৃত", en: "· Verified" })}</span>
+            ) : emailState && !emailState.available ? (
+              <span>
+                {choose({
+                  bn: "· এই সার্ভারে ইমেইল যাচাইকরণ চালু নেই",
+                  en: "· Email verification is not enabled on this server",
+                })}
+              </span>
+            ) : emailState ? (
+              <>
+                <span>{choose({ bn: "· যাচাই হয়নি", en: "· Not verified" })}</span>{" "}
+                <button
+                  type="button"
+                  className="text-button"
+                  disabled={busy}
+                  onClick={() =>
+                    void act(
+                      async () => {
+                        await api("/auth/email/resend", "POST", {});
+                        await loadEmailState();
+                      },
+                      choose({
+                        bn: "যাচাইকরণ ইমেইল পাঠানো হয়েছে। ইনবক্সে লিংকটি খুলুন।",
+                        en: "Verification email sent. Open the link in your inbox.",
+                      }),
+                    )
+                  }
+                >
+                  {choose({ bn: "যাচাইকরণ ইমেইল পাঠান", en: "Send verification email" })}
+                </button>
+              </>
+            ) : null}
+          </dd>
           {kinds.map((k) => {
             const item = state.items.find((i: any) => i.kind === k.kind);
             return (

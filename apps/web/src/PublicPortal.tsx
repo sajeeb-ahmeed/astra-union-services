@@ -238,6 +238,83 @@ export function CivicIcon({ index = 0 }: { index?: number }) {
     </svg>
   );
 }
+/** Phase X: consume the email-verification link (or a pasted token) from /verify-email. */
+function EmailVerificationForm() {
+  const [token, setToken] = useState(
+      new URLSearchParams(location.search).get("token") || "",
+    ),
+    [status, setStatus] = useState<"idle" | "verifying" | "verified" | "error">("idle"),
+    [message, setMessage] = useState(""),
+    [busy, setBusy] = useState(false);
+  async function verify(value: string) {
+    setBusy(true);
+    setStatus("verifying");
+    setMessage("");
+    try {
+      await api("/auth/email/verify", "POST", { token: value });
+      setStatus("verified");
+      setToken("");
+    } catch (e) {
+      setStatus("error");
+      setMessage((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+  useEffect(() => {
+    const initial = new URLSearchParams(location.search).get("token");
+    if (location.search) history.replaceState({}, "", "/verify-email");
+    if (initial) void verify(initial);
+    // Runs once on mount: a token in the link is consumed immediately.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  return (
+    <section className="panel narrow">
+      <h1>{t("ইমেইল যাচাই / Verify your email")}</h1>
+      <p>
+        {t(
+          "আপনার ইমেইলে পাঠানো লিংকটি খুললেই যাচাই সম্পন্ন হয়। লিংক কাজ না করলে টোকেনটি নিচে বসিয়ে যাচাই করুন। যাচাই ঐচ্ছিক — এটি ছাড়াও সাইন ইন করা যায়। / Opening the link sent to your email completes verification. If the link does not work, paste the token below. Verification is optional — you can sign in without it. ",
+        )}
+      </p>
+      {tx(
+        status === "verified" ? (
+          <p role="status" className="notice">
+            {t("আপনার ইমেইল ঠিকানা যাচাই হয়েছে। ধন্যবাদ! / Your email address has been verified. Thank you! ")}
+            <a href="/login">{t("সাইন ইন / Sign in")}</a>
+          </p>
+        ) : status === "verifying" ? (
+          <p role="status" className="notice">
+            {t("যাচাই করা হচ্ছে… / Verifying…")}
+          </p>
+        ) : (
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              void verify(token.trim());
+            }}
+          >
+            <label htmlFor="email-verification-token">{t("যাচাইকরণ টোকেন / Verification token")}</label>
+            <input
+              id="email-verification-token"
+              autoComplete="off"
+              value={token}
+              onChange={(e) => setToken(e.target.value)}
+              required
+            />
+            <button disabled={busy}>{t("যাচাই করুন / Verify email")}</button>
+          </form>
+        ),
+      )}
+      {tx(
+        message && (
+          <p className="notice error" role="alert">
+            {tx(message)}
+          </p>
+        ),
+      )}
+    </section>
+  );
+}
 export function PublicPortal({
   login,
   onNavigate,
@@ -297,6 +374,8 @@ export function PublicPortal({
   const [signupOfficeRetry, setSignupOfficeRetry] = useState(0);
   const [signupOffices, setSignupOffices] = useState<any[]>([]),
     [registered, setRegistered] = useState(false);
+  // Phase X: what happened to the registration verification email ("sent" | "failed" | "unavailable").
+  const [signupEmailVerification, setSignupEmailVerification] = useState<string | null>(null);
   const [registration, setRegistration] = useState({
     email: "",
     password: "",
@@ -909,6 +988,7 @@ export function PublicPortal({
                 ),
               )}
               {tx(page === "recover" && <RecoveryForm />)}
+              {tx(page === "verify-email" && <EmailVerificationForm />)}
               {tx(page === "tracking" && <ApplicationTracking />)}
               {tx(
                 page === "offices" && (
@@ -1241,6 +1321,27 @@ export function PublicPortal({
                               "You can now sign in with your email and password.",
                             )}
                           </p>
+                          {tx(
+                            signupEmailVerification === "sent" ? (
+                              <p>
+                                {t(
+                                  "আপনার ইমেইলে একটি যাচাইকরণ লিংক পাঠানো হয়েছে। লিংকটি খুলে ইমেইল যাচাই করুন — যাচাই ঐচ্ছিক, এখনই সাইন ইন করা যাবে। / A verification link has been sent to your email. Open it to verify your address — verification is optional and you can sign in right away.",
+                                )}
+                              </p>
+                            ) : signupEmailVerification === "unavailable" ? (
+                              <p>
+                                {t(
+                                  "এই সার্ভারে ইমেইল যাচাইকরণ চালু নেই, তাই কোনো যাচাইকরণ বার্তা পাঠানো হয়নি। / Email verification is not enabled on this server, so no verification message was sent.",
+                                )}
+                              </p>
+                            ) : signupEmailVerification === "failed" ? (
+                              <p>
+                                {t(
+                                  "যাচাইকরণ ইমেইলটি পাঠানো যায়নি। সাইন ইন করে আবার পাঠানোর চেষ্টা করা যাবে। / The verification email could not be sent. You can ask for a new one after signing in.",
+                                )}
+                              </p>
+                            ) : null,
+                          )}
                           <button onClick={() => nav("login")}>
                             {t("Go to sign in")}
                           </button>
@@ -1261,13 +1362,18 @@ export function PublicPortal({
                             setWorking(true);
                             setError("");
                             try {
-                              await api("/auth/signup", "POST", {
+                              const result = await api("/auth/signup", "POST", {
                                 ...registration,
                                 geography: geographyPayload(signupGeography),
                                 presentAddress:
                                   presentAddressPayload(signupPresentAddress),
                                 ...(signupMobile ?? {}),
                               });
+                              setSignupEmailVerification(
+                                typeof result?.emailVerification === "string"
+                                  ? result.emailVerification
+                                  : null,
+                              );
                               setRegistration((previous) => ({
                                 ...previous,
                                 password: "",

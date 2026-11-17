@@ -1,6 +1,6 @@
 # Parity status — phases 2 to 6
 
-Status as of **15 November 2026**. Source: the parity execution guide. This page re-scores the gap items the guide assigns to phases 2–6. The full G1–G25 matrix lives in the owner's gap-plan document; items not named in the guide's phase text are **not** re-scored here and should be checked against that document before sign-off.
+Status as of **16 November 2026**. Source: the parity execution guide. This page re-scores the gap items the guide assigns to phases 2–6. The full G1–G25 matrix lives in the owner's gap-plan document; items not named in the guide's phase text are **not** re-scored here and should be checked against that document before sign-off.
 
 Legend: **Done** — built, tested and merged. **Sandbox** — built and tested; live use needs an owner business step. **Deferred** — not built, with the reason. **Blocked** — waits for Phase 0 evidence the owner captures.
 
@@ -11,6 +11,7 @@ Legend: **Done** — built, tested and merged. **Sandbox** — built and tested;
 | Account types by post, mapped onto roles | Done | [Phase 2 plan](PHASE2_PLAN.md), migration 020 |
 | Sign-in with mobile / NID / birth registration (keyed digest) | Done (needs `IDENTIFIER_SECRET` on the server) | [Account security](ACCOUNT_SECURITY.md) |
 | Mobile verification by one-time code | Done with the log provider; live SMS deferred until the owner chooses a provider | migration 022 |
+| Email verification at registration | Done with the log provider (digest-stored one-use link, never a sign-in gate); live delivery needs the owner's SMTP account (`EMAIL_PROVIDER=smtp`) | migration 039, [Account security](ACCOUNT_SECURITY.md) |
 | Office account registration with owner verification | Done | migration 023 |
 | Upazila / district / divisional oversight accounts | Deferred (owner decision: separate jurisdiction-wide read path) | Phase 2 plan |
 
@@ -54,6 +55,7 @@ Legend: **Done** — built, tested and merged. **Sandbox** — built and tested;
 | Manual verification console with role evidence | **Blocked** on the role captures (`docs/evidence/prottoyon-roles/`) | [Phase 6 plan](PHASE6_PLAN.md) |
 | Print and renewal products as lists with lookup and date range | See Phase 6 plan (6c) | Phase 6 plan |
 | Office inclusion requests, FAQ, designated issuing officers | Done; FAQ is Astra's own content, not the reference's 61 headings | Phase 6 plan |
+| Citizen status notifications | Done: in-app feed (Phase W) plus email and status SMS on issuance and rejection (Phase X), sent after the decision commits through the mailer/SMS provider gates; real SMS delivery deferred until the owner chooses a provider | `apps/api/src/status-notifications.ts` |
 | User guide | Done: bilingual guide by role at `/guide` (Citizens, office staff, Secretary, Chairman, office admin/finance, owner), printable as PDF. The owner can replace it with an official guide later | `apps/web/src/UserGuide.tsx` |
 
 ## Operations and recovery (Phase 8 groundwork)

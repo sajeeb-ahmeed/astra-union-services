@@ -10,6 +10,11 @@ import {
 } from "./security.js";
 import { camelRow, fail } from "./models.js";
 import { consumeSignupOtp } from "./otp.js";
+import { emailAvailable } from "./mailer.js";
+import {
+  issueEmailVerificationToken,
+  sendEmailVerificationMessage,
+} from "./email-verification.js";
 import {
   identifierDigest,
   identifierHint,
@@ -493,6 +498,9 @@ publicManagementRouter.post(
     const mobile = d.mobile ? normalizeIdentifier("mobile", d.mobile) : null;
     if (d.mobile && !mobile)
       fail(422, "IDENTIFIER_INVALID", "Enter an 11-digit Bangladeshi mobile number starting with 01.");
+    // Phase X: when email delivery is configured, a verification token is created inside the
+    // registration transaction and the message is sent only after it commits.
+    const verification: { current: { token: string; email: string } | null } = { current: null };
     await transaction(d.tenantId, async (db) => {
       const office = (
         await db.query(
@@ -546,12 +554,24 @@ publicManagementRouter.post(
           [user.id, digestValue, identifierHint("mobile", mobile)],
         );
       }
+      if (emailAvailable()) {
+        const issued = await issueEmailVerificationToken(db, d.tenantId, user.id, d.email);
+        verification.current = { token: issued.token, email: d.email };
+      }
       await audit(db, d.tenantId, user.id, "DEMO_SELF_REGISTRATION", user.id);
     });
+    // Verification never gates the account: it is reported honestly as sent, failed or
+    // unavailable (no mail provider configured), and sign-in works in every case.
+    let emailVerification: "sent" | "failed" | "unavailable" = "unavailable";
+    if (verification.current)
+      emailVerification = (await sendEmailVerificationMessage(verification.current.email, verification.current.token))
+        ? "sent"
+        : "failed";
     res.status(201).json({
       registered: true,
       verificationState: "SYNTHETIC_DEMO",
       geography: d.geography ?? null,
+      emailVerification,
     });
   }),
 );
