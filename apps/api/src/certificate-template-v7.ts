@@ -177,7 +177,7 @@ export const ATTESTATIONS_BN: Record<number, Attestation> = {
     joinSentences(
       "তাহার নামে নতুন বিদ্যুৎ সংযোগ প্রদানের বিষয়ে এই কার্যালয়ের কোনো আপত্তি নাই।",
       present(p.mouza)
-        ? `জমির বিবরণঃ মৌজাঃ ${text(p.mouza)}, খতিয়ান নংঃ ${bnDigits(p.khatiyan ?? "")}, দাগ নংঃ ${bnDigits(p.daag ?? "")}।`
+        ? `জমির বিবরণঃ মৌজাঃ ${text(p.mouza)}${present(p.khatiyan) ? `, খতিয়ান নংঃ ${bnDigits(p.khatiyan)}` : ""}${present(p.daag) ? `, দাগ নংঃ ${bnDigits(p.daag)}` : ""}।`
         : "",
     ),
   8: "তিনি রোহিঙ্গা নাগরিক নন; তিনি বাংলাদেশের নাগরিক এবং অত্র এলাকার স্থায়ী বাসিন্দা।",
@@ -244,7 +244,7 @@ export const ATTESTATIONS_BN: Record<number, Attestation> = {
     joinSentences(
       present(p.income_info_amount)
         ? `তাহার বার্ষিক আয় ${bnDigits(Number(p.income_info_amount).toLocaleString("en-IN"))} টাকা${present(p.income_info_amount_word) ? ` (কথায়ঃ ${text(p.income_info_amount_word)})` : ""}।`
-        : "",
+        : "তাহার বার্ষিক আয় আবেদনে উল্লিখিত অনুযায়ী।",
       present(p.profession_bn) ? `তাহার পেশাঃ ${text(p.profession_bn)}।` : "",
     ),
   24: "তিনি এতিম বলিয়া প্রত্যয়ন করা যাইতেছে।",
@@ -271,7 +271,7 @@ export const ATTESTATIONS_BN: Record<number, Attestation> = {
   29: (p) =>
     present(p.income_info_amount)
       ? `তাহার মাসিক আয় ${bnDigits(Number(p.income_info_amount).toLocaleString("en-IN"))} টাকা${present(p.income_info_amount_word) ? ` (কথায়ঃ ${text(p.income_info_amount_word)})` : ""}।`
-      : "",
+      : "তাহার মাসিক আয় আবেদনে উল্লিখিত অনুযায়ী।",
   30: (p) =>
     joinSentences(
       present(p.declared_assets_bdt)
@@ -342,7 +342,7 @@ export const ATTESTATIONS_EN: Record<number, Attestation> = {
     joinSentences(
       "This office has no objection to a new electricity connection being provided in this name.",
       present(p.mouza)
-        ? `Land details: Mouza: ${text(p.mouza)}, Khatiyan No: ${text(p.khatiyan ?? "")}, Daag No: ${text(p.daag ?? "")}.`
+        ? `Land details: Mouza: ${text(p.mouza)}${present(p.khatiyan) ? `, Khatiyan No: ${text(p.khatiyan)}` : ""}${present(p.daag) ? `, Daag No: ${text(p.daag)}` : ""}.`
         : "",
     ),
   8: "The person is not a Rohingya citizen; the person is a citizen of Bangladesh and a permanent resident of this area.",
@@ -370,7 +370,7 @@ export const ATTESTATIONS_EN: Record<number, Attestation> = {
   },
   13: (p) =>
     present(p.application_husband_name_en ?? p.application_husband_name)
-      ? `The person has remarried ${text(p.application_husband_name_en ?? p.application_husband_name)}.`
+      ? `The person has remarried to ${text(p.application_husband_name_en ?? p.application_husband_name)}.`
       : "The person has remarried.",
   14: "The person is landless and owns no land.",
   15: "The person is eligible to be registered as a new voter in the voter list of this area.",
@@ -404,7 +404,7 @@ export const ATTESTATIONS_EN: Record<number, Attestation> = {
     joinSentences(
       present(p.income_info_amount)
         ? `Annual income is BDT ${Number(p.income_info_amount).toLocaleString("en-IN")}${present(p.income_info_amount_word) ? ` (in words: ${text(p.income_info_amount_word)})` : ""}.`
-        : "",
+        : "Annual income is as stated in the application.",
       present(p.profession_en ?? p.profession) ? `Occupation: ${text(p.profession_en ?? p.profession)}.` : "",
     ),
   24: "The person is an orphan.",
@@ -427,7 +427,7 @@ export const ATTESTATIONS_EN: Record<number, Attestation> = {
   29: (p) =>
     present(p.income_info_amount)
       ? `Monthly income is BDT ${Number(p.income_info_amount).toLocaleString("en-IN")}${present(p.income_info_amount_word) ? ` (in words: ${text(p.income_info_amount_word)})` : ""}.`
-      : "",
+      : "Monthly income is as stated in the application.",
   30: (p) =>
     joinSentences(
       present(p.declared_assets_bdt)
