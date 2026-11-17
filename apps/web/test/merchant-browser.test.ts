@@ -52,6 +52,7 @@ test(
     assert.equal(created.status(), 201, await created.text());
     await owner.close();
     const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
+    await page.addInitScript(() => { if (!localStorage.getItem("astra.language")) localStorage.setItem("astra.language", "en"); });
     try {
       await page.goto(`${origin}/login`);
       await page.getByLabel("Email", { exact: true }).fill(`admin@${slug}.test`);

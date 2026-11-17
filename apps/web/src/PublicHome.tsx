@@ -15,6 +15,23 @@ export function verificationToken(input: string): string | null {
   return /^[A-Za-z0-9_-]{8,128}$/.test(token) ? token : null;
 }
 
+/**
+ * Phase Y: official-format documents print the certificate number as the
+ * verification key (/verify?searchText={no}). Accepts the number as printed —
+ * Bangla digits included — and returns it normalised for the by-number lookup.
+ */
+export function certificateNumberInput(input: string): string | null {
+  const value = input
+    .trim()
+    .replace(/[০-৯]/g, (d) => String("০১২৩৪৫৬৭৮৯".indexOf(d)));
+  const fromUrl = value.match(/[?&]searchText=([^&#\s]+)/)?.[1];
+  const number = (fromUrl ? decodeURIComponent(fromUrl) : value).toUpperCase();
+  if (/^[A-F0-9]{64}$/.test(number)) return null; // that is a QR token, not a number
+  return /^[A-Z0-9][A-Z0-9-]{3,79}$/.test(number) && number.includes("-")
+    ? number
+    : null;
+}
+
 const digits = (value: number) =>
   choose({ bn: value.toLocaleString("bn-BD"), en: String(value) });
 
@@ -160,6 +177,11 @@ export function PublicHome({ login }: { login?: React.ReactNode } = {}) {
             <form
               onSubmit={(e) => {
                 e.preventDefault();
+                const number = certificateNumberInput(verifyInput);
+                if (number) {
+                  location.assign(`/verify?searchText=${encodeURIComponent(number)}`);
+                  return;
+                }
                 const token = verificationToken(verifyInput);
                 if (!token) {
                   setVerifyError(

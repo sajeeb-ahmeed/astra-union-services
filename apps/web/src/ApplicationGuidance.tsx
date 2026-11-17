@@ -1,4 +1,5 @@
 import { useId } from "react";
+import { useIssuanceMode } from "./mode.js";
 import { choose, useLanguage } from "./i18n.js";
 
 export type ApplicationGuidanceProps = {
@@ -7,6 +8,8 @@ export type ApplicationGuidanceProps = {
   hasCertificate: boolean;
   revoked: boolean;
   order?: { totalMinor: number; paymentStatus: string } | null;
+  /** Phase UX: false only in a proven OFFICIAL deployment; demo deployments keep the honesty sentence. */
+  demo?: boolean;
 };
 
 type Copy = { bn: string; en: string };
@@ -32,6 +35,7 @@ function guidanceFor({
   hasCertificate,
   revoked,
   order,
+  demo,
 }: ApplicationGuidanceProps): Guidance {
   const applicant = ["citizen", "staff", "admin"].includes(role);
   if (revoked || state === "REVOKED")
@@ -225,8 +229,12 @@ function guidanceFor({
       ? {
           title: text("সনদের PDF পাওয়া যাচ্ছে", "Certificate PDF available"),
           description: text(
-            "নিচে তৈরি হওয়া PDF ও QR যাচাইয়ের লিংক আছে। এই সনদে DEMO / NOT OFFICIAL চিহ্ন রয়েছে।",
-            "Open the generated PDF and its QR verification below. This certificate is marked DEMO / NOT OFFICIAL.",
+            "নিচে তৈরি হওয়া PDF ও QR যাচাইয়ের লিংক আছে।" +
+              (demo === false ? "" : " এই সনদে DEMO / NOT OFFICIAL চিহ্ন রয়েছে।"),
+            "Open the generated PDF and its QR verification below." +
+              (demo === false
+                ? ""
+                : " This certificate is marked DEMO / NOT OFFICIAL."),
           ),
           step: 3,
           action: {
@@ -259,7 +267,8 @@ function guidanceFor({
 export function ApplicationGuidance(props: ApplicationGuidanceProps) {
   useLanguage();
   const headingId = useId();
-  const guidance = guidanceFor(props);
+  const mode = useIssuanceMode();
+  const guidance = guidanceFor({ ...props, demo: mode !== "OFFICIAL" });
   const corrections = props.state === "CORRECTION_REQUIRED";
   const steps = [
     corrections

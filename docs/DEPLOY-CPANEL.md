@@ -1,6 +1,6 @@
-# Deploying Astra Union Services on cPanel (single-role track)
+# Deploying DigitalUnion on cPanel (single-role track)
 
-This runbook deploys Astra to shared cPanel hosting (the owner's Hostever
+This runbook deploys DigitalUnion to shared cPanel hosting (the owner's Hostever
 panel) using the **single-role** database track. It assumes the bundle was
 assembled with `node scripts/package-cpanel.mjs` (output: `dist-cpanel/`).
 

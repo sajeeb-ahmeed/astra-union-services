@@ -5,7 +5,7 @@ type Text = { bn: string; en: string };
 type Section = { id: string; title: Text; who: Text; steps: Text[] };
 
 /**
- * The Astra user guide, by role, written for Astra's own screens. Printing the page (or "Save as PDF" in the
+ * The DigitalUnion user guide, by role, written for DigitalUnion's own screens. Printing the page (or "Save as PDF" in the
  * print dialog) gives the guide as a document.
  */
 const sections: Section[] = [
@@ -68,7 +68,7 @@ const sections: Section[] = [
   {
     id: "owner",
     title: { bn: "প্ল্যাটফর্ম মালিক", en: "Platform owner" },
-    who: { bn: "পুরো Astra পরিচালনা করেন যিনি", en: "The person who runs Astra as a whole" },
+    who: { bn: "পুরো DigitalUnion পরিচালনা করেন যিনি", en: "The person who runs DigitalUnion as a whole" },
     steps: [
       { bn: "‘প্ল্যাটফর্ম ব্যবস্থাপনা’ থেকে নতুন অফিস যুক্ত করুন, অফিসের অ্যাকাউন্ট অনুরোধ ও ‘অফিস যুক্ত করার অনুরোধ’ যাচাই করুন।", en: "In Platform management, add offices and review office account requests and office inclusion requests." },
       { bn: "সনদ প্রতি পয়েন্টের মূল্য নির্ধারণ করুন, জমার ব্যাংক হিসাব যোগ করুন, রিচার্জের রসিদ দেখে নিশ্চিত বা বাতিল করুন এবং প্রয়োজনে পয়েন্ট সমন্বয় করুন।", en: "Set the points price per certificate, add the deposit bank accounts, confirm or reject recharges after viewing the slip, and adjust points when needed." },
@@ -81,7 +81,7 @@ export function UserGuide() {
   useLanguage();
   return (
     <article className="panel prose user-guide">
-      <h1>{choose({ bn: "Astra ব্যবহারের নির্দেশিকা", en: "Astra user guide" })}</h1>
+      <h1>{choose({ bn: "DigitalUnion ব্যবহারের নির্দেশিকা", en: "DigitalUnion user guide" })}</h1>
       <p>
         {choose({
           bn: "নিজের ভূমিকা অনুযায়ী অংশটি পড়ুন। নির্দেশিকা পিডিএফ হিসেবে রাখতে নিচের বোতাম চাপুন এবং প্রিন্টে ‘Save as PDF’ বেছে নিন।",

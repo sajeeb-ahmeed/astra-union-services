@@ -95,6 +95,10 @@ test(
     const [citizen, staff, reviewer, approver] = await Promise.all(
       contexts.map((c) => c.newPage()),
     );
+    for (const context of contexts)
+      await context.addInitScript(() =>
+        localStorage.setItem("astra.language", "en"),
+      );
     const errors: string[] = [];
     for (const page of [citizen, staff, reviewer, approver])
       page.on("pageerror", (e) => errors.push(e.message));
@@ -245,6 +249,7 @@ test(
         ),
       );
       const anonymous = await browser.newContext();
+      await anonymous.addInitScript(() => { if (!localStorage.getItem("astra.language")) localStorage.setItem("astra.language", "en"); });
       const verify = await anonymous.newPage();
       await verify.goto(certificate.verificationUrl);
       await verify.getByText("ISSUED", { exact: true }).waitFor();
@@ -292,6 +297,9 @@ test(
     const context = await browser.newContext({
       viewport: { width: 390, height: 844 },
     });
+    await context.addInitScript(() =>
+      localStorage.setItem("astra.language", "en"),
+    );
     const page = await context.newPage();
     try {
       await login(page, "staff");
@@ -469,6 +477,9 @@ test(
     const context = await browser.newContext({
       viewport: { width: 1440, height: 1000 },
     });
+    await context.addInitScript(() =>
+      localStorage.setItem("astra.language", "en"),
+    );
     const page = await context.newPage();
     try {
       await login(page, "staff");

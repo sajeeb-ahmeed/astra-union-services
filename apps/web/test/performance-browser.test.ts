@@ -176,6 +176,7 @@ test(
         language,
       );
       const page = await context.newPage();
+
       const requests: string[] = [],
         errors: string[] = [];
       page.on("request", (request) => {
@@ -225,6 +226,7 @@ test(
   async () => {
     const context = await browser.newContext();
     const page = await context.newPage();
+    await context.addInitScript(() => { if (!localStorage.getItem("astra.language")) localStorage.setItem("astra.language", "en"); });
     const requests: string[] = [],
       errors: string[] = [];
     page.on("request", (request) => requests.push(request.url()));
@@ -276,6 +278,7 @@ test(
   async () => {
     const context = await browser.newContext();
     const page = await context.newPage();
+    await context.addInitScript(() => { if (!localStorage.getItem("astra.language")) localStorage.setItem("astra.language", "en"); });
     await mockApi(page, true);
     let release!: () => void;
     const blocked = new Promise<void>((resolve) => {
@@ -288,12 +291,12 @@ test(
     await page.goto(origin + "/login");
     await page
       .getByRole("status")
-      .filter({ hasText: "Loading Astra…" })
+      .filter({ hasText: "Loading DigitalUnion…" })
       .waitFor();
     await page.getByRole("button", { name: "বাংলা", exact: true }).click();
     await page
       .getByRole("status")
-      .filter({ hasText: "অ্যাস্ট্রা লোড হচ্ছে…" })
+      .filter({ hasText: "DigitalUnion লোড হচ্ছে…" })
       .waitFor();
     release();
     await page

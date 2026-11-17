@@ -1,4 +1,4 @@
-# Astra Union Services
+# DigitalUnion
 
 **Release 1.0 candidate (15 November 2026), awaiting the owner's sign-off:** citizen identity and completeness, price list and coupons, points wallet and bank recharge, SSLCommerz checkout (sandbox) and refunds, the Chairman's summons step and signature blocks, office inclusion requests, FAQ and the witness-statement generator. See [Release 1.0](docs/RELEASE_1_0.md) and [Parity status](docs/PARITY_STATUS.md). The 0.9 notes below are history.
 

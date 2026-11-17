@@ -67,7 +67,7 @@ export async function notifyCertificateIssued(input: {
       await sendStatusSms({
         mobile: contact.mobile,
         purpose: "certificate_issued",
-        message: `Astra Union Services: আপনার সনদ ইস্যু হয়েছে। সনদ নম্বর: ${input.certificateNumber} / Your certificate has been issued. Certificate no: ${input.certificateNumber}`,
+        message: `DigitalUnion: আপনার সনদ ইস্যু হয়েছে। সনদ নম্বর: ${input.certificateNumber} / Your certificate has been issued. Certificate no: ${input.certificateNumber}`,
       });
     }
   } catch (error) {
@@ -87,7 +87,7 @@ export async function notifyApplicationRejected(input: {
     if (contact.email) {
       await sendEmail({
         to: contact.email,
-        subject: "আবেদন বাতিল হয়েছে / Application rejected — Astra Union Services",
+        subject: "আবেদন বাতিল হয়েছে / Application rejected — DigitalUnion",
         text: [
           "আপনার আবেদনটি বাতিল করা হয়েছে।",
           "Your application has been rejected.",
@@ -103,7 +103,7 @@ export async function notifyApplicationRejected(input: {
       await sendStatusSms({
         mobile: contact.mobile,
         purpose: "application_rejected",
-        message: `Astra Union Services: আপনার আবেদন বাতিল হয়েছে। কারণ: ${input.reason} / Your application was rejected. Reason: ${input.reason}`,
+        message: `DigitalUnion: আপনার আবেদন বাতিল হয়েছে। কারণ: ${input.reason} / Your application was rejected. Reason: ${input.reason}`,
       });
     }
   } catch (error) {

@@ -1,0 +1,399 @@
+/*
+ * Phase UX shell system (DigitalUnion): topline, sticky header, top/bottom
+ * navigation, drawer, footer. Bands: phone ≤767px, tablet 768–1279px,
+ * desktop ≥1280px. All interactive targets ≥44px.
+ */
+.du-container {
+  max-width: var(--du-container);
+  margin-inline: auto;
+  padding-inline: 16px;
+}
+@media (min-width: 1280px) {
+  .du-container {
+    padding-inline: 24px;
+  }
+}
+
+.du-topline {
+  background: var(--du-green-800);
+  color: #fff;
+  font-size: 14px;
+}
+.du-topline .du-container {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 38px;
+  padding-block: 6px;
+}
+.du-demo-flag {
+  background: #ffb703;
+  color: #4a3200;
+  border-radius: 999px;
+  padding: 2px 10px;
+  font-weight: 700;
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.du-header {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  background: var(--du-surface);
+  box-shadow: 0 1px 0 var(--du-line), 0 6px 18px rgb(20 53 40 / 6%);
+}
+.du-header-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding-block: 10px;
+}
+.du-header .du-brand {
+  display: inline-flex;
+  align-items: center;
+  background: none;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  text-align: left;
+  text-decoration: none;
+  color: var(--du-ink);
+  min-height: 48px;
+}
+.du-header .du-brand-lockup {
+  height: 46px;
+  width: auto;
+  display: none;
+}
+.du-header .du-brand-mini {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+.du-header .du-brand-mini img {
+  border-radius: 8px;
+}
+.du-header .du-brand-mini strong {
+  display: block;
+  font-size: 19px;
+  line-height: 1.2;
+  color: var(--du-green-800);
+}
+.du-header .du-brand-mini small {
+  display: block;
+  font-size: 12.5px;
+  color: var(--du-muted);
+  line-height: 1.3;
+}
+@media (min-width: 768px) {
+  .du-header .du-brand-lockup {
+    display: block;
+  }
+  .du-header .du-brand-mini {
+    display: none;
+  }
+}
+.du-header-actions {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+.du-header .du-btn,
+.du-drawer .du-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 9px 16px;
+  border-radius: var(--ax-radius);
+  font-weight: 600;
+  font-size: 15px;
+  text-decoration: none;
+  cursor: pointer;
+  border: 1px solid transparent;
+  background: none;
+  color: var(--du-green-700);
+}
+.du-header .du-btn-primary,
+.du-drawer .du-btn-primary {
+  background: var(--du-green-700);
+  color: #fff;
+}
+.du-header .du-btn-primary:hover,
+.du-drawer .du-btn-primary:hover {
+  background: var(--du-green-800);
+}
+.du-header .du-btn-ghost,
+.du-drawer .du-btn-ghost {
+  border-color: var(--du-green-700);
+  color: var(--du-green-700);
+  background: #fff;
+}
+.du-header .du-btn-ghost:hover,
+.du-drawer .du-btn-ghost:hover {
+  background: var(--du-green-50);
+}
+
+.du-topnav {
+  border-top: 1px solid var(--du-line);
+}
+.du-topnav-row {
+  display: flex;
+  gap: 2px;
+  overflow-x: auto;
+}
+.du-topnav .du-navlink {
+  display: inline-flex;
+  align-items: center;
+  min-height: 48px;
+  padding: 10px 14px;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  color: var(--du-ink);
+  font: inherit;
+  font-weight: 600;
+  font-size: 15.5px;
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.du-topnav .du-navlink:hover {
+  background: var(--du-green-50);
+}
+.du-topnav .du-navlink[aria-current="page"] {
+  color: var(--du-green-700);
+  box-shadow: inset 0 -3px 0 var(--du-lime);
+}
+
+.du-bottomnav {
+  position: fixed;
+  inset-inline: 0;
+  bottom: 0;
+  z-index: 50;
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  background: var(--du-surface);
+  border-top: 1px solid var(--du-line);
+  box-shadow: 0 -4px 16px rgb(20 53 40 / 8%);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+.du-bottomnav .du-quicklink {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 56px;
+  padding: 8px 4px;
+  border: 0;
+  background: none;
+  color: var(--du-muted);
+  font: inherit;
+  font-size: 14.5px;
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+}
+.du-bottomnav .du-quicklink[aria-current="page"] {
+  color: var(--du-green-700);
+  box-shadow: inset 0 3px 0 var(--du-lime);
+}
+@media (max-width: 767px) {
+  .du-public,
+  .public-site {
+    padding-bottom: 68px;
+  }
+}
+
+.du-drawer-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  background: rgb(10 30 18 / 48%);
+}
+.du-drawer {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  inset-inline-end: 0;
+  width: min(320px, 86vw);
+  background: var(--du-surface);
+  padding: 16px;
+  overflow-y: auto;
+  box-shadow: -8px 0 24px rgb(20 53 40 / 18%);
+}
+.du-drawer-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+.du-drawer .du-drawer-link {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  min-height: 48px;
+  padding: 10px 8px;
+  border: 0;
+  border-bottom: 1px solid var(--du-line);
+  background: none;
+  color: var(--du-ink);
+  font: inherit;
+  font-size: 16px;
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+  text-align: left;
+}
+.du-drawer .du-drawer-link[aria-current="page"] {
+  color: var(--du-green-700);
+}
+
+.du-footer {
+  margin-top: 48px;
+  background: var(--du-green-50);
+  border-top: 1px solid var(--du-line);
+}
+.du-footer-grid {
+  display: grid;
+  grid-template-columns: 1.4fr 1fr 1fr 1.3fr;
+  gap: 28px;
+  padding-block: 32px;
+}
+.du-footer h3 {
+  font-size: 16px;
+  margin: 0 0 10px;
+  color: var(--du-green-800);
+}
+.du-footer ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.du-footer .du-footlink {
+  display: inline-flex;
+  align-items: center;
+  min-height: 40px;
+  padding: 6px 0;
+  border: 0;
+  background: none;
+  color: var(--du-ink);
+  font: inherit;
+  font-size: 15px;
+  text-decoration: none;
+  cursor: pointer;
+  text-align: left;
+}
+.du-footer .du-footlink:hover {
+  color: var(--du-green-700);
+  text-decoration: underline;
+}
+.du-footer-lockup {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 19px;
+  color: var(--du-green-800);
+}
+.du-footer-lockup img {
+  border-radius: 8px;
+}
+.du-footer-brand p {
+  margin: 10px 0 0;
+}
+.du-footer-note {
+  color: var(--du-muted);
+  font-size: 14.5px;
+}
+.du-footer-subscribe {
+  margin-top: 14px;
+}
+.du-footer-bottom {
+  background: var(--du-green-800);
+  color: #fff;
+  font-size: 14px;
+}
+.du-footer-bottom .du-container {
+  padding-block: 12px;
+}
+@media (max-width: 767px) {
+  .du-footer-grid {
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+  }
+  .du-footer-brand {
+    grid-column: 1 / -1;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .du-header {
+    box-shadow: 0 1px 0 var(--du-line);
+  }
+}
+
+/* Phase UX: registration progress summary (portal) */
+.du-reg-progress {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  list-style: none;
+  margin: 0 0 20px;
+  padding: 0;
+}
+.du-reg-progress li {
+  border: 1px solid var(--du-line);
+  border-radius: 999px;
+  padding: 7px 14px;
+  font-size: 14.5px;
+  font-weight: 600;
+  color: var(--du-muted);
+  background: #fff;
+}
+.du-reg-progress li.done {
+  border-color: var(--du-green-600);
+  color: var(--du-green-700);
+  background: var(--du-green-50);
+}
+
+/* Phase UX: branded loading state + skeleton shimmer */
+.du-loading-emblem {
+  border-radius: 10px;
+}
+.du-skeleton {
+  display: grid;
+  gap: 8px;
+  width: min(320px, 80vw);
+  margin: 14px auto;
+}
+.du-skeleton span {
+  display: block;
+  height: 14px;
+  border-radius: 6px;
+  background: linear-gradient(90deg, var(--du-green-100), var(--du-green-50), var(--du-green-100));
+  background-size: 200% 100%;
+  animation: du-shimmer 1.4s linear infinite;
+}
+.du-skeleton span:nth-child(2) {
+  width: 72%;
+}
+.du-skeleton span:nth-child(3) {
+  width: 48%;
+}
+@keyframes du-shimmer {
+  from {
+    background-position: 200% 0;
+  }
+  to {
+    background-position: -200% 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .du-skeleton span {
+    animation: none;
+  }
+}

@@ -1,21 +1,45 @@
 /*
- * Phase 1 design tokens. Astra's own palette and type (green civic theme already used by the public
- * site), not the reference system's. New components read these variables; legacy pages are not restyled.
+ * Design tokens. Phase UX: the palette is the DigitalUnion brand, sampled from
+ * the official logo (deep green #04592c, red #e00000, navy #00356e, bright
+ * swoosh greens). The --ax-* names are kept as aliases so existing components
+ * pick up the brand without a flag-day rename; new work uses --du-* names.
  */
 :root {
-  --ax-green-800: #145128;
-  --ax-green-700: #1a632f;
-  --ax-green-600: #23753c;
-  --ax-green-100: #e3f0dc;
-  --ax-green-50: #f1f7ec;
-  --ax-accent: #b5c947;
-  --ax-ink: #20352d;
-  --ax-muted: #526451;
-  --ax-line: #dfe8d8;
-  --ax-surface: #ffffff;
-  --ax-page: #f6f8f4;
-  --ax-warn-bg: #fff6df;
-  --ax-warn-ink: #6d4d00;
+  /* DigitalUnion brand tokens */
+  --du-green-800: #03451f;
+  --du-green-700: #04592c;
+  --du-green-600: #0b7040;
+  --du-green-500: #2e9e5b;
+  --du-green-100: #e2f1e4;
+  --du-green-50: #f0f7ee;
+  --du-lime: #7ab929;
+  --du-red: #c40000;
+  --du-red-logo: #e00000;
+  --du-navy: #00356e;
+  --du-ink: #1d2b22;
+  --du-muted: #43584a;
+  --du-line: #dde7da;
+  --du-surface: #ffffff;
+  --du-page: #f6f8f4;
+  --du-warn-bg: #fff6df;
+  --du-warn-ink: #6d4d00;
+  --du-error-bg: #fdecea;
+  --du-error-ink: #9b2c1f;
+
+  /* Legacy aliases (same values, old names) */
+  --ax-green-800: var(--du-green-800);
+  --ax-green-700: var(--du-green-700);
+  --ax-green-600: var(--du-green-600);
+  --ax-green-100: var(--du-green-100);
+  --ax-green-50: var(--du-green-50);
+  --ax-accent: var(--du-lime);
+  --ax-ink: var(--du-ink);
+  --ax-muted: var(--du-muted);
+  --ax-line: var(--du-line);
+  --ax-surface: var(--du-surface);
+  --ax-page: var(--du-page);
+  --ax-warn-bg: var(--du-warn-bg);
+  --ax-warn-ink: var(--du-warn-ink);
   --ax-radius-sm: 4px;
   --ax-radius: 8px;
   --ax-radius-lg: 12px;
@@ -26,9 +50,17 @@
   --ax-space-5: 24px;
   --ax-space-6: 32px;
   --ax-shadow: 0 1px 2px rgb(20 53 40 / 8%), 0 4px 14px rgb(20 53 40 / 6%);
-  --ax-font: "Nirmala UI", "Noto Sans Bengali", system-ui, sans-serif;
-  --ax-text-sm: 13px;
-  --ax-text: 15px;
+  --ax-font: "Noto Sans Bengali", "Nirmala UI", system-ui, sans-serif;
+  --ax-text-sm: 14px;
+  --ax-text: 16px;
   --ax-text-lg: 18px;
-  --ax-text-xl: 26px;
+  --ax-text-xl: 28px;
+
+  /* Responsive bands (Phase UX): phone ≤767px, tablet 768–1279px, desktop ≥1280px.
+     CSS custom properties cannot be used in media queries; these values are the
+     single documented source — media queries in du-*.css use 767px / 1280px. */
+  --du-band-phone-max: 767px;
+  --du-band-desktop-min: 1280px;
+  --du-container: 1200px;
+  --du-touch: 48px;
 }

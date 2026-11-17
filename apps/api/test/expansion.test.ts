@@ -569,6 +569,7 @@ test("GEO-FORM: v3 location selectors reject cross-parent codes server-side and 
       geographyNames: names,
     } as any,
     "data:image/png;base64,",
+      6,
   );
   assert.match(html, /Subil Union, Debidwar, Cumilla/);
   assert.doesNotMatch(html, /uni-0001|\[object Object\]/);
@@ -695,6 +696,7 @@ test("ADDR-06: present address is stored separately, may lie outside the office 
         schema: getServiceSchema(3),
       } as any,
       "data:image/png;base64,",
+        6,
     );
   assert.match(html("present"), /Present address<\/dt><dd>Rented house, Dhamrai/);
   assert.match(html("permanent"), /Permanent address<\/dt><dd>Permanent address/);
@@ -873,6 +875,7 @@ test("PDF-ALL: service templates retain approved family rows, trade data and HTM
         renewalNumber: no === 42 ? "DEMO-PREVIOUS" : undefined,
       },
       "data:image/png;base64,DEMO",
+      6,
     );
     assert.ok(html.includes("DEMO / NOT OFFICIAL"));
     assert.ok(html.includes("Approved demo details"));

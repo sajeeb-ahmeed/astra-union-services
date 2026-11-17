@@ -287,7 +287,7 @@ function receiptHtml(number: string, snapshot: any) {
     <p class="ref">Receipt: ${escapeHtml(number)}<br>Applicant / আবেদনকারী: ${escapeHtml(snapshot.applicantName)} / ${escapeHtml(snapshot.applicantNameBn)}<br>Service: ${escapeHtml(snapshot.serviceNo)} — ${escapeHtml(snapshot.serviceName)}<br>Application: ${escapeHtml(snapshot.applicationId)}<br>${snapshot.provider === "SSLCOMMERZ" ? "SSLCommerz validation" : "bKash transaction"}: ${escapeHtml(snapshot.transactionId)}<br>Merchant invoice: ${escapeHtml(snapshot.invoice)}<br>Verified at: ${escapeHtml(snapshot.verifiedAt)}</p>
     <table><thead><tr><th>Fee component / ফি</th><th class="value">BDT / টাকা</th></tr></thead><tbody>${snapshot.components.map((component: any) => `<tr><td>${escapeHtml(labels[component.code] ?? component.code)}</td><td class="value">${money(component.amountMinor)}</td></tr>`).join("")}<tr><th>Total / মোট</th><th class="value">${money(snapshot.amountMinor)}</th></tr></tbody></table>
     ${snapshot.provider === "SSLCOMMERZ" ? "<p>Verified through the SSLCommerz session query and order validation APIs. This receipt records the application fee payment. It does not grant certificate approval.</p><p>এসএসএলকমার্জের সার্ভার যাচাইয়ের ভিত্তিতে আবেদন ফি পরিশোধের রসিদ। সনদের অনুমোদন আলাদা প্রক্রিয়া।</p>" : "<p>Verified through the bKash payment query and transaction search APIs. This receipt records the application fee payment. It does not grant certificate approval.</p><p>বিকাশের সার্ভার যাচাইয়ের ভিত্তিতে আবেদন ফি পরিশোধের রসিদ। সনদের অনুমোদন আলাদা প্রক্রিয়া।</p>"}
-    <small>Bank payout reconciliation is not connected. Certificate documents remain DEMO / NOT OFFICIAL until official signing is configured. No wallet PIN or OTP is stored by Astra.</small></body></html>`;
+    <small>Bank payout reconciliation is not connected. Certificate documents remain DEMO / NOT OFFICIAL until official signing is configured. No wallet PIN or OTP is stored by DigitalUnion.</small></body></html>`;
 }
 async function finalize(
   row: any,
@@ -955,7 +955,7 @@ paymentsRouter.post(
         );
       const gateway = await resolveGateway(a.tenantId, data.provider, db);
       const intentId = randomUUID(),
-        invoice = `ASTRA-${intentId.replaceAll("-", "")}`;
+        invoice = `DU-${intentId.replaceAll("-", "")}`;
       const row = (
         await db.query(
           `INSERT INTO gateway_payment_intents(tenant_id,id,application_id,provider,environment,merchant_account,invoice,amount_minor,currency,created_by,request_key,request_hash,callback_hash,status)

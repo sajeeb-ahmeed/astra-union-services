@@ -38,6 +38,7 @@ test(
     assert.equal(added.status(), 201, await added.text());
     const typeId = (await added.json()).id;
     const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
+    await page.addInitScript(() => { if (!localStorage.getItem("astra.language")) localStorage.setItem("astra.language", "en"); });
     try {
       await page.goto(`${origin}/witness`);
       await page.getByRole("heading", { name: "Witness statement", exact: true }).waitFor();

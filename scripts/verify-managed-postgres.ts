@@ -105,7 +105,7 @@ try {
   );
   for (const [id, suffix] of [[tenantA, 'a'], [tenantB, 'b']]) {
     await owner.query(
-      'INSERT INTO tenants(id,slug,name_bn,name_en) VALUES($1,$2,$3,$4)',
+      'INSERT INTO tenants(id,slug,name_bn,name_en,demo) VALUES($1,$2,$3,$4,true)',
       [id, `managed-${suffix}-${database}`, 'পরীক্ষা কার্যালয়', `Managed fixture ${suffix}`],
     );
   }

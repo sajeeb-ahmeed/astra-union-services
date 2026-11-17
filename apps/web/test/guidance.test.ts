@@ -8,6 +8,10 @@ import {
 } from "../src/ApplicationGuidance.js";
 import { setLanguage } from "../src/i18n.js";
 
+// Phase UX: the product default language is now Bangla; these render
+// assertions are written in English, so pin the language explicitly.
+setLanguage("en");
+
 function render(props: Partial<ApplicationGuidanceProps>) {
   return renderToStaticMarkup(
     createElement(ApplicationGuidance, {

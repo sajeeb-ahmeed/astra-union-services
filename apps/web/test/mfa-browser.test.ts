@@ -118,6 +118,7 @@ test(
       viewport: { width: 390, height: 844 },
     });
     const page = await context.newPage();
+    await context.addInitScript(() => { if (!localStorage.getItem("astra.language")) localStorage.setItem("astra.language", "en"); });
     try {
       const email = await createUser(browser, "cancel");
       await login(page, email);
@@ -253,6 +254,7 @@ test(
     });
     const other = await browser.newContext();
     const page = await context.newPage();
+    await context.addInitScript(() => { if (!localStorage.getItem("astra.language")) localStorage.setItem("astra.language", "en"); });
     const errors: string[] = [];
     page.on("pageerror", (error) => errors.push(error.message));
     try {

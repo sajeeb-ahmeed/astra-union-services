@@ -58,6 +58,7 @@ test(
       viewport: { width: 390, height: 844 },
     });
     const page = await context.newPage();
+    await context.addInitScript(() => { if (!localStorage.getItem("astra.language")) localStorage.setItem("astra.language", "en"); });
     try {
       await login(page);
       await nav(page, "Service catalog");
@@ -197,6 +198,7 @@ test(
     const browser = await browserInstance();
     const context = await browser.newContext();
     const page = await context.newPage();
+    await context.addInitScript(() => { if (!localStorage.getItem("astra.language")) localStorage.setItem("astra.language", "en"); });
     try {
       await login(page);
       const session = await (
@@ -250,6 +252,7 @@ test(
           await route.fulfill({ response });
         });
         const hostedPage = await hosted.newPage();
+        await hosted.addInitScript(() => { if (!localStorage.getItem("astra.language")) localStorage.setItem("astra.language", "en"); });
         await hostedPage.goto("http://astra-intake.test/");
         await hostedPage
           .getByRole("button", { name: "Sign out", exact: true })

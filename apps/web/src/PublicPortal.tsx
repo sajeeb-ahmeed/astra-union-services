@@ -1,5 +1,7 @@
 import { MobileOtpField, type VerifiedMobile } from "./MobileOtpField.js";
 import { t, tx, choose } from "./i18n.js";
+import { useIsDemo } from "./mode.js";
+import { SiteFooter, SiteHeader } from "./PublicShell.js";
 import React, { Suspense, lazy, useEffect, useRef, useState } from "react";
 // Phase 4c: the witness generator loads only on /witness, keeping the public start-up bundle small.
 const UserGuide = lazy(() => import("./UserGuide.js").then((m) => ({ default: m.UserGuide })));
@@ -144,6 +146,7 @@ function RecoveryForm() {
   );
 }
 function ApplicationTracking() {
+  const demo = useIsDemo();
   const [id, setId] = useState(""),
     [result, setResult] = useState<any>(null),
     [message, setMessage] = useState(""),
@@ -200,7 +203,7 @@ function ApplicationTracking() {
               {t("Submitted record: ")}
               {tx(String(result.createdAt))}
             </small>
-            <p className="notice">{t("DEMO / NOT OFFICIAL")}</p>
+            {demo && <p className="notice">{t("DEMO / NOT OFFICIAL")}</p>}
           </div>
         ),
       )}
@@ -322,6 +325,7 @@ export function PublicPortal({
   login: React.ReactNode;
   onNavigate?: () => void;
 }) {
+  const demo = useIsDemo();
   const serviceInformationRef = useRef<HTMLElement>(null);
   const initial = location.pathname.split("/")[1] || "home";
   // Phase 1: new public pages deep-link to one service as /services?service=N.
@@ -717,55 +721,38 @@ export function PublicPortal({
       <a className="skip" href="#public-content">
         {t("Skip to main content ")}
       </a>
-      <div className="public-top">
-        <div className="public-container">
-          <span>{t("ডিজিটাল নাগরিক সেবায় স্বাগতম")}</span>
-          <span>{t("নাগরিক সেবা পোর্টাল · Public preview")}</span>
-        </div>
-      </div>
-      <header className="public-header public-container">
-        <a
-          className="public-brand"
-          href="/"
-          onClick={(e) => {
-            e.preventDefault();
-            nav("home");
-          }}
-        >
-          <span className="brand-symbol">{t("A")}</span>
-          <span>
-            <strong>{t("অ্যাস্ট্রা")}</strong>
-            <small>{t("ASTRA · UNION SERVICES")}</small>
-          </span>
-        </a>
-        <div className="header-promise">
-          {t("নাগরিক সেবা এখন ")}
-          <br />
-          <strong>{t("আরও সহজ, আরও কাছে")}</strong>
-        </div>
-        <div className="actions">
-          <LanguageSwitcher />
-          <button className="secondary" onClick={() => nav("register")}>
-            {t("নিবন্ধন ")}
-          </button>
-          <button onClick={() => nav("login")}>{t("লগইন")}</button>
-        </div>
-      </header>
-      <nav className="public-nav" aria-label={t("Public navigation")}>
-        <div className="public-container">
-          {tx(
-            Object.entries(publicPages).map(([key, label]) => (
-              <button
-                key={key}
-                aria-current={page === key ? "page" : undefined}
-                onClick={() => nav(key)}
-              >
-                {choose({ bn: label[0], en: label[1] })}
-              </button>
-            )),
-          )}
-        </div>
-      </nav>
+      <SiteHeader
+        current={page === "home" ? "/" : `/${page}`}
+        onNavigate={(href) => nav(href === "/" ? "home" : href.slice(1))}
+        bottomNav={false}
+        navItems={[
+          { href: "/", bn: "হোম", en: "Home" },
+          { href: "/services", bn: "নাগরিক সেবা", en: "Services" },
+          { href: "/offices", bn: "সেবার আওতাভুক্ত অফিস", en: "Office directory" },
+          { href: "/notices", bn: "বিজ্ঞপ্তি", en: "Notices" },
+          { href: "/help", bn: "সহায়িকা", en: "Help" },
+          { href: "/witness", bn: "সাক্ষীর প্রত্যয়ন", en: "Witness statement" },
+          { href: "/guide", bn: "ব্যবহার নির্দেশিকা", en: "User guide" },
+          { href: "/tracking", bn: "আবেদনের অবস্থা", en: "Track application" },
+          { href: "/verify", bn: "সনদ যাচাই", en: "Verify certificate" },
+        ]}
+        account={
+          <>
+            <button
+              className="du-btn du-btn-ghost"
+              onClick={() => nav("register")}
+            >
+              {t("নিবন্ধন ")}
+            </button>
+            <button
+              className="du-btn du-btn-primary"
+              onClick={() => nav("login")}
+            >
+              {t("লগইন")}
+            </button>
+          </>
+        }
+      />
       <main id="public-content">
         {tx(
           page === "home" && (
@@ -859,7 +846,12 @@ export function PublicPortal({
                         [
                           "১",
                           "নিবন্ধন করুন",
-                          "আপনার অফিস নির্বাচন করে ডেমো অ্যাকাউন্ট তৈরি করুন।",
+                          demo
+                            ? "আপনার অফিস নির্বাচন করে ডেমো অ্যাকাউন্ট তৈরি করুন।"
+                            : choose({
+                                bn: "আপনার অফিস নির্বাচন করে অ্যাকাউন্ট তৈরি করুন।",
+                                en: "Choose your office and create your account.",
+                              }),
                         ],
                         [
                           "২",
@@ -874,7 +866,12 @@ export function PublicPortal({
                         [
                           "৪",
                           "সনদ সংগ্রহ করুন",
-                          "অনুমোদিত ডেমো সনদ ডাউনলোড ও QR যাচাই করুন।",
+                          demo
+                            ? "অনুমোদিত ডেমো সনদ ডাউনলোড ও QR যাচাই করুন।"
+                            : choose({
+                                bn: "অনুমোদিত সনদ ডাউনলোড করুন ও QR দিয়ে যাচাই করুন।",
+                                en: "Download the approved certificate and verify its QR code.",
+                              }),
                         ],
                       ].map(([n, title, text]) => (
                         <div key={n}>
@@ -1307,11 +1304,13 @@ export function PublicPortal({
                         )}
                       </p>
                     </header>
-                    <p className="notice preview-disclosure">
-                      {t(
-                        "Public preview: use sample personal information. Identity verification and official certificate authority are not connected; issued documents remain marked DEMO / NOT OFFICIAL. ",
-                      )}
-                    </p>
+                    {demo && (
+                      <p className="notice preview-disclosure">
+                        {t(
+                          "Public preview: use sample personal information. Identity verification and official certificate authority are not connected; issued documents remain marked DEMO / NOT OFFICIAL. ",
+                        )}
+                      </p>
+                    )}
                     {tx(
                       registered ? (
                         <div role="status" className="registration-success">
@@ -1386,6 +1385,52 @@ export function PublicPortal({
                             }
                           }}
                         >
+                          <ol
+                            className="du-reg-progress"
+                            aria-label={choose({
+                              bn: "নিবন্ধনের অগ্রগতি",
+                              en: "Registration progress",
+                            })}
+                          >
+                            {[
+                              {
+                                done: !!signupGeography.wardCode,
+                                bn: "এলাকা",
+                                en: "Area",
+                              },
+                              {
+                                done: !!registration.tenantId,
+                                bn: "অফিস",
+                                en: "Office",
+                              },
+                              {
+                                done: !!(
+                                  registration.nameBn &&
+                                  registration.nameEn &&
+                                  registration.dateOfBirth &&
+                                  registration.email &&
+                                  registration.password
+                                ),
+                                bn: "অ্যাকাউন্টের তথ্য",
+                                en: "Account details",
+                              },
+                              {
+                                done: !!signupMobile,
+                                optional: true,
+                                bn: "মোবাইল যাচাই (ঐচ্ছিক)",
+                                en: "Mobile check (optional)",
+                              },
+                            ].map((step) => (
+                              <li
+                                key={step.en}
+                                className={step.done ? "done" : undefined}
+                                aria-current={step.done ? undefined : "step"}
+                              >
+                                {step.done ? "✓ " : ""}
+                                {choose({ bn: step.bn, en: step.en })}
+                              </li>
+                            ))}
+                          </ol>
                           <div className="registration-step">
                             <span className="step-number">{t("1")}</span>
                             <div>
@@ -1729,7 +1774,7 @@ export function PublicPortal({
                     <h1>{t("সনদ যাচাই করুন")}</h1>
                     <p>
                       {t(
-                        "Enter the complete QR verification link or verification token from an Astra demo certificate. ",
+                        "Enter the complete QR verification link or verification token from a DigitalUnion demo certificate. ",
                       )}
                     </p>
                     <form
@@ -1747,7 +1792,7 @@ export function PublicPortal({
                         }
                         if (!/^[A-Za-z0-9_-]{20,200}$/.test(parsed)) {
                           setError(
-                            "Enter a valid Astra verification token or link.",
+                            "Enter a valid DigitalUnion verification token or link.",
                           );
                           return;
                         }
@@ -1878,24 +1923,47 @@ export function PublicPortal({
               {tx(
                 page === "policies" && (
                   <section className="panel prose">
-                    <h1>{t("ব্যবহারের নীতি / Demo policies")}</h1>
-                    <h2>{t("Independent demonstration")}</h2>
+                    <h1>
+                      {demo
+                        ? t("ব্যবহারের নীতি / Demo policies")
+                        : choose({ bn: "ব্যবহারের নীতি", en: "Policies" })}
+                    </h1>
+                    <h2>
+                      {demo
+                        ? t("Independent demonstration")
+                        : choose({ bn: "সম্পর্কে", en: "About this service" })}
+                    </h2>
                     <p>
-                      {t(
-                        "Astra is independently authored software. It is not the reference operator or a government authority. All generated documents are visibly marked DEMO / NOT OFFICIAL. ",
-                      )}
+                      {demo
+                        ? t(
+                            "DigitalUnion is independently authored software. It is not the reference operator or a government authority. All generated documents are visibly marked DEMO / NOT OFFICIAL. ",
+                          )
+                        : choose({
+                            bn: "DigitalUnion ইউনিয়ন পরিষদের নাগরিক সেবা প্রদানের সফটওয়্যার। এখানে ইস্যু করা সনদ সংশ্লিষ্ট ইউনিয়ন পরিষদের দাপ্তরিক নথি; প্রতিটি সনদের QR কোড বা নম্বর দিয়ে সত্যতা যাচাই করা যায়।",
+                            en: "DigitalUnion is the software Union Parishads use to deliver citizen services. Certificates issued here are the issuing Union Parishad's official documents; every certificate can be checked by its QR code or number.",
+                          })}
                     </p>
                     <h2>{t("Data and privacy")}</h2>
                     <p>
-                      {t(
-                        "Use synthetic identities and sample attachments. Application data, private files, document bytes and workflow history are stored in PostgreSQL. Tenant roles control access. Public QR verification excludes names, identity references and application contents. Operational logs and immutable audit entries may persist; do not enter sensitive personal information into this demonstration. ",
-                      )}
+                      {demo
+                        ? t(
+                            "Use synthetic identities and sample attachments. Application data, private files, document bytes and workflow history are stored in PostgreSQL. Tenant roles control access. Public QR verification excludes names, identity references and application contents. Operational logs and immutable audit entries may persist; do not enter sensitive personal information into this demonstration. ",
+                          )
+                        : choose({
+                            bn: "আবেদনের তথ্য, ব্যক্তিগত ফাইল ও ওয়ার্কফ্লো ইতিহাস নিরাপদে সংরক্ষিত থাকে। অফিসের ভূমিকা অনুযায়ী প্রবেশাধিকার নিয়ন্ত্রিত হয়। পাবলিক QR যাচাইয়ে নাম, পরিচয় নম্বর বা আবেদনের বিষয়বস্তু দেখানো হয় না।",
+                            en: "Application data, private files and workflow history are stored securely. Access is controlled by office roles. Public QR verification never shows names, identity numbers or application contents.",
+                          })}
                     </p>
                     <h2>{t("Commercial and official use")}</h2>
                     <p>
-                      {t(
-                        "Subscription and prepaid credits are software accounting demonstrations. Live pricing, payment providers, statutory fees, retention periods, legal privacy terms and official signatory authority require approved configuration and policies before deployment with real citizen data. ",
-                      )}
+                      {demo
+                        ? t(
+                            "Subscription and prepaid credits are software accounting demonstrations. Live pricing, payment providers, statutory fees, retention periods, legal privacy terms and official signatory authority require approved configuration and policies before deployment with real citizen data. ",
+                          )
+                        : choose({
+                            bn: "প্রতিটি সেবার ফি সংশ্লিষ্ট অফিসের প্রকাশিত ফি নীতি অনুযায়ী নির্ধারিত হয়। পরিশোধ যাচাইয়ের পরই রসিদ তৈরি হয়; শুধু পেমেন্ট পৃষ্ঠা থেকে ফিরে আসা পরিশোধের প্রমাণ নয়।",
+                            en: "Each service's fee follows the office's published fee policy. A receipt is created only after the payment is verified; returning from a payment page alone is not proof of payment.",
+                          })}
                     </p>
                     <h2>{t("Security and access")}</h2>
                     <p>
@@ -1922,96 +1990,94 @@ export function PublicPortal({
           ),
         )}
       </main>
-      <footer className="public-footer">
-        <div className="public-container footer-grid">
-          <div>
-            <a className="public-brand" href="/">
-              <span className="brand-symbol">{t("A")}</span>
-              <span>
-                <strong>{t("অ্যাস্ট্রা")}</strong>
-                <small>{t("ASTRA · UNION SERVICES")}</small>
-              </span>
-            </a>
-            <p>{t("নাগরিক সেবা, একটি নির্ভরযোগ্য পথে।")}</p>
-            <p>{t("Independent software · Synthetic demo only")}</p>
-          </div>
-          <div>
-            <h3>{t("সেবার তথ্য")}</h3>
-            <button onClick={() => nav("services")}>
-              {t("Service catalog")}
-            </button>
-            <button onClick={() => nav("offices")}>
-              {t("Participating offices ")}
-            </button>
-            <button onClick={() => nav("verify")}>
-              {t("Certificate verification ")}
-            </button>
-          </div>
-          <div>
-            <h3>{t("সহায়তা ও নীতি")}</h3>
-            <button onClick={() => nav("help")}>
-              {t("Help & frequently asked questions ")}
-            </button>
-            <button onClick={() => nav("policies")}>
-              {t("Privacy & demo use policies ")}
-            </button>
-            <button onClick={() => nav("login")}>
-              {t("Office workspace")}
-            </button>
-          </div>
-        </div>
-        <div className="public-container newsletter">
-          <form
-            onSubmit={async (e) => {
-              e.preventDefault();
-              const form = e.currentTarget,
-                d = new FormData(form);
-              setWorking(true);
-              setSupportMessage("");
-              try {
-                await api("/public/subscribe", "POST", {
-                  email: d.get("email"),
-                });
-                form.reset();
-                setSupportMessage(
-                  "Subscription preference saved locally. Email delivery is not connected.",
-                );
-              } catch (e) {
-                setSupportMessage((e as Error).message);
-              } finally {
-                setWorking(false);
-              }
-            }}
-          >
-            <label htmlFor="newsletter-email">
-              {t("সেবার আপডেটের জন্য নিবন্ধন / Update preferences ")}
-            </label>
-            <div className="inline-form">
-              <input
-                id="newsletter-email"
-                name="email"
-                type="email"
-                placeholder={t("you@example.test")}
-                required
-              />
-              <button disabled={working}>{t("Save subscription")}</button>
-            </div>
-            <small>
-              {t("Preference saved locally; outgoing email is not connected. ")}
-            </small>
-          </form>
-          {tx(
-            supportMessage && page !== "help" && (
-              <p role="status">{tx(supportMessage)}</p>
-            ),
-          )}
-        </div>
-        <div className="public-container footer-bottom">
-          {t("© ")}
-          {tx(new Date().getFullYear())}
-          {t(" Astra · All certificate output is DEMO / NOT OFFICIAL. ")}
-        </div>
-      </footer>
+      <SiteFooter
+        onNavigate={(href) => nav(href === "/" ? "home" : href.slice(1))}
+        servicesSlot={
+          <ul>
+            <li>
+              <button className="du-footlink" onClick={() => nav("services")}>
+                {t("Service catalog")}
+              </button>
+            </li>
+            <li>
+              <button className="du-footlink" onClick={() => nav("offices")}>
+                {t("Participating offices ")}
+              </button>
+            </li>
+            <li>
+              <button className="du-footlink" onClick={() => nav("verify")}>
+                {t("Certificate verification ")}
+              </button>
+            </li>
+          </ul>
+        }
+        subscribeSlot={
+          <>
+            <form
+              onSubmit={async (e) => {
+                e.preventDefault();
+                const form = e.currentTarget,
+                  d = new FormData(form);
+                setWorking(true);
+                setSupportMessage("");
+                try {
+                  await api("/public/subscribe", "POST", {
+                    email: d.get("email"),
+                  });
+                  form.reset();
+                  setSupportMessage(
+                    "Subscription preference saved locally. Email delivery is not connected.",
+                  );
+                } catch (e) {
+                  setSupportMessage((e as Error).message);
+                } finally {
+                  setWorking(false);
+                }
+              }}
+            >
+              <label htmlFor="newsletter-email">
+                {t("সেবার আপডেটের জন্য নিবন্ধন / Update preferences ")}
+              </label>
+              <div className="inline-form">
+                <input
+                  id="newsletter-email"
+                  name="email"
+                  type="email"
+                  placeholder={t("you@example.test")}
+                  required
+                />
+                <button disabled={working}>{t("Save subscription")}</button>
+              </div>
+              <small>
+                {t("Preference saved locally; outgoing email is not connected. ")}
+              </small>
+            </form>
+            {tx(
+              supportMessage && page !== "help" && (
+                <p role="status">{tx(supportMessage)}</p>
+              ),
+            )}
+          </>
+        }
+        bottomLine={
+          demo ? (
+            <>
+              {t("© ")}
+              {tx(new Date().getFullYear())}
+              {t(" DigitalUnion · All certificate output is DEMO / NOT OFFICIAL. ")}
+            </>
+          ) : (
+            <>
+              {t("© ")}
+              {tx(new Date().getFullYear())}{" "}
+              {choose({
+                bn: "DigitalUnion · স্মার্ট ইউনিয়ন, স্মার্ট বাংলাদেশ",
+                en: "DigitalUnion · Smart Union, Smart Bangladesh",
+              })}
+            </>
+          )
+        }
+      />
     </div>
   );
 }

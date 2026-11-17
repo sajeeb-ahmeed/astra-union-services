@@ -70,7 +70,10 @@ function copy(rel, filter = keep) {
 for (const file of ["package.json", "package-lock.json", "app.js", "tsconfig.json", ".env.cpanel.example"])
   copy(file);
 // API sources (tests excluded by filter), web manifest + built dist only.
+// Phase Y: certificate template assets (government emblem + per-office seal
+// artwork) are runtime files — official-mode documents inline them.
 copy(path.join("apps", "api", "src"));
+copy(path.join("apps", "api", "assets"));
 copy(path.join("apps", "api", "package.json"));
 copy(path.join("apps", "web", "package.json"));
 copy(path.join("apps", "web", "dist"));

@@ -23,9 +23,10 @@ async function browserInstance(): Promise<Browser> {
 test("user guide browser: every role has its section in both languages, and it prints as a PDF", { timeout: 90000 }, async () => {
   const browser = await browserInstance();
   const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
+  await page.addInitScript(() => { if (!localStorage.getItem("astra.language")) localStorage.setItem("astra.language", "en"); });
   try {
     await page.goto(`${origin}/guide`);
-    await page.getByRole("heading", { name: "Astra user guide", exact: true }).waitFor();
+    await page.getByRole("heading", { name: "DigitalUnion user guide", exact: true }).waitFor();
     for (const role of ["Citizens", "Office staff and entrepreneurs", "Secretary", "Chairman (approver)", "Office admin and finance", "Platform owner"])
       await page.getByRole("heading", { name: role, exact: true }).waitFor();
     assert.ok((await page.locator(".user-guide ol li").count()) >= 20);
@@ -34,7 +35,7 @@ test("user guide browser: every role has its section in both languages, and it p
     assert.equal(pdf.subarray(0, 5).toString(), "%PDF-");
     await page.evaluate(() => localStorage.setItem("astra.language", "bn"));
     await page.reload();
-    await page.getByRole("heading", { name: "Astra ব্যবহারের নির্দেশিকা", exact: true }).waitFor();
+    await page.getByRole("heading", { name: "DigitalUnion ব্যবহারের নির্দেশিকা", exact: true }).waitFor();
     await page.getByRole("heading", { name: "চেয়ারম্যান (অনুমোদনকারী)", exact: true }).waitFor();
   } finally {
     await browser.close();

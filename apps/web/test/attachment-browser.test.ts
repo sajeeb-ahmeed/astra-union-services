@@ -70,6 +70,7 @@ async function noDownload(page: Page) {
 
 test("attachment UI: pending offline, scanning, clean, rejection and unknown states fail closed in both languages", async () => {
   const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
+  await page.addInitScript(() => { if (!localStorage.getItem("astra.language")) localStorage.setItem("astra.language", "en"); });
   let body = metadata();
   await page.route(statusUrl, (route) => route.fulfill({ json: body }));
   try {
@@ -120,6 +121,7 @@ test("attachment UI: pending offline, scanning, clean, rejection and unknown sta
 
 test("attachment UI: retry is explicit, CSRF protected and gated by server permission and cooldown", async () => {
   const page = await browser.newPage();
+  await page.addInitScript(() => { if (!localStorage.getItem("astra.language")) localStorage.setItem("astra.language", "en"); });
   let body = metadata("ERROR");
   let retries = 0;
   await page.route(statusUrl, (route) => route.fulfill({ json: body }));
@@ -169,6 +171,7 @@ test("attachment UI: retry is explicit, CSRF protected and gated by server permi
 
 test("attachment UI: metadata identity mismatch and authorization loss remove download access", async () => {
   const page = await browser.newPage();
+  await page.addInitScript(() => { if (!localStorage.getItem("astra.language")) localStorage.setItem("astra.language", "en"); });
   let body = metadata("CLEAN");
   let status = 200;
   let requests = 0;
@@ -206,6 +209,7 @@ test("attachment UI: metadata identity mismatch and authorization loss remove do
 
 test("attachment UI: automatic polling is bounded, paused while hidden and cancelled on unmount", async () => {
   const page = await browser.newPage();
+  await page.addInitScript(() => { if (!localStorage.getItem("astra.language")) localStorage.setItem("astra.language", "en"); });
   let requests = 0;
   await page.route(statusUrl, (route) => {
     requests += 1;
@@ -263,6 +267,7 @@ test("attachment UI: automatic polling is bounded, paused while hidden and cance
 
 test("attachment form: pending upload stores only the handle, keeps intervening edits and never enables download", async () => {
   const page = await browser.newPage();
+  await page.addInitScript(() => { if (!localStorage.getItem("astra.language")) localStorage.setItem("astra.language", "en"); });
   let release: () => void = () => {};
   const held = new Promise<void>((resolve) => {
     release = resolve;
@@ -306,6 +311,7 @@ test("attachment form: pending upload stores only the handle, keeps intervening 
 
 test("attachment form: late upload cannot update another application for the same citizen and service", async () => {
   const page = await browser.newPage();
+  await page.addInitScript(() => { if (!localStorage.getItem("astra.language")) localStorage.setItem("astra.language", "en"); });
   let release: () => void = () => {};
   const held = new Promise<void>((resolve) => {
     release = resolve;
@@ -354,6 +360,7 @@ test("attachment form: late upload cannot update another application for the sam
 
 test("attachment form: readonly nested documents keep refresh usable and reject replacement", async () => {
   const page = await browser.newPage();
+  await page.addInitScript(() => { if (!localStorage.getItem("astra.language")) localStorage.setItem("astra.language", "en"); });
   await page.route(statusUrl, (route) =>
     route.fulfill({ json: metadata("REJECTED") }),
   );
@@ -383,6 +390,7 @@ test("attachment form: readonly nested documents keep refresh usable and reject 
 
 test("attachment form: rejected document offers replacement, failed upload preserves the existing handle", async () => {
   const page = await browser.newPage();
+  await page.addInitScript(() => { if (!localStorage.getItem("astra.language")) localStorage.setItem("astra.language", "en"); });
   await page.route(statusUrl, (route) =>
     route.fulfill({ json: metadata("REJECTED") }),
   );
@@ -426,6 +434,7 @@ test("attachment form: rejected document offers replacement, failed upload prese
 
 test("attachment UI: late clean metadata after navigation cannot resurrect a download", async () => {
   const page = await browser.newPage();
+  await page.addInitScript(() => { if (!localStorage.getItem("astra.language")) localStorage.setItem("astra.language", "en"); });
   let release: () => void = () => {};
   const held = new Promise<void>((resolve) => {
     release = resolve;

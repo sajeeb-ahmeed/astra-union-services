@@ -12,7 +12,7 @@ async function launch(){
 async function login(page:Page,role:string){await page.goto(origin+'/login');await page.getByLabel('Email',{exact:true}).fill(`${role}@alpha.demo.test`);await page.getByLabel('Password',{exact:true}).fill('Demo-Phase1!');await page.locator('.login-form').getByRole('button',{name:'Sign in',exact:true}).click();await page.getByRole('button',{name:'Sign out',exact:true}).waitFor();}
 async function nav(page:Page,name:RegExp){await page.getByRole('navigation',{name:'Workspace navigation'}).getByRole('button',{name}).click();}
 test('portal browser: responsive profile, searchable applicant and biodata/holding/witness private PDF copies',{timeout:90000},async()=>{
-  const browser=await launch(),page=await browser.newPage({viewport:{width:390,height:844}});const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));
+  const browser=await launch(),page=await browser.newPage({viewport:{width:390,height:844}});await page.addInitScript(()=>localStorage.setItem("astra.language","en"));const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));
   try{
     await login(page,'citizen');await nav(page,/প্রোফাইল|Profile/i);
     await page.getByRole('button',{name:'Save profile',exact:true}).click();await page.getByRole('status').filter({hasText:'Profile saved'}).waitFor();
@@ -34,7 +34,7 @@ test('portal browser: responsive profile, searchable applicant and biodata/holdi
   }finally{await browser.close();}
 });
 test('portal browser: finance filters actual reports and downloads private CSV/PDF',{timeout:60000},async()=>{
-  const browser=await launch(),page=await browser.newPage({viewport:{width:1440,height:1024}});
+  const browser=await launch(),page=await browser.newPage({viewport:{width:1440,height:1024}});await page.addInitScript(()=>localStorage.setItem("astra.language","en"));
   try{
     await login(page,'finance');await nav(page,/প্রতিবেদন|Reports/i);await page.getByRole('link',{name:'Export CSV',exact:true}).waitFor();
     await page.getByLabel('From date',{exact:true}).fill('2020-01-01');await page.getByLabel('To date',{exact:true}).fill('2099-12-31');const response=page.waitForResponse(r=>r.url().includes('/reports?from='));await page.getByRole('button',{name:'Apply date range',exact:true}).click();assert.equal((await response).status(),200);

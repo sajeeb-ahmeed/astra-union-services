@@ -48,8 +48,8 @@ export function OfficeInclusionForm() {
       <h2>{label("আপনার অফিস তালিকায় নেই?", "Office not listed?")}</h2>
       <p>
         {label(
-          "আপনার ইউনিয়ন, পৌরসভা বা সিটি কর্পোরেশন অফিস Astra-তে যুক্ত করতে অনুরোধ পাঠান। প্ল্যাটফর্ম কর্তৃপক্ষ যোগাযোগ করবে।",
-          "Ask for your union, municipality or city corporation office to be added to Astra. The platform team will contact you.",
+          "আপনার ইউনিয়ন, পৌরসভা বা সিটি কর্পোরেশন অফিস DigitalUnion-তে যুক্ত করতে অনুরোধ পাঠান। প্ল্যাটফর্ম কর্তৃপক্ষ যোগাযোগ করবে।",
+          "Ask for your union, municipality or city corporation office to be added to DigitalUnion. The platform team will contact you.",
         )}
       </p>
       {!open ? (

@@ -541,8 +541,8 @@ export function ApplicationPayment({
           )}
           <p className="hint">
             {label(
-              "Astra-তে bKash PIN বা OTP লিখবেন না। পেমেন্ট হলে গেটওয়ের নিজস্ব পৃষ্ঠায় তথ্য দিন। গেটওয়ে থেকে ফিরে আসা মাত্রই পরিশোধ নিশ্চিত হয় না।",
-              "Do not enter a bKash PIN or OTP in Astra. Use the gateway's own checkout page. Returning from the gateway alone does not confirm payment.",
+              "DigitalUnion-তে bKash PIN বা OTP লিখবেন না। পেমেন্ট হলে গেটওয়ের নিজস্ব পৃষ্ঠায় তথ্য দিন। গেটওয়ে থেকে ফিরে আসা মাত্রই পরিশোধ নিশ্চিত হয় না।",
+              "Do not enter a bKash PIN or OTP in DigitalUnion. Use the gateway's own checkout page. Returning from the gateway alone does not confirm payment.",
             )}
           </p>
         </>

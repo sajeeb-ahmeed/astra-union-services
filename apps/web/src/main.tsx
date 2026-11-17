@@ -3,8 +3,11 @@ import { createRoot } from "react-dom/client";
 import { api } from "./api.js";
 import { t, tx, choose, useLanguage, LanguageSwitcher } from "./i18n.js";
 import { PublicPortal } from "./PublicPortal.js";
+import { IssuanceModeProvider } from "./mode.js";
+import emblem from "./assets/brand/emblem.webp";
 import { AsyncPanel, LoadingPanel } from "./AsyncPanel.js";
 import { MfaChallenge, type MfaLoginChallenge } from "./MfaChallenge.js";
+import "./fonts.css";
 import "./style.css";
 
 // Authenticated workflows and form history are downloaded only after a valid session.
@@ -46,13 +49,36 @@ const accounts = [
     "owner@astra.demo.test",
   ]);
 
-function CertificateVerification({ publicToken }: { publicToken: string }) {
+function CertificateVerification({
+  publicToken,
+  certificateNumber,
+}: {
+  publicToken?: string;
+  certificateNumber?: string;
+}) {
   useLanguage();
   const [verification, setVerification] = useState<any>(null);
   const [publicError, setPublicError] = useState("");
+  const [issuanceMode, setIssuanceMode] = useState<string | null>(null);
   useEffect(() => {
     let active = true;
-    api(`/verify/${encodeURIComponent(publicToken)}`)
+    // The DEMO notice belongs to the demonstration system only; an official
+    // (production) deployment verifies real documents and shows no demo text.
+    api("/health")
+      .then((h) => active && setIssuanceMode(String(h.mode ?? "")))
+      .catch(() => active && setIssuanceMode(""));
+    return () => {
+      active = false;
+    };
+  }, []);
+  useEffect(() => {
+    let active = true;
+    // Phase Y: official-format documents print /verify?searchText={certificateNo};
+    // that resolves through the by-number lookup, the QR link through the token.
+    const request = certificateNumber
+      ? api(`/verify/by-number/${encodeURIComponent(certificateNumber)}`)
+      : api(`/verify/${encodeURIComponent(publicToken ?? "")}`);
+    request
       .then((result) => {
         if (active) setVerification(result);
       })
@@ -65,12 +91,12 @@ function CertificateVerification({ publicToken }: { publicToken: string }) {
     return () => {
       active = false;
     };
-  }, [publicToken]);
+  }, [publicToken, certificateNumber]);
   return (
     <main className="public-verify">
       <a className="brand" href="/">
-        {t("A")}
-        <span>{t("ASTRA UNION SERVICES")}</span>
+        <img src={emblem} alt="" width={44} height={44} />
+        <span>DigitalUnion</span>
       </a>
       <LanguageSwitcher />
       <section className="panel">
@@ -117,11 +143,13 @@ function CertificateVerification({ publicToken }: { publicToken: string }) {
                   )),
                 )}
               </dl>
-              <p className="notice">
-                {t(
-                  "DEMO / NOT OFFICIAL — synthetic certificate for software verification. ",
-                )}
-              </p>
+              {issuanceMode !== "OFFICIAL" && (
+                <p className="notice">
+                  {t(
+                    "DEMO / NOT OFFICIAL — synthetic certificate for software verification. ",
+                  )}
+                </p>
+              )}
             </>
           ) : (
             <p role="alert">{tx(publicError || "Checking certificate…")}</p>
@@ -173,7 +201,7 @@ function SignedOutPortal({
     try {
       await action();
     } catch (error) {
-      setMessage((error as Error).message);
+      setMessage(humanSignInError(error));
     } finally {
       setBusy(false);
     }
@@ -347,6 +375,27 @@ function SignedOutPortal({
   return <PublicPortal onNavigate={clearLoginSecrets} login={loginForm} />;
 }
 
+/**
+ * Phase UX: sign-in failures in plain language with the fix, in the reader's
+ * language — never a raw server sentence. Unknown errors pass through as-is.
+ */
+function humanSignInError(error: unknown): string {
+  const err = error as any;
+  const code = String(err?.details?.error?.code ?? "");
+  const message = error instanceof Error ? error.message : String(error ?? "");
+  if (code === "INVALID_LOGIN" || /invalid sign-in credentials/i.test(message))
+    return choose({
+      bn: "ইমেইল/নম্বর বা পাসওয়ার্ড মিলছে না। ঠিকভাবে লিখে আবার চেষ্টা করুন।",
+      en: "Your email/number or password does not match. Check it and try again.",
+    });
+  if (code === "RATE_LIMIT" || err?.status === 429)
+    return choose({
+      bn: "অনেকবার ভুল চেষ্টা করা হয়েছে। পাঁচ মিনিট অপেক্ষা করে আবার চেষ্টা করুন।",
+      en: "Too many attempts. Wait five minutes, then try again.",
+    });
+  return message;
+}
+
 function SessionApp() {
   const [session, setSession] = useState<any>(null);
   const [loaded, setLoaded] = useState(false);
@@ -402,12 +451,36 @@ const OfficeRegistrationPage = lazy(() =>
 
 if (location.pathname === "/home-preview") history.replaceState({}, "", "/");
 
+// Phase UX: the verify pages live inside the public shell, loaded lazily so
+// the shell stays out of the initial bundle (performance budget).
+const VerifyShell = lazy(() =>
+  import("./PublicShell.js").then((module) => ({
+    default: ({ children }: { children: React.ReactNode }) => (
+      <module.PublicShell current="/verify">{children}</module.PublicShell>
+    ),
+  })),
+);
+
 function App() {
   const publicToken = location.pathname.startsWith("/verify/")
     ? location.pathname.split("/")[2]
     : null;
+  const certificateNumber =
+    location.pathname === "/verify"
+      ? new URLSearchParams(location.search).get("searchText")
+      : null;
   return publicToken ? (
-    <CertificateVerification publicToken={publicToken} />
+    <AsyncPanel>
+      <VerifyShell>
+        <CertificateVerification publicToken={publicToken} />
+      </VerifyShell>
+    </AsyncPanel>
+  ) : certificateNumber ? (
+    <AsyncPanel>
+      <VerifyShell>
+        <CertificateVerification certificateNumber={certificateNumber} />
+      </VerifyShell>
+    </AsyncPanel>
   ) : (
     <SessionApp />
   );
@@ -415,6 +488,8 @@ function App() {
 
 createRoot(document.getElementById("root")!).render(
   <AsyncPanel>
-    <App />
+    <IssuanceModeProvider>
+      <App />
+    </IssuanceModeProvider>
   </AsyncPanel>,
 );

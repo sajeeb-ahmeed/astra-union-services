@@ -1,10 +1,10 @@
 :root {
-  font-family: "Nirmala UI", "Noto Sans Bengali", system-ui, sans-serif;
+  font-family: "Noto Sans Bengali", "Nirmala UI", system-ui, sans-serif;
   color: #172d29;
   background: #f4f6f3;
   font-synthesis: none;
   line-height: 1.6;
-  font-size: 15px;
+  font-size: 16px;
 }
 * {
   box-sizing: border-box;
@@ -42,9 +42,9 @@ textarea {
 button,
 .button {
   cursor: pointer;
-  border: 1px solid #155e4b;
+  border: 1px solid #04592c;
   border-radius: 7px;
-  background: #155e4b;
+  background: #04592c;
   color: white;
   padding: 10px 17px;
   text-decoration: none;
@@ -56,7 +56,7 @@ button,
 }
 button:hover,
 .button:hover {
-  background: #0b4839;
+  background: #03451f;
 }
 button:disabled {
   opacity: 0.6;
@@ -65,7 +65,7 @@ button:disabled {
 button.secondary,
 .button.secondary {
   background: white;
-  color: #155e4b;
+  color: #04592c;
 }
 button.danger {
   background: #fff1ee;
@@ -74,7 +74,7 @@ button.danger {
 }
 .text-button {
   background: transparent;
-  color: #155e4b;
+  color: #04592c;
   border: 0;
   padding: 8px;
   min-height: 44px;
@@ -167,7 +167,7 @@ legend {
   min-height: 20px;
   height: 20px;
   margin: 4px 0;
-  accent-color: #155e4b;
+  accent-color: #04592c;
 }
 .repeatable {
   grid-column: 1/-1;
@@ -260,7 +260,7 @@ legend {
   min-height: 100vh;
 }
 .shell aside {
-  background: #113c34;
+  background: #063d24;
   color: #eaf4ed;
   padding: 32px 22px;
   display: flex;
@@ -295,7 +295,7 @@ legend {
   border-radius: 6px;
 }
 .shell nav button[aria-current="page"] {
-  background: #29594d;
+  background: #0b5a34;
   border-left: 3px solid #b9d6ab;
 }
 .sidebar-bottom {
@@ -310,7 +310,7 @@ legend {
   color: white;
 }
 .sidebar-bottom .text-button:hover {
-  background: #29594d;
+  background: #0b5a34;
 }
 .shell main {
   padding: 36px 44px;
@@ -488,7 +488,7 @@ footer {
   min-height: 100vh;
 }
 .login-story {
-  background: #113c34;
+  background: #063d24;
   color: #edf6ee;
   padding: 55px max(45px, 8vw);
   display: flex;
@@ -617,9 +617,12 @@ code {
   .shell aside .brand {
     font-size: 25px;
   }
-  .office,
   .sidebar-bottom > p {
     display: none;
+  }
+  .shell aside .office {
+    margin: 10px 0 0;
+    font-size: 14px;
   }
   .shell nav {
     flex-direction: row;
@@ -766,8 +769,8 @@ code {
 .public-site button,
 .public-site .button {
   border-radius: 4px;
-  border-color: #23753c;
-  background: #23753c;
+  border-color: #0b7040;
+  background: #0b7040;
 }
 .public-site button:hover {
   background: #185c2c;
@@ -879,7 +882,7 @@ code {
 .hero-login {
   background: #fff;
   border: 1px solid #dbe6d1;
-  box-shadow: 0 16px 45px #234b2110;
+  box-shadow: 0 16px 45px #03451f10;
   border-radius: 10px;
   overflow: hidden;
 }
@@ -1816,7 +1819,7 @@ tbody tr:last-child td {
   grid-template-columns: 244px minmax(0, 1fr);
 }
 .shell aside {
-  background: #16372d;
+  background: #063d24;
   padding: 30px 20px;
 }
 .shell nav {
@@ -1840,7 +1843,7 @@ tbody tr:last-child td {
   button:where(
     :not(.secondary, .text-button, .danger, .service, .public-service)
   ):hover {
-  background: #24483a;
+  background: #0a4d2a;
 }
 .shell nav button[aria-current="page"],
 .shell
@@ -1848,8 +1851,8 @@ tbody tr:last-child td {
   button[aria-current="page"]:where(
     :not(.secondary, .text-button, .danger, .service, .public-service)
   ) {
-  background: #2a5240;
-  border-color: #3d6551;
+  background: #0d5c33;
+  border-color: #14663c;
   color: white;
 }
 .shell main {
@@ -2007,7 +2010,7 @@ html[lang="bn"] .hero-copy h1 {
 }
 .hero-login {
   border-color: #dce5dc;
-  box-shadow: 0 10px 32px #234b2108;
+  box-shadow: 0 10px 32px #03451f08;
 }
 .hero-login .login-form {
   padding: 32px;
@@ -2197,7 +2200,7 @@ html[lang="bn"] .hero-copy h1 {
     :not(.secondary, .text-button, .public-service)
   ) {
   background: #fff;
-  color: #245835;
+  color: #0b7040;
   border-color: #dbe5d9;
   box-shadow: 0 1px 3px #233d2410;
 }
@@ -2206,7 +2209,7 @@ html[lang="bn"] .hero-copy h1 {
   .language-switch
   button:where(:not(.secondary, .text-button, .public-service)):hover {
   background: #e8f0e6;
-  color: #245835;
+  color: #0b7040;
 }
 .language-switch button:focus-visible {
   outline-offset: 1px;

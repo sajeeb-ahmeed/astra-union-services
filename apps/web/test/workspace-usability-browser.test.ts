@@ -43,6 +43,7 @@ test(
     const page = await browser.newPage({
       viewport: { width: 390, height: 844 },
     });
+    await page.addInitScript(() => { if (!localStorage.getItem("astra.language")) localStorage.setItem("astra.language", "en"); });
     const errors: string[] = [];
     page.on("pageerror", (e) => errors.push(e.message));
     try {
@@ -160,6 +161,7 @@ test(
     const page = await browser.newPage({
       viewport: { width: 390, height: 844 },
     });
+    await page.addInitScript(() => { if (!localStorage.getItem("astra.language")) localStorage.setItem("astra.language", "en"); });
     try {
       await login(page);
       await page.locator("#workspace-jump").selectOption("applications");
@@ -221,6 +223,7 @@ test(
       ] as const) {
         const context = await browser.newContext();
         const page = await context.newPage();
+        await context.addInitScript(() => { if (!localStorage.getItem("astra.language")) localStorage.setItem("astra.language", "en"); });
         await login(page, role);
         assert.equal(
           await page

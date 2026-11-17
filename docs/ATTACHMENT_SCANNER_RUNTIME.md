@@ -1,6 +1,6 @@
 # Attachment scanner on the operator's Windows PC
 
-The owner selected a local PC scanner. New attachments remain quarantined until an authorized worker receives a successful scan result from a current ClamAV engine. The PC must be awake, connected to the internet, and running both ClamAV and the Astra outbound worker. Stopping the PC leaves files waiting; it does not approve them. Payment gateways remain disabled separately.
+The owner selected a local PC scanner. New attachments remain quarantined until an authorized worker receives a successful scan result from a current ClamAV engine. The PC must be awake, connected to the internet, and running both ClamAV and the DigitalUnion outbound worker. Stopping the PC leaves files waiting; it does not approve them. Payment gateways remain disabled separately.
 
 ## Runtime and trust
 
@@ -30,7 +30,7 @@ Start the **separate outbound worker** only after its private configuration has 
 pwsh -NoProfile -File scripts/runtime/start-attachment-worker.ps1
 ```
 
-Its configuration is outside the repository at `%USERPROFILE%/.astra-scanner/worker.json`. Provision the authorized application URL and scanner credential using the worker's deployment instructions. Never commit or paste the credential into documentation or browser URLs. The worker makes outbound HTTPS requests to Astra; Render does not connect to the PC's ClamD port. Running only ClamAV does not process application attachments.
+Its configuration is outside the repository at `%USERPROFILE%/.astra-scanner/worker.json`. Provision the authorized application URL and scanner credential using the worker's deployment instructions. Never commit or paste the credential into documentation or browser URLs. The worker makes outbound HTTPS requests to DigitalUnion; Render does not connect to the PC's ClamD port. Running only ClamAV does not process application attachments.
 
 The private JSON file accepts these exact fields:
 

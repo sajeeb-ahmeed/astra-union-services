@@ -5,6 +5,7 @@ import path from "node:path";
 import { ApiError } from "./models.js";
 import {
   renderCertificateHtml,
+  DEMO_TEMPLATE_VERSION,
   type PdfInput,
 } from "./certificate-template.js";
 export {
@@ -76,13 +77,16 @@ export async function closePdfBrowser() {
     browserPromise = undefined;
   }
 }
-export async function generatePdf(input: PdfInput): Promise<Buffer> {
+export async function generatePdf(
+  input: PdfInput,
+  version: number = DEMO_TEMPLATE_VERSION,
+): Promise<Buffer> {
   const qr = await QRCode.toDataURL(input.verificationUrl, {
     width: 180,
     errorCorrectionLevel: "M",
     margin: 2,
   });
-  return renderHtmlPdf(renderCertificateHtml(input, qr));
+  return renderHtmlPdf(renderCertificateHtml(input, qr, version));
 }
 /** Render only escaped, application-owned HTML; remote network resources are blocked. */
 export async function renderHtmlPdf(html: string): Promise<Buffer> {
@@ -102,6 +106,10 @@ export async function renderHtmlPdf(html: string): Promise<Buffer> {
     await page.evaluate(() => document.fonts.ready);
     return await page.pdf({
       format: "A4",
+      // Phase Y: page size/orientation is per-service template data (@page in
+      // the document); the CSS size wins, A4 stays the fallback for documents
+      // that declare none.
+      preferCSSPageSize: true,
       printBackground: true,
       tagged: true,
     });

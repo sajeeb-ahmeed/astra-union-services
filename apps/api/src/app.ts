@@ -81,6 +81,8 @@ import {
   validateOfficeJurisdiction,
   validatePayloadGeography,
   payloadGeographyNames,
+  citizenAddressParts,
+  officeAddressParts,
   presentAddressInput,
   presentAddressValues,
   upgradeLegacyLocation,
@@ -422,6 +424,26 @@ app.get(
       fail(404, "NOT_FOUND", "Verification record not found.");
     const record = (
       await pool.query("SELECT * FROM public_verify($1)", [digest(token)])
+    ).rows[0];
+    if (!record) fail(404, "NOT_FOUND", "Verification record not found.");
+    res.json(camelRow(record));
+  }),
+);
+app.get(
+  "/api/v1/verify/by-number/:number",
+  wrap(async (req, res) => {
+    // Phase Y: the number printed on official-format documents (Template v7's
+    // যাচাইকরণ line). Bangla digits are accepted and normalised; the response
+    // is the same limited public record as the QR-token lookup.
+    const raw = typeof req.params.number === "string" ? req.params.number : "";
+    const number = raw
+      .trim()
+      .replace(/[০-৯]/g, (d) => String("০১২৩৪৫৬৭৮৯".indexOf(d)))
+      .toUpperCase();
+    if (!/^[A-Z0-9][A-Z0-9-]{3,79}$/.test(number))
+      fail(404, "NOT_FOUND", "Verification record not found.");
+    const record = (
+      await pool.query("SELECT * FROM public_verify_by_number($1)", [number])
     ).rows[0];
     if (!record) fail(404, "NOT_FOUND", "Verification record not found.");
     res.json(camelRow(record));
@@ -1396,28 +1418,89 @@ async function prepareIssuance(
         [r.service_no, r.schema_version],
       )
     ).rows[0].schema_json;
+    const tenant = (
+      await db.query("SELECT * FROM tenants WHERE id=$1", [a.tenantId])
+    ).rows[0];
+    const citizen = (
+      await db.query("SELECT * FROM citizens WHERE id=$1", [r.citizen_id])
+    ).rows[0];
+    const renewal = (
+      await db.query(
+        "SELECT c.number FROM renewal_links l JOIN certificates c ON c.id=l.source_certificate_id AND c.tenant_id=l.tenant_id WHERE l.application_id=$1",
+        [r.id],
+      )
+    ).rows[0]?.number;
+    // Phase Y (template 7): everything the official-format document prints
+    // beyond the v6 field set — the issuing Chairman, the order total, the
+    // citizen's printable identity number and resolved address geography.
+    const issuerRow = (
+      await db.query(
+        "SELECT u.display_name,u.name_bn,m.account_type FROM platform_users u LEFT JOIN staff_memberships m ON m.user_id=u.id AND m.tenant_id=$2 WHERE u.id=$1",
+        [a.userId, a.tenantId],
+      )
+    ).rows[0];
+    const orderRow = (
+      await db.query(
+        "SELECT total_minor,certificate_language FROM application_order_snapshots WHERE application_id=$1",
+        [id],
+      )
+    ).rows[0];
+    // Integration fix (Phase Y limitation 3): certificate language is read from
+    // payload.delivery_language, but services whose form schema has no
+    // delivery_language field (e.g. #42 trade licence) can never carry the
+    // citizen's choice there — orders only require the two to agree when the
+    // payload has one. Fall back to the order snapshot's certificate_language
+    // so an EN order renders an EN document.
+    const issuancePayload =
+      payload &&
+      typeof payload === "object" &&
+      !Object.hasOwn(payload, "delivery_language") &&
+      orderRow?.certificate_language
+        ? { ...payload, delivery_language: orderRow.certificate_language }
+        : payload;
+    let identity: { nid?: string | null; birthReg?: string | null } = {};
+    if (citizenDataAvailable() && (citizen.nid_cipher || citizen.birth_reg_cipher)) {
+      try {
+        identity = {
+          nid: citizen.nid_cipher
+            ? decryptNumber(citizen.nid_cipher, a.tenantId!, "nid")
+            : null,
+          birthReg: citizen.birth_reg_cipher
+            ? decryptNumber(citizen.birth_reg_cipher, a.tenantId!, "birth_reg")
+            : null,
+        };
+      } catch {
+        identity = {};
+      }
+    }
+    const pdfExtras = {
+      issuedAt: new Date().toISOString(),
+      issuer: {
+        nameBn: issuerRow?.name_bn ?? null,
+        nameEn: issuerRow?.display_name ?? null,
+        accountType: issuerRow?.account_type ?? null,
+      },
+      order: orderRow
+        ? { totalMinor: Number(orderRow.total_minor), renewal: !!renewal }
+        : null,
+      identity,
+      citizenGeography: await citizenAddressParts(db, citizen, tenant),
+      officeGeography: await officeAddressParts(db, tenant),
+    };
     return {
       r,
-      tenant: (
-        await db.query("SELECT * FROM tenants WHERE id=$1", [a.tenantId])
-      ).rows[0],
+      tenant,
       service: (
         await db.query("SELECT * FROM service_catalog WHERE service_no=$1", [
           r.service_no,
         ])
       ).rows[0],
-      citizen: (
-        await db.query("SELECT * FROM citizens WHERE id=$1", [r.citizen_id])
-      ).rows[0],
-      payload,
+      citizen,
+      payload: issuancePayload,
       schema,
-      geographyNames: await payloadGeographyNames(db, schema, payload),
-      renewal: (
-        await db.query(
-          "SELECT c.number FROM renewal_links l JOIN certificates c ON c.id=l.source_certificate_id AND c.tenant_id=l.tenant_id WHERE l.application_id=$1",
-          [r.id],
-        )
-      ).rows[0]?.number,
+      geographyNames: await payloadGeographyNames(db, schema, issuancePayload),
+      renewal,
+      pdfExtras,
     };
   });
 }
@@ -1576,6 +1659,18 @@ async function recordApprovalOnGate(a: Auth, id: string) {
   });
 }
 /** The Chairman's single decision action: approve and issue in one atomic step. */
+/**
+ * Certificate numbers: the DEMO- prefix belongs to the demonstration system
+ * only. In official mode (owner instruction, 16 Nov 2026: production output
+ * carries no demo wording of any kind) the number is the plain year + the
+ * unguessable certificate fragment, as printed on Template v7 documents.
+ */
+function newCertificateNumber(certId: string): string {
+  const fragment = certId.slice(0, 18).toUpperCase();
+  return process.env.ISSUANCE_MODE === "official"
+    ? `${new Date().getFullYear()}-${fragment}`
+    : `DEMO-${new Date().getFullYear()}-${fragment}`;
+}
 async function approveAndIssue(req: Req, a: Auth, id: string) {
   try {
     const prepared = await prepareIssuance(
@@ -1593,7 +1688,7 @@ async function approveAndIssue(req: Req, a: Auth, id: string) {
     assertProfileComplete(prepared);
     const certId = randomUUID(),
       token = randomToken(),
-      number = `DEMO-${new Date().getFullYear()}-${certId.slice(0, 18).toUpperCase()}`;
+      number = newCertificateNumber(certId);
     const verificationUrl = `${publicOrigin}/verify/${token}`;
     const pdf = await generatePdf({
       number,
@@ -1605,6 +1700,7 @@ async function approveAndIssue(req: Req, a: Auth, id: string) {
       schema: prepared.schema,
       geographyNames: prepared.geographyNames,
       renewalNumber: prepared.renewal,
+      ...prepared.pdfExtras,
     });
     const certificate = await finalizeIssuance(
       a,
@@ -1811,7 +1907,7 @@ app.post(
     assertProfileComplete(prepared);
     const certId = randomUUID(),
       token = randomToken(),
-      number = `DEMO-${new Date().getFullYear()}-${certId.slice(0, 18).toUpperCase()}`;
+      number = newCertificateNumber(certId);
     const verificationUrl = `${publicOrigin}/verify/${token}`;
     const pdf = await generatePdf({
       number,
@@ -1823,6 +1919,7 @@ app.post(
       schema: prepared.schema,
       geographyNames: prepared.geographyNames,
       renewalNumber: prepared.renewal,
+      ...prepared.pdfExtras,
     });
     const result = await finalizeIssuance(
       a,

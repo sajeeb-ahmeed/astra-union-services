@@ -16,6 +16,8 @@ import {
   type ValidationIssue,
 } from "@astra/shared-schemas";
 import { api, items } from "./api.js";
+import { useIsDemo } from "./mode.js";
+import emblem from "./assets/brand/emblem.webp";
 import { AsyncPanel } from "./AsyncPanel.js";
 import { DynamicForm } from "./DynamicForm.js";
 import {
@@ -46,6 +48,7 @@ import { SidebarNav } from "./ui/SidebarNav.js";
 import { udcNavigation, usesUdcNavigation } from "./workspace-navigation.js";
 import { ApplicationGuidance } from "./ApplicationGuidance.js";
 import "./workspace-usability.css";
+import "./du-workspace.css";
 import {
   ApplicationOrder,
   OrderSummary,
@@ -135,6 +138,7 @@ export function WorkspaceApp({
   onPaymentReturnHandled: () => void;
 }) {
   const [language] = useLanguage();
+  const demo = useIsDemo();
   const [page, setPage] = useState("home"),
     [message, setMessage] = useState(""),
     [busy, setBusy] = useState(false);
@@ -457,7 +461,11 @@ export function WorkspaceApp({
         tabIndex={-1}
       >
         <div>
-          <span className="eyebrow">{t("DEMO CERTIFICATE")}</span>
+          <span className="eyebrow">
+            {demo
+              ? t("DEMO CERTIFICATE")
+              : choose({ bn: "সনদ", en: "CERTIFICATE" })}
+          </span>
           <h3>
             {tx(
               cert.number ||
@@ -527,8 +535,22 @@ export function WorkspaceApp({
       </a>
       <aside>
         <a className="brand" href="/">
-          {t("A")}
-          <span>{t("ASTRA UNION SERVICES")}</span>
+          <img
+            className="brand-emblem"
+            src={emblem}
+            alt=""
+            width={38}
+            height={38}
+          />
+          <span>
+            DigitalUnion
+            <small>
+              {choose({
+                bn: "স্মার্ট ইউনিয়ন, স্মার্ট বাংলাদেশ",
+                en: "Smart Union, Smart Bangladesh",
+              })}
+            </small>
+          </span>
         </a>
         <p className="office">
           {tx(recordName(session.tenant) || "Platform owner")}
@@ -607,7 +629,7 @@ export function WorkspaceApp({
         </nav>
         )}
         <div className="sidebar-bottom">
-          <span className="status">{t("DEMO WORKSPACE")}</span>
+          {demo && <span className="status">{t("DEMO WORKSPACE")}</span>}
           <p>
             {tx(
               session.user.displayName ||
@@ -652,7 +674,7 @@ export function WorkspaceApp({
         <header>
           <div>
             <span className="eyebrow">
-              {t("ASTRA · DIGITAL UNION SERVICES")}
+              {t("DIGITALUNION · UNION SERVICES")}
             </span>
             <h1>
               {dashboardHome && page === "home"
@@ -664,7 +686,7 @@ export function WorkspaceApp({
           </div>
           <div className="workspace-header-actions">
             <LanguageSwitcher />
-            <span className="demo-pill">{t("DEMO / NOT OFFICIAL")}</span>
+            {demo && <span className="demo-pill">{t("DEMO / NOT OFFICIAL")}</span>}
           </div>
         </header>
         {tx(
@@ -757,6 +779,7 @@ export function WorkspaceApp({
                 })}
               </p>
             </section>
+            {demo && (
             <details className="panel workspace-information">
               <summary>
                 {choose({
@@ -776,6 +799,7 @@ export function WorkspaceApp({
                 )}
               </p>
             </details>
+            )}
           </>
         )}
         {tx(
@@ -1226,7 +1250,12 @@ export function WorkspaceApp({
                               </td>
                               <td>
                                 <span className="status">
-                                  {t("SYNTHETIC DEMO")}
+                                  {demo
+                                    ? t("SYNTHETIC DEMO")
+                                    : choose({
+                                        bn: "নিবন্ধিত",
+                                        en: "Registered",
+                                      })}
                                 </span>
                               </td>
                               <td>
@@ -1430,7 +1459,7 @@ export function WorkspaceApp({
                     maxLength={120}
                     aria-describedby="application-reference-hint"
                     placeholder={t(
-                      "Full Astra application ID or certificate number",
+                      "Full DigitalUnion application ID or certificate number",
                     )}
                   />
                   <button disabled={busy || !applicationReference.trim()}>
@@ -1439,7 +1468,7 @@ export function WorkspaceApp({
                 </div>
                 <p id="application-reference-hint" className="hint">
                   {t(
-                    "Use an Astra reference from your account or certificate. Numbers issued by other websites are not supported. Open an issued record to download or renew it.",
+                    "Use a DigitalUnion reference from your account or certificate. Numbers issued by other websites are not supported. Open an issued record to download or renew it.",
                   )}
                 </p>
               </form>
@@ -2444,7 +2473,7 @@ export function WorkspaceApp({
         )}
         <footer>
           {t(
-            "Astra · Independently authored software · Independent demonstration · Reference evidence is limited to initial forms. ",
+            "DigitalUnion · Independently authored software · Independent demonstration · Reference evidence is limited to initial forms. ",
           )}
         </footer>
       </main>

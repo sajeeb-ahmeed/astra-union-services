@@ -34,7 +34,7 @@ Legend: **Done** — built, tested and merged. **Sandbox** — built and tested;
 | G10 per-service price list with citizen-charter time, public view | Done | migration 027 |
 | G11 coupons | Done | migration 028 |
 | G13 public witness generator | Done as a free public flow at `/witness` (utility PDF, nothing stored, 10/17-digit NID). The religion and certificate-type options are an **owner-maintained list** (migration 034) — empty until the owner enters them from the captures, so nothing is guessed | `apps/api/src/witness.ts` |
-| 4.4 certificate layout | Done in Astra's own artwork: portrait A4, one Chairman signature block (template 6, Phase W); QR/token verification kept | migration-free, Phase 6a/W |
+| 4.4 certificate layout | Done in DigitalUnion's own artwork: portrait A4, one Chairman signature block (template 6, Phase W); QR/token verification kept | migration-free, Phase 6a/W |
 
 ## Phase 5 — money (G8, G9)
 
@@ -54,7 +54,7 @@ Legend: **Done** — built, tested and merged. **Sandbox** — built and tested;
 | Chairman verifies → approves = issues in one step; summon step; wet-sign statement. **No secretary step** (Phase W, owner decision 16 Nov 2026: citizen self-applies, the Chairman verifies and his approval issues the certificate; a blocked issuance records the approval and completes via the issue endpoint) | Done | [Certificate state machine](CERTIFICATE_STATE_MACHINE.md) |
 | Manual verification console with role evidence | **Blocked** on the role captures (`docs/evidence/prottoyon-roles/`) | [Phase 6 plan](PHASE6_PLAN.md) |
 | Print and renewal products as lists with lookup and date range | See Phase 6 plan (6c) | Phase 6 plan |
-| Office inclusion requests, FAQ, designated issuing officers | Done; FAQ is Astra's own content, not the reference's 61 headings | Phase 6 plan |
+| Office inclusion requests, FAQ, designated issuing officers | Done; FAQ is DigitalUnion's own content, not the reference's 61 headings | Phase 6 plan |
 | Citizen status notifications | Done: in-app feed (Phase W) plus email and status SMS on issuance and rejection (Phase X), sent after the decision commits through the mailer/SMS provider gates; real SMS delivery deferred until the owner chooses a provider | `apps/api/src/status-notifications.ts` |
 | User guide | Done: bilingual guide by role at `/guide` (Citizens, office staff, Secretary, Chairman, office admin/finance, owner), printable as PDF. The owner can replace it with an official guide later | `apps/web/src/UserGuide.tsx` |
 

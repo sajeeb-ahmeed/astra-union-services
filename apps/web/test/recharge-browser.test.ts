@@ -66,6 +66,7 @@ test(
     });
     assert.equal(added.status(), 200, await added.text());
     const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
+    await page.addInitScript(() => { if (!localStorage.getItem("astra.language")) localStorage.setItem("astra.language", "en"); });
     try {
       await signIn(page, `admin@${slug}.test`, adminPassword);
       await workspacePage(page, "Subscription & credits").click();

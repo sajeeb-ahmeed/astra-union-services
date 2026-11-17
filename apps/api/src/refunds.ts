@@ -180,7 +180,7 @@ async function send(tenantId: string, refundId: string, actorId: string) {
         trxId: claimed.transaction_id,
         amountMinor: claimed.amount_minor,
         reason: claimed.reason,
-        sku: `ASTRA-${claimed.application_id.slice(0, 8)}`,
+        sku: `DU-${claimed.application_id.slice(0, 8)}`,
       });
     else throw Object.assign(new Error(), { code: "REFUND_PROVIDER_UNSUPPORTED" });
     await transaction(tenantId, async (db) => {

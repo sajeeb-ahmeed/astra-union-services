@@ -156,8 +156,8 @@ test("Phase W: the Chairman rejects a submitted application with a reason and th
   assert.equal((await move("approve", "approver")).status, 409);
 });
 
-test("Phase W: certificates (template 6) carry one Chairman signature block in the delivery language", () => {
-  assert.equal(DEMO_TEMPLATE_VERSION, 6);
+test("Phase W: certificates (template 6, still selectable) carry one Chairman signature block in the delivery language", () => {
+  assert.equal(DEMO_TEMPLATE_VERSION, 7);
   const render = (language: string) =>
     renderCertificateHtml(
       {
@@ -170,6 +170,7 @@ test("Phase W: certificates (template 6) carry one Chairman signature block in t
         schema: getServiceSchema(3),
       } as any,
       "data:image/png;base64,",
+      6,
     );
   const en = render("en");
   assert.match(en, /class="signatures"/);

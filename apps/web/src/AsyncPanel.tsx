@@ -1,13 +1,21 @@
 import { Component, Suspense, type ReactNode } from "react";
 import { choose, LanguageSwitcher, useLanguage } from "./i18n.js";
+import emblem from "./assets/brand/emblem.webp";
+import "./du-shell.css";
 
 export function LoadingPanel() {
   useLanguage();
   return (
     <div className="loading">
+      <img src={emblem} alt="" width={52} height={52} className="du-loading-emblem" />
       <p role="status" aria-live="polite">
-        {choose({ bn: "অ্যাস্ট্রা লোড হচ্ছে…", en: "Loading Astra…" })}
+        {choose({ bn: "DigitalUnion লোড হচ্ছে…", en: "Loading DigitalUnion…" })}
       </p>
+      <div className="du-skeleton" aria-hidden="true">
+        <span />
+        <span />
+        <span />
+      </div>
       <LanguageSwitcher />
     </div>
   );
