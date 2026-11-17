@@ -91,7 +91,7 @@ try {
   for (const slug of ["alpha", "beta"]) {
     const tenantId = fixtureId(slug);
     await db.query(
-      "INSERT INTO tenants(id,slug,name_bn,name_en) VALUES($1,$2,$3,$4) ON CONFLICT(slug) DO NOTHING",
+      "INSERT INTO tenants(id,slug,name_bn,name_en,demo) VALUES($1,$2,$3,$4,true) ON CONFLICT(slug) DO NOTHING",
       [
         tenantId,
         slug,

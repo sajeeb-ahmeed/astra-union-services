@@ -27,6 +27,7 @@ test(
     const browser = await browserInstance();
     try {
       const page = await browser.newPage({ viewport: { width: 1366, height: 900 } });
+      await page.addInitScript(() => { if (!localStorage.getItem("astra.language")) localStorage.setItem("astra.language", "en"); });
       const errors: string[] = [];
       page.on("pageerror", (error) => errors.push(error.message));
       // The approved preview path now redirects to the home itself.
@@ -81,6 +82,7 @@ test(
       await page.locator(".service-information").waitFor();
 
       const mobile = await browser.newPage({ viewport: { width: 390, height: 844 } });
+      await mobile.addInitScript(() => { if (!localStorage.getItem("astra.language")) localStorage.setItem("astra.language", "en"); });
       await mobile.goto(origin);
       await mobile.locator(".ax-tile").first().waitFor();
       assert.equal(

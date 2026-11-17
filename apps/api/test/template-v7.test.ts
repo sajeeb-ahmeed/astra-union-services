@@ -1,0 +1,351 @@
+import test, { before, after } from "node:test";
+import assert from "node:assert/strict";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+import { demoPayloads, getServiceSchema } from "@astra/shared-schemas";
+import {
+  renderCertificateHtml,
+  DEMO_TEMPLATE_VERSION,
+  type PdfInput,
+} from "../src/certificate-template.js";
+import {
+  certificatePageFormat,
+  AUTHORED_ATTESTATION_SERVICES,
+} from "../src/certificate-template-v7.js";
+import { app } from "../src/app.js";
+import { pool } from "../src/db.js";
+import { closePdfBrowser } from "../src/pdf.js";
+
+// The Belabo office's configured seal assets ship in the repo; point the
+// per-office asset resolver at them for the official-mode assertions.
+process.env.CERTIFICATE_OFFICE_ASSETS_DIR = fileURLToPath(
+  new URL("../assets/offices/belabo-up/", import.meta.url),
+);
+
+const qr = "data:image/png;base64,AAAA";
+const belabo = {
+  verificationUrl: "https://belabo.astra.test/verify/abc123",
+  tenant: {
+    id: "belabo-tenant",
+    name_bn: "বেলাবো ইউনিয়ন পরিষদ",
+    name_en: "Belabo Union Parishad",
+  },
+  citizen: {
+    full_name_bn: "আফসানা আক্তার মীম",
+    full_name_en: "Afsana Akter Mim",
+    address_bn: "বেলাব গাংকুল পাড়া",
+    address_en: "Belab Gangkul Para",
+    father_name_bn: "মোঃ আসাদুজ্জামান",
+    father_name_en: "Md Asaduzzaman",
+    mother_name_bn: "মুক্তি বেগম",
+    mother_name_en: "Mukti Begum",
+  },
+  issuer: {
+    nameBn: "মোঃ হাবিবুর রহমান",
+    nameEn: "MD HABIBUR RAHMAN",
+    accountType: "up_panel_chairman",
+  },
+  issuedAt: "2026-10-12T09:25:00+06:00",
+  identity: { nid: "2405134038" },
+  citizenGeography: {
+    permanent: {
+      division: { bn: "ঢাকা", en: "Dhaka" },
+      district: { bn: "নরসিংদী", en: "Narsingdi" },
+      upazila: { bn: "বেলাবো", en: "Belabo" },
+      union: { bn: "বেলাবো", en: "Belabo" },
+      wardNo: 3,
+    },
+  },
+  officeGeography: {
+    upazila: { bn: "বেলাবো", en: "Belabo" },
+    district: { bn: "নরসিংদী", en: "Narsingdi" },
+  },
+} as unknown as PdfInput;
+
+const render = (over: Partial<PdfInput>) =>
+  renderCertificateHtml({ ...belabo, ...over } as PdfInput, qr);
+
+test("template 7 is the current version; page formats are per-service data", () => {
+  assert.equal(DEMO_TEMPLATE_VERSION, 7);
+  assert.deepEqual(certificatePageFormat(12), { size: "A4", orientation: "landscape" });
+  assert.deepEqual(certificatePageFormat(37), { size: "Letter", orientation: "portrait" });
+  assert.deepEqual(certificatePageFormat(45), { size: "A4", orientation: "portrait" });
+});
+
+test("v7 citizenship: sampled paragraph pattern, Bangla digits and date, A4 landscape", () => {
+  const html = render({
+    number: "DEMO-2026-ABC123",
+    service: { service_no: 12, name_bn: "নাগরিকত্ব সনদ", name_en: "Citizenship certificate" },
+    payload: { delivery_language: "bn", citizenship_basis: "জন্মসূত্রে" },
+    schema: getServiceSchema(12),
+  });
+  assert.ok(html.includes("@page{size:A4 landscape"));
+  assert.ok(html.includes("সনদ নং:- DEMO-২০২৬-ABC১২৩"));
+  assert.ok(html.includes("ইস্যুর তারিখ:- ১২ই অক্টোবর ২০২৬"));
+  assert.ok(html.includes("এই মর্মে প্রত্যয়ন করা যাইতেছে যে, <strong>আফসানা আক্তার মীম</strong>"));
+  assert.ok(html.includes("জাতীয় পরিচয়পত্র নম্বরঃ <strong>২৪০৫১৩৪০৩৮</strong>"));
+  assert.ok(html.includes("পিতাঃ <strong>মোঃ আসাদুজ্জামান</strong>"));
+  assert.ok(html.includes("মাতাঃ <strong>মুক্তি বেগম</strong>"));
+  assert.ok(html.includes("গ্রাম/বাড়ীঃ বেলাব গাংকুল পাড়া, ওয়ার্ড নম্বরঃ ৩, বেলাবো ইউনিয়ন, থানাঃ বেলাবো, উপজেলাঃ বেলাবো, জেলাঃ নরসিংদী"));
+  assert.ok(!html.includes("ডাকঘর"), "post office segment omitted — no dataset (steer 7)");
+  assert.ok(html.includes("তিনি অত্র এলাকার একজন স্থায়ী বাসিন্দা এবং জন্মসূত্রে বাংলাদেশী নাগরিক।"));
+  assert.ok(html.includes("আমি তাহার উজ্জ্বল ভবিষ্যৎ ও সর্বাঙ্গীণ মঙ্গল কামনা করছি।"));
+  assert.ok(html.includes("মোঃ হাবিবুর রহমান"));
+  assert.ok(html.includes("প্যানেল চেয়ারম্যান"));
+  assert.ok(html.includes("যাচাইকরণ: https://belabo.astra.test/verify?searchText=DEMO-২০২৬-ABC১২৩"));
+  assert.ok(!/prottoyon/i.test(html), "no Prottoyon branding anywhere");
+});
+
+test("v7 voter area transfer: US Letter, spouse segment, captured marriage attestation", () => {
+  const html = render({
+    number: "DEMO-2026-DEF456",
+    citizen: {
+      ...belabo.citizen,
+      full_name_bn: "তামরীন আক্তার বীথি",
+      spouse_name_bn: "তানজীনুর রহমান ভূইয়া পাভেল",
+      father_name_bn: "মোঃ শহিদুল্লাহ",
+      mother_name_bn: "বিলকিছ বেগম",
+      gender: "female",
+    } as PdfInput["citizen"],
+    identity: {},
+    service: { service_no: 37, name_bn: "ভোটার এলাকা স্থানান্তর প্রত্যয়ন", name_en: "Voter area transfer" },
+    payload: { delivery_language: "bn", application_voter_area_transfer_reason: "marriage" },
+    schema: getServiceSchema(37),
+  });
+  assert.ok(html.includes("@page{size:Letter"));
+  assert.ok(html.includes("স্বামীঃ <strong>তানজীনুর রহমান ভূইয়া পাভেল</strong>"));
+  assert.ok(!html.includes("জাতীয় পরিচয়পত্র"), "no NID segment when no NID is recorded");
+  assert.ok(html.includes("বৈবাহিক সূত্রে তিনি অত্র এলাকায় স্থায়ীভাবে বসবাস করছেন এবং বাংলাদেশের নাগরিক।"));
+  assert.ok(html.includes("তাহার পূর্বের ভোটার এলাকা পরিবর্তন করে অত্র এলাকার ভোটার হিসেবে নিবন্ধন করা যায়।"));
+  assert.ok(!/prottoyon/i.test(html));
+});
+
+test("v7 trade licence (EN): 14 fields, real total only, chairman-only signature, no validity line", () => {
+  const html = render({
+    number: "DEMO-2026-TL789",
+    order: { totalMinor: 53000 },
+    service: { service_no: 42, name_bn: "ট্রেড লাইসেন্স", name_en: "Trade license" },
+    payload: {
+      delivery_language: "en",
+      business_name_en: "Messrs Rahman Traders",
+      proprietor_name_en: "Md Rahman",
+      proprietor_mother_name: "Amena Begum",
+      proprietor_father_name: "Md Karim",
+      business_type: "retail",
+      business_address_en: "Belabo Bazar",
+      trade_license_email: "a@b.test",
+      mobile: "01712345678",
+      start_date: "2024-03-14",
+    },
+    schema: getServiceSchema(42),
+  });
+  for (const label of [
+    "Business Organization Name", "Owner&#39;s/Proprietor&#39;s Name", "Mother&#39;s Name", "Father&#39;s Name",
+    "Spouse&#39;s Name (If applicable)", "Nature of Business (Individual/Joint/Others)", "Business Type",
+    "Address of Business Organization", "Birth Registration/NID/Passport", "TIN", "BIN",
+    "Telephone/Mobile Number", "E-mail", "Fiscal Year", "Business Starting Date",
+    "Present Address of Owner/Proprietor", "Permanent Address of Owner/Proprietor",
+    "Serial No. of Model Taxation Schedule, 2013", "Trade License Fee (New/Renewal)",
+  ])
+    assert.ok(html.includes(label), `field label present: ${label}`);
+  assert.ok(html.includes("According to Union Parishad Model Tax Schedule 2013"));
+  assert.ok(html.includes("2026 - 2027"));
+  assert.ok(html.includes("14 March 2024"));
+  assert.ok(html.includes(">Total</span><span>530.00</span>"), "the order's real total prints");
+  assert.ok(html.includes(">New</span><span></span>"), "fee components stay blank — no fabricated split");
+  assert.ok(!html.includes("Administrative Officer"), "chairman-only signature model (steer 5)");
+  assert.ok(!html.includes("Validity of this trade license"), "no validity line without validity data (steer 2)");
+  assert.ok(html.includes("MD HABIBUR RAHMAN"));
+  assert.ok(html.includes("Panel Chairman"));
+  assert.ok(html.includes("Issued from: https://belabo.astra.test/verify?searchText=DEMO-2026-TL789"));
+  assert.ok(!/prottoyon/i.test(html));
+});
+
+test("v7 trade licence (BN): Bangla labels, digits and total", () => {
+  const html = render({
+    number: "DEMO-2026-TL789",
+    order: { totalMinor: 53000 },
+    service: { service_no: 42, name_bn: "ট্রেড লাইসেন্স", name_en: "Trade license" },
+    payload: {
+      delivery_language: "bn",
+      business_name_bn: "মেসার্স রহমান ট্রেডার্স",
+      proprietor_name_bn: "মোঃ রহমান",
+      business_type: "retail",
+      mobile: "01712345678",
+      start_date: "2024-03-14",
+    },
+    schema: getServiceSchema(42),
+  });
+  assert.ok(html.includes("ট্রেড লাইসেন্স নং: DEMO-২০২৬-TL৭৮৯"));
+  assert.ok(html.includes("ইউনিয়ন পরিষদ আদর্শ কর তফসিল ২০১৩ মোতাবেক"));
+  assert.ok(html.includes("২০২৬ - ২০২৭"));
+  assert.ok(html.includes(">সর্বমোট</span><span>৫৩০.০০</span>"));
+  assert.ok(html.includes("যাচাইকরণ: https://belabo.astra.test/verify?searchText=DEMO-২০২৬-TL৭৮৯"));
+  assert.ok(!/prottoyon/i.test(html));
+});
+
+test("v7 modes: demo shows neither emblem nor seal; official shows both and no DEMO branding", () => {
+  const input: Partial<PdfInput> = {
+    number: "DEMO-2026-ABC123",
+    service: { service_no: 12, name_bn: "নাগরিকত্ব সনদ", name_en: "Citizenship certificate" },
+    payload: { delivery_language: "bn", citizenship_basis: "জন্মসূত্রে" },
+    schema: getServiceSchema(12),
+  };
+  delete process.env.ISSUANCE_MODE;
+  const demo = render(input);
+  assert.ok(demo.includes("DEMO / NOT OFFICIAL"));
+  assert.ok(!demo.includes('class="emblem"'), "no emblem in demo mode");
+  assert.ok(!demo.includes('class="seal-wm"'), "no seal watermark in demo mode");
+  assert.ok(demo.includes("এই নথি আইনগত পরিচয় বা সরকারি অনুমোদনের প্রমাণ নয়।"));
+  process.env.ISSUANCE_MODE = "official";
+  try {
+    const official = render(input);
+    assert.ok(official.includes('class="emblem"'), "government emblem in the official header");
+    assert.ok(official.includes('class="seal-wm"'), "office seal watermark in official mode");
+    assert.ok(!official.includes("DEMO / NOT OFFICIAL"));
+    assert.ok(!official.includes('class="draft-wm"'));
+    // Owner instruction (16 Nov 2026): production output carries NO demo
+    // content of any kind — with a production number the whole document is clean.
+    const production = render({ ...input, number: "2026-ABC123" });
+    const productionText = production.replace(/data:image\/png;base64,[A-Za-z0-9+/=]+/g, "");
+    assert.ok(!/demo/i.test(productionText), "no demo wording anywhere in official mode");
+    assert.ok(!production.includes("আইনগত পরিচয় বা সরকারি অনুমোদনের প্রমাণ নয়"), "no disclaimer lines in official mode");
+    assert.ok(!production.includes("not proof of legal identity"), "no disclaimer lines in official mode");
+    assert.ok(production.includes("সনদ নং:- ২০২৬-ABC১২৩"));
+  } finally {
+    delete process.env.ISSUANCE_MODE;
+  }
+});
+
+test("v7 deceased-subject, members table and authored attestation spot checks", () => {
+  const death = render({
+    number: "DEMO-2026-D1",
+    service: { service_no: 7, name_bn: "মৃত্যু প্রত্যয়ন", name_en: "Death attestation" },
+    payload: {
+      delivery_language: "bn",
+      dead_info_name_bn: "মৃত ব্যক্তি",
+      dead_info_father_name_bn: "পিতা",
+      dead_info_dod: "2026-01-05",
+      dead_info_register_no: "12345",
+    },
+    schema: getServiceSchema(7),
+  });
+  assert.ok(death.includes("<strong>মৃত ব্যক্তি</strong>"));
+  assert.ok(death.includes("মৃত্যুবরণ করিয়াছেন"));
+  assert.ok(death.includes("মৃত্যু নিবন্ধন নংঃ ১২৩৪৫।"));
+  const family = render({
+    number: "DEMO-2026-F2",
+    service: { service_no: 2, name_bn: "পারিবারিক সনদ", name_en: "Family certificate" },
+    payload: { delivery_language: "bn", members: demoPayloads[2]!.members },
+    schema: getServiceSchema(2),
+  });
+  assert.ok(family.includes("নমুনা সদস্য"));
+  assert.ok(family.includes('class="data"'));
+  const character = render({
+    number: "DEMO-2026-C35",
+    service: { service_no: 35, name_bn: "চারিত্রিক সনদ", name_en: "Character certificate" },
+    payload: { delivery_language: "bn" },
+    schema: getServiceSchema(35),
+  });
+  assert.ok(character.includes("সচ্চরিত্রের অধিকারী"));
+  assert.ok(AUTHORED_ATTESTATION_SERVICES.includes(35));
+  assert.ok(!AUTHORED_ATTESTATION_SERVICES.includes(12));
+  assert.ok(!AUTHORED_ATTESTATION_SERVICES.includes(37));
+});
+
+test("template 6 remains selectable and byte-stable in shape", () => {
+  const html = renderCertificateHtml(
+    {
+      ...belabo,
+      number: "DEMO-SIGN",
+      service: { service_no: 3, name_bn: "সেবা", name_en: "Service" },
+      payload: { delivery_language: "en" },
+      schema: getServiceSchema(3),
+    } as PdfInput,
+    qr,
+    6,
+  );
+  assert.ok(html.includes("DEMO / NOT OFFICIAL"));
+  assert.ok(html.includes("Template 6"));
+  assert.ok(!html.includes("সনদ নং:-"));
+});
+
+/* ---------- DB-backed: issuance stores v7 and the printed number verifies ---------- */
+let server: ReturnType<typeof app.listen>, base: string;
+const sessions: Record<string, { cookie: string; csrf: string }> = {};
+async function req(method: string, p: string, data?: unknown, who?: string) {
+  const s = who ? sessions[who] : undefined;
+  const response = await fetch(`${base}/api/v1${p}`, {
+    method,
+    headers: {
+      ...(data === undefined ? {} : { "Content-Type": "application/json" }),
+      ...(s ? { Cookie: s.cookie, "X-CSRF-Token": s.csrf } : {}),
+    },
+    body: data === undefined ? undefined : JSON.stringify(data),
+  });
+  return { status: response.status, body: await response.json() };
+}
+async function login(name: string) {
+  const r = await fetch(`${base}/api/v1/auth/login`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email: `${name}@alpha.demo.test`, password: "Demo-Phase1!" }),
+  });
+  const json = await r.json();
+  assert.equal(r.status, 200, JSON.stringify(json));
+  sessions[name] = { cookie: r.headers.get("set-cookie")!.split(";")[0]!, csrf: json.csrfToken };
+}
+before(async () => {
+  server = app.listen(0, "127.0.0.1");
+  await new Promise<void>((resolve) => server.once("listening", resolve));
+  base = `http://127.0.0.1:${(server.address() as any).port}`;
+  for (const name of ["staff", "approver", "citizen"]) await login(name);
+});
+after(async () => {
+  await closePdfBrowser();
+  await new Promise<void>((resolve) => server.close(() => resolve()));
+  await pool.end();
+});
+
+test("issued certificates are template 7 and verify by printed number (Latin and Bangla digits)", async () => {
+  const citizenId = (await req("GET", "/citizens", undefined, "citizen")).body.items[0].id;
+  const created = await req("POST", "/applications", { citizenId, serviceNo: 45, payload: demoPayloads[45] }, "staff");
+  assert.equal(created.status, 201, JSON.stringify(created.body));
+  const id = created.body.id as string;
+  const submitted = await req("POST", `/applications/${id}/transition`, { action: "submit" }, "staff");
+  assert.equal(submitted.status, 200, JSON.stringify(submitted.body));
+  const approved = await req("POST", `/applications/${id}/transition`, { action: "approve" }, "approver");
+  assert.equal(approved.status, 200, JSON.stringify(approved.body));
+  const certificate = approved.body.certificate;
+  assert.equal(certificate.templateVersion, 7);
+  const byNumber = await req("GET", `/verify/by-number/${encodeURIComponent(certificate.number)}`);
+  assert.equal(byNumber.status, 200, JSON.stringify(byNumber.body));
+  assert.equal(byNumber.body.status, "ISSUED");
+  const bnNumber = certificate.number.replace(/\d/g, (d: string) => "০১২৩৪৫৬৭৮৯"[Number(d)]!);
+  const byBnNumber = await req("GET", `/verify/by-number/${encodeURIComponent(bnNumber)}`);
+  assert.equal(byBnNumber.status, 200, JSON.stringify(byBnNumber.body));
+  assert.equal(byBnNumber.body.status, "ISSUED");
+  const missing = await req("GET", "/verify/by-number/DEMO-1999-NOSUCH");
+  assert.equal(missing.status, 404);
+});
+
+test("official mode issues production numbers with no DEMO- prefix", async () => {
+  process.env.ISSUANCE_MODE = "official";
+  try {
+    const citizenId = (await req("GET", "/citizens", undefined, "citizen")).body.items[0].id;
+    const created = await req("POST", "/applications", { citizenId, serviceNo: 45, payload: demoPayloads[45] }, "staff");
+    assert.equal(created.status, 201, JSON.stringify(created.body));
+    const id = created.body.id as string;
+    await req("POST", `/applications/${id}/transition`, { action: "submit" }, "staff");
+    const approved = await req("POST", `/applications/${id}/transition`, { action: "approve" }, "approver");
+    assert.equal(approved.status, 200, JSON.stringify(approved.body));
+    const number = approved.body.certificate.number as string;
+    assert.ok(!/demo/i.test(number), `production number carries no demo wording: ${number}`);
+    assert.match(number, /^\d{4}-[A-Z0-9-]{18}$/);
+    const byNumber = await req("GET", `/verify/by-number/${encodeURIComponent(number)}`);
+    assert.equal(byNumber.status, 200, JSON.stringify(byNumber.body));
+    assert.equal(byNumber.body.status, "ISSUED");
+  } finally {
+    delete process.env.ISSUANCE_MODE;
+  }
+});

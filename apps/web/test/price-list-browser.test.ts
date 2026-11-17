@@ -75,6 +75,7 @@ test(
     await admin.close();
 
     const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
+    await page.addInitScript(() => { if (!localStorage.getItem("astra.language")) localStorage.setItem("astra.language", "en"); });
     try {
       await page.goto(`${origin}/offices`);
       await page.getByLabel("Office name", { exact: true }).fill(nameEn);

@@ -65,8 +65,8 @@
   color: #435b50;
 }
 .intake-steps li[aria-current="step"] {
-  border-color: #155e4b;
-  color: #155e4b;
+  border-color: #04592c;
+  color: #04592c;
 }
 .intake-steps span {
   margin-right: 8px;
@@ -135,7 +135,7 @@
   font-size: 12px;
 }
 .application-progress li[aria-current="step"] {
-  border-color: #155e4b;
+  border-color: #04592c;
   font-weight: 700;
 }
 #application-actions,

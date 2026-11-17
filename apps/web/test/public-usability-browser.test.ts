@@ -27,6 +27,7 @@ test(
     const page = await browser.newPage({
       viewport: { width: 390, height: 844 },
     });
+    await page.addInitScript(() => { if (!localStorage.getItem("astra.language")) localStorage.setItem("astra.language", "en"); });
     const errors: string[] = [];
     page.on("pageerror", (error) => errors.push(error.message));
     try {
@@ -77,6 +78,7 @@ test(
     const page = await browser.newPage({
       viewport: { width: 390, height: 844 },
     });
+    await page.addInitScript(() => { if (!localStorage.getItem("astra.language")) localStorage.setItem("astra.language", "en"); });
     try {
       await page.goto(`${origin}/services`);
       const search = page.getByLabel("Search public services", { exact: true });
@@ -155,6 +157,7 @@ test(
     const page = await browser.newPage({
       viewport: { width: 390, height: 844 },
     });
+    await page.addInitScript(() => { if (!localStorage.getItem("astra.language")) localStorage.setItem("astra.language", "en"); });
     let loginPosts = 0;
     page.on("request", (request) => {
       if (request.url().endsWith("/auth/login") && request.method() === "POST")

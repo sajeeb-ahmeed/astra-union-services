@@ -480,6 +480,9 @@ export function DynamicForm({
                               ? "number"
                               : "text"
                         }
+                        inputMode={
+                          field.type === "number" ? "decimal" : undefined
+                        }
                         maxLength={field.constraints?.maxLength}
                         value={scope[field.id] ?? ""}
                         onChange={(event) =>
@@ -511,8 +514,21 @@ export function DynamicForm({
         );
       });
   }
+  const hasRequired = schema.sections.some((section) =>
+    section.fields.some(
+      (field) => field.constraints?.required || field.requiredWhen,
+    ),
+  );
   return (
     <div className="dynamic-form" aria-busy={uploading}>
+      {hasRequired && (
+        <p className="hint required-legend">
+          {choose({
+            bn: "* চিহ্নিত ঘরগুলো আবশ্যক",
+            en: "Fields marked * are required",
+          })}
+        </p>
+      )}
       {tx(
         schema.sections.map((section) => (
           <fieldset key={section.id}>

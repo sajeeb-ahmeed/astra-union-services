@@ -136,6 +136,7 @@ async function choose(page: Page, level: string, code: string) {
 test("geography browser: mobile cascade uses parent IDs, clears descendants and handles a source coverage gap", { timeout: 45000 }, async () => {
   const browser = await launch();
   const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
+  await page.addInitScript(() => { if (!localStorage.getItem("astra.language")) localStorage.setItem("astra.language", "en"); });
   const errors: string[] = [];
   const lookupRequests: string[] = [];
   page.on("pageerror", (error) => errors.push(error.message));
@@ -178,6 +179,7 @@ test("geography browser: mobile cascade uses parent IDs, clears descendants and 
 
 test("geography browser: failed child lookup exposes retry and a retry retrieves real districts", { timeout: 30000 }, async () => {
   const browser = await launch(), page = await browser.newPage();
+  await page.addInitScript(() => { if (!localStorage.getItem("astra.language")) localStorage.setItem("astra.language", "en"); });
   let attempts = 0;
   try {
     await page.route("**/api/v1/geography/districts?parentCode=div-01", async (route) => {
@@ -197,6 +199,7 @@ test("geography browser: failed child lookup exposes retry and a retry retrieves
 
 test("geography browser: mobile registration stores selected geography and server-generated reference", { timeout: 60000 }, async () => {
   const browser = await launch(), page = await browser.newPage({ viewport: { width: 390, height: 844 } });
+  await page.addInitScript(() => { if (!localStorage.getItem("astra.language")) localStorage.setItem("astra.language", "en"); });
   const union = readSource("unions").find((row) => row.upazilaCode === "upa-001")!;
   const geo = { divisionCode: "div-01", districtCode: "dis-01", upazilaCode: "upa-001", unionCode: union.code, wardCode: `${union.code}-w01` };
   const email = `geography-browser-${Date.now()}@example.test`;
@@ -241,6 +244,7 @@ test("geography browser: mobile registration stores selected geography and serve
 
 test("language browser: preference persists across public pages and authenticated workspace", { timeout: 45000 }, async () => {
   const browser = await launch(), page = await browser.newPage();
+
   try {
     await page.goto(`${origin}/register`);
     await page.locator("#signup-email").fill("language-retention@example.test");

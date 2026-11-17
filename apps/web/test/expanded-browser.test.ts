@@ -55,6 +55,9 @@ test(
         viewport: { width: 1440, height: 1000 },
       }),
       page = await context.newPage();
+      await page.addInitScript(() => { if (!localStorage.getItem("astra.language")) localStorage.setItem("astra.language", "en"); });
+      await context.addInitScript(() => { if (!localStorage.getItem("astra.language")) localStorage.setItem("astra.language", "en"); });
+      await context.addInitScript(() => { if (!localStorage.getItem("astra.language")) localStorage.setItem("astra.language", "en"); });
     const errors: string[] = [];
     page.on("pageerror", (e) => errors.push(e.message));
     try {
@@ -131,6 +134,8 @@ test(
         .waitFor();
       const ownerContext = await browser.newContext(),
         owner = await ownerContext.newPage();
+      await ownerContext.addInitScript(() => { if (!localStorage.getItem("astra.language")) localStorage.setItem("astra.language", "en"); });
+        await ownerContext.addInitScript(() => { if (!localStorage.getItem("astra.language")) localStorage.setItem("astra.language", "en"); });
       await login(owner, "owner@astra.demo.test");
       const marker = `Directory${Date.now()}`;
       for (let i = 0; i < 3; i++) {
@@ -223,6 +228,8 @@ test(
       }),
       page = await context.newPage(),
       unique = Date.now();
+      await context.addInitScript(() => { if (!localStorage.getItem("astra.language")) localStorage.setItem("astra.language", "en"); });
+      await context.addInitScript(() => { if (!localStorage.getItem("astra.language")) localStorage.setItem("astra.language", "en"); });
     const adminEmail = `ui-admin-${unique}@example.test`,
       approverEmail = `ui-approver-${unique}@example.test`,
       password = "Demo-Browser-2026!";
@@ -279,6 +286,8 @@ test(
       const recovery = await recoveryResult.json();
       const recoveryContext = await browser.newContext(),
         recoveryPage = await recoveryContext.newPage();
+      await recoveryContext.addInitScript(() => { if (!localStorage.getItem("astra.language")) localStorage.setItem("astra.language", "en"); });
+        await recoveryContext.addInitScript(() => { if (!localStorage.getItem("astra.language")) localStorage.setItem("astra.language", "en"); });
       await recoveryPage.goto(recovery.recoveryUrl);
       await recoveryPage
         .getByLabel("New password", { exact: true })
@@ -383,6 +392,8 @@ test(
       await page.getByText("Office notice saved.", { exact: true }).waitFor();
       const anonymous = await browser.newContext(),
         publicPage = await anonymous.newPage();
+      await anonymous.addInitScript(() => { if (!localStorage.getItem("astra.language")) localStorage.setItem("astra.language", "en"); });
+        await anonymous.addInitScript(() => { if (!localStorage.getItem("astra.language")) localStorage.setItem("astra.language", "en"); });
       await publicPage.goto(`${origin}/notices`);
       await publicPage
         .getByRole("heading", {
@@ -472,6 +483,8 @@ test(
       unique = Date.now(),
       email = `signup-${unique}@example.test`,
       password = "Demo-Browser-2026!";
+      await context.addInitScript(() => { if (!localStorage.getItem("astra.language")) localStorage.setItem("astra.language", "en"); });
+      await context.addInitScript(() => { if (!localStorage.getItem("astra.language")) localStorage.setItem("astra.language", "en"); });
     try {
       await page.goto(`${origin}/register`);
       const union = JSON.parse(fs.readFileSync("data/geo/unions.json", "utf8")).find((row: any) => row.upazilaCode === "upa-001");
@@ -568,10 +581,15 @@ test(
       reviewContext = await browser.newContext(),
       approveContext = await browser.newContext(),
       publicContext = await browser.newContext();
+      await reviewContext.addInitScript(() => { if (!localStorage.getItem("astra.language")) localStorage.setItem("astra.language", "en"); });
+      await approveContext.addInitScript(() => { if (!localStorage.getItem("astra.language")) localStorage.setItem("astra.language", "en"); });
+      await publicContext.addInitScript(() => { if (!localStorage.getItem("astra.language")) localStorage.setItem("astra.language", "en"); });
+      await staffContext.addInitScript(() => { if (!localStorage.getItem("astra.language")) localStorage.setItem("astra.language", "en"); });
     const staff = await staffContext.newPage(),
       reviewer = await reviewContext.newPage(),
       approver = await approveContext.newPage(),
       publicPage = await publicContext.newPage();
+    await staffContext.addInitScript(() => { if (!localStorage.getItem("astra.language")) localStorage.setItem("astra.language", "en"); });
     try {
       await login(staff, "staff@alpha.demo.test");
       const citizenList = await request(staff, "/citizens");

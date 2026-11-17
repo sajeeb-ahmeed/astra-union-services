@@ -424,7 +424,7 @@ mfaRouter.post(
           [actor.userId, encrypted],
         )
       ).rows[0];
-      const otpauthUri = `otpauth://totp/${encodeURIComponent(`Astra:${user.email}`)}?secret=${secret}&issuer=Astra&algorithm=SHA1&digits=6&period=30`;
+      const otpauthUri = `otpauth://totp/${encodeURIComponent(`DigitalUnion:${user.email}`)}?secret=${secret}&issuer=DigitalUnion&algorithm=SHA1&digits=6&period=30`;
       const qrDataUrl = await QRCode.toDataURL(otpauthUri, {
         width: 220,
         margin: 2,

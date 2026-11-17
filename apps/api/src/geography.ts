@@ -164,6 +164,93 @@ export async function payloadGeographyNames(
   }
   return names;
 }
+export interface GeoNameParts {
+  division?: { bn: string; en: string };
+  district?: { bn: string; en: string };
+  upazila?: { bn: string; en: string };
+  union?: { bn: string; en: string };
+  ward?: { bn: string; en: string };
+  wardNo?: number | null;
+}
+const unionStem = (name: string, bn: boolean) =>
+  name.replace(bn ? /\s*ইউনিয়ন\s*$/u : /\s+Union\s*$/i, "").trim();
+/** Individual dataset names for one geography code set (Phase Y documents print them separately). */
+export async function resolveGeoParts(
+  db: Queryable,
+  g: Geography | null,
+): Promise<GeoNameParts | undefined> {
+  if (!g) return undefined;
+  const row = (
+    await db.query(
+      `SELECT d.name_bn d_bn,d.name_en d_en,di.name_bn di_bn,di.name_en di_en,
+              u.name_bn u_bn,u.name_en u_en,n.name_bn n_bn,n.name_en n_en,
+              w.name_bn w_bn,w.name_en w_en
+       FROM geo_divisions d
+       JOIN geo_districts di ON di.parent_code=d.code
+       JOIN geo_upazilas u ON u.parent_code=di.code
+       LEFT JOIN geo_unions n ON n.code=$4 AND n.parent_code=u.code
+       LEFT JOIN geo_wards w ON w.code=$5 AND w.parent_code=n.code
+       WHERE d.code=$1 AND di.code=$2 AND u.code=$3`,
+      geographyValues(g),
+    )
+  ).rows[0];
+  if (!row) return undefined;
+  const wardMatch = g.wardCode?.match(/w(\d+)$/);
+  return {
+    division: { bn: row.d_bn, en: row.d_en },
+    district: { bn: row.di_bn, en: row.di_en },
+    upazila: { bn: row.u_bn, en: row.u_en },
+    ...(row.n_bn
+      ? { union: { bn: unionStem(row.n_bn, true), en: unionStem(row.n_en, false) } }
+      : {}),
+    ...(row.w_bn ? { ward: { bn: row.w_bn, en: row.w_en } } : {}),
+    wardNo: wardMatch ? Number(wardMatch[1]) : null,
+  };
+}
+/**
+ * Phase Y: resolved address parts for a citizen record (permanent + present).
+ * When the citizen's union is the office's own union, the union stem comes
+ * from the office's configured name (the dataset spells some unions
+ * differently from the office's own documents — e.g. dataset "বেলাব" vs the
+ * office's "বেলাবো").
+ */
+export async function citizenAddressParts(
+  db: Queryable,
+  citizen: any,
+  tenant?: any,
+): Promise<{ permanent?: GeoNameParts; present?: GeoNameParts }> {
+  const permanent = await resolveGeoParts(db, geographyRow(citizen));
+  if (permanent?.union && tenant && citizen.union_code && citizen.union_code === tenant.union_code) {
+    const bnStem = String(tenant.name_bn ?? "").replace(/\s*ইউনিয়ন পরিষদ\s*$/u, "").trim();
+    const enStem = String(tenant.name_en ?? "").replace(/\s+Union Parishad\s*$/i, "").trim();
+    if (bnStem && enStem) permanent.union = { bn: bnStem, en: enStem };
+  }
+  let present: GeoNameParts | undefined;
+  if (citizen.present_same_as_permanent === false) {
+    present = await resolveGeoParts(db, geographyRow({
+      division_code: citizen.present_division_code,
+      district_code: citizen.present_district_code,
+      upazila_code: citizen.present_upazila_code,
+      union_code: citizen.present_union_code,
+      ward_code: citizen.present_ward_code,
+    }));
+  }
+  return { permanent, present };
+}
+/** Phase Y: the office's own location names, for the document header address line. */
+export async function officeAddressParts(
+  db: Queryable,
+  tenant: any,
+): Promise<{ upazila?: { bn: string; en: string }; district?: { bn: string; en: string } }> {
+  if (!tenant?.division_code) return {};
+  const parts = await resolveGeoParts(db, {
+    divisionCode: tenant.division_code,
+    districtCode: tenant.district_code,
+    upazilaCode: tenant.upazila_code,
+  });
+  return { upazila: parts?.upazila, district: parts?.district };
+}
+
 /** PAR-06: present address. Omitted or `sameAsPermanent: true` keeps the single registered address. */
 export const presentAddressInput = z.discriminatedUnion("sameAsPermanent", [
   z.object({ sameAsPermanent: z.literal(true) }).strict(),

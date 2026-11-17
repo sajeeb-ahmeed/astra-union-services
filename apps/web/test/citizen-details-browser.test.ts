@@ -36,6 +36,7 @@ test(
   async () => {
     const browser = await browserInstance();
     const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
+    await page.addInitScript(() => { if (!localStorage.getItem("astra.language")) localStorage.setItem("astra.language", "en"); });
     try {
       await signIn(page, "staff@alpha.demo.test");
       const errors: string[] = [];
@@ -111,6 +112,7 @@ test(
   async () => {
     const browser = await browserInstance();
     const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
+    await page.addInitScript(() => { if (!localStorage.getItem("astra.language")) localStorage.setItem("astra.language", "en"); });
     try {
       await signIn(page, "citizen@alpha.demo.test");
       await workspacePage(page, "My profile").click();
@@ -130,6 +132,7 @@ test(
   async () => {
     const browser = await browserInstance();
     const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
+    await page.addInitScript(() => { if (!localStorage.getItem("astra.language")) localStorage.setItem("astra.language", "en"); });
     try {
       await signIn(page, "staff@alpha.demo.test");
       await workspacePage(page, "Citizens").click();
@@ -193,6 +196,7 @@ test(
   async () => {
     const browser = await browserInstance();
     const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
+    await page.addInitScript(() => { if (!localStorage.getItem("astra.language")) localStorage.setItem("astra.language", "en"); });
     try {
       await signIn(page, "staff@alpha.demo.test");
       await workspacePage(page, "Citizens").click();

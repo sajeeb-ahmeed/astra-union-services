@@ -1153,6 +1153,7 @@ test("CER-01: current resident PDFs contain approved purpose/residency and genui
         payload,
       },
       "data:image/png;base64,DEMO",
+      6,
     );
     assert.ok(html.includes("DEMO / NOT OFFICIAL"));
     const body = html.match(/<main\b[^>]*>([\s\S]*?)<\/main>/)![1]!;

@@ -1,0 +1,12 @@
+-- Integration: a production tenant must be able to be non-demo.
+-- Migration 001 declared tenants.demo as `boolean NOT NULL DEFAULT true CHECK(demo)`,
+-- which forces the flag to true for every tenant forever. The public verification
+-- functions (001 public_verify, 008 public_track, 040 public_verify_by_number) report
+-- that flag, so an officially issued certificate always reported "demo": true in the
+-- public verify payload no matter how the office was onboarded (proven live in
+-- Phase Z, PHASEZ-LIVE J4: UPDATE tenants SET demo=false was rejected by the
+-- constraint). Dropping the CHECK makes the flag truthful: demo tenants keep
+-- demo=true (the DEFAULT is unchanged and every demo provisioning path — seed,
+-- owner demo-workspace creation, fixtures — now sets it explicitly), and a
+-- production office can be onboarded with demo=false.
+ALTER TABLE tenants DROP CONSTRAINT tenants_demo_check;

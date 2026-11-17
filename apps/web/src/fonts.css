@@ -1,0 +1,54 @@
+/*
+ * DigitalUnion self-hosted fonts (Phase UX). Noto Sans Bengali subsets from
+ * Fontsource (OFL 1.1): Bengali script + Latin, three weights, swap display so
+ * text renders immediately in the system font and upgrades when loaded —
+ * important on low-end Android phones with slow connections.
+ */
+@font-face {
+  font-family: "Noto Sans Bengali";
+  src: url("./assets/fonts/noto-sans-bengali-bengali-400-normal.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+  unicode-range: U+0980-09FF, U+200C-200D, U+25CC;
+}
+@font-face {
+  font-family: "Noto Sans Bengali";
+  src: url("./assets/fonts/noto-sans-bengali-bengali-600-normal.woff2") format("woff2");
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+  unicode-range: U+0980-09FF, U+200C-200D, U+25CC;
+}
+@font-face {
+  font-family: "Noto Sans Bengali";
+  src: url("./assets/fonts/noto-sans-bengali-bengali-700-normal.woff2") format("woff2");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+  unicode-range: U+0980-09FF, U+200C-200D, U+25CC;
+}
+@font-face {
+  font-family: "Noto Sans Bengali";
+  src: url("./assets/fonts/noto-sans-bengali-latin-400-normal.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: "Noto Sans Bengali";
+  src: url("./assets/fonts/noto-sans-bengali-latin-600-normal.woff2") format("woff2");
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: "Noto Sans Bengali";
+  src: url("./assets/fonts/noto-sans-bengali-latin-700-normal.woff2") format("woff2");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}

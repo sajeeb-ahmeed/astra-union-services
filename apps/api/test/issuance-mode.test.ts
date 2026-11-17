@@ -66,9 +66,9 @@ test("issuance mode: health reports DEMO_ONLY by default and OFFICIAL when gated
   assert.equal(again.mode, "DEMO_ONLY");
 });
 
-test("issuance mode: default certificate keeps the DEMO branding and honesty lines", () => {
+test("issuance mode: template 6 certificate keeps the DEMO branding and honesty lines", () => {
   delete process.env.ISSUANCE_MODE;
-  const html = renderCertificateHtml(residentInput, qr);
+  const html = renderCertificateHtml(residentInput, qr, 6);
   assert.ok(html.includes('<div class="watermark">DEMO</div>'));
   assert.ok(html.includes("DEMO / NOT OFFICIAL"));
   assert.ok(html.includes("Approved demo details"));
@@ -78,10 +78,10 @@ test("issuance mode: default certificate keeps the DEMO branding and honesty lin
   assert.ok(html.includes("No government seal, signature or identity number"));
 });
 
-test("issuance mode: official certificate drops DEMO branding but keeps the honesty lines", () => {
+test("issuance mode: template 6 official certificate drops DEMO branding but keeps the honesty lines", () => {
   process.env.ISSUANCE_MODE = "official";
   try {
-    const html = renderCertificateHtml(residentInput, qr);
+    const html = renderCertificateHtml(residentInput, qr, 6);
     assert.ok(!/\bDEMO\b/.test(html), "no DEMO word anywhere in official mode");
     assert.ok(!html.includes("demo status"));
     assert.ok(!html.includes("demo details"));

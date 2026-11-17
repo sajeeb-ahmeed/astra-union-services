@@ -219,7 +219,7 @@ export function ApplicationOrder({
       <p className="hint">
         {label(
           "এই অফিসে এই সেবার ফি নীতি প্রকাশ করা হয়নি। বর্তমান ডেমো আবেদন প্রক্রিয়ায় কোনো ফি পরিশোধের দাবি করা হবে না।",
-          "This office has not published a fee policy for this service. The existing demo workflow does not record a fee payment.",
+          "This office has not published a fee policy for this service, so no fee payment is recorded.",
         )}
       </p>
     );

@@ -10,9 +10,10 @@ const dictionaries: Record<Language, Record<string, string>> = {
   en: { ...workspaceEn, ...publicEn },
 };
 const normalize = (text: string) => text.replace(/\s+/g, " ").trim();
-let language: Language = "en";
+let language: Language = "bn";
 try {
-  language = localStorage.getItem("astra.language") === "bn" ? "bn" : "en";
+  // Bangla-first product: a stored choice wins; a first visit defaults to Bangla.
+  language = localStorage.getItem("astra.language") === "en" ? "en" : "bn";
 } catch {
   /* Storage is optional. */
 }
@@ -35,7 +36,7 @@ export function setLanguage(next: Language) {
 if (typeof window !== "undefined") {
   window.addEventListener("storage", (event) => {
     if (event.key === "astra.language")
-      setLanguage(event.newValue === "bn" ? "bn" : "en");
+      setLanguage(event.newValue === "en" ? "en" : "bn");
   });
 }
 export function useLanguage(): [Language, typeof setLanguage] {
@@ -48,7 +49,7 @@ export function useLanguage(): [Language, typeof setLanguage] {
         };
       },
       () => language,
-      () => "en" as Language,
+      () => "bn" as Language,
     ),
     setLanguage,
   ];

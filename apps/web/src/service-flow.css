@@ -123,6 +123,19 @@
     flex: 1 1 100%;
   }
 }
+/* Phase UX: on phones the step's primary actions stay reachable with one
+   thumb — the action bar sticks to the bottom of the viewport while the
+   form scrolls. */
+@media (max-width: 767px) {
+  .ax-flow-actions {
+    position: sticky;
+    bottom: 0;
+    z-index: 5;
+    background: var(--ax-surface);
+    padding-bottom: var(--ax-space-3);
+    box-shadow: 0 -6px 16px rgb(20 53 40 / 8%);
+  }
+}
 .ax-flow-summary + .ax-flow-muted {
   margin-top: var(--ax-space-4);
 }

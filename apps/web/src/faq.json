@@ -1,20 +1,20 @@
 [
   {
-    "id": "what-is-astra",
+    "id": "what-is-digitalunion",
     "q": {
-      "bn": "Astra কী?",
-      "en": "What is Astra?"
+      "bn": "DigitalUnion কী?",
+      "en": "What is DigitalUnion?"
     },
     "a": {
-      "bn": "Astra ইউনিয়ন পরিষদ, পৌরসভা ও সিটি কর্পোরেশন অফিসের নাগরিক সেবার আবেদন, যাচাই, অনুমোদন ও সনদ ইস্যুর একটি অনলাইন ব্যবস্থা। প্রতিটি অফিস নিজের নাগরিক, সেবা ও ফি আলাদাভাবে পরিচালনা করে।",
-      "en": "Astra is an online system for citizen service applications, checks, approval and certificate issuing for union, municipality and city corporation offices. Each office runs its own citizens, services and fees separately."
+      "bn": "DigitalUnion ইউনিয়ন পরিষদ, পৌরসভা ও সিটি কর্পোরেশন অফিসের নাগরিক সেবার আবেদন, যাচাই, অনুমোদন ও সনদ ইস্যুর একটি অনলাইন ব্যবস্থা। প্রতিটি অফিস নিজের নাগরিক, সেবা ও ফি আলাদাভাবে পরিচালনা করে।",
+      "en": "DigitalUnion is an online system for citizen service applications, checks, approval and certificate issuing for union, municipality and city corporation offices. Each office runs its own citizens, services and fees separately."
     }
   },
   {
     "id": "find-office",
     "q": {
-      "bn": "আমার অফিস Astra-তে আছে কি না কীভাবে দেখব?",
-      "en": "How do I check whether my office uses Astra?"
+      "bn": "আমার অফিস DigitalUnion-তে আছে কি না কীভাবে দেখব?",
+      "en": "How do I check whether my office uses DigitalUnion?"
     },
     "a": {
       "bn": "‘অফিস খুঁজুন’ পাতায় অফিসের নাম বা বিভাগ থেকে ইউনিয়ন পর্যন্ত এলাকা দিয়ে খুঁজুন। অফিস না থাকলে ‘অফিস যুক্ত করার অনুরোধ’ পাঠাতে পারেন।",
@@ -149,8 +149,8 @@
       "en": "How is the certificate signed?"
     },
     "a": {
-      "bn": "Astra সনদের পিডিএফ তৈরি করে এবং QR কোড দিয়ে অনলাইনে যাচাইয়ের ব্যবস্থা রাখে। প্রিন্ট করা সনদে চেয়ারম্যান নিজ হাতে স্বাক্ষর করেন।",
-      "en": "Astra prepares the certificate PDF with a QR code for online verification. The Chairman signs the printed certificate by hand."
+      "bn": "DigitalUnion সনদের পিডিএফ তৈরি করে এবং QR কোড দিয়ে অনলাইনে যাচাইয়ের ব্যবস্থা রাখে। প্রিন্ট করা সনদে চেয়ারম্যান নিজ হাতে স্বাক্ষর করেন।",
+      "en": "DigitalUnion prepares the certificate PDF with a QR code for online verification. The Chairman signs the printed certificate by hand."
     }
   },
   {
@@ -160,8 +160,8 @@
       "en": "How do I check that a certificate is genuine?"
     },
     "a": {
-      "bn": "সনদের QR কোড স্ক্যান করুন বা যাচাই লিংক খুলুন। Astra সনদের অবস্থা (বৈধ বা বাতিল) দেখায়।",
-      "en": "Scan the certificate's QR code or open its verification link. Astra shows whether the certificate is valid or revoked."
+      "bn": "সনদের QR কোড স্ক্যান করুন বা যাচাই লিংক খুলুন। DigitalUnion সনদের অবস্থা (বৈধ বা বাতিল) দেখায়।",
+      "en": "Scan the certificate's QR code or open its verification link. DigitalUnion shows whether the certificate is valid or revoked."
     }
   },
   {
@@ -200,8 +200,8 @@
   {
     "id": "demo",
     "q": {
-      "bn": "Astra-র সনদ কি আইনগতভাবে বৈধ?",
-      "en": "Are Astra certificates legally valid?"
+      "bn": "DigitalUnion-এর সনদ কি আইনগতভাবে বৈধ?",
+      "en": "Are DigitalUnion certificates legally valid?"
     },
     "a": {
       "bn": "বর্তমান সংস্করণ প্রদর্শনী ও পাইলটের জন্য; সনদে ‘ডেমো’ চিহ্ন থাকে। আইনগত বৈধতা সংশ্লিষ্ট অফিসের অনুমোদন ও স্বাক্ষরের উপর নির্ভর করে।",

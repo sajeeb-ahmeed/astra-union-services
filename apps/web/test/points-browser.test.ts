@@ -35,6 +35,7 @@ test(
   async () => {
     const browser = await browserInstance();
     const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
+    await page.addInitScript(() => { if (!localStorage.getItem("astra.language")) localStorage.setItem("astra.language", "en"); });
     // Service 47's price is global: the test restores it to 0 before finishing.
     try {
       await signIn(page, "owner@astra.demo.test");

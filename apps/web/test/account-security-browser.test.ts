@@ -26,6 +26,7 @@ test(
     });
     const other = await browser.newContext();
     const page = await current.newPage();
+    await current.addInitScript(() => { if (!localStorage.getItem("astra.language")) localStorage.setItem("astra.language", "en"); });
     const errors: string[] = [];
     page.on("pageerror", (error) => errors.push(error.message));
     const email = `session-browser-${Date.now()}@example.test`;

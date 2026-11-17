@@ -1,4 +1,4 @@
-# Astra — বর্তমান অবস্থা ও পরবর্তী কাজ
+# DigitalUnion — বর্তমান অবস্থা ও পরবর্তী কাজ
 
 **১৬ নভেম্বর ২০২৬ — takeover যাচাই ও cPanel track (PR-এ, মালিকের sign-off বাকি):** সম্পূর্ণ test suite স্থানীয়ভাবে চালানো হয়েছে — unmodified HEAD-এ **৩৯২/৩৯২ পাস** (প্রথম run-এর ৪৩টি failure-ই ছিল environment/config: Chromium অনুপস্থিত, `execution/` folder, ভুল `PUBLIC_ORIGIN`/`NODE_ENV`, web build ছাড়া performance test; কোনো code bug বা migration বদল লাগেনি)। মালিকের সিদ্ধান্ত অনুযায়ী **cPanel single-role track** তৈরি: `db:*-cpanel` script (canonical migration অপরিবর্তিত রেখে in-memory transform), Passenger `app.js`, ১০৮ MiB bundle ও `docs/DEPLOY-CPANEL.md` runbook — fresh single-role database-এ boot + login + PDF সহ যাচাইকৃত। **ISSUANCE_MODE gate** যোগ হয়েছে: `official` দিলে health OFFICIAL হয় ও সনদ থেকে DEMO branding যায় (সতর্কতা-লাইন থাকে); default অপরিবর্তিত। পরিবর্তনসহ suite **৩৯৫/৩৯৫ পাস**। বাকি মালিকের হাতে: cPanel probe ও আসল deploy, Phase 0 capture (4.1/6.2), witness options, SMS provider, live merchant, 1.0 sign-off ও এই PR-এর merge।
 
@@ -12,7 +12,7 @@
 
 ## এক নজরে
 
-- **Release 0.9.0 live ও যাচাইকৃত:** [Astra ওয়েবসাইট](https://astra-union-services.onrender.com/)। File upload আগে quarantine-এ যায়; শুধু আসল scan-এর CLEAN ফল পাওয়া file download, submission, resubmission, approval ও নতুন issuance-এ ব্যবহার করা যায়। পূর্বের optional MFA, recovery code ও account-security history অক্ষত।
+- **Release 0.9.0 live ও যাচাইকৃত:** [DigitalUnion ওয়েবসাইট](https://astra-union-services.onrender.com/)। File upload আগে quarantine-এ যায়; শুধু আসল scan-এর CLEAN ফল পাওয়া file download, submission, resubmission, approval ও নতুন issuance-এ ব্যবহার করা যায়। পূর্বের optional MFA, recovery code ও account-security history অক্ষত।
 - **আগের 0.7 usability উন্নতি অক্ষত:** role অনুযায়ী কাজের shortcut, mobile page picker, সহজ search/filter, আবেদন/সংশোধনের পরবর্তী ধাপ, field-error link, public tracking/verification ও password দেখানো/লুকানো। বাংলা/ইংরেজি ও ৪৭টি সেবা আছে।
 - **Source:** [GitHub repository](https://github.com/sajeeb-ahmeed/astra-union-services), branch: codex/initial-deployment।
 - **Live runtime commit:** `9aadc93b29cbc76a669db4ffa1c37a2f4f220528`। পরের documentation commit-কে নতুন deployed runtime ভাবা যাবে না; Render Auto-Deploy বন্ধ।
@@ -125,7 +125,7 @@ Deployed runtime commit: `402903fb113799f5d7e5ec8d62307ba88f625318`; [CI 3919941
 
 Additional Information-এর খসড়া:
 
-> আমরা Astra নামে একাধিক ইউনিয়ন/অফিসের নাগরিক সেবা পরিচালনার সফটওয়্যার তৈরি করছি। bKash Payment Gateway API ও sandbox access প্রয়োজন। অনুগ্রহ করে প্রযোজ্য merchant onboarding, প্রয়োজনীয় কাগজপত্র, ইউনিয়নভিত্তিক collection/settlement ব্যবস্থা, charges এবং approval process জানান। বর্তমান ওয়েবসাইটটি পরীক্ষামূলক সংস্করণ।
+> আমরা DigitalUnion নামে একাধিক ইউনিয়ন/অফিসের নাগরিক সেবা পরিচালনার সফটওয়্যার তৈরি করছি। bKash Payment Gateway API ও sandbox access প্রয়োজন। অনুগ্রহ করে প্রযোজ্য merchant onboarding, প্রয়োজনীয় কাগজপত্র, ইউনিয়নভিত্তিক collection/settlement ব্যবস্থা, charges এবং approval process জানান। বর্তমান ওয়েবসাইটটি পরীক্ষামূলক সংস্করণ।
 
 API configuration-এর জন্য bKash-issued username, password, app_key ও app_secret লাগবে; এগুলো wallet PIN/OTP নয়। Credentials GitHub, frontend, chat বা screenshots-এ রাখা যাবে না—server-side secret settings-এ থাকবে। [bKash Grant Token](https://developer.bka.sh/docs/grant-token), [token management](https://developer.bka.sh/docs/token-managment-v2)।
 

@@ -8,7 +8,7 @@ The user confirmed two product rules: a separate chairman/approver account grant
 
 ## Implemented workflow
 
-The common frontend now starts with citizen selection, then an enabled service and blank service facts. An explicit synthetic example remains available in local demonstration mode. Changing the citizen clears unsaved service facts. Exact Astra application/certificate reference lookup opens an authorized record for viewing, download or the existing renewal flow.
+The common frontend now starts with citizen selection, then an enabled service and blank service facts. An explicit synthetic example remains available in local demonstration mode. Changing the citizen clears unsaved service facts. Exact DigitalUnion application/certificate reference lookup opens an authorized record for viewing, download or the existing renewal flow.
 
 An office administrator publishes a fee policy for each service. The application screen offers its permitted delivery/urgency choices and one certificate language, displays a server-calculated fee assessment, and requires review before saving. The server atomically creates the draft, payload version and accepted order snapshot. Submission, review/correction, separate authorized approval, issuance and QR verification continue through the existing state machine.
 
@@ -42,7 +42,7 @@ All order paths below are under `/api/v1`, authenticated and scoped to the activ
 | `POST /applications`                      | Adds optional `order` to the existing citizen/service/payload request; required when a policy exists. Recalculates and saves its snapshot atomically. |
 | `GET /applications/:id`                   | Adds `order`, containing the immutable snapshot or `null` for legacy applications.                                                                    |
 | `POST /applications/:id/renew`            | Accepts optional payload and fresh order; current policy applies even when the original application was legacy.                                       |
-| `GET /applications/lookup?reference=…`    | Exact full Astra application UUID or certificate number. Citizen-own/tenant-staff scope; no cross-site or prefix lookup.                              |
+| `GET /applications/lookup?reference=…`    | Exact full DigitalUnion application UUID or certificate number. Citizen-own/tenant-staff scope; no cross-site or prefix lookup.                              |
 
 Policy amounts are `statutoryFeeMinor`, `processingFeeMinor`, `emergencySurchargeMinor` and `deliveryFeesMinor: { office_collection, digital_copy }`. `deliveryModes` is a nonempty unique subset of `office_collection` / `digital_copy`; `urgencies` is a nonempty unique subset of `normal` / `urgent`. `expectedVersion` is 0 initially, otherwise the current version. Publication reason is trimmed, 3–500 characters.
 

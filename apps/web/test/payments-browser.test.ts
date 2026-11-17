@@ -74,6 +74,8 @@ before(async () => {
   browser = await chromium.launch({ headless: true, executablePath });
   const context = await browser.newContext(),
     setup = await context.newPage();
+  await context.addInitScript(() => { if (!localStorage.getItem("astra.language")) localStorage.setItem("astra.language", "en"); });
+    await context.addInitScript(() => { if (!localStorage.getItem("astra.language")) localStorage.setItem("astra.language", "en"); });
   try {
     await apiLogin(setup, "owner");
     const office = await request(setup, "/owner/tenants", "POST", {
@@ -196,8 +198,11 @@ test(
   async () => {
     const citizenContext = await browser.newContext(),
       financeContext = await browser.newContext();
+    await citizenContext.addInitScript(() => { if (!localStorage.getItem("astra.language")) localStorage.setItem("astra.language", "en"); });
     const citizen = await citizenContext.newPage(),
       finance = await financeContext.newPage();
+      await financeContext.addInitScript(() => { if (!localStorage.getItem("astra.language")) localStorage.setItem("astra.language", "en"); });
+    await citizenContext.addInitScript(() => { if (!localStorage.getItem("astra.language")) localStorage.setItem("astra.language", "en"); });
     const id = crypto.randomUUID(),
       receiptId = crypto.randomUUID();
     const receipt = {
@@ -406,6 +411,8 @@ test(
   async () => {
     const context = await browser.newContext(),
       page = await context.newPage();
+    await context.addInitScript(() => { if (!localStorage.getItem("astra.language")) localStorage.setItem("astra.language", "en"); });
+      await context.addInitScript(() => { if (!localStorage.getItem("astra.language")) localStorage.setItem("astra.language", "en"); });
     let releaseCheckout: (() => void) | undefined;
     let externalCheckoutRequests = 0;
     try {
@@ -548,6 +555,8 @@ test(
         viewport: { width: 390, height: 844 },
       }),
       page = await context.newPage();
+    await context.addInitScript(() => { if (!localStorage.getItem("astra.language")) localStorage.setItem("astra.language", "en"); });
+      await context.addInitScript(() => { if (!localStorage.getItem("astra.language")) localStorage.setItem("astra.language", "en"); });
     const errors: string[] = [];
     page.on("pageerror", (error) => errors.push(error.message));
     try {
@@ -658,8 +667,11 @@ test(
   async () => {
     const financeContext = await browser.newContext(),
       staffContext = await browser.newContext();
+    await financeContext.addInitScript(() => { if (!localStorage.getItem("astra.language")) localStorage.setItem("astra.language", "en"); });
     const finance = await financeContext.newPage(),
       staff = await staffContext.newPage();
+      await staff.addInitScript(() => { if (!localStorage.getItem("astra.language")) localStorage.setItem("astra.language", "en"); });
+    await financeContext.addInitScript(() => { if (!localStorage.getItem("astra.language")) localStorage.setItem("astra.language", "en"); });
     const errors: string[] = [];
     for (const page of [finance, staff])
       page.on("pageerror", (error) => errors.push(error.message));

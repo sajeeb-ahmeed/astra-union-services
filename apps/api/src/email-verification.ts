@@ -53,10 +53,10 @@ export async function sendEmailVerificationMessage(email: string, token: string)
   const link = emailVerificationLink(token);
   return sendEmail({
     to: email,
-    subject: "আপনার ইমেইল যাচাই করুন / Verify your email — Astra Union Services",
+    subject: "আপনার ইমেইল যাচাই করুন / Verify your email — DigitalUnion",
     text: [
-      "Astra Union Services-এ আপনার অ্যাকাউন্টের ইমেইল ঠিকানা যাচাই করতে নিচের লিংকটি খুলুন:",
-      "Open the link below to verify the email address on your Astra Union Services account:",
+      "DigitalUnion-এ আপনার অ্যাকাউন্টের ইমেইল ঠিকানা যাচাই করতে নিচের লিংকটি খুলুন:",
+      "Open the link below to verify the email address on your DigitalUnion account:",
       "",
       link,
       "",

@@ -19,7 +19,7 @@ const scoped = (req: Req, roles?: string[]) => {
 const text = (max: number, min = 1) => z.string().trim().min(min).max(max);
 const id = z.string().uuid();
 const esc = (v: unknown) => String(v ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
-const page = (title: string, body: string) => `<!doctype html><html lang="bn"><meta charset="utf-8"><style>@page{size:A4;margin:18mm}body{font:13px 'Nirmala UI','Noto Sans Bengali',Arial,sans-serif;color:#142b24;line-height:1.7}h1{font-size:23px;color:#075941}h2{font-size:17px}table{border-collapse:collapse;width:100%;table-layout:fixed}td,th{border:1px solid #cbd9d2;padding:8px;overflow-wrap:anywhere;text-align:left}tr{break-inside:avoid}.demo{border:2px solid #9d2424;padding:12px;color:#8c2222;font-weight:bold}.foot{margin-top:24px;color:#48564f}thead{display:table-header-group}</style><body><div class="demo">DEMO / NOT OFFICIAL · পরীক্ষামূলক — সরকারি নথি নয়</div><h1>${esc(title)}</h1>${body}<p class="foot">Astra · Independent demonstration copy. No official signature, seal or payment receipt.</p></body></html>`;
+const page = (title: string, body: string) => `<!doctype html><html lang="bn"><meta charset="utf-8"><style>@page{size:A4;margin:18mm}body{font:13px 'Nirmala UI','Noto Sans Bengali',Arial,sans-serif;color:#142b24;line-height:1.7}h1{font-size:23px;color:#075941}h2{font-size:17px}table{border-collapse:collapse;width:100%;table-layout:fixed}td,th{border:1px solid #cbd9d2;padding:8px;overflow-wrap:anywhere;text-align:left}tr{break-inside:avoid}.demo{border:2px solid #9d2424;padding:12px;color:#8c2222;font-weight:bold}.foot{margin-top:24px;color:#48564f}thead{display:table-header-group}</style><body><div class="demo">DEMO / NOT OFFICIAL · পরীক্ষামূলক — সরকারি নথি নয়</div><h1>${esc(title)}</h1>${body}<p class="foot">DigitalUnion · Independent demonstration copy. No official signature, seal or payment receipt.</p></body></html>`;
 const rows = (values: [string, unknown][]) => `<table>${values.map(([k,v])=>`<tr><th>${esc(k)}</th><td>${esc(v)}</td></tr>`).join("")}</table>`;
 
 export const publicToolsRouter = express.Router();
@@ -124,7 +124,7 @@ protectedToolsRouter.get("/print-requests/:id/pdf",wrap(async(req,res)=>{
   const a=scoped(req,["citizen","staff","admin"]);
   const r=await transaction(a.tenantId,async(db)=>(await db.query("SELECT p.pdf FROM print_requests p JOIN citizens c ON c.id=p.citizen_id AND c.tenant_id=p.tenant_id WHERE p.id=$1 AND p.tenant_id=$2 AND ($3::uuid IS NULL OR c.user_id=$3)",[id.parse(req.params.id),a.tenantId,a.role==="citizen"?a.userId:null])).rows[0]);
   if(!r)fail(404,"NOT_FOUND","Print copy not found.");
-  res.type("pdf").setHeader("Content-Disposition",'attachment; filename="astra-demo-copy.pdf"');res.send(r.pdf);
+  res.type("pdf").setHeader("Content-Disposition",'attachment; filename="digitalunion-demo-copy.pdf"');res.send(r.pdf);
 }));
 
 protectedToolsRouter.get("/notifications",wrap(async(req,res)=>{
@@ -159,10 +159,10 @@ protectedToolsRouter.get("/reports",wrap(async(req,res)=>{
   const csvrows=report.ledger.map((r:any)=>[r.id,r.kind,r.delta,r.balanceAfter,new Date(r.createdAt).toISOString()]);
   if(d.format==="csv"){
     const csv=[['id','kind','credits','balance_after','created_at_utc'],...csvrows].map(r=>r.map(v=>`"${String(v).replaceAll('"','""')}"`).join(',')).join('\r\n');
-    res.type("text/csv").setHeader("Content-Disposition",'attachment; filename="astra-credit-ledger.csv"');res.send('\uFEFF'+csv);return;
+    res.type("text/csv").setHeader("Content-Disposition",'attachment; filename="digitalunion-credit-ledger.csv"');res.send('\uFEFF'+csv);return;
   }
   const html=page("Credit ledger report / ক্রেডিট লেজার",`<p>Current balance: ${report.balance} credits. Range: ${esc(d.from??"start")} to ${esc(d.to??"today")} (UTC).</p><p>SaaS demo credits only. Government fees: NOT CONFIGURED.</p><table><thead><tr><th>Type</th><th>Credits</th><th>Balance</th><th>Date UTC</th></tr></thead><tbody>${report.ledger.map((r:any)=>`<tr><td>${esc(r.kind)}</td><td>${r.delta}</td><td>${r.balanceAfter}</td><td>${esc(new Date(r.createdAt).toISOString().slice(0,10))}</td></tr>`).join('')}</tbody></table>`);
-  res.type("pdf").setHeader("Content-Disposition",'attachment; filename="astra-credit-ledger.pdf"');res.send(await renderHtmlPdf(html));
+  res.type("pdf").setHeader("Content-Disposition",'attachment; filename="digitalunion-credit-ledger.pdf"');res.send(await renderHtmlPdf(html));
 }));
 
 protectedToolsRouter.get("/owner/feedback",wrap(async(req,res)=>{
@@ -175,7 +175,7 @@ protectedToolsRouter.get("/invoices/:id/pdf",wrap(async(req,res)=>{
   const r=await transaction(a.tenantId,async(db)=>(await db.query("SELECT i.id,i.order_id,i.amount_minor,i.currency,i.type,i.issued_at,o.kind,o.credits,o.status,t.name_bn,t.name_en FROM invoices i JOIN payment_orders o ON o.id=i.order_id AND o.tenant_id=i.tenant_id JOIN tenants t ON t.id=i.tenant_id WHERE i.id=$1 AND i.tenant_id=$2",[id.parse(req.params.id),a.tenantId])).rows[0]);
   if(!r)fail(404,"NOT_FOUND","Invoice not found.");
   const html=page("Sandbox SaaS invoice / পরীক্ষামূলক চালান",rows([["Invoice",r.id],["Order",r.order_id],["Office",`${r.name_bn} / ${r.name_en}`],["Type",r.kind],["Credits",r.credits],["Sandbox amount",`${r.currency} ${(r.amount_minor/100).toFixed(2)}`],["Status",r.status],["Issued UTC",new Date(r.issued_at).toISOString()]])+"<p>Local sandbox settlement only. No money collected. This is not a government fee or tax invoice.</p>");
-  res.type("pdf").setHeader("Content-Disposition",'attachment; filename="astra-sandbox-invoice.pdf"');res.send(await renderHtmlPdf(html));
+  res.type("pdf").setHeader("Content-Disposition",'attachment; filename="digitalunion-sandbox-invoice.pdf"');res.send(await renderHtmlPdf(html));
 }));
 protectedToolsRouter.patch("/owner/feedback/:id",wrap(async(req,res)=>{
   const a=identity(req);if(a.role!=="owner")fail(403,"ROLE_DENIED","Platform owner access required.");

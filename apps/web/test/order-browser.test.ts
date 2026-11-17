@@ -58,6 +58,7 @@ before(async () => {
       .map((name) => path.join(local, name, "chrome-win64", "chrome.exe")).find((file) => fs.existsSync(file));
   browser = await chromium.launch({ headless: true, executablePath });
   const context = await browser.newContext(), setup = await context.newPage();
+  await context.addInitScript(() => { if (!localStorage.getItem("astra.language")) localStorage.setItem("astra.language", "en"); });
   try {
     const ownerLogin = await setup.request.post(`${origin}/api/v1/auth/login`, { data: { email: "owner@astra.demo.test", password: "Demo-Phase1!" } });
     assert.equal(ownerLogin.status(), 200);
@@ -85,9 +86,13 @@ after(async () => { await browser?.close(); });
 
 test("order browser: explicit office fees, citizen-first quote acceptance, bilingual/mobile state and immutable fee snapshot", { timeout: 120000 }, async () => {
   const adminContext = await browser.newContext({ viewport: { width: 1440, height: 1024 } });
+  await adminContext.addInitScript(() => { if (!localStorage.getItem("astra.language")) localStorage.setItem("astra.language", "en"); });
   const citizenContext = await browser.newContext({ viewport: { width: 390, height: 844 } });
+  await citizenContext.addInitScript(() => { if (!localStorage.getItem("astra.language")) localStorage.setItem("astra.language", "en"); });
   const staffContext = await browser.newContext();
+  await staffContext.addInitScript(() => { if (!localStorage.getItem("astra.language")) localStorage.setItem("astra.language", "en"); });
   const admin = await adminContext.newPage(), citizen = await citizenContext.newPage(), staff = await staffContext.newPage();
+  await adminContext.addInitScript(() => { if (!localStorage.getItem("astra.language")) localStorage.setItem("astra.language", "en"); });
   const errors: string[] = [];
   for (const page of [admin, citizen, staff]) page.on("pageerror", (error) => errors.push(error.message));
   try {
@@ -212,6 +217,7 @@ test("order browser: explicit office fees, citizen-first quote acceptance, bilin
 
 test("order browser: delayed policy load cannot populate another service's blank fee editor", { timeout: 60000 }, async () => {
   const context = await browser.newContext(), page = await context.newPage();
+  await context.addInitScript(() => { if (!localStorage.getItem("astra.language")) localStorage.setItem("astra.language", "en"); });
   let releasePolicy: (() => void) | undefined;
   try {
     await login(page, adminEmail);
