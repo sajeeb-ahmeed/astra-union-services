@@ -55,6 +55,12 @@ import { ownerInclusionRouter, publicInclusionRouter } from "./office-inclusion.
 import { ownerWitnessRouter, publicWitnessRouter } from "./witness.js";
 import { operationsRouter } from "./operations.js";
 import { otpRouter } from "./otp.js";
+import { emailAvailable } from "./mailer.js";
+import { publicEmailRouter, emailRouter } from "./email-verification.js";
+import {
+  notifyCertificateIssued,
+  notifyApplicationRejected,
+} from "./status-notifications.js";
 import {
   ownerOfficeRegistrationRouter,
   publicOfficeRegistrationRouter,
@@ -87,6 +93,8 @@ export type Auth = {
   role: string;
   tenantId: string | null;
   csrfToken: string;
+  // Phase X: when the account's email address was confirmed (null = unverified).
+  emailVerifiedAt: string | null;
 };
 type Req = express.Request & { auth?: Auth; auditResource?: string };
 const uuid = z.string().uuid();
@@ -346,6 +354,7 @@ app.post(
 app.use(express.json({ limit: "3mb" }));
 app.use("/api/v1", attachmentScannerRouter);
 app.use("/api/v1", otpRouter);
+app.use("/api/v1", publicEmailRouter);
 app.use("/api/v1", publicOfficeRegistrationRouter);
 app.use("/api/v1", publicManagementRouter);
 app.use("/api/v1", geographyRouter);
@@ -367,6 +376,8 @@ app.get(
         signInIdentifiers: identifiersAvailable(),
         citizenIdentityNumbers: citizenDataAvailable(),
         officeMerchantCredentials: merchantSecretsAvailable(),
+        // Phase X: whether outbound email (verification + status notifications) is configured.
+        emailDelivery: emailAvailable(),
       },
     });
   }),
@@ -516,7 +527,7 @@ app.use(
       if (!token) fail(401, "LOGIN_REQUIRED", "Sign in required.");
       const result = (
         await pool.query(
-          "SELECT s.*,u.email,u.display_name,u.active,u.platform_role,m.role,m.active membership_active,t.status tenant_status FROM sessions s JOIN platform_users u ON u.id=s.user_id LEFT JOIN staff_memberships m ON m.user_id=s.user_id AND m.tenant_id=s.tenant_id LEFT JOIN tenants t ON t.id=s.tenant_id WHERE s.token_hash=$1 AND s.expires_at>now()",
+          "SELECT s.*,u.email,u.display_name,u.active,u.platform_role,u.email_verified_at,m.role,m.active membership_active,t.status tenant_status FROM sessions s JOIN platform_users u ON u.id=s.user_id LEFT JOIN staff_memberships m ON m.user_id=s.user_id AND m.tenant_id=s.tenant_id LEFT JOIN tenants t ON t.id=s.tenant_id WHERE s.token_hash=$1 AND s.expires_at>now()",
           [digest(token)],
         )
       ).rows[0];
@@ -538,6 +549,9 @@ app.use(
         role: result.role ?? result.platform_role,
         tenantId: result.tenant_id,
         csrfToken: result.csrf_token,
+        emailVerifiedAt: result.email_verified_at
+          ? new Date(result.email_verified_at).toISOString()
+          : null,
       };
       if (!["GET", "HEAD", "OPTIONS"].includes(req.method)) {
         if (req.header("X-CSRF-Token") !== result.csrf_token)
@@ -549,6 +563,7 @@ app.use(
   },
 );
 app.use("/api/v1", managementRouter);
+app.use("/api/v1", emailRouter);
 app.use("/api/v1", mfaRouter);
 app.use("/api/v1", identifierRouter);
 app.use("/api/v1", ownerOfficeRegistrationRouter);
@@ -574,6 +589,9 @@ app.get(
         displayName: a.displayName,
         role: a.role,
         tenantId: a.tenantId,
+        // Phase X: whether the account's email address has been verified (never a sign-in gate).
+        emailVerified: a.emailVerifiedAt !== null,
+        emailVerifiedAt: a.emailVerifiedAt,
       },
       tenant: a.tenantId
         ? camelRow(
@@ -1602,6 +1620,13 @@ async function approveAndIssue(req: Req, a: Auth, id: string) {
     const application = await transaction(a.tenantId!, async (db) =>
       camelRow(await loadApplication(db, id, a)),
     );
+    // Phase X: the issuance has committed — tell the citizen by email and status SMS too
+    // (the in-app issuance notification was written inside finalizeIssuance).
+    await notifyCertificateIssued({
+      tenantId: a.tenantId!,
+      applicationId: id,
+      certificateNumber: number,
+    });
     return { ...application, certificate };
   } catch (error) {
     if (error instanceof ApiError && ISSUANCE_GATE_CODES.has(error.code))
@@ -1751,6 +1776,14 @@ app.post(
         );
       return camelRow(updated);
     });
+    // Phase X: a rejection also reaches the citizen by email and status SMS (the in-app
+    // notification with the reason was written inside the transaction above).
+    if (data.action === "reject")
+      await notifyApplicationRejected({
+        tenantId: a.tenantId!,
+        applicationId: String(req.params.id),
+        reason: data.reason!,
+      });
     res.json(result);
   }),
 );
@@ -1802,6 +1835,12 @@ app.post(
         testFailure: req.header("X-Test-Failure"),
       },
     );
+    // Phase X: email + status SMS to the citizen now that the completion issuance committed.
+    await notifyCertificateIssued({
+      tenantId: a.tenantId!,
+      applicationId: id,
+      certificateNumber: number,
+    });
     res.status(201).json(result);
   }),
 );

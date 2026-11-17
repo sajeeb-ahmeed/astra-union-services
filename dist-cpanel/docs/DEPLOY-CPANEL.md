@@ -94,6 +94,13 @@ template instructs. The critical ones:
   `503 OTP_UNAVAILABLE` and citizens cannot verify a mobile number at
   sign-up. The `log` provider writes each code to the server log only (no
   SMS reaches a handset); replace it when a real SMS provider is integrated.
+- `EMAIL_PROVIDER=log` — **do not leave this unset either.** In production an
+  unset `EMAIL_PROVIDER` disables email entirely: registration completes
+  without a verification message and no issuance/rejection email is sent
+  (`/api/v1/auth/email/status` reports `available:false`; health reports
+  `emailDelivery:false`). The `log` provider writes each message to the
+  server log only; set `EMAIL_PROVIDER=smtp` with the `SMTP_*` values for
+  real delivery through the owner's mail account.
 
 ## 5. Initialise the database (once)
 
