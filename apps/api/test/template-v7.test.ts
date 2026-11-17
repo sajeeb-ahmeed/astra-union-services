@@ -1,6 +1,10 @@
 import test, { before, after } from "node:test";
 import assert from "node:assert/strict";
+import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
 import { fileURLToPath } from "node:url";
 import { demoPayloads, getServiceSchema } from "@astra/shared-schemas";
 import {
@@ -295,21 +299,24 @@ test("v7 attestation fixes (owner review 17 Nov): income fallbacks, remarriage w
   });
   assert.ok(monthlyEn.includes("Monthly income is as stated in the application."));
 
-  // Service 13 (remarriage, EN): "remarried to <name>".
+  // Service 13 (remarriage, EN): "remarried to <name>". The payload carries
+  // the schema-produced key (application_husband_name), as the live flow does.
   const remarriage = render({
     number: "DEMO-2026-R13",
     service: { service_no: 13, name_bn: "পুনঃবিবাহ সনদ", name_en: "Remarriage certificate" },
-    payload: { delivery_language: "en", application_husband_name_en: "Karim Uddin" },
+    payload: { delivery_language: "en", application_husband_name: "Karim Uddin" },
     schema: getServiceSchema(13),
   });
   assert.ok(remarriage.includes("The person has remarried to Karim Uddin."));
   assert.ok(!remarriage.includes("has remarried Karim"));
 
-  // Service 6 (electricity): mouza only — no empty khatiyan/daag slots.
+  // Service 6 (electricity): the clause reads the schema-produced
+  // electricity_connection_* keys (LIVEQA2 finding 1 — bare mouza/khatiyan/daag
+  // are never produced, so the clause silently never printed live).
   const elecBn = render({
     number: "DEMO-2026-E6",
     service: { service_no: 6, name_bn: "বিদ্যুৎ সংযোগ অনাপত্তি", name_en: "Electricity connection NOC" },
-    payload: { delivery_language: "bn", mouza: "বেলাবো" },
+    payload: { delivery_language: "bn", electricity_connection_mouza_name_bn: "বেলাবো" },
     schema: getServiceSchema(6),
   });
   assert.ok(elecBn.includes("মৌজাঃ বেলাবো"));
@@ -318,7 +325,7 @@ test("v7 attestation fixes (owner review 17 Nov): income fallbacks, remarriage w
   const elecEn = render({
     number: "DEMO-2026-E6E",
     service: { service_no: 6, name_bn: "বিদ্যুৎ সংযোগ অনাপত্তি", name_en: "Electricity connection NOC" },
-    payload: { delivery_language: "en", mouza: "Belabo" },
+    payload: { delivery_language: "en", electricity_connection_mouza_name: "Belabo" },
     schema: getServiceSchema(6),
   });
   assert.ok(elecEn.includes("Mouza: Belabo"));
@@ -328,11 +335,44 @@ test("v7 attestation fixes (owner review 17 Nov): income fallbacks, remarriage w
   const elecFull = render({
     number: "DEMO-2026-E6F",
     service: { service_no: 6, name_bn: "বিদ্যুৎ সংযোগ অনাপত্তি", name_en: "Electricity connection NOC" },
-    payload: { delivery_language: "bn", mouza: "বেলাবো", khatiyan: "123", daag: "456" },
+    payload: {
+      delivery_language: "bn",
+      electricity_connection_mouza_name_bn: "বেলাবো",
+      electricity_connection_khatiyan_no: "123",
+      electricity_connection_daag_no: "456",
+    },
     schema: getServiceSchema(6),
   });
   assert.ok(elecFull.includes("খতিয়ান নংঃ ১২৩"));
   assert.ok(elecFull.includes("দাগ নংঃ ৪৫৬"));
+
+  // Service 20 (freedom fighter): the ID/gazette segments read the
+  // schema-produced freedom_fighter_* keys (same key-mapping class as S6 —
+  // ff_id_no/gazette_no are never produced, so the segments never printed).
+  const ffBn = render({
+    number: "DEMO-2026-F20",
+    service: { service_no: 20, name_bn: "মুক্তিযোদ্ধা সনদ", name_en: "Freedom fighter certificate" },
+    payload: {
+      delivery_language: "bn",
+      freedom_fighter_id_number: "778899",
+      freedom_fighter_gazette_number: "4455",
+    },
+    schema: getServiceSchema(20),
+  });
+  assert.ok(ffBn.includes("মুক্তিযোদ্ধা পরিচিতি নংঃ ৭৭৮৮৯৯"));
+  assert.ok(ffBn.includes("গেজেট নংঃ ৪৪৫৫"));
+  const ffEn = render({
+    number: "DEMO-2026-F20E",
+    service: { service_no: 20, name_bn: "মুক্তিযোদ্ধা সনদ", name_en: "Freedom fighter certificate" },
+    payload: {
+      delivery_language: "en",
+      freedom_fighter_id_number: "778899",
+      freedom_fighter_gazette_number: "4455",
+    },
+    schema: getServiceSchema(20),
+  });
+  assert.ok(ffEn.includes("Freedom fighter ID no: 778899."));
+  assert.ok(ffEn.includes("Gazette no: 4455."));
 });
 
 test("template 6 remains selectable and byte-stable in shape", () => {
@@ -409,6 +449,80 @@ test("issued certificates are template 7 and verify by printed number (Latin and
   assert.equal(byBnNumber.body.status, "ISSUED");
   const missing = await req("GET", "/verify/by-number/DEMO-1999-NOSUCH");
   assert.equal(missing.status, 404);
+});
+
+/* Real-flow regression (LIVEQA2 finding 1): service 6 submitted through the
+ * API with the schema-produced electricity_connection_* keys must print the
+ * land-details clause on the ISSUED PDF — the template previously read bare
+ * mouza/khatiyan/daag keys the form never produces, so the clause was dead. */
+const execFileAsync = promisify(execFile);
+async function issuedPdfText(certificateId: string): Promise<string> {
+  const s = sessions["staff"]!;
+  const response = await fetch(`${base}/api/v1/certificates/${certificateId}/pdf`, {
+    headers: { Cookie: s.cookie },
+  });
+  assert.equal(response.status, 200);
+  const pdf = Buffer.from(await response.arrayBuffer());
+  assert.equal(pdf.subarray(0, 5).toString(), "%PDF-");
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "v7-s6-"));
+  const file = path.join(dir, "certificate.pdf");
+  fs.writeFileSync(file, pdf);
+  const { stdout } = await execFileAsync("pdftotext", [file, "-"]);
+  return stdout.replace(/\s+/g, " ");
+}
+async function issueElectricity(payload: Record<string, unknown>): Promise<string> {
+  const citizenId = (await req("GET", "/citizens", undefined, "citizen")).body.items[0].id;
+  const created = await req("POST", "/applications", { citizenId, serviceNo: 6, payload }, "staff");
+  assert.equal(created.status, 201, JSON.stringify(created.body));
+  const id = created.body.id as string;
+  const submitted = await req("POST", `/applications/${id}/transition`, { action: "submit" }, "staff");
+  assert.equal(submitted.status, 200, JSON.stringify(submitted.body));
+  const approved = await req("POST", `/applications/${id}/transition`, { action: "approve" }, "approver");
+  assert.equal(approved.status, 200, JSON.stringify(approved.body));
+  assert.equal(approved.body.certificate.templateVersion, 7);
+  return approved.body.certificate.id as string;
+}
+
+test("service 6 issued via the API prints the land clause from the schema keys (BN)", async () => {
+  const full = await issueElectricity({
+    ...demoPayloads[6],
+    delivery_language: "bn",
+    electricity_connection_mouza_name_bn: "বেলাবো",
+    electricity_connection_mouza_name: "Belabo",
+    electricity_connection_khatiyan_no: "123",
+    electricity_connection_daag_no: "456",
+  });
+  const fullText = await issuedPdfText(full);
+  assert.ok(fullText.includes("জমির বিবরণঃ মৌজাঃ বেলাবো"), "land clause prints the mouza");
+  assert.ok(fullText.includes("খতিয়ান নংঃ ১২৩"), "land clause prints the khatiyan number");
+  assert.ok(fullText.includes("দাগ নংঃ ৪৫৬"), "land clause prints the daag number");
+
+  // A mouza-only application cannot exist through the live form: khatiyan and
+  // daag are REQUIRED schema fields, so omitting them is a 422 before any
+  // certificate can issue. The conditional no-empty-slot rendering is pinned
+  // at render level in the attestation-fixes test above (defence for payloads
+  // that arrive without the sub-values by any other path).
+  const mouzaOnlyPayload: Record<string, unknown> = {
+    ...demoPayloads[6],
+    delivery_language: "bn",
+    electricity_connection_mouza_name_bn: "বেলাবো",
+    electricity_connection_mouza_name: "Belabo",
+  };
+  delete mouzaOnlyPayload.electricity_connection_khatiyan_no;
+  delete mouzaOnlyPayload.electricity_connection_daag_no;
+  const citizenId = (await req("GET", "/citizens", undefined, "citizen")).body.items[0].id;
+  const rejected = await req(
+    "POST",
+    "/applications",
+    { citizenId, serviceNo: 6, payload: mouzaOnlyPayload },
+    "staff",
+  );
+  assert.equal(rejected.status, 422, JSON.stringify(rejected.body));
+  const requiredPaths = (rejected.body.error.issues as { path: string; code: string }[])
+    .filter((i) => i.code === "required")
+    .map((i) => i.path);
+  assert.ok(requiredPaths.includes("electricity_connection_khatiyan_no"));
+  assert.ok(requiredPaths.includes("electricity_connection_daag_no"));
 });
 
 test("official mode issues production numbers with no DEMO- prefix", async () => {
