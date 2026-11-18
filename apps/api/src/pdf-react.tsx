@@ -20,6 +20,8 @@ import {
   ATTESTATIONS_BN,
   ATTESTATIONS_EN,
   FORM_SERVICES,
+  amountInWordsBn,
+  amountInWordsEn,
   bnDigits,
   bnDate,
   bnDateIso,
@@ -39,10 +41,7 @@ import {
   selectLabel,
   type DocContext,
 } from "./certificate-template-v7.js";
-import {
-  governmentEmblemDataUrl,
-  officeSealDataUrls,
-} from "./template-assets.js";
+import { governmentEmblemDataUrl } from "./template-assets.js";
 import {
   CERT_BENGALI_FAMILY,
   CERT_LATIN_FAMILY,
@@ -60,9 +59,16 @@ import {
  * (template-assets.ts), and produces the same document structure — header with
  * government emblem, office name/address, document title, number/date line,
  * the paragraph / deceased / generic-form / trade-licence bodies, the chairman
- * signature block, the QR + verification footer, the office seal watermark and
- * the double-rule frame. The Chromium renderer remains the default engine
- * (PDF_ENGINE in pdf.ts); this module renders only when PDF_ENGINE=react-pdf.
+ * signature block, the QR + verification footer, the government-emblem
+ * watermark and the double-rule frame. The Chromium renderer remains the
+ * default engine (PDF_ENGINE in pdf.ts); this module renders only when
+ * PDF_ENGINE=react-pdf.
+ *
+ * CERTNO-01: this twin carries the same redesign as the HTML template — the
+ * 16-digit number in a one-digit-per-box strip, the emblem (not the office
+ * seal) as the centre watermark, the citizen photo printed only when one is
+ * on file, and the service 1 / 41 / 46 layouts (receipt, premises licence,
+ * transport card) beside the shared attestation corpus updates.
  *
  * Deliberate differences from the HTML twin, all forced by the engine:
  *  - Text is set through the explicit font policy in certificate-fonts.ts
@@ -199,6 +205,80 @@ const styles = StyleSheet.create({
 });
 
 /* ---------- shared blocks ---------- */
+
+/**
+ * CERTNO-01: the certificate number one digit per box (the HTML twin's
+ * .numstrip). Applies when the number (after an optional DEMO- marker) is
+ * exactly 16 digits; any other stored number prints as plain text.
+ */
+function NumberDisplay({
+  number,
+  bn,
+  base,
+  small = false,
+}: {
+  number: string;
+  bn: boolean;
+  base: CertFamily;
+  small?: boolean;
+}) {
+  const match = /^(DEMO-)?(\d{16})$/.exec(number);
+  if (!match)
+    return (
+      <Text>
+        <Runs segs={[seg(bn ? bnDigits(number) : latinDigits(number))]} base={base} bold />
+      </Text>
+    );
+  const boxW = (small ? 3.6 : 5) * MM;
+  const boxH = (small ? 4.6 : 6.2) * MM;
+  const fontSize = px(small ? 9 : 12.5);
+  return (
+    <View style={{ flexDirection: "row", alignItems: "center" }}>
+      {match[1] ? (
+        <Text style={{ fontWeight: 700, marginRight: 1.5 * MM }}>
+          <Runs segs={[seg("DEMO-")]} base={base} bold />
+        </Text>
+      ) : null}
+      <View style={{ flexDirection: "row" }}>
+        {match[2]!.split("").map((d, i) => (
+          <View
+            key={i}
+            style={{
+              width: boxW,
+              height: boxH,
+              borderWidth: 0.5,
+              borderColor: "#333",
+              alignItems: "center",
+              justifyContent: "center",
+              marginLeft: i === 0 ? 0 : 1 * MM,
+            }}
+          >
+            <Text style={{ fontSize, fontWeight: 700, lineHeight: 1 }}>
+              <Runs segs={[seg(bn ? bnDigits(d) : d)]} base={base} bold />
+            </Text>
+          </View>
+        ))}
+      </View>
+    </View>
+  );
+}
+
+/** CERTNO-01: the citizen photo — rendered only when one is on file. */
+function CitizenPhoto({
+  ctx,
+  style,
+}: {
+  ctx: DocContext;
+  style?: Style;
+}) {
+  if (!ctx.input.citizenPhoto) return null;
+  return (
+    <Image
+      src={ctx.input.citizenPhoto}
+      style={[{ width: 26 * MM, height: 32 * MM, objectFit: "cover" }, style ?? {}]}
+    />
+  );
+}
 
 function HeaderBlock({
   ctx,
@@ -425,28 +505,50 @@ function deceasedBody(ctx: DocContext, serviceNo: number, base: CertFamily) {
       if (present(registerNo)) sentences.push(`Registration no: ${text(registerNo)}.`);
     }
   }
+  if (serviceNo === 31) {
+    // CERTNO-01 catalog §31: the applicant is identified with their relation
+    // to the deceased (mirrors the HTML template).
+    const applicant = bn ? input.citizen.full_name_bn : input.citizen.full_name_en;
+    const relation = selectLabel(
+      input.schema ?? getServiceSchema(31),
+      "dead_info_relation",
+      undefined,
+      p.dead_info_relation,
+      bn,
+    );
+    sentences.push(
+      bn
+        ? `আবেদনকারী ${text(applicant)}${present(relation) ? ` মৃতের ${relation}` : ""}।`
+        : `The applicant, ${text(applicant)}, is the ${relation || "relative"} of the deceased.`,
+    );
+  }
   let table: React.ReactNode = null;
   if (serviceNo === 3 || serviceNo === 4) {
     const heirs = Array.isArray(p.heirs) ? (p.heirs as Record<string, unknown>[]) : [];
-    const rows = heirs.map((h, i) => [
-      bn ? bnDigits(i + 1) : String(i + 1),
-      text(bn ? h.warish_heir_name_bn : h.warish_heir_name),
-      text(h.warish_heir_relation),
-      bn ? bnDigits(h.warish_heir_dob) : text(h.warish_heir_dob),
-      text(h.warish_heir_father_name),
-    ]);
-    table = (
-      <DataTable
-        headers={
-          bn
-            ? ["ক্রমিক", "ওয়ারিশের নাম", "সম্পর্ক", "জন্ম তারিখ", "পিতার নাম"]
-            : ["Sl", "Heir's name", "Relation", "Date of birth", "Father's name"]
-        }
-        rows={rows}
-        flexes={[0.5, 1.6, 1, 1, 1.2]}
-        base={base}
-      />
-    );
+    const schema = input.schema ?? getServiceSchema(serviceNo);
+    const withNid = heirs.some((h) => present(h.warish_heir_nid));
+    const withMobile = heirs.some((h) => present(h.warish_heir_mobile_no));
+    const rows = heirs.map((h, i) => {
+      const row = [
+        bn ? bnDigits(i + 1) : String(i + 1),
+        text(bn ? h.warish_heir_name_bn : h.warish_heir_name),
+        selectLabel(schema, "heirs", "warish_heir_relation", h.warish_heir_relation, bn),
+        bn ? bnDigits(h.warish_heir_dob) : text(h.warish_heir_dob),
+        text(h.warish_heir_father_name),
+      ];
+      if (withNid) row.push(bn ? bnDigits(h.warish_heir_nid) : text(h.warish_heir_nid));
+      if (withMobile) row.push(bn ? bnDigits(h.warish_heir_mobile_no) : text(h.warish_heir_mobile_no));
+      return row;
+    });
+    const headers = bn
+      ? ["ক্রমিক", "ওয়ারিশের নাম", "সম্পর্ক", "জন্ম তারিখ", "পিতার নাম"]
+      : ["Sl", "Heir's name", "Relation", "Date of birth", "Father's name"];
+    if (withNid) headers.push(bn ? "জাতীয় পরিচয়পত্র নম্বর" : "NID No");
+    if (withMobile) headers.push(bn ? "মোবাইল নম্বর" : "Mobile No");
+    const flexes = [0.5, 1.6, 1, 1, 1.2];
+    if (withNid) flexes.push(1.2);
+    if (withMobile) flexes.push(1);
+    table = <DataTable headers={headers} rows={rows} flexes={flexes} base={base} />;
     sentences.push(
       bn
         ? serviceNo === 4
@@ -480,6 +582,48 @@ function paragraphBody(ctx: DocContext, serviceNo: number, base: CertFamily) {
       <>
         <Para segs={[seg(body)]} base={base} style={styles.bodyPara} />
         {footer ? <Para segs={[seg(footer)]} base={base} style={styles.freeFooter} /> : null}
+      </>
+    );
+  }
+  if (serviceNo === 27) {
+    // CERTNO-01 (owner decision D5): the passport recommendation LETTER.
+    const purpose = text(p.passport_purpose);
+    const closing = bn
+      ? "আমি তাহার উজ্জ্বল ভবিষ্যৎ ও সর্বাঙ্গীণ মঙ্গল কামনা করছি।"
+      : "I wish the person every success and prosperity.";
+    const letterSegs: Seg[] = bn
+      ? [
+          seg("এই মর্মে সুপারিশ করা যাইতেছে যে, "),
+          ...identitySegs(ctx),
+          seg(", তাহার "),
+          seg("স্থায়ী ঠিকানাঃ-", true),
+          seg(` ${permanentAddress(ctx)}। `),
+          seg("বর্তমান ঠিকানাঃ-", true),
+          seg(` ${presentAddress(ctx)}। তিনি পাসপোর্টের জন্য আবেদন করিয়াছেন${purpose ? ` (উদ্দেশ্যঃ ${purpose})` : ""}। তাহার বিরুদ্ধে কোনো ফৌজদারি অভিযোগ জানা নাই। তাহাকে পাসপোর্ট প্রদানে এই কার্যালয়ের কোনো আপত্তি নাই।`),
+        ]
+      : [
+          seg("This is to recommend that "),
+          ...identitySegs(ctx),
+          seg(", whose "),
+          seg("permanent address is:", true),
+          seg(` ${permanentAddress(ctx)}. `),
+          seg("Present address:", true),
+          seg(` ${presentAddress(ctx)}. The person has applied for a passport${purpose ? ` (purpose: ${purpose})` : ""}. No criminal complaint is known against the person. This office has no objection to a passport being issued to the person.`),
+        ];
+    return (
+      <>
+        <Para
+          segs={[seg(bn ? "বরাবর,\nসহকারী পরিচালক,\nআঞ্চলিক পাসপোর্ট অফিস।" : "To,\nThe Assistant Director,\nRegional Passport Office.")]}
+          base={base}
+          style={styles.bodyPara}
+        />
+        <Para
+          segs={[seg(bn ? "বিষয়ঃ পাসপোর্ট প্রদানের সুপারিশ।" : "Subject: Recommendation for passport issuance.", true)]}
+          base={base}
+          style={styles.bodyPara}
+        />
+        <Para segs={letterSegs} base={base} style={styles.bodyPara} />
+        <Para segs={[seg(closing)]} base={base} style={styles.closing} />
       </>
     );
   }
@@ -539,24 +683,24 @@ function paragraphBody(ctx: DocContext, serviceNo: number, base: CertFamily) {
   if (serviceNo === 2) {
     const members = Array.isArray(p.members) ? (p.members as Record<string, unknown>[]) : [];
     const schema = input.schema ?? getServiceSchema(2);
-    const rows = members.map((m, i) => [
-      bn ? bnDigits(i + 1) : String(i + 1),
-      text(bn ? m.name_bn : m.name_en),
-      selectLabel(schema, "members", "relationship", m.relationship, bn),
-      bn ? bnDigits(m.dob) : text(m.dob),
-    ]);
-    table = (
-      <DataTable
-        headers={
-          bn
-            ? ["ক্রমিক", "সদস্যের নাম", "সম্পর্ক", "জন্ম তারিখ"]
-            : ["Sl", "Member name", "Relationship", "Date of birth"]
-        }
-        rows={rows}
-        flexes={[0.5, 1.6, 1, 1]}
-        base={base}
-      />
-    );
+    const withId = members.some((m) => present(m.warish_heir_nid));
+    const rows = members.map((m, i) => {
+      const row = [
+        bn ? bnDigits(i + 1) : String(i + 1),
+        text(bn ? m.name_bn : m.name_en),
+        selectLabel(schema, "members", "relationship", m.relationship, bn),
+        bn ? bnDigits(m.dob) : text(m.dob),
+      ];
+      if (withId) row.push(bn ? bnDigits(m.warish_heir_nid) : text(m.warish_heir_nid));
+      return row;
+    });
+    const headers = bn
+      ? ["ক্রমিক", "সদস্যের নাম", "সম্পর্ক", "জন্ম তারিখ"]
+      : ["Sl", "Member name", "Relationship", "Date of birth"];
+    if (withId) headers.push(bn ? "জাতীয় পরিচয়পত্র নম্বর" : "NID No");
+    const flexes = [0.5, 1.6, 1, 1];
+    if (withId) flexes.push(1.2);
+    table = <DataTable headers={headers} rows={rows} flexes={flexes} base={base} />;
   }
   const closing = bn
     ? "আমি তাহার উজ্জ্বল ভবিষ্যৎ ও সর্বাঙ্গীণ মঙ্গল কামনা করছি।"
@@ -698,6 +842,157 @@ function genericFormBody(ctx: DocContext, base: CertFamily) {
             />
           </Text>
         </View>
+      ) : null}
+    </View>
+  );
+}
+
+/* ---------- CERTNO-01 form layouts: receipt (1), premises licence (41), transport card (46) ---------- */
+
+function FormMetaLine({ ctx, base }: { ctx: DocContext; base: CertFamily }) {
+  const { bn, issued } = ctx;
+  return (
+    <View style={styles.numline}>
+      <View style={{ flexDirection: "row", alignItems: "center" }}>
+        <Text style={{ marginRight: 2 * MM }}>
+          <Runs segs={[seg(bn ? "নং:-" : "No:")]} base={base} bold />
+        </Text>
+        <NumberDisplay number={ctx.input.number} bn={bn} base={base} />
+      </View>
+      <Text>
+        <Runs
+          segs={[seg(`${bn ? "তারিখ:-" : "Date:"} ${bn ? bnDate(issued) : enDate(issued)}`)]}
+          base={base}
+          bold
+        />
+      </Text>
+    </View>
+  );
+}
+
+function taxReceiptBody(ctx: DocContext, base: CertFamily) {
+  const { input, bn } = ctx;
+  const p = input.payload;
+  const totalTaka = input.order ? Number(input.order.totalMinor) / 100 : null;
+  const totalFig = totalTaka !== null ? totalTaka.toLocaleString("en-IN") : "";
+  const totalWords =
+    totalTaka !== null ? (bn ? amountInWordsBn(totalTaka) : amountInWordsEn(totalTaka)) : "";
+  const field = (label: string, value: string) => ({ label, value });
+  const fields = [
+    field(bn ? "করদাতার নাম" : "Taxpayer", bn ? input.citizen.full_name_bn : input.citizen.full_name_en),
+    field(bn ? "হোল্ডিং নম্বর" : "Holding No", bn ? bnDigits(p.holding_reference) : text(p.holding_reference)),
+    field(bn ? "সম্পত্তির বিবরণ" : "Property description", text(p.property_description)),
+  ];
+  const rows =
+    present(p.tax_year) || totalTaka !== null
+      ? [
+          [
+            bn ? bnDigits(p.tax_year) : text(p.tax_year),
+            totalTaka !== null ? (bn ? bnDigits(totalFig) : totalFig) : "",
+            totalTaka !== null ? (bn ? bnDigits(totalFig) : totalFig) : "",
+          ],
+          [bn ? "সর্বমোট" : "Total", "", totalTaka !== null ? (bn ? bnDigits(totalFig) : totalFig) : ""],
+        ]
+      : [];
+  return (
+    <View style={gfStyles.wrap}>
+      <FormMetaLine ctx={ctx} base={base} />
+      {fields.map((f, i) => (
+        <GFieldRow key={i} field={f} base={base} />
+      ))}
+      <DataTable
+        headers={
+          bn
+            ? ["করের বছর", "ধার্যকৃত কর (টাকা)", "আদায়কৃত (টাকা)"]
+            : ["Tax year", "Assessed tax (BDT)", "Collected (BDT)"]
+        }
+        rows={rows}
+        flexes={[1, 1, 1]}
+        base={base}
+      />
+      {totalTaka !== null ? (
+        <Para
+          segs={[seg(bn ? `কথায়ঃ ${totalWords} টাকা মাত্র।` : `In words: ${totalWords} Taka only.`)]}
+          base={base}
+          style={{ marginTop: 3 * MM }}
+        />
+      ) : null}
+    </View>
+  );
+}
+
+function premisesLicenceBody(ctx: DocContext, base: CertFamily) {
+  const { input, bn, issued } = ctx;
+  const p = input.payload;
+  const fy = fiscalYear(issued);
+  const orgGeo = input.geographyNames?.["org_location"];
+  const total = input.order ? money(input.order.totalMinor) : "";
+  const fields: GField[] = [
+    { label: bn ? "লাইসেন্সধারী" : "Licensee", value: text(bn ? p.primises_license_proprietor_bn : p.primises_license_proprietor) },
+    { label: bn ? "প্রতিষ্ঠানের নাম" : "Establishment", value: text(bn ? p.primises_license_org_name_bn : p.primises_license_org_name) },
+    { label: bn ? "প্রতিষ্ঠানের ধরণ" : "Business type", value: text(bn ? p.primises_license_org_type_bn : p.primises_license_org_type) },
+    { label: bn ? "প্রাঙ্গণের ঠিকানা" : "Premises address", value: text(bn ? p.primises_license_org_area_holding_bn : p.primises_license_org_area_holding) },
+    ...(orgGeo ? [{ label: bn ? "এলাকা" : "Area", value: orgGeo[bn ? "bn" : "en"] }] : []),
+    { label: bn ? "মূলধন (টাকা)" : "Capital (BDT)", value: bn ? bnDigits(p.primises_license_capital) : text(p.primises_license_capital) },
+    { label: bn ? "টিআইএন" : "TIN", value: bn ? bnDigits(p.primises_license_tin_no) : text(p.primises_license_tin_no) },
+    { label: bn ? "ওয়ার্ড নং" : "Ward No", value: bn ? bnDigits(p.primises_license_org_ward_no) : text(p.primises_license_org_ward_no) },
+    ...(total ? [{ label: bn ? "সর্বমোট ফি (টাকা)" : "Total fee (BDT)", value: bn ? bnDigits(total) : total }] : []),
+  ];
+  return (
+    <View style={gfStyles.wrap}>
+      <FormMetaLine ctx={ctx} base={base} />
+      {fields.map((f, i) => (
+        <GFieldRow key={i} field={f} base={base} />
+      ))}
+      <Para
+        segs={[
+          seg(
+            bn
+              ? `মেয়াদঃ ${bnDigits(fy.start)} সালের ১লা জুলাই হইতে ${bnDigits(fy.end)} সালের ৩০শে জুন পর্যন্ত।`
+              : `Validity: 1 July ${fy.start} to 30 June ${fy.end}.`,
+          ),
+        ]}
+        base={base}
+        style={{ marginTop: 3 * MM }}
+      />
+    </View>
+  );
+}
+
+function transportCardBody(ctx: DocContext, qrDataUrl: string, base: CertFamily) {
+  const { input, bn } = ctx;
+  const p = input.payload;
+  const line = (label: string, value: string) =>
+    value ? (
+      <View style={{ flexDirection: "row" }}>
+        <Text style={{ fontWeight: 700 }}>
+          <Runs segs={[seg(label)]} base={base} bold />
+        </Text>
+        <Text>
+          <Runs segs={[seg(`: ${value}`)]} base={base} />
+        </Text>
+      </View>
+    ) : null;
+  return (
+    <View style={{ flexDirection: "row", alignItems: "flex-start" }}>
+      <Image src={qrDataUrl} style={{ width: 17 * MM, height: 17 * MM }} />
+      <View style={{ flex: 1, marginLeft: 3 * MM, fontSize: px(9.5), lineHeight: 1.45 }}>
+        <Text style={{ fontWeight: 700, fontSize: px(10.5) }}>
+          <Runs segs={[seg(ctx.officeName)]} base={base} bold />
+        </Text>
+        <Text style={{ fontWeight: 700 }}>
+          <Runs segs={[seg(bn ? input.service.name_bn : input.service.name_en)]} base={base} bold />
+        </Text>
+        {line(bn ? "লাইসেন্স নং" : "Licence No", bn ? bnDigits(p.transport_license_no) : text(p.transport_license_no))}
+        {line(bn ? "যানবাহন" : "Vehicle", text(bn ? p.transport_license_transport_name_bn : p.transport_license_transport_name))}
+        {line(bn ? "ইঞ্জিন নং" : "Engine No", bn ? bnDigits(p.engine_no) : text(p.engine_no))}
+        {line(bn ? "মালিক" : "Proprietor", text(bn ? input.citizen.full_name_bn : input.citizen.full_name_en))}
+        <View style={{ marginTop: 1 * MM }}>
+          <NumberDisplay number={input.number} bn={bn} base={base} small />
+        </View>
+      </View>
+      {input.citizenPhoto ? (
+        <Image src={input.citizenPhoto} style={{ width: 16 * MM, height: 20 * MM, objectFit: "cover" }} />
       ) : null}
     </View>
   );
@@ -936,11 +1231,21 @@ function tradeLicenceBody(
           <Text style={tlStyles.docTitle}>
             <Runs segs={[seg(bn ? input.service.name_bn : input.service.name_en)]} base={base} bold />
           </Text>
-          <Text style={tlStyles.tlNo}>
-            <Runs segs={[seg(`${labels.noLabel}: ${ctx.numberDisplay}`)]} base={base} bold />
-          </Text>
+          <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "center", marginTop: 1.5 * MM }}>
+            <Text style={{ fontWeight: 700, marginRight: 2 * MM }}>
+              <Runs segs={[seg(`${labels.noLabel}:`)]} base={base} bold />
+            </Text>
+            <NumberDisplay number={input.number} bn={bn} base={base} />
+          </View>
         </View>
-        <View style={tlStyles.spacer} />
+        {input.citizenPhoto ? (
+          <Image
+            src={input.citizenPhoto}
+            style={{ width: 19 * MM, height: 24 * MM, objectFit: "cover" }}
+          />
+        ) : (
+          <View style={tlStyles.spacer} />
+        )}
       </View>
       <View style={tlStyles.issue}>
         <Text style={{ fontWeight: 700 }}>
@@ -1071,6 +1376,8 @@ function pngSize(dataUrl: string): { w: number; h: number } | null {
 const PAGE_POINTS: Record<string, { w: number; h: number }> = {
   A4: { w: 595.28, h: 841.89 },
   Letter: { w: 612, h: 792 },
+  // CERTNO-01: the service-46 transport card (86mm × 54mm, already landscape).
+  "86mm 54mm": { w: 86 * MM, h: 54 * MM },
 };
 
 function CertificateDocument({
@@ -1085,40 +1392,46 @@ function CertificateDocument({
   const serviceNo = input.service.service_no ?? 0;
   const format = certificatePageFormat(serviceNo);
   const isTrade = serviceNo === 42;
+  const isCard = serviceNo === 46;
   const base: CertFamily = bn ? CERT_BENGALI_FAMILY : CERT_LATIN_FAMILY;
   const emblemUrl = ctx.official ? governmentEmblemDataUrl() : null;
-  const seal = ctx.official
-    ? officeSealDataUrls(input.tenant.id)
-    : { seal: null, watermark: null };
   const title =
     serviceNo === 47
       ? text(bn ? input.payload.certificate_type_bn : input.payload.certificate_type_en) ||
         (bn ? input.service.name_bn : input.service.name_en)
-      : bn
-        ? input.service.name_bn
-        : input.service.name_en;
+      : serviceNo === 35
+        ? // CERTNO-01 (owner decision D2): the combined title.
+          bn
+          ? "নাগরিকত্ব ও চারিত্রিক সনদপত্র"
+          : "Citizenship and Character Certificate"
+        : bn
+          ? input.service.name_bn
+          : input.service.name_en;
 
   const dims = PAGE_POINTS[format.size]!;
-  const pageW = format.orientation === "landscape" ? dims.h : dims.w;
-  const pageH = format.orientation === "landscape" ? dims.w : dims.h;
-  const margin = (isTrade ? 8 : 11) * MM;
+  const explicitSize = format.size.includes("mm");
+  const pageW = explicitSize ? dims.w : format.orientation === "landscape" ? dims.h : dims.w;
+  const pageH = explicitSize ? dims.h : format.orientation === "landscape" ? dims.w : dims.h;
+  const margin = (isCard ? 3 : isTrade ? 8 : 11) * MM;
 
+  // CERTNO-01: the centre watermark is the Government of Bangladesh emblem,
+  // large and faint — the office seal is not printed anywhere.
   let sealNode: React.ReactNode = null;
-  if (seal.watermark) {
-    const widthMm = format.orientation === "landscape" ? 92 : 80;
-    const width = widthMm * MM;
-    const size = pngSize(seal.watermark);
+  if (emblemUrl && !isCard) {
+    const width = 105 * MM;
+    const size = pngSize(emblemUrl);
     const height = size ? (width * size.h) / size.w : width;
     sealNode = (
       <Image
         fixed
-        src={seal.watermark}
+        src={emblemUrl}
         style={{
           position: "absolute",
           left: (pageW - width) / 2,
           top: pageH * 0.54 - height / 2,
           width,
           height,
+          opacity: 0.07,
         }}
       />
     );
@@ -1126,43 +1439,64 @@ function CertificateDocument({
 
   const body = isTrade ? (
     tradeLicenceBody(ctx, qrDataUrl, emblemUrl, base)
+  ) : isCard ? (
+    transportCardBody(ctx, qrDataUrl, base)
   ) : FORM_SERVICES.has(serviceNo) ? (
     <>
       <HeaderBlock ctx={ctx} title={title} emblemUrl={emblemUrl} base={base} />
-      {genericFormBody(ctx, base)}
+      <View style={{ flexDirection: "row", alignItems: "flex-start" }}>
+        <View style={{ flex: 1 }}>
+          {serviceNo === 1
+            ? taxReceiptBody(ctx, base)
+            : serviceNo === 41
+              ? premisesLicenceBody(ctx, base)
+              : genericFormBody(ctx, base)}
+        </View>
+        <CitizenPhoto ctx={ctx} style={{ marginLeft: 4 * MM, marginTop: 3 * MM }} />
+      </View>
     </>
   ) : (
     <>
       <HeaderBlock ctx={ctx} title={title} emblemUrl={emblemUrl} base={base} />
-      <View style={styles.numline}>
-        <Text>
-          <Runs
-            segs={[seg(`${bn ? "সনদ নং:-" : "Certificate No:"} ${ctx.numberDisplay}`)]}
-            base={base}
-            bold
-          />
-        </Text>
-        <Text>
-          <Runs
-            segs={[
-              seg(
-                `${bn ? "ইস্যুর তারিখ:-" : "Date of Issue:"} ${bn ? bnDate(ctx.issued) : enDate(ctx.issued)}`,
-              ),
-            ]}
-            base={base}
-            bold
-          />
-        </Text>
+      <View style={{ flexDirection: "row", alignItems: "flex-start" }}>
+        <View style={{ flex: 1 }}>
+          <View style={styles.numline}>
+            <View style={{ flexDirection: "row", alignItems: "center" }}>
+              <Text style={{ marginRight: 2 * MM }}>
+                <Runs segs={[seg(bn ? "সনদ নং:-" : "Certificate No:")]} base={base} bold />
+              </Text>
+              <NumberDisplay number={input.number} bn={bn} base={base} />
+            </View>
+            <Text>
+              <Runs
+                segs={[
+                  seg(
+                    `${bn ? "ইস্যুর তারিখ:-" : "Date of Issue:"} ${bn ? bnDate(ctx.issued) : enDate(ctx.issued)}`,
+                  ),
+                ]}
+                base={base}
+                bold
+              />
+            </Text>
+          </View>
+          {paragraphBody(ctx, serviceNo, base)}
+        </View>
+        <CitizenPhoto ctx={ctx} style={{ marginLeft: 4 * MM, marginTop: 4.5 * MM }} />
       </View>
-      {paragraphBody(ctx, serviceNo, base)}
     </>
   );
 
   return (
     <Document>
       <Page
-        size={format.size === "A4" ? "A4" : "LETTER"}
-        orientation={format.orientation}
+        size={
+          format.size === "A4"
+            ? "A4"
+            : format.size === "Letter"
+              ? "LETTER"
+              : { width: pageW, height: pageH }
+        }
+        orientation={explicitSize ? undefined : format.orientation}
         style={{
           ...styles.page,
           fontFamily: base,
@@ -1197,21 +1531,25 @@ function CertificateDocument({
         {sealNode}
         <View
           style={{
-            paddingTop: margin + 5 * MM,
+            paddingTop: isCard ? 2 * MM : margin + 5 * MM,
             // Bottom reserve is the frame margin alone: Chromium's per-page
             // break geometry is the @page margin (the CSS main padding-bottom
             // applies only at the document end); a larger reserve here makes
             // react-pdf emit a blank trailing page when content ends near
             // the frame. The extra −3pt absorbs layout rounding so a full
             // page does not spawn an empty continuation page.
-            paddingBottom: margin - 3,
-            paddingLeft: margin + 6 * MM,
-            paddingRight: margin + 6 * MM,
+            paddingBottom: isCard ? 2 * MM : margin - 3,
+            paddingLeft: isCard ? 3 * MM : margin + 6 * MM,
+            paddingRight: isCard ? 3 * MM : margin + 6 * MM,
           }}
         >
           {body}
-          <SignBlock ctx={ctx} base={base} compact={isTrade} />
-          <DocFooter ctx={ctx} qrDataUrl={qrDataUrl} base={base} trade={isTrade} />
+          {isCard ? null : (
+            <>
+              <SignBlock ctx={ctx} base={base} compact={isTrade} />
+              <DocFooter ctx={ctx} qrDataUrl={qrDataUrl} base={base} trade={isTrade} />
+            </>
+          )}
         </View>
       </Page>
     </Document>

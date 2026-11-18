@@ -206,9 +206,9 @@ test("GEO-04: registration persists hierarchy, auto reference and rejects jurisd
   assert.equal(citizens.body.items.length, 1);
   citizenId = citizens.body.items[0].id;
   assert.deepEqual(citizens.body.items[0].geography, geo);
-  // Phase 5 (5C): the auto-generated citizen reference is the 18-digit public format
-  // (dddddd-dddddd-dddddd), not the old REF-<uuid>.
-  assert.match(citizens.body.items[0].syntheticReference, /^\d{6}-\d{6}-\d{6}$/);
+  // CERTNO-01: the auto-generated citizen reference is the 16-digit public
+  // format (Dhaka date + 8 random digits), not the old REF-<uuid>.
+  assert.match(citizens.body.items[0].syntheticReference, /^\d{16}$/);
   assert.deepEqual(
     (await request("GET", "/profile", undefined, citizenSession)).body
       .geography,

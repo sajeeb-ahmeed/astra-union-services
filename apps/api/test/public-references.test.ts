@@ -7,25 +7,36 @@ import { pool, transaction } from "../src/db.js";
 import { closePdfBrowser } from "../src/pdf.js";
 import {
   formatReference,
+  mintReference,
   parseReferenceInput,
   referenceDigits,
-  referenceSegments,
 } from "../src/references.js";
 
 /**
- * Phase 5 (5C): public reference numbers (owner decision, 18 Nov 2026).
- * New citizens and applications get an 18-digit reference in three groups of six: segment 1
- * from a keyed hash of the date of birth, segment 2 from a keyed hash of the NID (or of the
- * citizen id when no NID is on file), segment 3 random and uniqueness-checked. The printed
- * number must never contain the raw DOB or NID digits. Legacy references (REF-<uuid> citizen
- * references, UUID application ids) keep resolving everywhere.
+ * Public reference numbers.
+ *
+ * CERTNO-01 (owner-approved 18 Nov 2026) supersedes the Phase 5 format: new
+ * citizens and applications get a 16-digit reference — the Asia/Dhaka
+ * registration/submission date (YYYYMMDD) + 8 random digits — stored plain
+ * and uniqueness-checked at mint time. Phase 5 references (18 digits in
+ * three hyphenated groups of six, derived from keyed hashes of the DOB and
+ * NID) remain stored on older records and keep resolving; legacy references
+ * (REF-<uuid> citizen references, UUID application ids) keep resolving too.
  */
 
 type Session = { cookie: string; csrf: string; user: any };
 let server: ReturnType<typeof app.listen>, base: string;
 const password = "Demo-Phase1!";
-const FORMAT = /^\d{6}-\d{6}-\d{6}$/;
-const segments = (ref: string) => ref.split("-");
+const FORMAT = /^\d{16}$/;
+const dhakaToday = () =>
+  new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Dhaka",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  })
+    .format(new Date())
+    .replace(/-/g, "");
 
 test.before(async () => {
   server = app.listen(0, "127.0.0.1");
@@ -86,27 +97,30 @@ async function createApplication(staff: Session, citizenId: string) {
   return r.body;
 }
 
-test("reference helpers: parsing, grouping and segment derivation", () => {
+test("reference helpers: parsing, grouping and minting", async () => {
+  // CERTNO-01 references group by four for display; Phase 5 keeps groups of six.
+  assert.equal(formatReference("2026111812345678"), "2026-1118-1234-5678");
   assert.equal(formatReference("123456789012345678"), "123456-789012-345678");
+  // Plain, grouped and Bengali-digit inputs canonicalise to the stored form.
+  assert.equal(parseReferenceInput("2026111812345678"), "2026111812345678");
+  assert.equal(parseReferenceInput("2026-1118-1234-5678"), "2026111812345678");
+  assert.equal(parseReferenceInput("২০২৬১১১৮১২৩৪৫৬৭৮"), "2026111812345678");
   assert.equal(parseReferenceInput("123456-789012-345678"), "123456-789012-345678");
   assert.equal(parseReferenceInput("123456789012345678"), "123456-789012-345678");
-  // Bengali digits parse to the same canonical reference.
   assert.equal(parseReferenceInput("১২৩৪৫৬-৭৮৯০১২-৩৪৫৬৭৮"), "123456-789012-345678");
   assert.equal(parseReferenceInput("123456-789012"), null);
   assert.equal(parseReferenceInput("REF-12345678-1234-1234-1234-123456789012"), null);
   assert.equal(referenceDigits("676785-939293-581090"), "676785939293581090");
-  const citizenId = randomUUID();
-  const a = referenceSegments({ dateOfBirth: "1995-06-15", nid: "12345678901234567", citizenId });
-  const b = referenceSegments({ dateOfBirth: "1995-06-15", nid: "12345678901234567", citizenId });
-  assert.deepEqual(a, b, "derivation is deterministic");
-  const otherDob = referenceSegments({ dateOfBirth: "1988-01-20", nid: "12345678901234567", citizenId });
-  assert.notEqual(a[0], otherDob[0], "a different DOB derives a different first segment");
-  const noNid = referenceSegments({ dateOfBirth: "1995-06-15", nid: null, citizenId });
-  assert.equal(noNid[0], a[0], "segment 1 does not depend on the NID");
-  assert.notEqual(noNid[1], a[1], "the fallback segment differs from the NID segment");
-  // The derivation never echoes raw input digits.
-  assert.notEqual(a[0], "199506");
-  assert.notEqual(a[1], "123456");
+  assert.equal(referenceDigits("2026-1118-1234-5678"), "2026111812345678");
+  // Minting: 16 digits, Dhaka-date prefixed, collision-checked.
+  const minted = await mintReference(async () => false);
+  assert.match(minted, FORMAT);
+  assert.equal(minted.slice(0, 8), dhakaToday());
+  let calls = 0;
+  const retried = await mintReference(async () => ++calls < 3);
+  assert.match(retried, FORMAT);
+  assert.equal(calls, 3, "the mint retries past collisions");
+  await assert.rejects(() => mintReference(async () => true), /REFERENCE_GENERATION_FAILED/);
 });
 
 test("citizen and application references: format, stability, privacy, uniqueness", async () => {
@@ -122,6 +136,7 @@ test("citizen and application references: format, stability, privacy, uniqueness
     details: { nid, noMobile: true },
   });
   assert.match(withNid.syntheticReference, FORMAT);
+  assert.equal(withNid.syntheticReference.slice(0, 8), dhakaToday(), "the date segment is the Dhaka registration date");
   const withoutNid = await createCitizen(staff, {
     nameBn: "কিউএ টেস্ট নাগরিক",
     nameEn: "Plain Reference Citizen",
@@ -130,15 +145,7 @@ test("citizen and application references: format, stability, privacy, uniqueness
     addressEn: "Address",
   });
   assert.match(withoutNid.syntheticReference, FORMAT);
-  // Same DOB -> same first segment; the NID and fallback derivations differ in segment 2.
-  assert.equal(
-    segments(withNid.syntheticReference)[0],
-    segments(withoutNid.syntheticReference)[0],
-  );
-  assert.notEqual(
-    segments(withNid.syntheticReference)[1],
-    segments(withoutNid.syntheticReference)[1],
-  );
+  assert.notEqual(withNid.syntheticReference, withoutNid.syntheticReference);
   // Privacy: neither reference contains the raw DOB (either order) or the NID.
   for (const ref of [withNid.syntheticReference, withoutNid.syntheticReference]) {
     const digits = referenceDigits(ref);
@@ -146,13 +153,13 @@ test("citizen and application references: format, stability, privacy, uniqueness
     assert.equal(digits.includes("15061995"), false);
     assert.equal(digits.includes(nid), false);
   }
-  // Applications inherit the citizen's first two segments — via the stored NID for one
-  // citizen and via the fallback for the other — and differ only in the random segment.
+  // Every application gets its own fresh reference (CERTNO-01 references are
+  // per-record mints, not citizen-derived segments).
   const appNid = await createApplication(staff, withNid.id);
   assert.match(appNid.reference, FORMAT);
-  assert.deepEqual(segments(appNid.reference).slice(0, 2), segments(withNid.syntheticReference).slice(0, 2));
   const appPlain = await createApplication(staff, withoutNid.id);
-  assert.deepEqual(segments(appPlain.reference).slice(0, 2), segments(withoutNid.syntheticReference).slice(0, 2));
+  assert.match(appPlain.reference, FORMAT);
+  assert.notEqual(appNid.reference, appPlain.reference);
   // Repeated generation for one citizen stays unique.
   const seen = new Set<string>([appNid.reference]);
   for (let i = 0; i < 24; i++) {
@@ -160,7 +167,6 @@ test("citizen and application references: format, stability, privacy, uniqueness
     assert.match(again.reference, FORMAT);
     assert.equal(seen.has(again.reference), false);
     seen.add(again.reference);
-    assert.deepEqual(segments(again.reference).slice(0, 2), segments(withNid.syntheticReference).slice(0, 2));
   }
 });
 
@@ -180,8 +186,8 @@ test("tracking and lookup accept the new reference and the legacy UUID", async (
     { ...staff, body: { action: "submit" } },
   );
   assert.equal(submitted.status, 200, JSON.stringify(submitted.body));
-  // Public tracking: grouped reference, plain digits and the UUID all resolve.
-  for (const key of [application.reference, referenceDigits(application.reference), application.id]) {
+  // Public tracking: plain digits, the grouped display form and the UUID all resolve.
+  for (const key of [application.reference, formatReference(application.reference), application.id]) {
     const tracked = await request("GET", `/track/${encodeURIComponent(key)}`);
     assert.equal(tracked.status, 200, `track ${key}`);
     assert.equal(tracked.body.status, "SUBMITTED");
@@ -190,7 +196,7 @@ test("tracking and lookup accept the new reference and the legacy UUID", async (
   // Staff lookup: the same three forms resolve to the same application. The lookup
   // response keeps its established minimal shape ({id, serviceNo, state} + certificate) —
   // the reference is an accepted input, not an added output field.
-  for (const key of [application.reference, referenceDigits(application.reference), application.id]) {
+  for (const key of [application.reference, formatReference(application.reference), application.id]) {
     const found = await request(
       "GET",
       `/applications/lookup?reference=${encodeURIComponent(key)}`,

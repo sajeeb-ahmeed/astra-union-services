@@ -589,17 +589,14 @@ publicManagementRouter.post(
         "INSERT INTO staff_memberships(user_id,tenant_id,role) VALUES($1,$2,'citizen')",
         [user.id, d.tenantId],
       );
-      // Phase 5 (5C): self-registration mints the new 18-digit public reference when the
-      // caller did not supply one (signup collects no NID, so segment 2 uses the citizen-id
-      // fallback; the id is generated here so it can feed that segment). Caller-supplied
-      // REF-… references and previously issued references are unchanged.
+      // CERTNO-01: self-registration mints the new 16-digit public reference when the
+      // caller did not supply one (Asia/Dhaka registration date + 8 random digits,
+      // uniqueness-checked). Caller-supplied REF-… references and previously issued
+      // references are unchanged.
       const citizenId = randomUUID();
       const syntheticReference =
         d.syntheticReference ??
-        (await mintReference(
-          { dateOfBirth: d.dateOfBirth, nid: null, citizenId },
-          citizenReferenceExists(db, d.tenantId),
-        ));
+        (await mintReference(citizenReferenceExists(db, d.tenantId)));
       await db.query(
         "INSERT INTO citizens(id,tenant_id,user_id,full_name_bn,full_name_en,date_of_birth,address_bn,address_en,synthetic_reference,division_code,district_code,upazila_code,union_code,ward_code,present_same_as_permanent,present_address_bn,present_address_en,present_division_code,present_district_code,present_upazila_code,present_union_code,present_ward_code) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22)",
         [

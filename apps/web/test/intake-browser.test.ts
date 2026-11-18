@@ -131,9 +131,9 @@ test(
       await page.getByRole("button", { name: "← নাগরিক", exact: true }).click();
       assert.equal(await page.locator(".ax-citizen input:checked").count(), 1);
       // The label localises the citizen's name with the UI language; the reference is stable.
-      // Phase 5: citizens may carry a legacy REF-… reference or the new public
-      // format (dddddd-dddddd-dddddd).
-      const refOf = (text: string) => text.match(/REF-[0-9a-f-]+|\d{6}-\d{6}-\d{6}/)?.[0];
+      // Citizens may carry a legacy REF-… reference, a Phase 5 reference
+      // (dddddd-dddddd-dddddd) or the CERTNO-01 16-digit format.
+      const refOf = (text: string) => text.match(/REF-[0-9a-f-]+|\d{6}-\d{6}-\d{6}|\d{16}/)?.[0];
       assert.equal(
         refOf(await page.locator("label.ax-citizen:has(input:checked)").innerText()),
         refOf(chosenCitizenLabel),

@@ -14,6 +14,7 @@ import {
   type PdfInput,
 } from "../src/certificate-template.js";
 import { resolveCertificateAssets, resolveCertificateAssetsBundle } from "../src/certificate-assets.js";
+import { governmentEmblemDataUrl } from "../src/template-assets.js";
 
 /**
  * CERTASSETS-01: office certificate assets (plan §6 steps A–C).
@@ -361,7 +362,7 @@ const templateInput = (over: Partial<PdfInput> = {}): PdfInput =>
   }) as PdfInput;
 const qrStub = "data:image/png;base64,AAAA";
 
-test("certassets: template renders profile logo, signature and a derived seal watermark in official mode", () => {
+test("certassets: template renders profile logo and signature; the watermark is the government emblem and the seal never prints (CERTNO-01)", () => {
   process.env.ISSUANCE_MODE = "official";
   try {
     const html = renderCertificateHtml(
@@ -372,11 +373,14 @@ test("certassets: template renders profile logo, signature and a derived seal wa
     );
     assert.ok(html.includes(`<img class="office-logo" alt="" src="${dataUrlOf(logoPng)}"`), "logo in the header");
     assert.ok(html.includes(`<img class="sign-img" alt="" src="${dataUrlOf(signaturePng)}"`), "signature above the line");
+    // CERTNO-01 (owner decision): centre watermark = Government of Bangladesh
+    // emblem for every office; the office seal is not printed anywhere.
     assert.ok(
-      html.includes(`<img class="seal-wm derived" alt="" src="${dataUrlOf(belaboSealPng)}"`),
-      "watermark derived from the profile seal",
+      html.includes(`<img class="emblem-wm" alt="" src="${governmentEmblemDataUrl()}"`),
+      "watermark is the government emblem",
     );
-    assert.ok(html.includes(".seal-wm.derived{opacity:.15}"), "derivation is a faint CSS opacity");
+    assert.ok(!html.includes(dataUrlOf(belaboSealPng)), "the office seal appears nowhere");
+    assert.ok(!html.includes("seal-wm"), "no seal watermark element remains");
   } finally {
     delete process.env.ISSUANCE_MODE;
   }
@@ -388,30 +392,30 @@ test("certassets: template without profile assets matches the previous fallback 
     const html = renderCertificateHtml(templateInput(), qrStub);
     assert.ok(!html.includes('<img class="office-logo"'), "no logo slot content");
     assert.ok(!html.includes('<img class="sign-img"'), "blank signature line only");
-    assert.ok(!html.includes('<img class="seal-wm"'), "no watermark without any seal source");
+    assert.ok(!html.includes("seal-wm"), "no seal watermark element");
+    // The emblem watermark is office-independent: it prints even with no
+    // profile assets at all (CERTNO-01).
+    assert.ok(html.includes('<img class="emblem-wm"'), "emblem watermark prints without profile assets");
     assert.ok(html.includes('<div class="sign-line"></div>'), "the signature line itself remains");
   } finally {
     delete process.env.ISSUANCE_MODE;
   }
 });
 
-test("certassets: drop-in watermark is used when there is no profile seal, and the profile seal beats the drop-in", () => {
+test("certassets: neither the drop-in seal nor a profile seal prints as a watermark (CERTNO-01)", () => {
   process.env.ISSUANCE_MODE = "official";
   process.env.CERTIFICATE_OFFICE_ASSETS_DIR = fileURLToPath(
     new URL("../assets/offices/belabo-up/", import.meta.url),
   );
   try {
     const dropInOnly = renderCertificateHtml(templateInput(), qrStub);
-    assert.ok(dropInOnly.includes('class="seal-wm"'), "pre-faded drop-in watermark, not derived");
-    assert.ok(!dropInOnly.includes("seal-wm derived"));
-    const profileWins = renderCertificateHtml(
+    assert.ok(!dropInOnly.includes("seal-wm"), "drop-in seal no longer renders as a watermark");
+    assert.ok(!dropInOnly.includes(dataUrlOf(belaboSealPng)), "drop-in seal image appears nowhere");
+    const withProfileSeal = renderCertificateHtml(
       templateInput({ assets: { seal: dataUrlOf(logoPng) } }),
       qrStub,
     );
-    assert.ok(
-      profileWins.includes(`<img class="seal-wm derived" alt="" src="${dataUrlOf(logoPng)}"`),
-      "profile seal outranks the drop-in files",
-    );
+    assert.ok(!withProfileSeal.includes("seal-wm"), "profile seal no longer renders as a watermark");
   } finally {
     delete process.env.ISSUANCE_MODE;
     delete process.env.CERTIFICATE_OFFICE_ASSETS_DIR;
@@ -428,7 +432,8 @@ test("certassets: demo mode prints no profile artwork (the official-mode gate is
   );
   assert.ok(!html.includes('<img class="office-logo"'));
   assert.ok(!html.includes('<img class="sign-img"'));
-  assert.ok(!html.includes('<img class="seal-wm"'));
+  assert.ok(!html.includes("seal-wm"));
+  assert.ok(!html.includes('<img class="emblem-wm"'), "no emblem watermark outside official mode");
 });
 
 test("certassets: preview renders a real sample PDF with the office assets and stores nothing", async () => {

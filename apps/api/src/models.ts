@@ -44,6 +44,9 @@ export const citizenRow = (r: any) =>
         identityDocument: r.identity_document_id
           ? { attachmentId: r.identity_document_id, kind: r.identity_document_kind }
           : null,
+        // CERTNO-01: the optional citizen photo — presence only, never the bytes.
+        hasPhoto: Boolean(r.photo),
+        photoUpdatedAt: r.photo_updated_at ?? null,
         createdAt: r.created_at,
       }
     : null;
@@ -64,6 +67,8 @@ export const certificateRow = (r: any, verificationUrl: string | null = null) =>
         revokedAt: r.revoked_at,
         verificationUrl,
         pdfUrl: `/api/v1/certificates/${r.id}/pdf`,
+        // CERTNO-01: the English render stored at issuance (null for pre-bilingual rows).
+        pdfUrlEn: r.pdf_en ? `/api/v1/certificates/${r.id}/pdf?lang=en` : null,
         demo: process.env.ISSUANCE_MODE === "official" ? false : true,
       }
     : null;
