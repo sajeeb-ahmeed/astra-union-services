@@ -204,12 +204,33 @@ test("geography browser: mobile registration stores selected geography and serve
   const geo = { divisionCode: "div-01", districtCode: "dis-01", upazilaCode: "upa-001", unionCode: union.code, wardCode: `${union.code}-w01` };
   const email = `geography-browser-${Date.now()}@example.test`;
   const password = "Geography-browser-password!";
+  // Phase 3E (§3.6): registration only offers offices that serve the selected
+  // union — onboard a mapped office for this union first.
+  const officeName = `Geography Union Office ${Date.now()}`;
+  {
+    const owner = await browser.newContext();
+    const login = await owner.request.post(`${origin}/api/v1/auth/login`, { data: { email: "owner@astra.demo.test", password: "Demo-Phase1!" } });
+    const created = await owner.request.post(`${origin}/api/v1/owner/tenants`, {
+      headers: { "X-CSRF-Token": (await login.json()).csrfToken },
+      data: {
+        slug: `geography-union-${Date.now()}`,
+        nameBn: "অবস্থান ইউনিয়ন অফিস",
+        nameEn: officeName,
+        officeType: "UNION",
+        geography: { divisionCode: geo.divisionCode, districtCode: geo.districtCode, upazilaCode: geo.upazilaCode, unionCode: geo.unionCode },
+        adminEmail: `admin@geography-union-${Date.now()}.test`,
+        adminName: "Geography Union Admin",
+        adminPassword: "Geography-union-admin!",
+      },
+    });
+    assert.equal(created.status(), 201, await created.text());
+    await owner.close();
+  }
   try {
     await page.goto(`${origin}/register`);
     assert.equal(await page.getByRole("button", { name: "Create account", exact: true }).isDisabled(), true);
     for (const [level, code] of Object.entries(geo)) await choose(page, level.replace("Code", ""), code);
-    await page.getByRole("button", { name: "Register with this office", exact: true }).click();
-    const option = page.locator("#signup-office option[value]:not([value=''])").first();
+    const option = page.locator("#signup-office option").filter({ hasText: officeName });
     await option.waitFor({ state: "attached" });
     const office = await option.getAttribute("value");
     assert.ok(office);
@@ -235,7 +256,9 @@ test("geography browser: mobile registration stores selected geography and serve
     assert.equal(citizens.status(), 200);
     const ownCitizen = (await citizens.json()).items.find((citizen: any) => citizen.nameEn === fields.nameEn);
     assert.ok(ownCitizen);
-    assert.match(ownCitizen.syntheticReference, /^REF-.+/);
+    // Phase 5: server-generated citizen references use the public format
+    // (dddddd-dddddd-dddddd), not the old REF-<uuid>.
+    assert.match(ownCitizen.syntheticReference, /^\d{6}-\d{6}-\d{6}$/);
     await page.request.post(`${origin}/api/v1/auth/logout`, { data: {}, headers: { "X-CSRF-Token": session.csrfToken } });
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), true);
     await page.screenshot({ path: "execution/screenshots/geography-registration-complete.png", fullPage: true });

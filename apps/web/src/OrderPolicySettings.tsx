@@ -13,6 +13,7 @@ type Policy = {
   deliveryModes: DeliveryMode[];
   urgencies: Urgency[];
   charterDays?: number | null;
+  requiredDocuments?: Array<{ bn: string; en: string }>;
   currency: "BDT";
 };
 type Options = { configured: boolean; policy: Policy | null };
@@ -97,6 +98,7 @@ export function OrderPolicySettings({ services }: { services: any[] }) {
   const [urgencies, setUrgencies] = useState<Urgency[]>([]);
   const [reason, setReason] = useState("");
   const [charterDays, setCharterDays] = useState("");
+  const [documents, setDocuments] = useState<Array<{ bn: string; en: string }>>([]);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [loaded, setLoaded] = useState(false);
@@ -125,6 +127,11 @@ export function OrderPolicySettings({ services }: { services: any[] }) {
     setDeliveryModes(next ? [...next.deliveryModes] : []);
     setUrgencies(next ? [...next.urgencies] : []);
     setCharterDays(next?.charterDays ? String(next.charterDays) : "");
+    setDocuments(
+      next?.requiredDocuments
+        ? next.requiredDocuments.map((doc) => ({ ...doc }))
+        : [],
+    );
     setReason("");
   }
   useEffect(() => {
@@ -189,6 +196,21 @@ export function OrderPolicySettings({ services }: { services: any[] }) {
       });
       return;
     }
+    const cleanedDocuments = documents.map((doc) => ({
+      bn: doc.bn.trim(),
+      en: doc.en.trim(),
+    }));
+    if (
+      cleanedDocuments.some(
+        (doc) => !doc.bn || !doc.en || doc.bn.length > 200 || doc.en.length > 200,
+      )
+    ) {
+      setError({
+        bn: "প্রতিটি প্রয়োজনীয় কাগজপত্রের বাংলা ও ইংরেজি নাম লিখুন (সর্বোচ্চ ২০০ অক্ষর), অথবা সারিটি মুছে দিন।",
+        en: "Give every required document a Bangla and an English name (up to 200 characters), or remove the row.",
+      });
+      return;
+    }
     if (reason.trim().length < 3 || reason.trim().length > 500) {
       setError({
         bn: "প্রকাশের কারণ ৩ থেকে ৫০০ অক্ষরে লিখুন।",
@@ -215,6 +237,7 @@ export function OrderPolicySettings({ services }: { services: any[] }) {
           deliveryModes,
           urgencies,
           charterDays: days ? Number(days) : null,
+          requiredDocuments: cleanedDocuments,
         },
       );
       if (epoch.current !== current) return;
@@ -244,7 +267,7 @@ export function OrderPolicySettings({ services }: { services: any[] }) {
       <p>
         {choose({
           bn: "এই অফিসের প্রতিটি সেবায় সরকারি নির্ধারিত ফি ও প্রসেসিং ফি আলাদাভাবে নির্ধারণ করুন। এগুলো সফটওয়্যার ক্রেডিটের খরচ থেকে আলাদা। নতুন সংস্করণ প্রকাশ করলে পুরোনো আবেদন পরিবর্তিত হয় না।",
-          en: "Configure separate statutory and processing fees for each service in this office. These are separate from software credits. Publishing a new version does not change earlier applications.",
+          en: "Configure separate statutory and processing fees for each service in this office. These are separate from software credits. Publishing a new version does not change earlier applications. The fees, the citizen-charter service time and the required documents are shown on the public service page under this office's name.",
         })}
       </p>
       <p className="notice">
@@ -448,6 +471,81 @@ export function OrderPolicySettings({ services }: { services: any[] }) {
             maxLength={3}
             disabled={saving}
           />
+          <fieldset disabled={saving}>
+            <legend>
+              {choose({
+                bn: "প্রয়োজনীয় কাগজপত্র (ঐচ্ছিক)",
+                en: "Required documents (optional)",
+              })}
+            </legend>
+            <p className="hint">
+              {choose({
+                bn: "নাগরিককে এই সেবার জন্য যেসব কাগজপত্র আনতে হবে। শুধু অফিসের প্রকৃত তালিকাই লিখুন; খালি রাখলে সেবার পাতায় আলাদা তালিকা দেখানো হবে না।",
+                en: "The documents a citizen must bring for this service. Enter only the office's real list; leave empty to publish no separate list on the service page.",
+              })}
+            </p>
+            {documents.map((doc, index) => (
+              <div className="form-grid" key={index}>
+                <div className="field">
+                  <label htmlFor={`order-document-bn-${index}`}>
+                    {choose({ bn: "কাগজপত্রের নাম (বাংলা)", en: "Document name (Bangla)" })}
+                  </label>
+                  <input
+                    id={`order-document-bn-${index}`}
+                    value={doc.bn}
+                    maxLength={200}
+                    autoComplete="off"
+                    onChange={(event) =>
+                      setDocuments((current) =>
+                        current.map((d, i) =>
+                          i === index ? { ...d, bn: event.target.value } : d,
+                        ),
+                      )
+                    }
+                  />
+                </div>
+                <div className="field">
+                  <label htmlFor={`order-document-en-${index}`}>
+                    {choose({ bn: "কাগজপত্রের নাম (ইংরেজি)", en: "Document name (English)" })}
+                  </label>
+                  <input
+                    id={`order-document-en-${index}`}
+                    value={doc.en}
+                    maxLength={200}
+                    autoComplete="off"
+                    onChange={(event) =>
+                      setDocuments((current) =>
+                        current.map((d, i) =>
+                          i === index ? { ...d, en: event.target.value } : d,
+                        ),
+                      )
+                    }
+                  />
+                </div>
+                <button
+                  type="button"
+                  className="secondary"
+                  onClick={() =>
+                    setDocuments((current) =>
+                      current.filter((_, i) => i !== index),
+                    )
+                  }
+                >
+                  {choose({ bn: "মুছুন", en: "Remove" })}
+                </button>
+              </div>
+            ))}
+            <button
+              type="button"
+              className="secondary"
+              disabled={documents.length >= 20}
+              onClick={() =>
+                setDocuments((current) => [...current, { bn: "", en: "" }])
+              }
+            >
+              {choose({ bn: "কাগজপত্র যোগ করুন", en: "Add a document" })}
+            </button>
+          </fieldset>
           <label htmlFor="order-policy-reason">
             {choose({
               bn: "নতুন সংস্করণ প্রকাশের কারণ",

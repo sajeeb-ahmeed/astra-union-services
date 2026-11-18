@@ -361,8 +361,10 @@ test("FOR-02 / APP-01 / APP-04: valid versioned draft, correction, resubmission 
   );
   assert.equal(resubmittedMain.status, 200, JSON.stringify(resubmittedMain.body));
   assert.equal(resubmittedMain.body.state, "RESUBMITTED");
-  // The Chairman's approval is recorded even while issuance is blocked by an
-  // empty wallet; the suite's later issuance tests complete it from APPROVED.
+  // Phase 3B: the application fee settled at the FIRST submit (the office's
+  // active subscription consumed one allowance; the resubmission charged
+  // nothing), and issuance no longer touches the wallet — the Chairman's
+  // approval issues even with the wallet drained to zero.
   const alphaTenant = sessions["alpha:staff"].user.tenantId;
   const walletNow = (
     await request("GET", "/wallet", undefined, sessions["alpha:approver"])
@@ -378,14 +380,20 @@ test("FOR-02 / APP-01 / APP-04: valid versioned draft, correction, resubmission 
     ).status,
     201,
   );
-  const blockedApproval = await request(
+  const approval = await request(
     "POST",
     `/applications/${mainApp.id}/transition`,
     { action: "approve" },
     sessions["alpha:approver"],
   );
-  assert.equal(blockedApproval.status, 402, JSON.stringify(blockedApproval.body));
-  assert.equal(blockedApproval.body.error.code, "INSUFFICIENT_CREDITS");
+  assert.equal(approval.status, 200, JSON.stringify(approval.body));
+  assert.equal(approval.body.state, "ISSUED");
+  assert.ok(approval.body.certificate?.id);
+  assert.equal(
+    (await request("GET", "/wallet", undefined, sessions["alpha:approver"]))
+      .body.balance,
+    0,
+  );
   assert.equal(
     (
       await request(
@@ -403,14 +411,18 @@ test("FOR-02 / APP-01 / APP-04: valid versioned draft, correction, resubmission 
     undefined,
     sessions["alpha:citizen"],
   );
-  assert.equal(detail.body.application.state, "APPROVED");
+  assert.equal(detail.body.application.state, "ISSUED");
+  assert.equal(detail.body.application.feeMethod, "ALLOWANCE");
+  assert.equal(detail.body.application.feeCredits, 0);
   assert.equal(detail.body.versions.length, 2);
   assert.equal(
     detail.body.versions[0].payload.purpose_en,
     demoPayloads[45].purpose_en,
   );
   assert.equal(detail.body.payload.purpose_en, revised.purpose_en);
-  assert.equal(detail.body.events.length, 6);
+  // Phase 3B: the successful approval adds an approve AND an issue event
+  // (the old blocked approval recorded only the approve event).
+  assert.equal(detail.body.events.length, 7);
 });
 test("APP-02 / APP-03 / SEC-02 / CER-04: read has no effects and cross-tenant/unauthorized issue denied", async () => {
   const before = await admin.query(
@@ -477,9 +489,13 @@ test("APP-02 / APP-03 / SEC-02 / CER-04: read has no effects and cross-tenant/un
   );
   assert.ok(denied.rows[0].n >= 3);
 });
-test("WAL-03: insufficient credit retains approval without document/debit", async () => {
+test("WAL-03: issuance takes no credit — an empty wallet cannot block an application whose fee settled at submit", async () => {
+  // Phase 3B: the money moved at submit (this office's subscription consumed
+  // an allowance). Draining the wallet afterwards cannot block issuance and
+  // the approval debits nothing.
   const owner = sessions.owner;
   const alpha = sessions["alpha:staff"].user.tenantId;
+  const submitted = await createSubmitted();
   const balance = (
     await request("GET", "/wallet", undefined, sessions["alpha:approver"])
   ).body.balance;
@@ -494,24 +510,30 @@ test("WAL-03: insufficient credit retains approval without document/debit", asyn
     ).status,
     201,
   );
-  const result = await request(
+  const approved = await request(
     "POST",
-    `/applications/${mainApp.id}/issue`,
-    {},
+    `/applications/${submitted.id}/transition`,
+    { action: "approve" },
     sessions["alpha:approver"],
   );
-  assert.equal(result.status, 402, JSON.stringify(result.body));
-  assert.equal(result.body.error.code, "INSUFFICIENT_CREDITS");
-  const detail = (
-    await request(
-      "GET",
-      `/applications/${mainApp.id}`,
-      undefined,
-      sessions["alpha:staff"],
-    )
-  ).body;
-  assert.equal(detail.application.state, "APPROVED");
-  assert.equal(detail.certificate, null);
+  assert.equal(approved.status, 200, JSON.stringify(approved.body));
+  assert.equal(approved.body.state, "ISSUED");
+  assert.ok(approved.body.certificate?.id);
+  assert.equal(
+    (
+      await request("GET", "/wallet", undefined, sessions["alpha:approver"])
+    ).body.balance,
+    0,
+  );
+  assert.equal(
+    (
+      await admin.query(
+        "SELECT count(*)::int n FROM credit_ledger WHERE application_id=$1 AND kind='ISSUANCE'",
+        [submitted.id],
+      )
+    ).rows[0].n,
+    0,
+  );
   assert.equal(
     (
       await request(
@@ -564,7 +586,7 @@ test("WAL-04: injected database failure rolls certificate, ledger, state and out
     0,
   );
 });
-test("BILL-01: expired subscription blocks issuance and retains approved application", async () => {
+test("BILL-01: an expired subscription no longer blocks issuance — the fee moved to submit", async () => {
   const id = sessions["alpha:staff"].user.tenantId;
   const prior = (
     await admin.query(
@@ -577,24 +599,45 @@ test("BILL-01: expired subscription blocks issuance and retains approved applica
     [id],
   );
   try {
-    const r = await request(
-      "POST",
-      `/applications/${mainApp.id}/issue`,
-      {},
-      sessions["alpha:approver"],
-    );
-    assert.equal(r.status, 402);
-    assert.equal(r.body.error.code, "SUBSCRIPTION_INACTIVE");
+    // With no active subscription the submit itself charges the office
+    // wallet the service's credit price, exactly once.
+    const balanceBefore = (
+      await request("GET", "/wallet", undefined, sessions["alpha:approver"])
+    ).body.balance;
+    const submitted = await createSubmitted();
     const detail = (
       await request(
         "GET",
-        `/applications/${mainApp.id}`,
+        `/applications/${submitted.id}`,
         undefined,
         sessions["alpha:staff"],
       )
     ).body;
-    assert.equal(detail.application.state, "APPROVED");
-    assert.equal(detail.certificate, null);
+    assert.equal(detail.application.feeMethod, "CREDIT");
+    assert.ok(detail.application.feeCredits > 0);
+    assert.equal(
+      (
+        await request("GET", "/wallet", undefined, sessions["alpha:approver"])
+      ).body.balance,
+      balanceBefore - detail.application.feeCredits,
+    );
+    // …and the approval then issues with no further charge, even though the
+    // subscription is still expired.
+    const approved = await request(
+      "POST",
+      `/applications/${submitted.id}/transition`,
+      { action: "approve" },
+      sessions["alpha:approver"],
+    );
+    assert.equal(approved.status, 200, JSON.stringify(approved.body));
+    assert.equal(approved.body.state, "ISSUED");
+    assert.ok(approved.body.certificate?.id);
+    assert.equal(
+      (
+        await request("GET", "/wallet", undefined, sessions["alpha:approver"])
+      ).body.balance,
+      balanceBefore - detail.application.feeCredits,
+    );
   } finally {
     await admin.query(
       "UPDATE tenant_subscriptions SET valid_until=$2,status=$3 WHERE tenant_id=$1",
@@ -602,7 +645,15 @@ test("BILL-01: expired subscription blocks issuance and retains approved applica
     );
   }
 });
-test("CER-01 / CER-02 / WAL-01 / WAL-02: concurrent issuance produces one real PDF and one debit", async () => {
+test("CER-01 / CER-02 / WAL-01 / WAL-02: concurrent issuance produces one real PDF and no debit", async () => {
+  // Phase 3B: rest a fresh application in APPROVED directly (the state a
+  // blocked issuance leaves behind; the ATT-06 pattern) so the completion
+  // endpoint's concurrency behaviour is exercised exactly as before.
+  const parked = await createSubmitted();
+  await admin.query(
+    "UPDATE applications SET state='APPROVED',approved_by=$2,approved_version=latest_version WHERE id=$1",
+    [parked.id, sessions["alpha:approver"].user.id],
+  );
   const prior = (
     await request("GET", "/wallet", undefined, sessions["alpha:approver"])
   ).body.balance;
@@ -610,7 +661,7 @@ test("CER-01 / CER-02 / WAL-01 / WAL-02: concurrent issuance produces one real P
     Array.from({ length: 8 }, () =>
       request(
         "POST",
-        `/applications/${mainApp.id}/issue`,
+        `/applications/${parked.id}/issue`,
         {},
         sessions["alpha:approver"],
       ),
@@ -628,7 +679,7 @@ test("CER-01 / CER-02 / WAL-01 / WAL-02: concurrent issuance produces one real P
   assert.equal(cert.templateVersion, DEMO_TEMPLATE_VERSION);
   const retries = await request(
     "POST",
-    `/applications/${mainApp.id}/issue`,
+    `/applications/${parked.id}/issue`,
     {},
     sessions["alpha:approver"],
   );
@@ -640,12 +691,13 @@ test("CER-01 / CER-02 / WAL-01 / WAL-02: concurrent issuance produces one real P
     undefined,
     sessions["alpha:approver"],
   );
-  assert.equal(wallet.body.balance, prior - 1);
+  // Phase 3B: issuance debits nothing — the fee settled at submit.
+  assert.equal(wallet.body.balance, prior);
   const entries = await admin.query(
     "SELECT count(*)::int n FROM credit_ledger WHERE certificate_id=$1 AND kind='ISSUANCE'",
     [cert.id],
   );
-  assert.equal(entries.rows[0].n, 1);
+  assert.equal(entries.rows[0].n, 0);
   const pdf = await request(
     "GET",
     `/certificates/${cert.id}/pdf`,
@@ -681,7 +733,7 @@ test("CER-01 / CER-02 / WAL-01 / WAL-02: concurrent issuance produces one real P
   assert.ok(!JSON.stringify(verified.body).includes(citizen.nameEn));
   const c = await admin.query(
     "SELECT count(*)::int n FROM certificates WHERE application_id=$1",
-    [mainApp.id],
+    [parked.id],
   );
   assert.equal(c.rows[0].n, 1);
   // B1: the plaintext token is not stored; only its digest is, and verification still works.
@@ -698,7 +750,7 @@ test("CER-01 / CER-02 / WAL-01 / WAL-02: concurrent issuance produces one real P
   );
   const reread = await request(
     "GET",
-    `/applications/${mainApp.id}`,
+    `/applications/${parked.id}`,
     undefined,
     sessions["alpha:approver"],
   );
@@ -1193,10 +1245,12 @@ test("CER-01: current resident PDFs contain approved purpose/residency and genui
       templateVersion: issued.body.templateVersion,
     });
   }
+  // Phase 3B: three submissions consumed subscription allowance at submit;
+  // the wallet balance never moves.
   assert.equal(
     (await request("GET", "/wallet", undefined, sessions["alpha:approver"]))
       .body.balance,
-    priorBalance - 3,
+    priorBalance,
   );
   fs.writeFileSync(
     "execution/resident-language-case.json",

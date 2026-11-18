@@ -1,6 +1,7 @@
 import { MobileOtpField, type VerifiedMobile } from "./MobileOtpField.js";
 import { t, tx, choose } from "./i18n.js";
 import { SiteFooter, SiteHeader } from "./PublicShell.js";
+import { GlobalNoticeBanner } from "./GlobalNotices.js";
 import { EmptyState } from "./ui/kit.js";
 import React, { Suspense, lazy, useEffect, useRef, useState } from "react";
 // Phase 4c: the witness generator loads only on /witness, keeping the public start-up bundle small.
@@ -11,7 +12,7 @@ import "./public-portal.css";
 // Public pages need names only; canonical metadata parity is checked by the web tests.
 import serviceCatalog from "./public-service-catalog.json" with { type: "json" };
 import { api, items } from "./api.js";
-import { ServicePriceList } from "./ServicePriceList.js";
+import { ServicePriceList, taka } from "./ServicePriceList.js";
 import { DesignatedOfficers, OfficeInclusionForm } from "./OfficeInclusion.js";
 import {
   GeographyFields,
@@ -39,6 +40,23 @@ const publicPages: Record<string, [string, string]> = {
 };
 const value = (o: any, camel: string, snake: string) =>
   o?.[camel] ?? o?.[snake] ?? "";
+// Phase 6: bilingual labels for the catalog's real categories (category_en values in the catalog).
+const CATEGORY_LABELS: Record<string, { bn: string; en: string }> = {
+  "Property and local taxation": { bn: "সম্পত্তি ও স্থানীয় কর", en: "Property and local taxation" },
+  "Family and civil status": { bn: "পারিবারিক ও নাগরিক অবস্থা", en: "Family and civil status" },
+  "Identity and citizenship": { bn: "পরিচয় ও নাগরিকত্ব", en: "Identity and citizenship" },
+  "Voter and identity records": { bn: "ভোটার ও পরিচয় নথি", en: "Voter and identity records" },
+  "Occupation and economic status": { bn: "পেশা ও অর্থনৈতিক অবস্থা", en: "Occupation and economic status" },
+  "Community and social status": { bn: "সামাজিক অবস্থা", en: "Community and social status" },
+  "Consent and authorization": { bn: "সম্মতি ও অনুমোদন", en: "Consent and authorization" },
+  Licensing: { bn: "লাইসেন্স", en: "Licensing" },
+  Utilities: { bn: "ইউটিলিটি সেবা", en: "Utilities" },
+  Miscellaneous: { bn: "বিবিধ", en: "Miscellaneous" },
+};
+const categoryLabel = (category: string) =>
+  CATEGORY_LABELS[category] ?? { bn: category, en: category };
+const bnDigits = (text: string) =>
+  text.replace(/\d/g, (d) => "০১২৩৪৫৬৭৮৯"[Number(d)]);
 function RecoveryForm() {
   const [token, setToken] = useState(
       new URLSearchParams(location.search).get("token") || "",
@@ -330,11 +348,18 @@ export function PublicPortal({
   const linkedService = Number(new URLSearchParams(location.search).get("service"));
   const [page, setPage] = useState(initial),
     [search, setSearch] = useState(""),
+    [category, setCategory] = useState(""),
     [serviceNo, setServiceNo] = useState<number | null>(
       initial === "services" && Number.isInteger(linkedService) && linkedService >= 1 && linkedService <= 47
         ? linkedService
         : null,
     );
+  // Phase 6: per-office fee/time/documents for the selected service, from the public office-info API.
+  const [serviceInfo, setServiceInfo] = useState<{
+    no: number;
+    state: "loading" | "ready" | "error";
+    offices: any[];
+  } | null>(null);
   const initialFilters = Object.fromEntries(
     new URLSearchParams(location.search),
   );
@@ -368,9 +393,6 @@ export function PublicPortal({
     [faqSearch, setFaqSearch] = useState("");
   const [signupSearch, setSignupSearch] = useState("");
   const [signupGeography, setSignupGeography] = useState(emptyGeography);
-  const [signupOfficeMode, setSignupOfficeMode] = useState<"local" | "preview">(
-    "local",
-  );
   const [signupOfficeLoading, setSignupOfficeLoading] = useState(false);
   const [signupOfficeError, setSignupOfficeError] = useState("");
   const [signupOfficeRetry, setSignupOfficeRetry] = useState(0);
@@ -493,16 +515,12 @@ export function PublicPortal({
       const query = new URLSearchParams({
         pageSize: "100",
         q: signupSearch,
-        ...(signupOfficeMode === "local"
-          ? geographyPayload({ ...signupGeography, wardCode: "" })
-          : {}),
+        ...geographyPayload({ ...signupGeography, wardCode: "" }),
       });
       api(`/offices?${query}`)
         .then((response) => {
           if (!active) return;
-          const found = items(response).filter(
-            (o) => signupOfficeMode === "local" || !o.geography?.divisionCode,
-          );
+          const found = items(response);
           setSignupOffices(found);
           setRegistration((previous) => ({
             ...previous,
@@ -528,7 +546,6 @@ export function PublicPortal({
   }, [
     page,
     signupGeography.unionCode,
-    signupOfficeMode,
     signupSearch,
     signupOfficeRetry,
   ]);
@@ -536,11 +553,14 @@ export function PublicPortal({
     .trim()
     .replace(/[০-৯]/g, (digit) => String("০১২৩৪৫৬৭৮৯".indexOf(digit)))
     .toLowerCase();
-  const services = serviceCatalog.filter((s) =>
-    `${s.service_no} ${s.name_bn} ${s.name_en}`
-      .toLowerCase()
-      .includes(normalizedSearch),
+  const services = serviceCatalog.filter(
+    (s) =>
+      `${s.service_no} ${s.name_bn} ${s.name_en}`
+        .toLowerCase()
+        .includes(normalizedSearch) &&
+      (!category || s.category_en === category),
   );
+  const categories = [...new Set(serviceCatalog.map((s) => s.category_en))];
   const selected = serviceCatalog.find((s) => s.service_no === serviceNo);
   useEffect(() => {
     if (page === "services" && serviceNo !== null) {
@@ -548,11 +568,148 @@ export function PublicPortal({
       serviceInformationRef.current?.scrollIntoView({ block: "start" });
     }
   }, [page, serviceNo]);
+  useEffect(() => {
+    if (page !== "services" || serviceNo === null) {
+      setServiceInfo(null);
+      return;
+    }
+    let active = true;
+    setServiceInfo({ no: serviceNo, state: "loading", offices: [] });
+    api(`/services/${serviceNo}/office-info`)
+      .then((result) => {
+        if (active)
+          setServiceInfo({
+            no: serviceNo,
+            state: "ready",
+            offices: Array.isArray(result.offices) ? result.offices : [],
+          });
+      })
+      .catch(() => {
+        if (active) setServiceInfo({ no: serviceNo, state: "error", offices: [] });
+      });
+    return () => {
+      active = false;
+    };
+  }, [page, serviceNo]);
   function clearServiceSearch() {
     setSearch("");
+    setCategory("");
     setServiceNo(null);
     document.getElementById("public-service-search")?.focus();
   }
+  // Phase 6: what each participating office publishes for the selected service — its own fee policy
+  // (BDT service fee, separate from software credits), citizen-charter time and required documents.
+  // Offices that have not published show that plainly; nothing is inferred or filled in.
+  const serviceOfficeInfo = () => {
+    if (!selected) return null;
+    const info = serviceInfo?.no === selected.service_no ? serviceInfo : null;
+    return (
+      <div className="service-office-info">
+        <h3>
+          {choose({
+            bn: "অফিসভিত্তিক ফি, সময় ও প্রয়োজনীয় কাগজপত্র",
+            en: "Fee, time and required documents by office",
+          })}
+        </h3>
+        {tx(
+          !info || info.state === "loading" ? (
+            <p role="status">
+              {choose({ bn: "তথ্য লোড হচ্ছে…", en: "Loading office information…" })}
+            </p>
+          ) : info.state === "error" ? (
+            <p role="alert" className="notice error">
+              {choose({
+                bn: "অফিসের তথ্য লোড করা যায়নি। সংযোগ যাচাই করে আবার চেষ্টা করুন।",
+                en: "Office information could not be loaded. Check your connection and try again.",
+              })}
+            </p>
+          ) : !info.offices.length ? (
+            <p>
+              {choose({
+                bn: "কোনো অংশগ্রহণকারী অফিস এখনও এই সেবাটি চালু করেনি।",
+                en: "No participating office offers this service yet.",
+              })}
+            </p>
+          ) : (
+            info.offices.map((o) => (
+              <article className="service-office-entry" key={o.slug}>
+                <h4>{choose({ bn: o.nameBn, en: o.nameEn })}</h4>
+                <p>
+                  {tx(
+                    [o.upazila, o.district, o.division].filter(Boolean).join(" · "),
+                  )}
+                </p>
+                {tx(
+                  o.policyVersion == null ? (
+                    <p>
+                      {choose({
+                        bn: "এই অফিস এখনও এই সেবার ফি, সময় ও প্রয়োজনীয় কাগজপত্র প্রকাশ করেনি।",
+                        en: "This office has not yet published the fee, time and required documents for this service.",
+                      })}
+                    </p>
+                  ) : (
+                    <>
+                      <p>
+                        <strong>{choose({ bn: "অফিসের সেবা ফি: ", en: "Office service fee: " })}</strong>
+                        {taka(o.statutoryFeeMinor + o.processingFeeMinor)}
+                        {tx(" · ")}
+                        {(o.deliveryModes as string[])
+                          .map((mode) =>
+                            mode === "office_collection"
+                              ? `${choose({ bn: "অফিস থেকে সংগ্রহ", en: "Office collection" })} ${taka(o.officeCollectionFeeMinor)}`
+                              : `${choose({ bn: "ডিজিটাল কপি", en: "Digital copy" })} ${taka(o.digitalCopyFeeMinor)}`,
+                          )
+                          .join(" · ")}
+                        {(o.urgencies as string[]).includes("urgent") &&
+                          tx(
+                            ` · ${choose({ bn: "জরুরি (অতিরিক্ত)", en: "Urgent (extra)" })} ${taka(o.emergencySurchargeMinor)}`,
+                          )}
+                      </p>
+                      <p>
+                        <strong>{choose({ bn: "সেবা প্রদানের সময়: ", en: "Service time: " })}</strong>
+                        {o.charterDays
+                          ? choose({
+                              bn: `${bnDigits(String(o.charterDays))} দিন`,
+                              en: `${o.charterDays} days`,
+                            })
+                          : choose({
+                              bn: "অফিস সময় উল্লেখ করেনি",
+                              en: "The office has not stated a service time",
+                            })}
+                      </p>
+                      {(o.requiredDocuments?.length ?? 0) > 0 ? (
+                        <>
+                          <p>
+                            <strong>
+                              {choose({ bn: "প্রয়োজনীয় কাগজপত্র:", en: "Required documents:" })}
+                            </strong>
+                          </p>
+                          <ul>
+                            {tx(
+                              (o.requiredDocuments as Array<{ bn: string; en: string }>).map(
+                                (doc, i) => <li key={i}>{choose(doc)}</li>,
+                              ),
+                            )}
+                          </ul>
+                        </>
+                      ) : (
+                        <p>
+                          {choose({
+                            bn: "অফিস আলাদা করে কোনো কাগজপত্রের তালিকা প্রকাশ করেনি।",
+                            en: "The office has not published a separate document list.",
+                          })}
+                        </p>
+                      )}
+                    </>
+                  ),
+                )}
+              </article>
+            ))
+          ),
+        )}
+      </div>
+    );
+  };
   const servicesView = (compact = false) => (
     <>
       <div className="public-section-heading">
@@ -591,7 +748,7 @@ export function PublicPortal({
                   en: `${services.length} services found`,
                 })}
               </p>
-              {search && (
+              {(search || category) && (
                 <button
                   type="button"
                   className="text-button"
@@ -603,6 +760,37 @@ export function PublicPortal({
                   })}
                 </button>
               )}
+            </div>
+            <div
+              className="service-category-filters"
+              role="group"
+              aria-label={choose({ bn: "বিভাগ অনুযায়ী সেবা", en: "Services by category" })}
+            >
+              <button
+                type="button"
+                className={category ? "secondary" : ""}
+                aria-pressed={!category}
+                onClick={() => {
+                  setCategory("");
+                  setServiceNo(null);
+                }}
+              >
+                {choose({ bn: "সব বিভাগ", en: "All categories" })}
+              </button>
+              {categories.map((c) => (
+                <button
+                  key={c}
+                  type="button"
+                  className={category === c ? "" : "secondary"}
+                  aria-pressed={category === c}
+                  onClick={() => {
+                    setCategory(c);
+                    setServiceNo(null);
+                  }}
+                >
+                  {choose(categoryLabel(c))}
+                </button>
+              ))}
             </div>
           </>
         ),
@@ -626,6 +814,7 @@ export function PublicPortal({
               >
                 <CivicIcon index={s.service_no} />
                 <strong>{choose({ bn: s.name_bn, en: s.name_en })}</strong>
+                <small>{choose(categoryLabel(s.category_en))}</small>
                 <span>
                   {t("আবেদনের তথ্য দেখুন ")}
                   <b>{t("→")}</b>
@@ -681,6 +870,9 @@ export function PublicPortal({
               {tx(selected.service_no)}
             </span>
             <h2>{choose({ bn: selected.name_bn, en: selected.name_en })}</h2>
+            <p className="service-category-label">
+              {choose(categoryLabel(selected.category_en))}
+            </p>
             <ol>
               <li>
                 {t("Choose your participating office and create your account.")}
@@ -699,6 +891,7 @@ export function PublicPortal({
                 )}
               </li>
             </ol>
+            {tx(serviceOfficeInfo())}
             <button onClick={() => nav("login")}>
               {t("Sign in to apply")}
             </button>
@@ -748,6 +941,7 @@ export function PublicPortal({
         }
       />
       <main id="public-content">
+        <GlobalNoticeBanner />
         {tx(
           page !== "home" && (
             <div className="public-container public-section">
@@ -1254,7 +1448,6 @@ export function PublicPortal({
                               if (
                                 next.unionCode !== signupGeography.unionCode
                               ) {
-                                setSignupOfficeMode("local");
                                 setSignupOffices([]);
                                 setSignupOfficeError("");
                                 setRegistration((previous) => ({
@@ -1328,59 +1521,12 @@ export function PublicPortal({
                                       !signupOffices.length && (
                                         <p className="notice" role="status">
                                           {tx(
-                                            signupOfficeMode === "local"
-                                              ? "No participating office was found for this area. You can try a preview office below; it does not represent your local authority."
-                                              : "No preview office matches this search. Clear the office name or contact the administrator.",
+                                            // Phase 3E (§3.6): an unlisted union cannot register —
+                                            // there is no cross-area fallback office any more.
+                                            "এই ইউনিয়ন এখনো DigitalUnion-এ যুক্ত হয়নি / This union has not joined DigitalUnion yet.",
                                           )}
                                         </p>
                                       ),
-                                  )}
-                                  {tx(
-                                    signupOfficeMode === "local" &&
-                                      !signupOfficeLoading &&
-                                      !signupOfficeError &&
-                                      !signupOffices.length && (
-                                        <button
-                                          type="button"
-                                          className="secondary"
-                                          onClick={() => {
-                                            setSignupOfficeMode("preview");
-                                            setSignupSearch("");
-                                            setRegistration((previous) => ({
-                                              ...previous,
-                                              tenantId: "",
-                                            }));
-                                          }}
-                                        >
-                                          {t("Register with this office")}
-                                        </button>
-                                      ),
-                                  )}
-                                  {tx(
-                                    signupOfficeMode === "preview" && (
-                                      <div className="preview-office-note">
-                                        <p>
-                                          {t(
-                                            "You can complete your registration with this office from any area.",
-                                          )}
-                                        </p>
-                                        <button
-                                          type="button"
-                                          className="text-button"
-                                          onClick={() => {
-                                            setSignupOfficeMode("local");
-                                            setSignupOffices([]);
-                                            setSignupSearch("");
-                                            setRegistration((previous) => ({
-                                              ...previous,
-                                              tenantId: "",
-                                            }));
-                                          }}
-                                        >
-                                          {t("Back to offices in my area ")}
-                                        </button>
-                                      </div>
-                                    ),
                                   )}
                                   <label htmlFor="signup-office">
                                     {t("নিবন্ধনের অফিস / Select office ")}
@@ -1412,12 +1558,6 @@ export function PublicPortal({
                                           })}
                                           {t(" —")}
                                           {tx(" ")}
-
-                                          {tx(
-                                            signupOfficeMode === "preview"
-                                              ? " (Preview)"
-                                              : "",
-                                          )}
                                         </option>
                                       )),
                                     )}

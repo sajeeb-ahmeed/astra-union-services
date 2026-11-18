@@ -55,7 +55,11 @@ for (const service of serviceCatalog) {
       (field) =>
         field.constraints?.required &&
         Object.hasOwn(valid, field.id) &&
-        field.id !== "confirmation",
+        field.id !== "confirmation" &&
+        // Phase 4: an absent plain checkbox is a complete "no" answer, so it
+        // can no longer serve as the missing-required-field probe. The
+        // mustBeTrue declaration is probed separately below.
+        field.type !== "checkbox",
     )!;
     assert.ok(
       selected,
@@ -123,15 +127,16 @@ test("the original three version-one contracts retain their exact published cano
 
 test("published historical versions remain pinned while new applications select current versions", () => {
   assert.equal(legacyOperationalSchemas.length, 44);
-  // 44 legacy v1 + trade/family v1 + 3 superseded v2 (geography release) + 47 current.
-  assert.equal(allServiceSchemaVersions.length, 96);
+  // 44 legacy v1 + trade/family v1 + 3 superseded v2 (geography release)
+  // + 5 superseded v2 (Phase 4 conditional-group release) + 47 current.
+  assert.equal(allServiceSchemaVersions.length, 101);
   assert.equal(
     new Set(
       allServiceSchemaVersions.map(
         (schema) => `${schema.serviceNo}:${schema.version}`,
       ),
     ).size,
-    96,
+    101,
   );
   for (const historical of legacyOperationalSchemas) {
     assert.equal(historical.version, 1);
@@ -141,7 +146,7 @@ test("published historical versions remain pinned while new applications select 
     );
     assert.equal(
       getServiceSchema(historical.serviceNo).version,
-      [36, 41].includes(historical.serviceNo) ? 3 : 2,
+      [36, 41, 4, 7, 23, 29, 31].includes(historical.serviceNo) ? 3 : 2,
     );
     assert.throws(() => getServiceSchema(historical.serviceNo, 99), RangeError);
   }
@@ -588,6 +593,9 @@ test("service-specific financial/vehicle numbers, holding year, dates and privat
   assert.ok(
     validateServicePayload(7, {
       ...getDemoPayload(7),
+      // Phase 4: the death-details group is opt-in from schema v3, so the
+      // date probe must select the group before its format is validated.
+      optradio: true,
       dead_info_dod: "2026-02-30",
     }).issues.some((issue) => issue.code === "date"),
   );

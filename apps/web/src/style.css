@@ -365,6 +365,22 @@ td small {
   max-width: 550px;
 }
 
+.subscription-badge {
+  font-size: 13px;
+  color: #04592c;
+}
+
+.subscription-badge[data-urgent] {
+  color: #943b2d;
+  font-weight: 600;
+}
+
+.subscription-panel {
+  margin-top: 20px;
+  border-top: 1px dashed #dde5dd;
+  padding-top: 15px;
+}
+
 footer {
   font-size: 12px;
   color: #64766b;

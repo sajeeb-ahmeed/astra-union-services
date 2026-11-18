@@ -4074,7 +4074,7 @@
     },
     "/api/v1/admin/authorizations": {
       "get": {
-        "summary": "List office service-specific demo approval grants",
+        "summary": "List office service-specific approval grants",
         "security": [
           {
             "session": []
@@ -4105,8 +4105,8 @@
     },
     "/api/v1/admin/authorizations/{userId}/{serviceNo}": {
       "put": {
-        "summary": "Grant or revoke demo service approval authority",
-        "description": "Active approver membership in same office required; all grants explicitly DEMO ONLY and audited. This is not official appointment evidence.",
+        "summary": "Grant or revoke service approval authority",
+        "description": "Active approver membership in same office required; all grants are recorded and audited.",
         "security": [
           {
             "session": [],

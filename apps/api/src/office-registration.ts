@@ -3,7 +3,7 @@ import { z } from "zod";
 import type { Auth } from "./app.js";
 import { pool, transaction, audit } from "./db.js";
 import { camelRow, fail } from "./models.js";
-import { hashPassword } from "./security.js";
+import { hashPassword, isCommonPassword } from "./security.js";
 import { createRateLimiter } from "./http-hardening.js";
 import { consumeSignupOtp } from "./otp.js";
 import {
@@ -51,7 +51,14 @@ publicOfficeRegistrationRouter.post(
         tenantId: uuid,
         accountType: typeCode,
         email: z.string().email().max(150),
-        password: z.string().min(12).max(200),
+        // Security Audit 01, F5: same common-password blocklist as management.ts.
+        password: z
+          .string()
+          .min(12)
+          .max(200)
+          .refine((value) => !isCommonPassword(value), {
+            message: "This password is too common. Choose a less predictable password.",
+          }),
         displayName: z.string().min(2).max(120),
         mobile: z.string().min(1).max(40).optional(),
         otpToken: z.string().regex(/^[a-f0-9]{64}$/).optional(),

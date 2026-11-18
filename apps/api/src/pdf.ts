@@ -28,6 +28,17 @@ let activeRenders = 0;
  * render launches (and closes) its own browser — see renderHtmlPdf.
  */
 const lightMode = process.env.PDF_LIGHT_MODE === "1";
+/**
+ * Security Audit 01, F3: Chromium's OS-level sandbox is off today (Playwright's
+ * default, plus an explicit --no-sandbox in light mode) because the cPanel host
+ * was never verified to allow it. PDF_CHROMIUM_SANDBOX=1 opts in: the launch
+ * then requests the sandbox and light mode drops its --no-sandbox arg. The
+ * default (unset) preserves the exact pre-hardening launch behaviour; enabling
+ * it is a deploy-time decision made only after the host proves Chromium starts
+ * with the sandbox on (see .env.cpanel.example). The renderer's other defences
+ * (server-escaped HTML, every non-data: request aborted) apply either way.
+ */
+const chromiumSandbox = process.env.PDF_CHROMIUM_SANDBOX === "1";
 const configuredRenderLimit = Number(process.env.PDF_MAX_CONCURRENCY ?? 4);
 if (
   !Number.isInteger(configuredRenderLimit) ||
@@ -73,8 +84,13 @@ async function launchBrowser(): Promise<Browser> {
   return chromium.launch({
     headless: true,
     executablePath: executable,
+    // F3: only present when PDF_CHROMIUM_SANDBOX=1; omitted otherwise so the
+    // launch options are byte-identical to the pre-hardening behaviour.
+    ...(chromiumSandbox ? { chromiumSandbox: true } : {}),
     // Light mode only (PDF_LIGHT_MODE=1, see above): one process instead
-    // of 5+, no zygote/GPU children, small footprint.
+    // of 5+, no zygote/GPU children, small footprint. --no-sandbox is part
+    // of that profile only while the F3 opt-in is off: passing it alongside
+    // chromiumSandbox:true would defeat the sandbox again.
     ...(lightMode
       ? {
           args: [
@@ -82,7 +98,7 @@ async function launchBrowser(): Promise<Browser> {
             "--no-zygote",
             "--disable-gpu",
             "--disable-dev-shm-usage",
-            "--no-sandbox",
+            ...(chromiumSandbox ? [] : ["--no-sandbox"]),
           ],
         }
       : {}),

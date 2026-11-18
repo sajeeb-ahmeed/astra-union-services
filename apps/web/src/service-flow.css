@@ -100,6 +100,29 @@
 .ax-flow-summary dd {
   margin: 0;
 }
+.ax-flow-details {
+  margin-top: var(--ax-space-4);
+}
+.ax-flow-details h4 {
+  margin: var(--ax-space-3) 0 var(--ax-space-2);
+  font-size: 1rem;
+}
+.ax-flow-details-section:first-child h4 {
+  margin-top: 0;
+}
+.ax-flow-details-list {
+  display: grid;
+  grid-template-columns: minmax(140px, 220px) 1fr;
+  gap: var(--ax-space-2) var(--ax-space-4);
+  margin: 0;
+}
+.ax-flow-details-list dt {
+  color: var(--ax-muted);
+  font-weight: 600;
+}
+.ax-flow-details-list dd {
+  margin: 0;
+}
 .ax-flow-done {
   display: flex;
   flex-direction: column;
@@ -113,10 +136,12 @@
   .ax-flow-panel {
     padding: var(--ax-space-4);
   }
-  .ax-flow-summary {
+  .ax-flow-summary,
+  .ax-flow-details-list {
     grid-template-columns: 1fr;
   }
-  .ax-flow-summary dd {
+  .ax-flow-summary dd,
+  .ax-flow-details-list dd {
     margin-bottom: var(--ax-space-2);
   }
   .ax-flow-actions button {

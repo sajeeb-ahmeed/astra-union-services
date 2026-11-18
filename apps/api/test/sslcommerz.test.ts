@@ -176,6 +176,22 @@ before(async () => {
   assert.equal(signup.status, 201, JSON.stringify(signup.body));
   await login("citizen", email);
   citizenId = (await req("GET", "/citizens", undefined, "citizen")).body.items[0].id;
+  // Phase 3B: the platform application fee is settled at submit. This office
+  // runs on an owner-activated subscription, so submits consume monthly
+  // allowance and the SSLCommerz flows below measure only citizen payments.
+  const subscription = await req(
+    "POST",
+    `/owner/tenants/${officeId}/subscription`,
+    {
+      action: "activate",
+      planId: "standard-monthly",
+      days: 90,
+      grantCredits: false,
+      reason: "Synthetic SSLCommerz subscription activation",
+    },
+    "owner",
+  );
+  assert.equal(subscription.status, 201, JSON.stringify(subscription.body));
   const policy = await req(
     "POST",
     "/admin/services/45/order-policies",

@@ -11,10 +11,13 @@ import {
   buildTradeLicenseV2,
   buildFamilyV2,
   buildGeographySelectorVersion,
+  buildConditionalGroupVersion,
+  conditionalGroupServices,
   geographySelectorServices,
 } from "./expanded-schemas.js";
 export {
   geographySelectorServices,
+  conditionalGroupServices,
   legacyLocationFieldIds,
 } from "./expanded-schemas.js";
 
@@ -365,8 +368,18 @@ export const geographySupersededSchemas: readonly FormSchema[] = deepFreeze(
 export const geographySelectorSchemas: readonly FormSchema[] = deepFreeze(
   geographySupersededSchemas.map(buildGeographySelectorVersion),
 );
+/** Versions superseded by the Phase 4 conditional-group release; retained for applications pinned to them. */
+export const conditionalSupersededSchemas: readonly FormSchema[] = deepFreeze(
+  expandedOperationalSchemas.filter((schema) =>
+    conditionalGroupServices.includes(schema.serviceNo),
+  ),
+);
+export const conditionalSchemas: readonly FormSchema[] = deepFreeze(
+  conditionalSupersededSchemas.map(buildConditionalGroupVersion),
+);
 const latest = (schema: FormSchema) =>
   geographySelectorSchemas.find((item) => item.serviceNo === schema.serviceNo) ??
+  conditionalSchemas.find((item) => item.serviceNo === schema.serviceNo) ??
   schema;
 
 export const operationalSchemas: readonly FormSchema[] = deepFreeze(

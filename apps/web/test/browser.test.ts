@@ -100,7 +100,7 @@ async function action(page: Page, text: string) {
 }
 let browser: Browser;
 test(
-  "browser: citizen → staff visibility → correction → authorized approval → real PDF/QR → exactly-once debit",
+  "browser: citizen → staff visibility → correction → authorized approval → real PDF/QR → fee settled once at submit, no issuance debit",
   { timeout: 120000 },
   async () => {
     await start();
@@ -252,7 +252,9 @@ test(
       const after = await approver.evaluate(
         async () => await (await fetch("/api/v1/wallet")).json(),
       );
-      assert.equal(after.balance, before.balance - 1);
+      // Phase 3B: approval/issuance debits nothing — the application fee
+      // settled once at the first submit (subscription allowance here).
+      assert.equal(after.balance, before.balance);
       const retryResponse = approver.waitForResponse(
         (r) => r.url().endsWith("/issue") && r.request().method() === "POST",
       );
@@ -550,11 +552,25 @@ test(
         .getByLabel("Search within your tenant", { exact: true })
         .fill(citizen.syntheticReference);
       await page.getByText(citizen.id.slice(0, 8), { exact: true }).waitFor();
-      assert.match(citizen.syntheticReference, /^REF-.+/);
+      // Phase 5: server-generated citizen references use the public format
+      // (dddddd-dddddd-dddddd), not the old REF-<uuid>.
+      assert.match(citizen.syntheticReference, /^\d{6}-\d{6}-\d{6}$/);
       assert.equal(response.request().postDataJSON().geography.unionCode, union.code);
       const session = await (await context.request.get(`${origin}/api/v1/auth/me`)).json();
+      // Duplicate identity keys are rejected. Phase 5: server-generated references use the
+      // new 18-digit format, which callers cannot supply (the schema accepts only REF-…),
+      // so the duplicate check uses an explicit reference, as API clients do.
+      const explicit = {
+        ...response.request().postDataJSON(),
+        syntheticReference: "REF-DUP-BROWSER-001",
+      };
+      const first = await context.request.post(`${origin}/api/v1/citizens`, {
+        data: explicit,
+        headers: { "X-CSRF-Token": session.csrfToken },
+      });
+      assert.equal(first.status(), 201, await first.text());
       const duplicate = await context.request.post(`${origin}/api/v1/citizens`, {
-        data: { ...response.request().postDataJSON(), syntheticReference: citizen.syntheticReference },
+        data: explicit,
         headers: { "X-CSRF-Token": session.csrfToken },
       });
       assert.equal(duplicate.status(), 409);

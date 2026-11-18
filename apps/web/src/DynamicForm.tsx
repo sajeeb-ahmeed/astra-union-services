@@ -85,10 +85,15 @@ export function DynamicForm({
         const uploadKey = `${context}:${key}`;
         const error = issues.find((issue) => issue.path === key);
         const localUploadError = uploadErrors[uploadKey];
-        const required = !!(
-          field.constraints?.required ||
-          (field.requiredWhen && evaluatePredicate(field.requiredWhen, scope))
-        );
+        // Matches the shared engine (Phase 4): a plain checkbox is answered
+        // by its state — unticked means "no" — so it is never presented as a
+        // required field. Only a mustBeTrue declaration must be actively given.
+        const required =
+          !!(
+            field.constraints?.required ||
+            (field.requiredWhen && evaluatePredicate(field.requiredWhen, scope))
+          ) &&
+          (field.type !== "checkbox" || !!field.constraints?.mustBeTrue);
         const update = (nextValue: any) => {
           // Resolve the latest root value so an asynchronous upload cannot overwrite intervening edits.
           const parentPath = tokens(key).slice(0, -1);
@@ -473,17 +478,29 @@ export function DynamicForm({
                     ) : (
                       <input
                         {...shared}
-                        type={
-                          field.type === "date"
-                            ? "date"
-                            : field.type === "number"
-                              ? "number"
-                              : "text"
-                        }
+                        // Phase 4: dates render as a plain text input with an
+                        // ISO placeholder. Native date inputs reject direct
+                        // typed entry in several browsers/locales (the live
+                        // campaign needed a spinbutton workaround on service
+                        // 16); a text input accepts typing and paste
+                        // everywhere, and the shared engine still validates
+                        // the value as a real YYYY-MM-DD calendar date.
+                        type={field.type === "number" ? "number" : "text"}
                         inputMode={
-                          field.type === "number" ? "decimal" : undefined
+                          field.type === "number"
+                            ? "decimal"
+                            : field.type === "date"
+                              ? "numeric"
+                              : undefined
                         }
-                        maxLength={field.constraints?.maxLength}
+                        placeholder={
+                          field.type === "date" ? "YYYY-MM-DD" : undefined
+                        }
+                        maxLength={
+                          field.type === "date"
+                            ? 10
+                            : field.constraints?.maxLength
+                        }
                         value={scope[field.id] ?? ""}
                         onChange={(event) =>
                           update(

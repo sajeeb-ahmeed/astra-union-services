@@ -104,12 +104,12 @@ test("Phase 5a: only the owner publishes versioned point prices", async () => {
   );
 });
 
-test("Phase 5a: issuance deducts the point price once; too few points keeps the application approved", async () => {
+test("Phase 5a/3B: issuance no longer deducts points — the spend path is retired, balances stay readable", async () => {
   await setPrice(1575);
   await assert.rejects(admin.query("UPDATE service_point_prices SET price_minor=0"), /Append-only/);
   const wallet = async () => (await req("GET", "/wallet/points", undefined, s.admin)).body;
   const start = (await wallet()).balanceMinor as number;
-  // Bring the wallet just below the price, through the ledger.
+  // Bring the wallet just below the old price, through the ledger.
   if (start !== 1000) {
     const r = await req(
       "POST",
@@ -119,16 +119,21 @@ test("Phase 5a: issuance deducts the point price once; too few points keeps the 
     );
     assert.equal(r.status, 201, JSON.stringify(r.body));
   }
-  // Phase W: the Chairman's approve attempts issuance itself — too few
-  // points refuses it (402) while the approval is recorded as APPROVED.
+  // Until Phase 3B this approval was refused 402 POINTS_INSUFFICIENT. Points
+  // are never spent now, so the chairman's approve issues at once and the
+  // points balance does not move.
   const id = await submitted();
-  const refused = await req("POST", `/applications/${id}/transition`, { action: "approve" }, s.approver);
-  assert.equal(refused.status, 402, JSON.stringify(refused.body));
-  assert.equal(refused.body.error.code, "POINTS_INSUFFICIENT");
-  assert.match(refused.body.error.message, /15\.75 points/);
+  const approved = await req("POST", `/applications/${id}/transition`, { action: "approve" }, s.approver);
+  assert.equal(approved.status, 200, JSON.stringify(approved.body));
+  assert.ok(approved.body.certificate?.number, "certificate issued");
   const detail = await req("GET", `/applications/${id}`, undefined, s.approver);
-  assert.equal(detail.body.application.state, "APPROVED");
-  assert.equal(detail.body.certificate, null);
+  assert.equal(detail.body.application.state, "ISSUED");
+  const again = await req("POST", `/applications/${id}/issue`, {}, s.approver);
+  assert.ok([200, 201].includes(again.status));
+  const after = await wallet();
+  assert.equal(after.balanceMinor, 1000, "issuance deducts no points since Phase 3B");
+  assert.equal(after.ledger.filter((e: any) => e.kind === "ISSUANCE").length, 0, "no point issuance entries are written");
+  assert.deepEqual(after.prices.find((p: any) => p.serviceNo === SERVICE), { serviceNo: SERVICE, priceMinor: 1575 });
 
   // A recharge-like adjustment, retried with the same key, applies once.
   const requestKey = randomUUID();
@@ -145,17 +150,6 @@ test("Phase 5a: issuance deducts the point price once; too few points keeps the 
       201,
     );
   assert.equal((await wallet()).balanceMinor, 2000);
-
-  const issued = await req("POST", `/applications/${id}/issue`, {}, s.approver);
-  assert.equal(issued.status, 201, JSON.stringify(issued.body));
-  const again = await req("POST", `/applications/${id}/issue`, {}, s.approver);
-  assert.ok([200, 201].includes(again.status));
-  const after = await wallet();
-  assert.equal(after.balanceMinor, 425, "2000 − 1575, charged once");
-  const charge = after.ledger.find((e: any) => e.kind === "ISSUANCE" && e.certificateId === issued.body.id);
-  assert.equal(charge.deltaMinor, -1575);
-  assert.equal(after.ledger.filter((e: any) => e.certificateId === issued.body.id).length, 1);
-  assert.deepEqual(after.prices.find((p: any) => p.serviceNo === SERVICE), { serviceNo: SERVICE, priceMinor: 1575 });
 });
 
 test("Phase 5a: balances change only through the append-only ledger and always reconcile", async () => {

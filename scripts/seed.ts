@@ -104,7 +104,7 @@ try {
       [tenantId],
     );
     await db.query(
-      "INSERT INTO tenant_subscriptions(tenant_id,plan_id,valid_until,status) VALUES($1,'standard-monthly',now()+interval '90 days','ACTIVE') ON CONFLICT DO NOTHING",
+      "INSERT INTO tenant_subscriptions(tenant_id,plan_id,valid_until,status,plan_duration_days,plan_grant_credits,plan_allowance_limit) SELECT $1,id,now()+interval '90 days','ACTIVE',duration_days,grant_credits,monthly_allowance_limit FROM subscription_plans WHERE id='standard-monthly' ON CONFLICT DO NOTHING",
       [tenantId],
     );
     await db.query(

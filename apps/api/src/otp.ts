@@ -15,8 +15,14 @@ import {
 
 /**
  * Phase 2c: one-time codes for mobile verification at citizen registration.
- * Owner decision: development provider only. The "log" provider writes the code to the server log and, for
- * local development and tests, to .runtime/otp-outbox.log. A code is never returned by the API.
+ * Owner decision: development provider only. A code is never returned by the API.
+ * Security Audit 01, F1: the "log" provider previously wrote the plaintext code to
+ * the server log — anyone with log access held a working code. The server log line
+ * now records only the recipient hint and purpose, in every environment. Outside
+ * production the code is also written to the git-ignored .runtime/otp-outbox.log —
+ * the local development mailbox the black-box browser suite reads to complete the
+ * signup flow; that file is never written when NODE_ENV=production, and API-level
+ * flows inject a capturing provider instead (setOtpProvider).
  */
 export interface OtpProvider {
   send(input: { mobile: string; code: string; purpose: "signup_mobile" }): Promise<void>;
@@ -25,7 +31,7 @@ const outbox = ".runtime/otp-outbox.log";
 export const logOtpProvider: OtpProvider = {
   async send({ mobile, code, purpose }) {
     const hint = identifierHint("mobile", mobile);
-    console.log(`[otp:log] ${purpose} code for ${hint}: ${code}`);
+    console.log(`[otp:log] ${purpose} code sent to ${hint} (code not logged)`);
     if (process.env.NODE_ENV !== "production") {
       fs.mkdirSync(".runtime", { recursive: true });
       fs.appendFileSync(outbox, `${JSON.stringify({ mobile, code, purpose, at: new Date().toISOString() })}\n`);
@@ -42,6 +48,8 @@ export function setOtpProvider(next: OtpProvider | null) {
   provider = next;
 }
 export const otpAvailable = () => provider !== null && identifiersAvailable();
+/** Security Audit 01, F1: lets the server boot path warn when the log provider is live in production. */
+export const otpProviderIsLog = () => provider === logOtpProvider;
 
 const CODE_TTL_MINUTES = 10;
 const VERIFIED_USE_MINUTES = 15;

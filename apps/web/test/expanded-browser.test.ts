@@ -350,18 +350,18 @@ test(
       await page
         .getByRole("tab", { name: "Service settings", exact: true })
         .click();
-      const service = page.getByRole("row").filter({
-        has: page.getByLabel("Credit cost for service 47", { exact: true }),
-      });
-      await service
-        .getByLabel("Credit cost for service 47", { exact: true })
-        .fill("2");
-      await service
-        .getByRole("button", { name: "Save credits", exact: true })
-        .click();
-      await page
-        .getByText("Service credit cost saved.", { exact: true })
-        .waitFor();
+      // Phase 3D: the legacy per-office credit-cost editor was removed from this
+      // screen — since 3B the value no longer charges anyone (the owner's Pricing
+      // panel sets the price a submit pays), so the row now only carries the
+      // availability toggle.
+      const service = page.getByRole("row").filter({ hasText: "#47" });
+      assert.equal(
+        await service
+          .getByLabel("Credit cost for service 47", { exact: true })
+          .count(),
+        0,
+        "the legacy credit-cost editor must not be offered to office admins",
+      );
       await service
         .getByRole("button", { name: "Disable service", exact: true })
         .click();
@@ -510,20 +510,43 @@ test(
       await context.addInitScript(() => { if (!localStorage.getItem("astra.language")) localStorage.setItem("astra.language", "en"); });
       await context.addInitScript(() => { if (!localStorage.getItem("astra.language")) localStorage.setItem("astra.language", "en"); });
     try {
-      await page.goto(`${origin}/register`);
+      // Phase 3E (§3.6): registration only offers offices that serve the selected
+      // union — onboard a mapped office for this test's union first.
       const union = JSON.parse(fs.readFileSync("data/geo/unions.json", "utf8")).find((row: any) => row.upazilaCode === "upa-001");
+      const officeName = `Signup Union Office ${unique}`;
+      {
+        const setup = await browser.newContext();
+        const login = await setup.request.post(`${origin}/api/v1/auth/login`, {
+          data: { email: "owner@astra.demo.test", password: "Demo-Phase1!" },
+        });
+        const created = await setup.request.post(`${origin}/api/v1/owner/tenants`, {
+          headers: { "X-CSRF-Token": (await login.json()).csrfToken },
+          data: {
+            slug: `signup-union-${unique}`,
+            nameBn: "নিবন্ধন ইউনিয়ন অফিস",
+            nameEn: officeName,
+            officeType: "UNION",
+            geography: { divisionCode: "div-01", districtCode: "dis-01", upazilaCode: "upa-001", unionCode: union.code },
+            adminEmail: `admin@signup-union-${unique}.test`,
+            adminName: "Signup Union Admin",
+            adminPassword: "Signup-union-admin!",
+          },
+        });
+        assert.equal(created.status(), 201, await created.text());
+        await setup.close();
+      }
+      await page.goto(`${origin}/register`);
       for (const [level, code] of [["division", "div-01"], ["district", "dis-01"], ["upazila", "upa-001"], ["union", union.code], ["ward", `${union.code}-w01`]]) {
         await page.locator(`#signup-geo-${level} option[value="${code}"]`).waitFor({ state: "attached" });
         await page.locator(`#signup-geo-${level}`).selectOption(code);
       }
-      await page.getByRole("button", { name: "Register with this office", exact: true }).click();
-      const alphaOption = page.locator("#signup-office option").filter({ hasText: "Alpha Union" });
-      await alphaOption.waitFor({ state: "attached" });
-      const alphaId = await alphaOption.getAttribute("value");
-      assert.ok(alphaId);
+      const officeOption = page.locator("#signup-office option").filter({ hasText: officeName });
+      await officeOption.waitFor({ state: "attached" });
+      const officeId = await officeOption.getAttribute("value");
+      assert.ok(officeId);
       await page
         .getByLabel("Select office", { exact: true })
-        .selectOption(alphaId);
+        .selectOption(officeId);
       for (const [label, value] of Object.entries({
         "Email address": email,
         "Choose password": password,

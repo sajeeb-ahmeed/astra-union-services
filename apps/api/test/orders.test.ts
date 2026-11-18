@@ -305,6 +305,7 @@ test("ORDER-02: only office admins publish explicit integer fees and policies ar
       "deliveryModes",
       "urgencies",
       "charterDays",
+      "requiredDocuments",
       "currency",
     ].sort(),
   );
@@ -637,7 +638,7 @@ test("ORDER-08: a draft created before any policy retains its legacy path after 
   assert.equal(renewal.body.error.code, "ORDER_REQUIRED");
 });
 
-test("ORDER-09: explicit zero-fee policy still requires the Chairman's authorized approval and issuance deducts exactly once", async () => {
+test("ORDER-09: explicit zero-fee policy still requires the Chairman's authorized approval; the platform fee settles once at submit and issuance deducts nothing", async () => {
   const response = await publish({
     expectedVersion: currentVersion,
     statutoryFeeMinor: 0,
@@ -677,8 +678,10 @@ test("ORDER-09: explicit zero-fee policy still requires the Chairman's authorize
     ).status,
     409,
   );
-  // Phase W: the Chairman's approve is the issuance; the balance is read
-  // before it so the single deduction is measured across the whole flow.
+  // Phase W: the Chairman's approve is the issuance. Phase 3B: the balance
+  // is read before the whole submit+approve flow — this office's active
+  // subscription settles the platform fee as allowance at submit, so the
+  // wallet balance must be identical afterwards.
   const balance = (await request("GET", "/wallet", undefined, "finance")).body
     .balance;
   const approvedZero = await approve(zeroApplication.id);
@@ -716,7 +719,7 @@ test("ORDER-09: explicit zero-fee policy still requires the Chairman's authorize
   assert.equal(issues[0]!.body.id, approvedZero.certificate.id);
   assert.equal(
     (await request("GET", "/wallet", undefined, "finance")).body.balance,
-    balance - 1,
+    balance,
   );
   const rows = (
     await admin.query(
@@ -724,7 +727,7 @@ test("ORDER-09: explicit zero-fee policy still requires the Chairman's authorize
       [office.id, issues[0].body.id],
     )
   ).rows[0];
-  assert.equal(rows.count, 1);
+  assert.equal(rows.count, 0);
   const detail = (await request("GET", `/applications/${zeroApplication.id}`))
     .body;
   assert.equal(detail.order.totalMinor, 0);

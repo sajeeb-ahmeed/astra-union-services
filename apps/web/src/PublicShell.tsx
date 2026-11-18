@@ -1,5 +1,7 @@
 import React, { useEffect, useState, useSyncExternalStore } from "react";
 import { choose, LanguageSwitcher, useLanguage } from "./i18n.js";
+import { useBranding } from "./branding.js";
+import { GlobalNoticeBanner } from "./GlobalNotices.js";
 import "./ui/kit.js";
 import { SubscriptionForm } from "./SubscriptionForm.js";
 import logoLockup from "./assets/brand/logo-lockup.webp";
@@ -116,6 +118,10 @@ export function SiteHeader({
   navItems?: readonly { href: string; bn: string; en: string }[];
 }) {
   useLanguage();
+  const branding = useBranding();
+  useEffect(() => {
+    document.title = `${branding.name} — ${branding.taglineBn}`;
+  }, [branding]);
   const phone = usePhone();
   const [drawer, setDrawer] = useState(false);
   useEffect(() => {
@@ -145,18 +151,15 @@ export function SiteHeader({
             href="/"
             onNavigate={onNavigate}
             className="du-brand"
-            ariaLabel={choose({ bn: "DigitalUnion হোম", en: "DigitalUnion home" })}
+            ariaLabel={choose({ bn: `${branding.name} হোম`, en: `${branding.name} home` })}
           >
-            <img className="du-brand-lockup" src={logoLockup} alt="DigitalUnion" width={176} height={81} />
+            <img className="du-brand-lockup" src={logoLockup} alt={branding.name} width={176} height={81} />
             <span className="du-brand-mini">
               <img src={emblem} alt="" width={40} height={40} />
               <span>
-                <strong>DigitalUnion</strong>
+                <strong>{branding.name}</strong>
                 <small>
-                  {choose({
-                    bn: "স্মার্ট ইউনিয়ন, স্মার্ট বাংলাদেশ",
-                    en: "Smart Union, Smart Bangladesh",
-                  })}
+                  {choose({ bn: branding.taglineBn, en: branding.taglineEn })}
                 </small>
               </span>
             </span>
@@ -266,6 +269,7 @@ export function SiteFooter({
   bottomLine?: React.ReactNode;
 }) {
   useLanguage();
+  const branding = useBranding();
   const link = (href: string, bn: string, en: string) => (
     <li key={href}>
       <NavLink href={href} onNavigate={onNavigate} className="du-footlink">
@@ -279,14 +283,9 @@ export function SiteFooter({
         <div className="du-footer-brand">
           <span className="du-footer-lockup">
             <img src={emblem} alt="" width={44} height={44} />
-            <strong>DigitalUnion</strong>
+            <strong>{branding.name}</strong>
           </span>
-          <p>
-            {choose({
-              bn: "স্মার্ট ইউনিয়ন, স্মার্ট বাংলাদেশ",
-              en: "Smart Union, Smart Bangladesh",
-            })}
-          </p>
+          <p>{choose({ bn: branding.taglineBn, en: branding.taglineEn })}</p>
           <p className="du-footer-note">
             {choose({
               bn: "ইউনিয়ন পরিষদের নাগরিক সেবা — আবেদন, অবস্থা ও সনদ যাচাই এক ঠিকানায়।",
@@ -329,8 +328,8 @@ export function SiteFooter({
         <div className="du-container">
           {bottomLine ?? (
             <span>
-              © {new Date().getFullYear()} DigitalUnion
-              {choose({ bn: " · স্মার্ট ইউনিয়ন, স্মার্ট বাংলাদেশ", en: " · Smart Union, Smart Bangladesh" })}
+              © {new Date().getFullYear()} {branding.name}
+              {choose({ bn: ` · ${branding.taglineBn}`, en: ` · ${branding.taglineEn}` })}
             </span>
           )}
         </div>
@@ -354,6 +353,7 @@ export function PublicShell({
       </a>
       <SiteHeader current={current} />
       <main id="ax-content" className="ax-main">
+        <GlobalNoticeBanner />
         {children}
       </main>
       <SiteFooter />

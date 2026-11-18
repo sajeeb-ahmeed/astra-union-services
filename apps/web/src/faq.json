@@ -182,8 +182,8 @@
       "en": "What is an office's points wallet?"
     },
     "a": {
-      "bn": "প্রতিটি সনদ ইস্যুর সময় অফিসের পয়েন্ট (১ পয়েন্ট = ১ টাকা) থেকে নির্ধারিত পরিমাণ কাটা হয়। অফিস ব্যাংকে জমা দিয়ে রসিদসহ রিচার্জের অনুরোধ করে; যাচাইয়ের পরে পয়েন্ট যোগ হয়।",
-      "en": "Issuing each certificate deducts its set price from the office's points (1 point = 1 taka). The office recharges by bank deposit with the slip; points are added after the deposit is confirmed."
+      "bn": "আগে সনদ ইস্যুর সময় পয়েন্ট কাটা হতো; এখন আবেদনের ফি ক্রেডিটে কাটা হয় আবেদন জমার সময়। অফিস ব্যাংকে জমা দিয়ে রসিদসহ রিচার্জের অনুরোধ করলে যাচাইয়ের পরে পয়েন্ট যোগ হয়, এবং আগের পয়েন্ট ব্যালান্স ওয়ালেটে দেখা যায়।",
+      "en": "Points used to be deducted when a certificate was issued; the application fee is now charged in credits at application submit. The office recharges points by bank deposit with the slip; points are added after the deposit is confirmed, and earlier point balances remain visible in the wallet."
     }
   },
   {

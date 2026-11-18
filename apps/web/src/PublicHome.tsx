@@ -4,6 +4,7 @@ import { choose, useLanguage } from "./i18n.js";
 import serviceCatalog from "./public-service-catalog.json" with { type: "json" };
 import { CivicIcon } from "./PublicPortal.js";
 import { PublicShell } from "./PublicShell.js";
+import { PublicOffers } from "./GlobalNotices.js";
 import { EmptyState, RailPanel, ServiceTile, StatCard, StatusPill, TitleBand } from "./ui/kit.js";
 import "./public-home.css";
 
@@ -105,6 +106,7 @@ export function PublicHome({ login }: { login?: React.ReactNode } = {}) {
           />
         </div>
       </TitleBand>
+      <PublicOffers />
       <div className="ax-container ax-home-layout">
         <section
           className="ax-home-services"

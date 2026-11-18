@@ -109,19 +109,23 @@ test(
       await page.getByRole("button", { name: "Submit application" }).click();
       assert.equal((await created).status(), 201);
       assert.equal((await submitted).status(), 200);
+      const createdApplication = await (await created).json();
 
       // Step 5: done, with the reference; the server agrees it is submitted.
+      // Phase 5: the done screen shows the public application reference
+      // (dddddd-dddddd-dddddd), not the internal application UUID.
       await stepHeading(page).getByText("Done", { exact: true }).waitFor();
       const reference = (await page.locator(".ax-flow-reference").textContent())!.trim();
-      assert.match(reference, /^[0-9a-f-]{36}$/);
+      assert.match(reference, /^\d{6}-\d{6}-\d{6}$/);
+      assert.equal(reference, createdApplication.reference);
       const stored = await page.evaluate(
         async (id) => (await (await fetch(`/api/v1/applications/${id}`)).json()).application.state,
-        reference,
+        createdApplication.id,
       );
       assert.equal(stored, "SUBMITTED");
       await page.screenshot({ path: "execution/screenshots/phase1-service-flow-done.png", fullPage: true });
       await page.getByRole("button", { name: "Open application" }).click();
-      await page.getByText(reference.slice(0, 8)).first().waitFor();
+      await page.getByText(createdApplication.id.slice(0, 8)).first().waitFor();
 
       // Registering a new citizen from the flow returns to it at the form, with that citizen chosen.
       await page.getByRole("navigation", { name: "Workspace navigation" }).getByRole("button", { name: "Dashboard" }).click();
@@ -167,6 +171,103 @@ test(
       );
       await mobile.screenshot({ path: "execution/screenshots/phase1-service-flow-mobile.png", fullPage: true });
       assert.deepEqual(errors, []);
+    } finally {
+      await browser.close();
+    }
+  },
+);
+
+test(
+  "Phase 4: untouched conditional groups do not block the form, and selecting one enforces its fields (service 23)",
+  { timeout: 150000 },
+  async () => {
+    const browser = await browserInstance();
+    try {
+      const page = await browser.newPage({ viewport: { width: 1366, height: 900 } });
+      await signIn(page, "");
+      await page.locator('.ax-dashboard .ax-tile[data-service="23"]').click();
+      await stepHeading(page).getByText("Citizen", { exact: true }).waitFor();
+      await page.locator(".ax-citizen").first().waitFor();
+      await page.locator(".ax-citizen input").first().check();
+      await page.getByRole("button", { name: "Next: application form" }).click();
+      await stepHeading(page).getByText("Application form", { exact: true }).waitFor();
+
+      // Neither opt-in group (profession details, another person's income)
+      // is touched: the demo payload leaves both toggles off, and the form
+      // must advance. Before Phase 4 this stopped on "This field is
+      // required." for the untouched toggles and their hidden groups.
+      await fillApplicationForm(page, demoPayloads[23]);
+      assert.equal(
+        await page.locator('[data-field-path="other_person_name"]').count(),
+        0,
+        "the other-person group stays hidden while its toggle is off",
+      );
+      await page.getByRole("button", { name: "Next: fees and delivery" }).click();
+      await stepHeading(page).getByText("Fees and delivery", { exact: true }).waitFor();
+
+      // Back on the form, selecting the group reveals it and its required
+      // fields are enforced again.
+      await page.getByRole("button", { name: "← Application form" }).click();
+      await stepHeading(page).getByText("Application form", { exact: true }).waitFor();
+      await page.locator('[data-field-path="other_person"]').check();
+      await page.locator('[data-field-path="other_person_name"]').waitFor();
+      await page.getByRole("button", { name: "Next: fees and delivery" }).click();
+      const summary = page.locator(".ax-flow .error-summary");
+      await summary.waitFor();
+      assert.match((await summary.textContent()) ?? "", /other_person_name/);
+    } finally {
+      await browser.close();
+    }
+  },
+);
+
+test(
+  "Phase 4: the date field accepts a directly typed date and the review lists the entered service details (service 45)",
+  { timeout: 150000 },
+  async () => {
+    const browser = await browserInstance();
+    try {
+      const page = await browser.newPage({ viewport: { width: 1366, height: 900 } });
+      await signIn(page, "");
+      await page.locator('.ax-dashboard .ax-tile[data-service="45"]').click();
+      await stepHeading(page).getByText("Citizen", { exact: true }).waitFor();
+      await page.locator(".ax-citizen").first().waitFor();
+      await page.locator(".ax-citizen input").first().check();
+      await page.getByRole("button", { name: "Next: application form" }).click();
+      await stepHeading(page).getByText("Application form", { exact: true }).waitFor();
+
+      const { residence_since: _demoDate, ...rest } = demoPayloads[45] as Record<string, unknown>;
+      await fillApplicationForm(page, rest);
+      // Direct typed entry — no calendar widget or spinbutton segments.
+      const date = page.locator('[data-field-path="residence_since"]');
+      assert.equal(await date.getAttribute("type"), "text");
+      assert.equal(await date.getAttribute("placeholder"), "YYYY-MM-DD");
+      await date.click();
+      await date.pressSequentially("2020-03-04");
+      assert.equal(await date.inputValue(), "2020-03-04");
+
+      await page.getByRole("button", { name: "Next: fees and delivery" }).click();
+      await stepHeading(page).getByText("Fees and delivery", { exact: true }).waitFor();
+      await (await completeFees(page)).click();
+
+      // The review step shows the service-specific details that were
+      // entered, not only the generic summary.
+      await stepHeading(page).getByText("Review and submit", { exact: true }).waitFor();
+      const details = (await page.locator(".ax-flow-details").textContent()) ?? "";
+      assert.match(details, /Resident since/);
+      assert.match(details, /2020-03-04/);
+      assert.match(details, /Resident certificate application/);
+
+      const created = page.waitForResponse(
+        (r) => r.url().endsWith("/api/v1/applications") && r.request().method() === "POST",
+      );
+      const submitted = page.waitForResponse(
+        (r) => /\/transition$/.test(r.url()) && r.request().method() === "POST",
+      );
+      await page.getByRole("button", { name: "Submit application" }).click();
+      assert.equal((await created).status(), 201);
+      assert.equal((await submitted).status(), 200);
+      await stepHeading(page).getByText("Done", { exact: true }).waitFor();
     } finally {
       await browser.close();
     }

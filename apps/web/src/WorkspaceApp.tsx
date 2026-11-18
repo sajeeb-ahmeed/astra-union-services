@@ -11,7 +11,9 @@ import {
   operationalServiceNumbers,
   getServiceSchema,
 } from "@astra/shared-schemas";
-import { api, items } from "./api.js";
+import { api, clearSessionToken, items } from "./api.js";
+import { useBranding } from "./branding.js";
+import { GlobalNoticeBanner } from "./GlobalNotices.js";
 import emblem from "./assets/brand/emblem.webp";
 import { AsyncPanel } from "./AsyncPanel.js";
 import { DynamicForm } from "./DynamicForm.js";
@@ -81,11 +83,39 @@ const OwnerWitnessTypes = lazy(() =>
 const PointsWallet = lazy(() =>
   import("./PointsWallet.js").then((m) => ({ default: m.PointsWallet })),
 );
-const OwnerPointPrices = lazy(() =>
-  import("./PointsWallet.js").then((m) => ({ default: m.OwnerPointPrices })),
+const OwnerPricing = lazy(() =>
+  import("./OwnerPricing.js").then((m) => ({ default: m.OwnerPricing })),
+);
+const OwnerPlans = lazy(() =>
+  import("./OwnerPlans.js").then((m) => ({ default: m.OwnerPlans })),
+);
+const OwnerBranding = lazy(() =>
+  import("./OwnerBranding.js").then((m) => ({ default: m.OwnerBranding })),
+);
+const OwnerAudit = lazy(() =>
+  import("./OwnerAudit.js").then((m) => ({ default: m.OwnerAudit })),
+);
+const OwnerCoupons = lazy(() =>
+  import("./OwnerCoupons.js").then((m) => ({ default: m.OwnerCoupons })),
+);
+const OwnerNotices = lazy(() =>
+  import("./OwnerNotices.js").then((m) => ({ default: m.OwnerNotices })),
+);
+const OwnerDemand = lazy(() =>
+  import("./OwnerDemand.js").then((m) => ({ default: m.OwnerDemand })),
 );
 const OwnerPointsPanel = lazy(() =>
   import("./PointsWallet.js").then((m) => ({ default: m.OwnerPointsPanel })),
+);
+const OwnerSubscriptionPanel = lazy(() =>
+  import("./OwnerSubscriptions.js").then((m) => ({
+    default: m.OwnerSubscriptionPanel,
+  })),
+);
+const OwnerPendingOrders = lazy(() =>
+  import("./OwnerSubscriptions.js").then((m) => ({
+    default: m.OwnerPendingOrders,
+  })),
 );
 const OfficeRefunds = lazy(() =>
   import("./Refunds.js").then((m) => ({ default: m.OfficeRefunds })),
@@ -162,6 +192,7 @@ export function WorkspaceApp({
   onPaymentReturnHandled: () => void;
 }) {
   const [language] = useLanguage();
+  const branding = useBranding();
   // Phone layout (<=767px): card lists replace the wide tables; rendered conditionally so the
   // table data is never duplicated in the DOM on larger screens.
   const phoneLayout = useSyncExternalStore(
@@ -183,7 +214,10 @@ export function WorkspaceApp({
     [applications, setApplications] = useState<any[]>([]),
     [wallet, setWallet] = useState<any>(null),
     [billing, setBilling] = useState<any>(null),
-    [tenants, setTenants] = useState<any[]>([]);
+    // Phase 3E (§3.7): the office's coupon code for its next order, if any.
+    [orderCoupon, setOrderCoupon] = useState(""),
+    [tenants, setTenants] = useState<any[]>([]),
+    [plans, setPlans] = useState<any[]>([]);
   // Phase 1 slice (iii), approved: dashboard tiles open the guided application flow.
   const [flowService, setFlowService] = useState<number | null>(null);
   const [flowCitizen, setFlowCitizen] = useState<any>(null);
@@ -292,6 +326,7 @@ export function WorkspaceApp({
     setWallet(walletResult);
     setBilling(billingResult);
     setTenants(items(tenantResult));
+    setPlans(tenantResult.plans ?? []);
   }
   useEffect(() => {
     if (session) run(refresh);
@@ -389,7 +424,6 @@ export function WorkspaceApp({
     }
     nav(next);
   }
-  const issueCost = detail?.serviceConfiguration?.creditCost ?? 1;
   const application = detail?.application || detail,
     detailPayload = detail?.payload || application?.payload || {};
   const renewalLanguage =
@@ -508,12 +542,9 @@ export function WorkspaceApp({
             height={38}
           />
           <span>
-            DigitalUnion
+            {branding.name}
             <small>
-              {choose({
-                bn: "স্মার্ট ইউনিয়ন, স্মার্ট বাংলাদেশ",
-                en: "Smart Union, Smart Bangladesh",
-              })}
+              {choose({ bn: branding.taglineBn, en: branding.taglineEn })}
             </small>
           </span>
         </a>
@@ -606,7 +637,19 @@ export function WorkspaceApp({
             className="text-button"
             onClick={() =>
               run(async () => {
-                await api("/auth/logout", "POST");
+                // Phase 5 (5A): leaving the workspace must never depend on the logout
+                // request succeeding — in the broken-session state that request is
+                // exactly what fails (it is CSRF-protected like every POST), which left
+                // sign-out clicks doing nothing. The API client first resyncs and tries
+                // to complete the server logout; whatever the outcome, local state is
+                // cleared and the user returns to the sign-in portal. A server session
+                // that could not be ended here expires on its own schedule.
+                try {
+                  await api("/auth/logout", "POST");
+                } catch {
+                  // Ignored deliberately: local sign-out proceeds regardless.
+                }
+                clearSessionToken();
                 refreshEpoch.current++;
                 onSignOut();
                 setCitizens([]);
@@ -631,6 +674,7 @@ export function WorkspaceApp({
         </div>
       </aside>
       <main id="content" aria-busy={busy || undefined}>
+        <GlobalNoticeBanner />
         <header>
           <div>
             <span className="eyebrow">
@@ -894,13 +938,12 @@ export function WorkspaceApp({
                     </thead>
                     <tbody>
                       {tx(
-                        citizens
-                          .filter((c) =>
-                            JSON.stringify(c)
-                              .toLowerCase()
-                              .includes(citizenQuery.toLowerCase()),
-                          )
-                          .map((c) => (
+                        // Phase 5 (5B): the server already filters this list by the same
+                        // query (Bangla + English names, reference, mobile). The old extra
+                        // client-side substring filter over the serialized citizen could
+                        // only hide server matches — the phone card list below never
+                        // applied it, so the two layouts could disagree.
+                        citizens.map((c) => (
                             <tr key={c.id}>
                               <td>
                                 {c.nameBn || c.name_bn}
@@ -1530,7 +1573,7 @@ export function WorkspaceApp({
                 <input
                   id="application-reference"
                   readOnly
-                  value={application.id}
+                  value={application.reference || application.id}
                   onFocus={(e) => e.target.select()}
                 />
                 <p className="hint">
@@ -1736,7 +1779,7 @@ export function WorkspaceApp({
                               await openApplication(application.id);
                               await refresh();
                               setMessage(
-                                `Certificate issued. ${issueCost} credit${issueCost === 1 ? "" : "s"} debited once; retries return the same certificate.`,
+                                `Certificate issued. The application fee was settled at submission; retries return the same certificate.`,
                               );
                             })
                           }
@@ -1744,7 +1787,7 @@ export function WorkspaceApp({
                           {tx(
                             application.state === "ISSUED"
                               ? "Retry issuance safely"
-                              : `Issue certificate · ${issueCost} credit${issueCost === 1 ? "" : "s"}`,
+                              : "Issue certificate",
                           )}
                         </button>
                       ),
@@ -1905,7 +1948,9 @@ export function WorkspaceApp({
                           (billing?.plans || []).find(
                             (plan: any) =>
                               plan.id === billing.subscription.planId,
-                          )?.name || "—",
+                          )?.name ||
+                            billing?.currentPlan?.name ||
+                            "—",
                         )}
                       </dd>
                     </div>
@@ -1930,6 +1975,15 @@ export function WorkspaceApp({
                     })}
                   </p>
                 )}
+                <label htmlFor="order-coupon-code">
+                  {choose({ bn: "কুপন কোড (যদি থাকে)", en: "Coupon code (if any)" })}
+                </label>
+                <input
+                  id="order-coupon-code"
+                  value={orderCoupon}
+                  onChange={(e) => setOrderCoupon(e.target.value)}
+                  placeholder={choose({ bn: "কোড লিখুন", en: "Enter code" })}
+                />
                 <div className="actions">
                   <button
                     onClick={() =>
@@ -1937,6 +1991,9 @@ export function WorkspaceApp({
                         await api("/billing/orders", "POST", {
                           kind: "topup",
                           credits: 10,
+                          ...(orderCoupon.trim()
+                            ? { couponCode: orderCoupon.trim() }
+                            : {}),
                         });
                         setBilling(await api("/billing"));
                         setMessage("Sandbox top-up order created.");
@@ -1955,6 +2012,9 @@ export function WorkspaceApp({
                             await api("/billing/orders", "POST", {
                               kind: "subscription",
                               planId: plan.id,
+                              ...(orderCoupon.trim()
+                                ? { couponCode: orderCoupon.trim() }
+                                : {}),
                             });
                             setBilling(await api("/billing"));
                             setMessage("Subscription order created.");
@@ -1984,7 +2044,14 @@ export function WorkspaceApp({
                           <tr key={o.id}>
                             <td>{tx(o.id.slice(0, 8))}</td>
                             <td>{tx(o.kind)}</td>
-                            <td>{tx(o.amountMinor ?? o.amount_minor)}</td>
+                            <td>
+                              {tx(o.amountMinor ?? o.amount_minor)}
+                              {tx(
+                                o.couponCode
+                                  ? ` · ${o.couponCode} −${o.discountMinor ?? 0}`
+                                  : "",
+                              )}
+                            </td>
                             <td>
                               {tx(o.status)}
                               {tx(" ")}
@@ -2111,17 +2178,62 @@ export function WorkspaceApp({
               <AdditionalWorkspace page={page} session={session} />
             ),
           )}
-          {tx(page === "owner" && <OwnerOperations />)}
-          {tx(page === "owner" && <OwnerOnboarding onSaved={refresh} />)}
-          {tx(page === "owner" && <OwnerAccountRequests />)}
-          {tx(page === "owner" && <OwnerPointPrices />)}
-          {tx(page === "owner" && <OwnerRecharges />)}
-          {tx(page === "owner" && <OwnerInclusionRequests />)}
-          {tx(page === "owner" && <OwnerWitnessTypes />)}
-        </AsyncPanel>
-        {tx(
-          page === "owner" && (
-            <section className="panel">
+          {tx(
+            page === "owner" && (
+              <>
+                {/* Phase 3D: the owner console is organised into the billing plan
+                    §3.9 sections with a jump nav. Everything stays on one page —
+                    the per-office subscription panel lives on each office card
+                    (Offices section), so no control is hidden behind a tab.
+                    Phase 3E: Coupons and Notices now join the nav (§3.9 order:
+                    Pricing · Coupons · Notices · Permissions · Audit).
+                    Demand list (§3.6, owner-approved 18 Nov): the Registration
+                    demand section sits right after Offices — it is the demand
+                    side of onboarding. */}
+                <nav
+                  className="owner-nav"
+                  aria-label={choose({
+                    bn: "প্ল্যাটফর্ম ব্যবস্থাপনার অংশসমূহ",
+                    en: "Platform management sections",
+                  })}
+                >
+                  <a href="#owner-overview">
+                    {choose({ bn: "সারসংক্ষেপ", en: "Overview" })}
+                  </a>
+                  <a href="#owner-offices">
+                    {choose({ bn: "অফিসসমূহ", en: "Offices" })}
+                  </a>
+                  <a href="#owner-demand">
+                    {choose({ bn: "নিবন্ধনের চাহিদা", en: "Registration demand" })}
+                  </a>
+                  <a href="#owner-subscriptions">
+                    {choose({ bn: "সাবস্ক্রিপশন", en: "Subscriptions" })}
+                  </a>
+                  <a href="#owner-pricing">
+                    {choose({ bn: "মূল্য নির্ধারণ", en: "Pricing" })}
+                  </a>
+                  <a href="#owner-coupons">
+                    {choose({ bn: "কুপন", en: "Coupons" })}
+                  </a>
+                  <a href="#owner-notices">
+                    {choose({ bn: "নোটিশ", en: "Notices" })}
+                  </a>
+                  <a href="#owner-permissions">
+                    {choose({ bn: "অনুমতি", en: "Permissions" })}
+                  </a>
+                  <a href="#owner-audit">{choose({ bn: "অডিট", en: "Audit" })}</a>
+                </nav>
+                <section className="owner-section" id="owner-overview">
+                  <h2>{choose({ bn: "সারসংক্ষেপ", en: "Overview" })}</h2>
+                  <OwnerOperations />
+                  <OwnerBranding />
+                  <OwnerWitnessTypes />
+                </section>
+                <section className="owner-section" id="owner-offices">
+                  <h2>{choose({ bn: "অফিসসমূহ", en: "Offices" })}</h2>
+                  <OwnerOnboarding onSaved={refresh} />
+                  <OwnerInclusionRequests />
+                  <section className="panel">
               <h2>{t("Tenant credit management")}</h2>
               <p>
                 {t(
@@ -2213,14 +2325,59 @@ export function WorkspaceApp({
                       <button>{t("Record adjustment")}</button>
                     </form>
                     <OwnerPointsPanel tenantId={officeTenant.id} />
+                    <OwnerSubscriptionPanel
+                      tenantId={officeTenant.id}
+                      subscription={officeTenant.subscription}
+                      plans={plans}
+                      onChanged={refresh}
+                    />
                   </div>
                 )),
               )}
-            </section>
-          ),
-        )}
+                  </section>
+                  <OwnerRecharges />
+                </section>
+                <section className="owner-section" id="owner-demand">
+                  <h2>{choose({ bn: "নিবন্ধনের চাহিদা", en: "Registration demand" })}</h2>
+                  <OwnerDemand />
+                </section>
+                <section className="owner-section" id="owner-subscriptions">
+                  <h2>{choose({ bn: "সাবস্ক্রিপশন", en: "Subscriptions" })}</h2>
+                  <p className="hint">
+                    {choose({
+                      bn: "প্রতিটি অফিসের সাবস্ক্রিপশন চালু করা, মেয়াদ বাড়ানো, স্থগিত করা ও প্ল্যান বদল — অফিস অংশে প্রতিটি অফিসের কার্ডে নিয়ন্ত্রণ করা যায়। এই অংশে প্ল্যানের তালিকা ও অপেক্ষমাণ পেমেন্ট অর্ডার থাকে।",
+                      en: "Activating, extending, suspending and changing each office's subscription is controlled on its card in the Offices section. This section holds the plan catalogue and the waiting payment orders.",
+                    })}
+                  </p>
+                  <OwnerPlans />
+                  <OwnerPendingOrders />
+                </section>
+                <section className="owner-section" id="owner-pricing">
+                  <h2>{choose({ bn: "মূল্য নির্ধারণ", en: "Pricing" })}</h2>
+                  <OwnerPricing />
+                </section>
+                <section className="owner-section" id="owner-coupons">
+                  <h2>{choose({ bn: "কুপন", en: "Coupons" })}</h2>
+                  <OwnerCoupons />
+                </section>
+                <section className="owner-section" id="owner-notices">
+                  <h2>{choose({ bn: "নোটিশ", en: "Notices" })}</h2>
+                  <OwnerNotices />
+                </section>
+                <section className="owner-section" id="owner-permissions">
+                  <h2>{choose({ bn: "অনুমতি", en: "Permissions" })}</h2>
+                  <OwnerAccountRequests />
+                </section>
+                <section className="owner-section" id="owner-audit">
+                  <h2>{choose({ bn: "অডিট", en: "Audit" })}</h2>
+                  <OwnerAudit />
+                </section>
+              </>
+            ),
+          )}
+        </AsyncPanel>
         <footer>
-          {t("DigitalUnion · Smart Union, Smart Bangladesh")}
+          {branding.name} · {choose({ bn: branding.taglineBn, en: branding.taglineEn })}
         </footer>
       </main>
     </div>

@@ -1,7 +1,10 @@
 import React, { useEffect, useRef, useState } from "react";
 import {
   getServiceSchema,
+  isFieldVisible,
   validateForm,
+  type FieldDefinition,
+  type FormSchema,
   type ValidationIssue,
 } from "@astra/shared-schemas";
 import { api, items } from "./api.js";
@@ -23,6 +26,93 @@ const steps = [
 
 const citizenName = (c: any) =>
   choose({ bn: c?.nameBn || c?.name_bn, en: c?.nameEn || c?.name_en });
+
+const presentValue = (value: unknown): boolean =>
+  value !== undefined &&
+  value !== null &&
+  !(typeof value === "string" && value.trim() === "");
+
+/** Human-readable rendering of one entered value, for the review step. */
+function detailText(field: FieldDefinition, value: any): string | null {
+  if (field.type === "repeatable") {
+    if (!Array.isArray(value) || !value.length) return null;
+    const rows = value
+      .map((row: Record<string, any>, index: number) => {
+        const parts = (field.children ?? [])
+          .filter((child) => isFieldVisible(child, row ?? {}))
+          .map((child) => {
+            const childText = detailText(child, row?.[child.id]);
+            return childText ? `${choose(child.label)}: ${childText}` : null;
+          })
+          .filter(Boolean);
+        return parts.length ? `${index + 1}. ${parts.join(", ")}` : null;
+      })
+      .filter(Boolean);
+    return rows.length ? rows.join("; ") : null;
+  }
+  if (!presentValue(value)) return null;
+  switch (field.type) {
+    case "checkbox":
+      // Only an actively ticked box is a detail worth reviewing.
+      return value === true ? choose({ bn: "হ্যাঁ", en: "Yes" }) : null;
+    case "select": {
+      const option = field.options?.find((item) => item.value === value);
+      return option ? choose(option.label) : String(value);
+    }
+    case "attachment":
+      return typeof value?.byteLength === "number"
+        ? `${choose({ bn: "সংযুক্ত নথি", en: "Attached document" })} (${Math.max(1, Math.round(value.byteLength / 1024))} KB)`
+        : choose({ bn: "সংযুক্ত নথি", en: "Attached document" });
+    case "geography":
+      return Object.values(value ?? {}).filter(Boolean).join(" / ") || null;
+    default:
+      return String(value);
+  }
+}
+
+/**
+ * Phase 4: the review step lists the service-specific details the citizen
+ * actually entered, grouped by form section — not only the generic
+ * service/applicant/office/fee summary.
+ */
+function PayloadDetails({
+  schema,
+  payload,
+}: {
+  schema: FormSchema;
+  payload: Record<string, any>;
+}) {
+  const sections = schema.sections
+    .map((section) => ({
+      section,
+      rows: section.fields
+        .filter((field) => isFieldVisible(field, payload))
+        .map((field) => ({
+          field,
+          text: detailText(field, payload[field.id]),
+        }))
+        .filter((row) => row.text !== null),
+    }))
+    .filter((entry) => entry.rows.length);
+  if (!sections.length) return null;
+  return (
+    <div className="ax-flow-details">
+      {sections.map(({ section, rows }) => (
+        <div key={section.id} className="ax-flow-details-section">
+          <h4>{choose(section.title)}</h4>
+          <dl className="ax-flow-details-list">
+            {rows.map((row) => (
+              <React.Fragment key={row.field.id}>
+                <dt>{choose(row.field.label)}</dt>
+                <dd>{row.text}</dd>
+              </React.Fragment>
+            ))}
+          </dl>
+        </div>
+      ))}
+    </div>
+  );
+}
 
 /**
  * Phase 1 slice (iii): one service application as a guided flow — citizen, form, fees, review, done.
@@ -52,13 +142,16 @@ export function ServiceFlow({
   const [step, setStep] = useState(initialCitizen ? 1 : 0);
   const [query, setQuery] = useState("");
   const [found, setFound] = useState<any[] | null>(null);
+  // Phase 5 (5B): a failed search request is not the same as "no citizen found" — during the
+  // live campaign a broken session made every search look like an empty result.
+  const [searchFailed, setSearchFailed] = useState(false);
   const [citizen, setCitizen] = useState<any>(initialCitizen);
   const [payload, setPayload] = useState<Record<string, any>>({});
   const [issues, setIssues] = useState<readonly ValidationIssue[]>([]);
   const [order, setOrder] = useState<IntakeOrderState | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const [result, setResult] = useState<{ id: string; state: string; note?: string } | null>(null);
+  const [result, setResult] = useState<{ id: string; reference?: string; state: string; note?: string } | null>(null);
   const heading = useRef<HTMLHeadingElement>(null);
   const context = `flow:${citizen?.id ?? ""}:${serviceNo}`;
   const orderConfigured = order?.context === context && order.configured;
@@ -71,8 +164,16 @@ export function ServiceFlow({
     let active = true;
     const timer = setTimeout(() => {
       api(`/citizens?q=${encodeURIComponent(query)}`)
-        .then((r) => active && setFound(items(r)))
-        .catch(() => active && setFound([]));
+        .then((r) => {
+          if (!active) return;
+          setSearchFailed(false);
+          setFound(items(r));
+        })
+        .catch(() => {
+          if (!active) return;
+          setSearchFailed(true);
+          setFound([]);
+        });
     }, 250);
     return () => {
       active = false;
@@ -102,19 +203,23 @@ export function ServiceFlow({
         payload,
         ...(order?.order ? { order: order.order } : {}),
       });
-      const id = (created.application || created).id as string;
+      const createdApplication = created.application || created;
+      const id = createdApplication.id as string;
+      // Phase 5 (5C): the citizen tracks by the public reference, not the internal UUID;
+      // applications created before Phase 5 have no reference and fall back to the id.
+      const reference = (createdApplication.reference as string) || undefined;
       onChanged();
       if (!submit) {
-        setResult({ id, state: "DRAFT" });
+        setResult({ id, reference, state: "DRAFT" });
         go(4);
         return;
       }
       try {
         await api(`/applications/${id}/transition`, "POST", { action: "submit" });
-        setResult({ id, state: "SUBMITTED" });
+        setResult({ id, reference, state: "SUBMITTED" });
       } catch (submitError) {
         // The draft exists; say so plainly instead of hiding it behind a generic failure.
-        setResult({ id, state: "DRAFT", note: (submitError as Error).message });
+        setResult({ id, reference, state: "DRAFT", note: (submitError as Error).message });
       }
       onChanged();
       go(4);
@@ -195,6 +300,10 @@ export function ServiceFlow({
                   </label>
                 ))}
               </div>
+            ) : searchFailed ? (
+              <p className="ax-flow-muted" role="alert">
+                {choose({ bn: "খোঁজা সম্পন্ন হয়নি। সংযোগ বা সাইন-ইন পরীক্ষা করে আবার চেষ্টা করুন।", en: "The search could not be completed. Check your connection or sign-in and try again." })}
+              </p>
             ) : (
               <p className="ax-flow-muted">
                 {choose({ bn: "কোনো নাগরিক পাওয়া যায়নি।", en: "No citizen found." })}
@@ -328,6 +437,7 @@ export function ServiceFlow({
                   : choose({ bn: "এই অফিসে ফি নীতি নির্ধারিত নেই", en: "No fee policy is configured for this office" })}
               </dd>
             </dl>
+            <PayloadDetails schema={formSchema} payload={payload} />
             <p className="ax-flow-muted">
               {choose({
                 bn: "জমা দিলে আবেদন অফিসের পর্যালোচনায় যাবে। পরে সংশোধন চাওয়া হলে আবার পাঠাতে পারবেন।",
@@ -361,7 +471,7 @@ export function ServiceFlow({
             {result.note && <p className="ax-flow-error">{result.note}</p>}
             <p>
               {choose({ bn: "আবেদনের রেফারেন্স", en: "Application reference" })}:{" "}
-              <code className="ax-flow-reference">{result.id}</code>
+              <code className="ax-flow-reference">{result.reference || result.id}</code>
             </p>
             <div className="ax-flow-actions">
               <button type="button" onClick={() => onOpenApplication(result.id)}>
