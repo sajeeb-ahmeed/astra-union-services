@@ -126,6 +126,24 @@ export async function closePdfBrowser() {
     browserPromise = undefined;
   }
 }
+/**
+ * REACTPDF-MIGRATION-01: the PDF engine is chosen by PDF_ENGINE —
+ * "chromium" (default; the Playwright path below, byte-identical to before,
+ * light mode included) or "react-pdf" (the pure-Node renderer in
+ * pdf-react.tsx; no browser process is started). The react-pdf engine
+ * implements template v7 only: a v6 re-render request always takes the
+ * Chromium path so stored-certificate re-renders stay byte-stable. Read at
+ * call time (not module load) so tests and one-off tools can switch engines
+ * per process without a restart.
+ */
+export type PdfEngine = "chromium" | "react-pdf";
+export function pdfEngine(): PdfEngine {
+  const raw = process.env.PDF_ENGINE ?? "chromium";
+  if (raw === "chromium" || raw === "react-pdf") return raw;
+  throw new Error(
+    `PDF_ENGINE must be "chromium" or "react-pdf"; got "${raw}".`,
+  );
+}
 export async function generatePdf(
   input: PdfInput,
   version: number = DEMO_TEMPLATE_VERSION,
@@ -135,6 +153,15 @@ export async function generatePdf(
     errorCorrectionLevel: "M",
     margin: 2,
   });
+  if (version === DEMO_TEMPLATE_VERSION && pdfEngine() === "react-pdf") {
+    const { renderCertificatePdfReact } = await import("./pdf-react.js");
+    await acquireRenderer();
+    try {
+      return await renderCertificatePdfReact(input, qr);
+    } finally {
+      releaseRenderer();
+    }
+  }
   return renderHtmlPdf(renderCertificateHtml(input, qr, version));
 }
 /** Render only escaped, application-owned HTML; remote network resources are blocked. */

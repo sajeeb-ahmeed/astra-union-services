@@ -6,8 +6,8 @@ import {
 } from "@astra/shared-schemas";
 import type { PdfInput, GeoNameParts } from "./certificate-template.js";
 import {
-  governmentEmblemDataUrl,
-  officeSealDataUrls,
+  certificateAssetsBundle,
+  type CertificateAssetsBundle,
 } from "./template-assets.js";
 
 /**
@@ -43,13 +43,13 @@ const escape = (value: unknown) =>
   );
 export const bnDigits = (value: unknown) =>
   String(value ?? "").replace(/\d/g, (digit) => "০১২৩৪৫৬৭৮৯"[Number(digit)]!);
-const latinDigits = (value: unknown) =>
+export const latinDigits = (value: unknown) =>
   String(value ?? "").replace(/[০-৯]/g, (digit) =>
     String("০১২৩৪৫৬৭৮৯".indexOf(digit)),
 );
-const present = (value: unknown) =>
+export const present = (value: unknown) =>
   value !== undefined && value !== null && String(value).trim() !== "";
-const text = (value: unknown) => (present(value) ? String(value).trim() : "");
+export const text = (value: unknown) => (present(value) ? String(value).trim() : "");
 
 /* ---------- dates (all rendered in the office timezone, Asia/Dhaka) ---------- */
 const BN_MONTHS = [
@@ -82,43 +82,43 @@ function bnOrdinal(day: number): string {
   if (day <= 18) return `${bnDigits(day)}ই`;
   return `${bnDigits(day)}শে`;
 }
-function bnDate(when: Date): string {
+export function bnDate(when: Date): string {
   const p = dhakaParts(when);
   return `${bnOrdinal(p.day)} ${BN_MONTHS[p.month - 1]} ${bnDigits(p.year)}`;
 }
-function bnDateIso(iso: unknown): string {
+export function bnDateIso(iso: unknown): string {
   const raw = text(iso);
   if (!raw) return "";
   const parsed = new Date(`${raw.slice(0, 10)}T00:00:00+06:00`);
   return Number.isNaN(parsed.getTime()) ? bnDigits(raw) : bnDate(parsed);
 }
-function enDate(when: Date): string {
+export function enDate(when: Date): string {
   const p = dhakaParts(when);
   return `${EN_MONTHS[p.month - 1]} ${p.day}, ${p.year}`;
 }
-function enDateLong(when: Date): string {
+export function enDateLong(when: Date): string {
   const p = dhakaParts(when);
   return `${p.day} ${EN_MONTHS[p.month - 1]} ${p.year}`;
 }
-function enDateIso(iso: unknown): string {
+export function enDateIso(iso: unknown): string {
   const raw = text(iso);
   if (!raw) return "";
   const parsed = new Date(`${raw.slice(0, 10)}T00:00:00+06:00`);
   return Number.isNaN(parsed.getTime()) ? raw : enDateLong(parsed);
 }
-function issueTime(when: Date): string {
+export function issueTime(when: Date): string {
   const p = dhakaParts(when);
   const hh = String(p.hour).padStart(2, "0");
   const mm = String(p.minute).padStart(2, "0");
   return `${hh}:${mm}`;
 }
 /** Bangladesh fiscal year (July–June) containing the issue date. */
-function fiscalYear(when: Date): { start: number; end: number } {
+export function fiscalYear(when: Date): { start: number; end: number } {
   const p = dhakaParts(when);
   const start = p.month >= 7 ? p.year : p.year - 1;
   return { start, end: start + 1 };
 }
-const money = (minor: unknown) =>
+export const money = (minor: unknown) =>
   present(minor) ? (Number(minor) / 100).toFixed(2) : "";
 
 /* ---------- per-service page format (data, not globals) ---------- */
@@ -144,18 +144,11 @@ export function certificatePageFormat(serviceNo?: number): CertificatePageFormat
 /** Services rendered in the numbered FORM layout instead of the paragraph chassis. */
 export const FORM_SERVICES = new Set([1, 41, 42, 46]);
 
-/* ---------- chairman signature title (from the issuer's account type) ---------- */
-export function chairmanTitle(accountType: string | null | undefined, bn: boolean): string {
-  switch (accountType) {
-    case "up_panel_chairman":
-      return bn ? "প্যানেল চেয়ারম্যান" : "Panel Chairman";
-    case "municipality_mayor":
-    case "city_corporation_mayor":
-      return bn ? "মেয়র" : "Mayor";
-    default:
-      return bn ? "চেয়ারম্যান" : "Chairman";
-  }
-}
+/* ---------- chairman signature title (from the issuer's account type) ----------
+ * The mapping itself lives in template-assets.ts (chairmanTitle), where the
+ * engine-agnostic certificate assets bundle is composed; re-exported here so
+ * this module's surface is unchanged. */
+export { chairmanTitle } from "./template-assets.js";
 
 /* ---------- attestation corpus ----------
  * CAPTURED (from the samples, verbatim pattern): #12 by-birth, #37 marriage.
@@ -503,7 +496,7 @@ export const AUTHORED_ATTESTATION_SERVICES = Object.keys(ATTESTATIONS_BN)
   .filter((no) => no !== 12 && no !== 37);
 
 /* ---------- address composition (samples' pattern; post office/postcode omitted — no dataset) ---------- */
-function addressBn(freeText: unknown, parts?: GeoNameParts): string {
+export function addressBn(freeText: unknown, parts?: GeoNameParts): string {
   const seg: string[] = [];
   if (present(freeText)) seg.push(`গ্রাম/বাড়ীঃ ${text(freeText)}`);
   if (parts?.wardNo) seg.push(`ওয়ার্ড নম্বরঃ ${bnDigits(parts.wardNo)}`);
@@ -513,7 +506,7 @@ function addressBn(freeText: unknown, parts?: GeoNameParts): string {
   if (parts?.district?.bn) seg.push(`জেলাঃ ${parts.district.bn}`);
   return seg.join(", ");
 }
-function addressEn(freeText: unknown, parts?: GeoNameParts): string {
+export function addressEn(freeText: unknown, parts?: GeoNameParts): string {
   const seg: string[] = [];
   if (present(freeText)) seg.push(`Village/House: ${text(freeText)}`);
   if (parts?.wardNo) seg.push(`Ward No: ${parts.wardNo}`);
@@ -524,7 +517,7 @@ function addressEn(freeText: unknown, parts?: GeoNameParts): string {
   return seg.join(", ");
 }
 
-interface DocContext {
+export interface DocContext {
   input: PdfInput;
   bn: boolean;
   issued: Date;
@@ -535,7 +528,7 @@ interface DocContext {
   officeAddressLine: string;
 }
 
-function officeLine(input: PdfInput, bn: boolean): string {
+export function officeLine(input: PdfInput, bn: boolean): string {
   const geo = input.officeGeography;
   if (geo?.upazila && geo?.district)
     return bn
@@ -575,14 +568,14 @@ function identitySegments(ctx: DocContext): string {
   return parts.join(", ");
 }
 
-function permanentAddress(ctx: DocContext): string {
+export function permanentAddress(ctx: DocContext): string {
   const { input, bn } = ctx;
   const geo = input.citizenGeography?.permanent;
   return bn
     ? addressBn(input.citizen.address_bn, geo)
     : addressEn(input.citizen.address_en, geo);
 }
-function presentAddress(ctx: DocContext): string {
+export function presentAddress(ctx: DocContext): string {
   const { input, bn } = ctx;
   if (input.citizen.present_same_as_permanent === false) {
     const geo = input.citizenGeography?.present;
@@ -600,7 +593,7 @@ function dataTable(headers: string[], rows: string[][]): string {
     .join("")}</tbody></table>`;
 }
 
-function selectLabel(
+export function selectLabel(
   schema: FormSchema | undefined,
   fieldId: string,
   childId: string | undefined,
@@ -765,7 +758,7 @@ function paragraphBody(ctx: DocContext, serviceNo: number): string {
  * nowhere in the order data — only the real total prints); the validity line
  * is omitted (no validity data is carried); the signature follows the
  * chairman-only model even though the samples print two blocks. */
-function tradeLicenceBody(ctx: DocContext, qrDataUrl: string, emblem: string): string {
+function tradeLicenceBody(ctx: DocContext, qrDataUrl: string, emblem: string, logo = ""): string {
   const { input, bn, issued } = ctx;
   const p = input.payload;
   const fy = fiscalYear(issued);
@@ -873,7 +866,7 @@ function tradeLicenceBody(ctx: DocContext, qrDataUrl: string, emblem: string): s
   <div class="tl-top">
     <img class="qr-tl" alt="" src="${escape(qrDataUrl)}">
     <div class="tl-head">
-      <h1>${escape(ctx.officeName)}</h1>
+      ${logo ? `<div class="head-name">${logo}<h1>${escape(ctx.officeName)}</h1></div>` : `<h1>${escape(ctx.officeName)}</h1>`}
       <div class="office-address">${escape(ctx.officeAddressLine)}</div>
       ${emblem}
       <h2 class="doc-title">${escape(bn ? input.service.name_bn : input.service.name_en)}</h2>
@@ -978,9 +971,26 @@ export function renderCertificateHtmlV7(input: PdfInput, qrDataUrl: string): str
     officeAddressLine: officeLine(input, bn),
   };
   const verifyUrl = `${origin}/verify?searchText=${ctx.numberDisplay}`;
-  const emblemUrl = official ? governmentEmblemDataUrl() : null;
-  const seal = official ? officeSealDataUrls(input.tenant.id) : { seal: null, watermark: null };
+  // CERTASSETS-01: ALL artwork and chairman identity for the document comes
+  // from the one engine-agnostic bundle (template-assets.ts) — office-profile
+  // uploads outrank the legacy filesystem drop-ins, and the seal watermark is
+  // derived at render time (CSS opacity, .seal-wm.derived) whenever the
+  // bundle marks it derived, so an office uploads ONE seal image and never
+  // prepares a watermark copy by hand. Artwork prints only in official mode;
+  // the chairman name/designation print in every mode, as before.
+  const bundle: CertificateAssetsBundle = certificateAssetsBundle(
+    input.tenant.id,
+    input.assets,
+    input.issuer,
+  );
+  const emblemUrl = official ? bundle.emblem : null;
   const emblem = emblemUrl ? `<img class="emblem" alt="" src="${emblemUrl}">` : "";
+  const logo = official && bundle.logo
+    ? `<img class="office-logo" alt="" src="${bundle.logo}">`
+    : "";
+  const headName = logo
+    ? `<div class="head-name">${logo}<h1>${escape(ctx.officeName)}</h1></div>`
+    : `<h1>${escape(ctx.officeName)}</h1>`;
   const title =
     serviceNo === 47
       ? text(bn ? input.payload.certificate_type_bn : input.payload.certificate_type_en) ||
@@ -991,20 +1001,22 @@ export function renderCertificateHtmlV7(input: PdfInput, qrDataUrl: string): str
   const isTrade = serviceNo === 42;
   const body = FORM_SERVICES.has(serviceNo)
     ? isTrade
-      ? tradeLicenceBody(ctx, qrDataUrl, emblem)
-      : `<header class="up-head">${emblem}<h1>${escape(ctx.officeName)}</h1><div class="office-address">${escape(ctx.officeAddressLine)}</div><h2 class="doc-title">${escape(title)}</h2></header>${genericFormBody(ctx)}`
-    : `<header class="up-head">${emblem}<h1>${escape(ctx.officeName)}</h1><div class="office-address">${escape(ctx.officeAddressLine)}</div><h2 class="doc-title">${escape(title)}</h2></header>
+      ? tradeLicenceBody(ctx, qrDataUrl, emblem, logo)
+      : `<header class="up-head">${emblem}${headName}<div class="office-address">${escape(ctx.officeAddressLine)}</div><h2 class="doc-title">${escape(title)}</h2></header>${genericFormBody(ctx)}`
+    : `<header class="up-head">${emblem}${headName}<div class="office-address">${escape(ctx.officeAddressLine)}</div><h2 class="doc-title">${escape(title)}</h2></header>
        <div class="numline"><span>${bn ? "সনদ নং:-" : "Certificate No:"} ${escape(ctx.numberDisplay)}</span><span>${bn ? "ইস্যুর তারিখ:-" : "Date of Issue:"} ${escape(bn ? bnDate(issued) : enDate(issued))}</span></div>
        ${paragraphBody(ctx, serviceNo)}`;
-  const issuerName = input.issuer
-    ? bn
-      ? text(input.issuer.nameBn) || text(input.issuer.nameEn)
-      : text(input.issuer.nameEn) || text(input.issuer.nameBn)
+  const issuerName = bn
+    ? bundle.chairmanNameBn || bundle.chairmanNameEn || ""
+    : bundle.chairmanNameEn || bundle.chairmanNameBn || "";
+  const signImg = official && bundle.signature
+    ? `<img class="sign-img" alt="" src="${bundle.signature}">`
     : "";
   const signature = `<aside class="sign-block">
     ${issuerName ? `<div class="sign-name">${escape(issuerName)}</div>` : ""}
+    ${signImg}
     <div class="sign-line"></div>
-    <div class="sign-title">${escape(chairmanTitle(input.issuer?.accountType, bn))}</div>
+    <div class="sign-title">${escape(bn ? bundle.chairmanDesignationBn : bundle.chairmanDesignationEn)}</div>
     <div class="sign-office">${escape(ctx.officeName)}</div>
     ${ctx.officeAddressLine ? `<div class="sign-address">${escape(ctx.officeAddressLine)}</div>` : ""}
   </aside>`;
@@ -1018,8 +1030,8 @@ export function renderCertificateHtmlV7(input: PdfInput, qrDataUrl: string): str
     : `${signature}<footer class="doc-foot"><img class="qr" alt="" src="${escape(qrDataUrl)}"><div class="verify-line">${escape(verifyLine)}</div></footer>`;
   const bannerBits = "";
   const honesty = "";
-  const sealImg = seal.watermark
-    ? `<img class="seal-wm" alt="" src="${seal.watermark}">`
+  const sealImg = official && bundle.watermark
+    ? `<img class="seal-wm${bundle.watermarkDerived ? " derived" : ""}" alt="" src="${bundle.watermark}">`
     : "";
   const pageSize = format.orientation === "landscape" ? `${format.size} landscape` : format.size;
   return `<!doctype html><html lang="${bn ? "bn" : "en"}"><head><meta charset="UTF-8"><style>
@@ -1028,6 +1040,10 @@ export function renderCertificateHtmlV7(input: PdfInput, qrDataUrl: string): str
 body{font-family:'Nirmala UI','Noto Sans Bengali',sans-serif;color:#101418;margin:0;font-size:14.5px;line-height:1.75}
 .frame{position:fixed;inset:0;border:1.1px solid #1a1a1a;outline:2.6px solid #1a1a1a;outline-offset:2.6px;z-index:2;pointer-events:none}
 .seal-wm{position:fixed;left:50%;top:54%;transform:translate(-50%,-50%);width:${format.orientation === "landscape" ? "92mm" : "80mm"};z-index:0}
+.seal-wm.derived{opacity:.15}
+.head-name{display:flex;align-items:center;justify-content:center;gap:4mm}
+.office-logo{height:13mm;max-width:20mm;object-fit:contain}
+.sign-img{display:block;height:11mm;max-width:42mm;object-fit:contain;margin:0 auto .5mm}
 .draft-wm{position:fixed;left:24%;top:42%;transform:rotate(-30deg);font:bold 68px sans-serif;color:rgba(179,38,30,.09);z-index:0}
 main{position:relative;z-index:1;padding:5mm 6mm}
 .draft-banner{border:2px solid #b3261e;color:#b3261e;padding:6px;text-align:center;font:bold 14px sans-serif;margin-bottom:4mm}

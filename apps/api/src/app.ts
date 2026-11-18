@@ -66,6 +66,10 @@ import {
 } from "./coupons.js";
 import { noticesRouter, publicNoticesRouter } from "./notices.js";
 import { demandRouter } from "./demand.js";
+import {
+  certificateAssetsRouter,
+  resolveCertificateAssets,
+} from "./certificate-assets.js";
 import { applySubscriptionAction } from "./subscriptions.js";
 import { rechargeRouter } from "./recharge.js";
 import { merchantRouter } from "./gateways.js";
@@ -779,6 +783,7 @@ app.use("/api/v1", billingRouter);
 app.use("/api/v1", couponsRouter);
 app.use("/api/v1", noticesRouter);
 app.use("/api/v1", demandRouter);
+app.use("/api/v1", certificateAssetsRouter);
 app.use("/api/v1", rechargeRouter);
 app.use("/api/v1", merchantRouter);
 app.use("/api/v1", refundsRouter);
@@ -1170,6 +1175,49 @@ app.get(
       return { items, total, page, pageSize };
     });
     res.json(result);
+  }),
+);
+app.get(
+  "/api/v1/applications/counts",
+  wrap(async (req, res) => {
+    // CHAIRMAN-DASH-01: per-state application counts for the caller's own office,
+    // feeding the Pending applications queue. Office roles only — a citizen never
+    // sees office-wide figures. The tenant transaction applies forced RLS, and the
+    // explicit tenant predicate keeps the count scoped even if policies change.
+    // CORRECTION_REQUIRED is deliberately NOT part of either pending group: after a
+    // correction request the next move is the citizen's, not the office's.
+    const a = roles(req, staffRead);
+    const counts = await transaction(tenant(req), async (db) => {
+      const rows = (
+        await db.query(
+          "SELECT state, count(*)::int AS count FROM applications WHERE tenant_id=$1 GROUP BY state",
+          [a.tenantId],
+        )
+      ).rows as { state: string; count: number }[];
+      const byState: Record<string, number> = {
+        DRAFT: 0,
+        SUBMITTED: 0,
+        UNDER_REVIEW: 0,
+        CORRECTION_REQUIRED: 0,
+        RESUBMITTED: 0,
+        APPROVED: 0,
+        ISSUED: 0,
+        REJECTED: 0,
+        CANCELLED: 0,
+        REVOKED: 0,
+      };
+      for (const row of rows) byState[row.state] = row.count;
+      return byState;
+    });
+    res.json({
+      counts,
+      awaitingReview:
+        counts.SUBMITTED + counts.RESUBMITTED + counts.UNDER_REVIEW,
+      // ISSUANCE_PENDING is not a state in the current state machine (migration
+      // 001 CHECK); it is counted defensively should it ever be introduced.
+      awaitingIssuance:
+        counts.APPROVED + (counts.ISSUANCE_PENDING ?? 0),
+    });
   }),
 );
 app.post(
@@ -1755,6 +1803,10 @@ async function prepareIssuance(
       identity,
       citizenGeography: await citizenAddressParts(db, citizen, tenant),
       officeGeography: await officeAddressParts(db, tenant),
+      // CERTASSETS-01: the office's uploaded profile artwork (logo, seal,
+      // signature) resolved inside this tenant transaction; Template v7
+      // prefers it over the legacy filesystem drop-ins.
+      assets: await resolveCertificateAssets(db, a.tenantId!),
     };
     return {
       r,

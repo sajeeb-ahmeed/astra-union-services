@@ -34,6 +34,7 @@
     "db:initialize-cpanel": "npm run db:bootstrap-cpanel && npm run db:migrate-cpanel && tsx scripts/initialize.ts"
   },
   "dependencies": {
+    "@react-pdf/renderer": "^4.9.0",
     "express": "5.2.1",
     "nodemailer": "^10.6.0",
     "pg": "8.23.0",

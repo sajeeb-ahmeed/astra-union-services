@@ -181,6 +181,32 @@ try {
         fixtureId(`${slug}:admin`),
       ],
     );
+    if (slug === "alpha") {
+      // CERTASSETS-01: the shipped Belabo office seal artwork becomes this
+      // seeded office's profile SEAL version 1, so the local/test context
+      // exercises the office-profile asset resolution with the real artwork.
+      // (The production Belabo office is migrated as a redeploy-time data
+      // step — no production SQL is written here.)
+      const sealBytes = fs.readFileSync(
+        "apps/api/assets/offices/belabo-up/seal.png",
+      );
+      const inserted = await db.query(
+        "INSERT INTO office_certificate_assets(id,tenant_id,kind,version,mime_type,byte_length,content_sha256,bytes,uploaded_by) VALUES($1,$2,'SEAL',1,'image/png',$3,$4,$5,$6) ON CONFLICT (tenant_id,kind,version) DO NOTHING RETURNING id",
+        [
+          fixtureId("alpha:cert-asset-seal-v1"),
+          tenantId,
+          sealBytes.length,
+          createHash("sha256").update(sealBytes).digest("hex"),
+          sealBytes,
+          fixtureId("alpha:admin"),
+        ],
+      );
+      if (inserted.rowCount)
+        await db.query(
+          "INSERT INTO office_certificate_asset_changes(tenant_id,asset_id,kind,version,action,reason,changed_by) VALUES($1,$2,'SEAL',1,'UPLOADED',NULL,$3)",
+          [tenantId, inserted.rows[0].id, fixtureId("alpha:admin")],
+        );
+    }
   }
   await db.query("COMMIT");
   console.log(

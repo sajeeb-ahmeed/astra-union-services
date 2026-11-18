@@ -45,7 +45,7 @@ test(
       assert.equal(await sidebar.locator(".ax-sidebar-item").last().isVisible(), true);
       const labels = (await sidebar.locator(".ax-sidebar-item > span:first-child").allTextContents()).map((s) => s.trim());
       assert.deepEqual(labels, [
-        "Dashboard", "Profile", "Citizens", "All applications", "New application",
+        "Dashboard", "Profile", "Citizens", "All applications", "Pending applications", "New application",
         "Certificate renewal", "Trade licence renewal", "BioData print", "BioData applications",
         "Holding print", "Holding applications", "Print certificate", "Point recharge",
         "Payments and receipts", "Notifications", "Account security", "User guide",

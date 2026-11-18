@@ -144,6 +144,7 @@ const labels: Record<string, string> = {
   services: "Service catalog",
   citizens: "Citizens",
   applications: "Applications",
+  pending: "Pending applications",
   billing: "Subscription & credits",
   payments: "Payments and receipts",
   owner: "Platform management",
@@ -160,6 +161,7 @@ const localized: Record<string, string> = {
   services: "সেবার তালিকা",
   citizens: "নাগরিক",
   applications: "আবেদন",
+  pending: "অপেক্ষমাণ আবেদন",
   billing: "সাবস্ক্রিপশন ও ক্রেডিট",
   payments: "পেমেন্ট ও রসিদ",
   owner: "প্ল্যাটফর্ম ব্যবস্থাপনা",
@@ -237,6 +239,13 @@ export function WorkspaceApp({
   const [appFrom, setAppFrom] = useState(""),
     [appTo, setAppTo] = useState(""),
     [appRenewals, setAppRenewals] = useState(false);
+  // CHAIRMAN-DASH-01: service filter for the applications list, and the Pending
+  // applications queue (per-state counts from the API + each pending state's rows).
+  const [appService, setAppService] = useState("");
+  const [pendingCounts, setPendingCounts] = useState<any>(null),
+    [pendingLists, setPendingLists] = useState<
+      Record<string, { items: any[]; total: number }>
+    >({});
   const [applicationReference, setApplicationReference] = useState("");
   const [renewalOrder, setRenewalOrder] = useState<IntakeOrderState | null>(
     null,
@@ -306,7 +315,7 @@ export function WorkspaceApp({
         : Promise.resolve({ items: [] }),
       !["owner", "finance"].includes(role)
         ? api(
-            `/applications?${new URLSearchParams({ ...(filter ? { state: filter } : {}), q: appQuery, page: String(appPage), pageSize: String(appPageSize), ...(appFrom ? { from: appFrom } : {}), ...(appTo ? { to: appTo } : {}), ...(appRenewals ? { renewal: "true" } : {}) })}`,
+            `/applications?${new URLSearchParams({ ...(filter ? { state: filter } : {}), ...(appService ? { serviceNo: appService } : {}), q: appQuery, page: String(appPage), pageSize: String(appPageSize), ...(appFrom ? { from: appFrom } : {}), ...(appTo ? { to: appTo } : {}), ...(appRenewals ? { renewal: "true" } : {}) })}`,
           )
         : Promise.resolve({ items: [], total: 0 }),
       ["admin", "finance", "approver"].includes(role)
@@ -330,7 +339,7 @@ export function WorkspaceApp({
   }
   useEffect(() => {
     if (session) run(refresh);
-  }, [session, filter, appQuery, appPage, appPageSize, citizenQuery, appFrom, appTo, appRenewals]);
+  }, [session, filter, appService, appQuery, appPage, appPageSize, citizenQuery, appFrom, appTo, appRenewals]);
   const paymentReturnHandled = useRef(false);
   useEffect(() => {
     if (!session || !paymentReturnApplication || paymentReturnHandled.current)
@@ -375,6 +384,8 @@ export function WorkspaceApp({
         ].includes(p)
       : !["owner", "support"].includes(p) &&
         (p !== "admin" || role === "admin") &&
+        (p !== "pending" ||
+          ["staff", "admin", "reviewer", "approver"].includes(role)) &&
         (p !== "reports" || finance) &&
         (p !== "prints" || staff || role === "citizen") &&
         (p !== "billing" || finance) &&
@@ -413,6 +424,7 @@ export function WorkspaceApp({
   }
   function clearApplicationFilters() {
     setFilter("");
+    setAppService("");
     setAppSearch("");
     setAppQuery("");
     setAppPage(1);
@@ -443,6 +455,175 @@ export function WorkspaceApp({
     await openApplication(application.id);
     await refresh();
     setMessage(`${actionText[action]} completed.`);
+  }
+  // CHAIRMAN-DASH-01: the Pending applications queue. Counts always come from the
+  // API (/applications/counts) — never from counting a fetched page — and the rows
+  // come from the same list endpoint the applications page uses, one state at a
+  // time. CORRECTION_REQUIRED is excluded on purpose: after a correction request
+  // the next move is the citizen's, so it is not office-pending work.
+  const pendingReviewStates = ["SUBMITTED", "RESUBMITTED", "UNDER_REVIEW"],
+    pendingIssuanceStates = ["APPROVED"];
+  async function loadPending() {
+    const counts = await api("/applications/counts");
+    setPendingCounts(counts);
+    const lists: Record<string, { items: any[]; total: number }> = {};
+    await Promise.all(
+      [...pendingReviewStates, ...pendingIssuanceStates].map(async (state) => {
+        const r = await api(
+          `/applications?${new URLSearchParams({ state, page: "1", pageSize: "100" })}`,
+        );
+        lists[state] = {
+          items: items(r),
+          total: r.total ?? items(r).length,
+        };
+      }),
+    );
+    setPendingLists(lists);
+  }
+  useEffect(() => {
+    if (page === "pending" && session) void run(loadPending);
+  }, [page, session]);
+  // One row presentation for application lists, shared by the applications page
+  // and the Pending queue so the two can never drift apart.
+  function applicationRow(a: any) {
+    return (
+      <tr key={a.id}>
+        <td>
+          <code>{tx(a.id.slice(0, 8))}</code>
+          <small>{applicationDate(a.createdAt || a.created_at)}</small>
+        </td>
+        <td>
+          {t("#")}
+          {tx(a.serviceNo || a.service_no)}
+          {tx(" ")}
+          {tx(
+            recordName(
+              catalog.find(
+                (s) => s.service_no === (a.serviceNo || a.service_no),
+              ),
+            ),
+          )}
+        </td>
+        <td>
+          <span className="status">{tx(a.state || a.status)}</span>
+        </td>
+        <td>
+          <button
+            className="text-button"
+            onClick={() => run(() => openApplication(a.id))}
+          >
+            {t("Open application ")}
+          </button>
+        </td>
+      </tr>
+    );
+  }
+  function applicationCard(a: any) {
+    return (
+      <article className="ax-card" key={a.id}>
+        <div className="ax-card-head">
+          <code>{tx(a.id.slice(0, 8))}</code>
+          <span className="status">{tx(a.state || a.status)}</span>
+        </div>
+        <strong>
+          {t("#")}
+          {tx(a.serviceNo || a.service_no)}
+          {tx(" ")}
+          {tx(
+            recordName(
+              catalog.find(
+                (svc) => svc.service_no === (a.serviceNo || a.service_no),
+              ),
+            ),
+          )}
+        </strong>
+        <small>{applicationDate(a.createdAt || a.created_at)}</small>
+        <button
+          className="text-button"
+          onClick={() => run(() => openApplication(a.id))}
+        >
+          {t("Open application ")}
+        </button>
+      </article>
+    );
+  }
+  // CHAIRMAN-DASH-01: one Pending queue group — a heading with the API count,
+  // then the group's rows in the shared list presentation. When a group holds
+  // more than the fetched rows, each state links into the full filtered list.
+  function pendingGroupSection(
+    title: { bn: string; en: string },
+    count: number | null,
+    states: string[],
+  ) {
+    const rows = states
+      .flatMap((state) => pendingLists[state]?.items ?? [])
+      .sort((x, y) =>
+        String(y.updatedAt || y.updated_at || "").localeCompare(
+          String(x.updatedAt || x.updated_at || ""),
+        ),
+      );
+    return (
+      <section className="panel">
+        <div className="section-heading">
+          <h2>
+            {choose(title)}
+            {count !== null &&
+              ` · ${count.toLocaleString(language === "bn" ? "bn-BD" : "en-GB")}`}
+          </h2>
+        </div>
+        {rows.length ? (
+          <>
+            <div className="table-wrap responsive-table">
+              <table>
+                <thead>
+                  <tr>
+                    <th>{t("Application")}</th>
+                    <th>{t("Service")}</th>
+                    <th>{t("Status")}</th>
+                    <th>{t("Open")}</th>
+                  </tr>
+                </thead>
+                <tbody>{tx(rows.map(applicationRow))}</tbody>
+              </table>
+            </div>
+            {phoneLayout && (
+              <div className="ax-card-list">
+                {tx(rows.map(applicationCard))}
+              </div>
+            )}
+          </>
+        ) : (
+          <EmptyState
+            title={choose({
+              bn: "এই মুহূর্তে কিছুই অপেক্ষমাণ নেই",
+              en: "Nothing is waiting right now",
+            })}
+            hint={choose({
+              bn: "নতুন আবেদন এলে এখানে দেখা যাবে।",
+              en: "New applications will appear here.",
+            })}
+          />
+        )}
+        {count !== null && count > rows.length && (
+          <p className="hint">
+            {choose({
+              bn: "সাম্প্রতিকগুলো দেখানো হচ্ছে — বাকিগুলো আবেদনের তালিকায়:",
+              en: "Showing the most recent — see the rest in the applications list:",
+            })}
+            {tx(" ")}
+            {states.map((state) => (
+              <button
+                key={state}
+                className="text-button"
+                onClick={() => openTask("applications", state)}
+              >
+                {tx(state)}
+              </button>
+            ))}
+          </p>
+        )}
+      </section>
+    );
   }
   function nav(next: string) {
     setReturnToIntake(false);
@@ -1241,6 +1422,28 @@ export function WorkspaceApp({
                   )),
                 )}
               </select>
+              <label htmlFor="service-filter">
+                {choose({ bn: "সেবা অনুযায়ী ছাঁকুন", en: "Filter by service" })}
+              </label>
+              <select
+                id="service-filter"
+                value={appService}
+                onChange={(e) => {
+                  setAppService(e.target.value);
+                  setAppPage(1);
+                }}
+              >
+                <option value="">
+                  {choose({ bn: "সব সেবা", en: "All services" })}
+                </option>
+                {tx(
+                  catalog.map((s) => (
+                    <option key={s.service_no} value={s.service_no}>
+                      {tx(`#${s.service_no} ${recordName(s)}`)}
+                    </option>
+                  )),
+                )}
+              </select>
               <div className="form-grid date-range">
                 <div className="field">
                   <label htmlFor="application-from">{choose({ bn: "যে তারিখ থেকে", en: "From date" })}</label>
@@ -1290,7 +1493,7 @@ export function WorkspaceApp({
                   )}{" "}
                   {choose({ bn: "টি আবেদন", en: "applications" })}
                 </p>
-                {(filter || appSearch) && (
+                {(filter || appService || appSearch) && (
                   <button
                     className="secondary"
                     onClick={clearApplicationFilters}
@@ -1309,47 +1512,7 @@ export function WorkspaceApp({
                       <th>{t("Open")}</th>
                     </tr>
                   </thead>
-                  <tbody>
-                    {tx(
-                      applications.map((a) => (
-                        <tr key={a.id}>
-                          <td>
-                            <code>{tx(a.id.slice(0, 8))}</code>
-                            <small>
-                              {applicationDate(a.createdAt || a.created_at)}
-                            </small>
-                          </td>
-                          <td>
-                            {t("#")}
-                            {tx(a.serviceNo || a.service_no)}
-                            {tx(" ")}
-                            {tx(
-                              recordName(
-                                catalog.find(
-                                  (s) =>
-                                    s.service_no ===
-                                    (a.serviceNo || a.service_no),
-                                ),
-                              ),
-                            )}
-                          </td>
-                          <td>
-                            <span className="status">
-                              {tx(a.state || a.status)}
-                            </span>
-                          </td>
-                          <td>
-                            <button
-                              className="text-button"
-                              onClick={() => run(() => openApplication(a.id))}
-                            >
-                              {t("Open application ")}
-                            </button>
-                          </td>
-                        </tr>
-                      )),
-                    )}
-                  </tbody>
+                  <tbody>{tx(applications.map(applicationRow))}</tbody>
                 </table>
               </div>
               {tx(busy && !applications.length && <SkeletonRows rows={5} />)}
@@ -1357,7 +1520,7 @@ export function WorkspaceApp({
                 !busy && !applications.length && (
                   <EmptyState
                     title={choose(
-                      filter || appSearch
+                      filter || appService || appSearch
                         ? {
                             bn: "মিলে এমন আবেদন নেই",
                             en: "No matching applications",
@@ -1368,7 +1531,7 @@ export function WorkspaceApp({
                           },
                     )}
                     hint={choose(
-                      filter || appSearch
+                      filter || appService || appSearch
                         ? {
                             bn: "অন্য নাম দিয়ে খুঁজুন অথবা ফিল্টার মুছে সব আবেদন দেখুন।",
                             en: "Try another name or clear the filters to see all applications.",
@@ -1379,7 +1542,7 @@ export function WorkspaceApp({
                           },
                     )}
                     action={
-                      !filter && !appSearch && canApply ? (
+                      !filter && !appService && !appSearch && canApply ? (
                         <button onClick={() => nav("services")}>
                           {choose({
                             bn: "প্রথম আবেদন শুরু করুন",
@@ -1393,40 +1556,8 @@ export function WorkspaceApp({
               )}
               {phoneLayout && (
                 <div className="ax-card-list">
-                {tx(
-                  applications.map((a) => (
-                    <article className="ax-card" key={a.id}>
-                      <div className="ax-card-head">
-                        <code>{tx(a.id.slice(0, 8))}</code>
-                        <span className="status">{tx(a.state || a.status)}</span>
-                      </div>
-                      <strong>
-                        {t("#")}
-                        {tx(a.serviceNo || a.service_no)}
-                        {tx(" ")}
-                        {tx(
-                          recordName(
-                            catalog.find(
-                              (svc) =>
-                                svc.service_no ===
-                                (a.serviceNo || a.service_no),
-                            ),
-                          ),
-                        )}
-                      </strong>
-                      <small>
-                        {applicationDate(a.createdAt || a.created_at)}
-                      </small>
-                      <button
-                        className="text-button"
-                        onClick={() => run(() => openApplication(a.id))}
-                      >
-                        {t("Open application ")}
-                      </button>
-                    </article>
-                  )),
-                )}
-              </div>
+                  {tx(applications.map(applicationCard))}
+                </div>
               )}
               <div className="pagination">
                 <button
@@ -1911,6 +2042,28 @@ export function WorkspaceApp({
                   {tx(detail.versions?.length ?? "preserved by server")}
                 </p>
               </section>
+            </>
+          ),
+        )}
+        {tx(
+          page === "pending" && (
+            <>
+              {pendingGroupSection(
+                { bn: "পর্যালোচনার অপেক্ষায়", en: "Awaiting review" },
+                pendingCounts ? pendingCounts.awaitingReview : null,
+                pendingReviewStates,
+              )}
+              {pendingGroupSection(
+                { bn: "সনদ ইস্যুর অপেক্ষায়", en: "Awaiting issuance" },
+                pendingCounts ? pendingCounts.awaitingIssuance : null,
+                pendingIssuanceStates,
+              )}
+              <p className="hint">
+                {choose({
+                  bn: "সংশোধনের জন্য ফেরত পাঠানো আবেদন এই তালিকায় নেই — সেটির পরের পদক্ষেপ নাগরিকের।",
+                  en: "Applications sent back for correction are not listed here — the next step there is the citizen's.",
+                })}
+              </p>
             </>
           ),
         )}

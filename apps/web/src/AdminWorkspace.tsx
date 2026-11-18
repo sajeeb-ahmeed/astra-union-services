@@ -3,6 +3,7 @@ import { SignInIdentifiers } from "./SignInIdentifiers.js";
 import React, { useEffect, useState } from "react";
 import { api, items } from "./api.js";
 import { OrderPolicySettings } from "./OrderPolicySettings.js";
+import { CertificateAssetsSettings } from "./CertificateAssets.js";
 import { CouponSettings } from "./CouponSettings.js";
 import { BkashMerchantSettings, PaymentMerchantSettings } from "./PaymentMerchantSettings.js";
 import { AccountSessions } from "./AccountSessions.js";
@@ -165,6 +166,7 @@ export function AdminWorkspace() {
           {tx(
             [
               ["office", "Office profile"],
+              ["cert-assets", "Certificate assets"],
               ["users", "Staff accounts"],
               ["services", "Service settings"],
               ["authority", "Approval authority"],
@@ -672,6 +674,7 @@ export function AdminWorkspace() {
         ),
       )}
       {tab === "order-policies" && <OrderPolicySettings services={services} />}
+      {tab === "cert-assets" && <CertificateAssetsSettings />}
       {tab === "coupons" && <CouponSettings services={services} />}
       {tab === "payments" && (
         <>
