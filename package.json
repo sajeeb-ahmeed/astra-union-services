@@ -15,7 +15,7 @@
     "build": "tsc --noEmit && vite build --config apps/web/vite.config.ts && node scripts/compress-assets.mjs",
     "typecheck": "tsc --noEmit",
     "db:migrate": "tsx scripts/migrate.ts",
-    "db:seed": "tsx scripts/seed.ts",
+    "db:seed": "node scripts/decode-assets.mjs && tsx scripts/seed.ts",
     "test:forms": "node --import tsx --test packages/shared-schemas/test/*.test.ts",
     "test:api": "node --import tsx --test --test-concurrency=1 apps/api/test/*.test.ts",
     "test:web": "tsx scripts/test-web.ts",
@@ -34,6 +34,7 @@
     "db:initialize-cpanel": "npm run db:bootstrap-cpanel && npm run db:migrate-cpanel && tsx scripts/initialize.ts"
   },
   "dependencies": {
+    "@react-pdf/renderer": "^4.9.0",
     "express": "5.2.1",
     "nodemailer": "^10.6.0",
     "pg": "8.23.0",

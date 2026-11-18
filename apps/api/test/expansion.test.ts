@@ -375,8 +375,17 @@ test("MGMT-01: memberships, approval grants, service settings and office isolati
     .balance;
   assert.equal(before, 120);
 });
-test("ALL47-01: every service validates, persists, submits and is issued by the Chairman's single approve action with one charge", async () => {
+test("ALL47-01: every service validates, persists, submits and is issued by the Chairman's single approve action with the fee settled once at submit", async () => {
   const evidence: any[] = [];
+  const allowancesBefore = await transaction(
+    office.id,
+    async (c) =>
+      (
+        await c.query(
+          "SELECT count(*)::int n FROM subscription_allowance_consumptions",
+        )
+      ).rows[0].n,
+  );
   for (const service of serviceCatalog) {
     const no = service.service_no,
       payload = getDemoPayload(no);
@@ -433,9 +442,12 @@ test("ALL47-01: every service validates, persists, submits and is issued by the 
     if ([1, 2, 42].includes(no))
       fs.writeFileSync(`execution/service-${no}-expanded-demo.pdf`, pdf.body);
   }
+  // Phase 3B: this office's subscription is active, so each of the 47
+  // submits consumed one monthly allowance and the wallet never moved;
+  // issuance itself charges nothing and writes no ledger entries.
   assert.equal(
     (await req("GET", "/wallet", undefined, s.finance)).body.balance,
-    73,
+    120,
   );
   const count = await transaction(
     office.id,
@@ -446,7 +458,27 @@ test("ALL47-01: every service validates, persists, submits and is issued by the 
         )
       ).rows[0].n,
   );
-  assert.equal(count, 47);
+  assert.equal(count, 0);
+  const feeCount = await transaction(
+    office.id,
+    async (c) =>
+      (
+        await c.query(
+          "SELECT count(*)::int n FROM credit_ledger WHERE kind='APPLICATION_FEE'",
+        )
+      ).rows[0].n,
+  );
+  assert.equal(feeCount, 0);
+  const allowances = await transaction(
+    office.id,
+    async (c) =>
+      (
+        await c.query(
+          "SELECT count(*)::int n FROM subscription_allowance_consumptions",
+        )
+      ).rows[0].n,
+  );
+  assert.equal(allowances, allowancesBefore + 47);
   const page = await req(
     "GET",
     `/applications?q=${issued.get(2).applicationId}&page=1&pageSize=1`,
@@ -747,7 +779,9 @@ test("CER-RENEW: trade renewal preserves lineage, applicant and authority; concu
     409,
   );
   // Phase W: the Chairman's approve issues the renewal; concurrent issue
-  // calls afterwards all return that same certificate with no extra charge.
+  // calls afterwards all return that same certificate. Phase 3B: the
+  // renewal's fee settled at its submit (subscription allowance), so the
+  // wallet does not move across approve/issue at all.
   const before = (await req("GET", "/wallet", undefined, s.finance)).body
     .balance;
   const approvedChild = await approve(child.id);
@@ -765,8 +799,16 @@ test("CER-RENEW: trade renewal preserves lineage, applicant and authority; concu
   assert.equal(results[0]!.body.id, approvedChild.certificate.id);
   assert.equal(
     (await req("GET", "/wallet", undefined, s.finance)).body.balance,
-    before - 1,
+    before,
   );
+  const childDetail = await req(
+    "GET",
+    `/applications/${child.id}`,
+    undefined,
+    s.citizen,
+  );
+  assert.equal(childDetail.body.application.feeMethod, "ALLOWANCE");
+  assert.equal(childDetail.body.application.feeCredits, 0);
   const pdf = await req(
     "GET",
     results[0]!.body.pdfUrl.replace("/api/v1", ""),

@@ -104,7 +104,7 @@ try {
       [tenantId],
     );
     await db.query(
-      "INSERT INTO tenant_subscriptions(tenant_id,plan_id,valid_until,status) VALUES($1,'standard-monthly',now()+interval '90 days','ACTIVE') ON CONFLICT DO NOTHING",
+      "INSERT INTO tenant_subscriptions(tenant_id,plan_id,valid_until,status,plan_duration_days,plan_grant_credits,plan_allowance_limit) SELECT $1,id,now()+interval '90 days','ACTIVE',duration_days,grant_credits,monthly_allowance_limit FROM subscription_plans WHERE id='standard-monthly' ON CONFLICT DO NOTHING",
       [tenantId],
     );
     await db.query(
@@ -181,6 +181,39 @@ try {
         fixtureId(`${slug}:admin`),
       ],
     );
+    if (slug === "alpha") {
+      // CERTASSETS-01: the shipped Belabo office seal artwork becomes this
+      // seeded office's profile SEAL version 1, so the local/test context
+      // exercises the office-profile asset resolution with the real artwork.
+      // (The production Belabo office is migrated as a redeploy-time data
+      // step — no production SQL is written here.)
+      // On a clean GitHub checkout the seal exists only as seal.png.b64
+      // (binary assets travel as base64 text); decode it inline when the
+      // materialised .png is absent so seeding works before any build.
+      const sealPath = "apps/api/assets/offices/belabo-up/seal.png";
+      const sealBytes = fs.existsSync(sealPath)
+        ? fs.readFileSync(sealPath)
+        : Buffer.from(
+            fs.readFileSync(`${sealPath}.b64`, "utf8").replace(/\s+/g, ""),
+            "base64",
+          );
+      const inserted = await db.query(
+        "INSERT INTO office_certificate_assets(id,tenant_id,kind,version,mime_type,byte_length,content_sha256,bytes,uploaded_by) VALUES($1,$2,'SEAL',1,'image/png',$3,$4,$5,$6) ON CONFLICT (tenant_id,kind,version) DO NOTHING RETURNING id",
+        [
+          fixtureId("alpha:cert-asset-seal-v1"),
+          tenantId,
+          sealBytes.length,
+          createHash("sha256").update(sealBytes).digest("hex"),
+          sealBytes,
+          fixtureId("alpha:admin"),
+        ],
+      );
+      if (inserted.rowCount)
+        await db.query(
+          "INSERT INTO office_certificate_asset_changes(tenant_id,asset_id,kind,version,action,reason,changed_by) VALUES($1,$2,'SEAL',1,'UPLOADED',NULL,$3)",
+          [tenantId, inserted.rows[0].id, fixtureId("alpha:admin")],
+        );
+    }
   }
   await db.query("COMMIT");
   console.log(

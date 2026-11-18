@@ -8,6 +8,9 @@ Dependencies and runtimes retain their original licenses. Ownership of original 
 |---|---|---|
 | React / ReactDOM, Express, Vite, TypeScript, tsx, pg, qrcode, Zod, jsQR, pngjs and DefinitelyTyped types | Application/build/tests | MIT (verify each package LICENSE in the pinned lock/install) |
 | Playwright | Chromium PDF rendering and browser tests | Apache-2.0 |
+| @react-pdf/renderer | Pure-Node certificate PDF rendering (PDF_ENGINE=react-pdf) | MIT |
+| Noto Sans Bengali (bundled TTFs, apps/api/assets/fonts) | Bengali certificate text in the react-pdf engine | SIL Open Font License 1.1 |
+| Liberation Sans (bundled TTFs, apps/api/assets/fonts) | Latin certificate text in the react-pdf engine | SIL Open Font License 1.1 |
 | PostgreSQL | Primary relational database | PostgreSQL License |
 | Chromium | Local headless rendering/testing | BSD-style and bundled third-party licenses |
 | Supplied Bangladesh administrative geography dataset, projected from `bangladesh-geo-data@4.0.9` | Bilingual rural location selectors and parent validation | MIT; original notice retained verbatim in `data/geo/LICENSE`, with provenance and transformation notes in `data/geo/SOURCE.md` |

@@ -97,7 +97,9 @@ test(
         .click();
       await page.getByRole("list", { name: "Application steps" }).waitFor();
       await page.locator(".ax-citizen input").first().check();
-      const refOf = (text: string) => text.match(/REF-[0-9a-f-]+/)?.[0];
+      // Phase 5: citizens may carry a legacy REF-… reference or the new public
+      // format (dddddd-dddddd-dddddd); either must be stable across the switch.
+      const refOf = (text: string) => text.match(/REF-[0-9a-f-]+|\d{6}-\d{6}-\d{6}/)?.[0];
       const firstCitizenRef = refOf(
         await page.locator("label.ax-citizen:has(input:checked)").innerText(),
       );

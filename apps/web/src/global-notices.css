@@ -1,0 +1,50 @@
+/* Phase 3E: portal-wide owner notices banner + public coupon offers (§3.7/§3.8). */
+.du-global-notices {
+  display: grid;
+  gap: 8px;
+  padding: 10px 16px;
+  background: var(--du-green-50);
+  border-bottom: 1px solid var(--du-line);
+}
+.du-global-notice {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px 10px;
+  max-width: var(--du-container);
+  margin: 0 auto;
+  width: 100%;
+  color: var(--du-ink);
+  font-size: 0.95rem;
+}
+.du-global-notice strong {
+  color: var(--du-green-800);
+}
+.du-global-notice a {
+  color: var(--du-green-700);
+  font-weight: 600;
+}
+.du-public-offers {
+  max-width: var(--du-container);
+  margin: 0 auto;
+  padding: 24px 16px 8px;
+}
+.du-public-offer-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.du-public-offer {
+  display: grid;
+  gap: 4px;
+  min-width: 200px;
+  padding: 14px 16px;
+  background: var(--du-surface);
+  border: 1px dashed var(--du-green-700);
+  border-radius: 12px;
+}
+.du-public-offer code {
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--du-green-800);
+}

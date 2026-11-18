@@ -11,7 +11,8 @@ export function taka(minor: number) {
 /**
  * Phase 4a: an office's public service price list, from its current published fee policies. The base fee is
  * the statutory fee plus processing; urgent surcharge, delivery fees and the citizen-charter time are shown
- * where the office offers them. Services without a published policy say so instead of showing a price.
+ * where the office offers them. Phase 6: the office's published required documents ride under the service
+ * name. Services without a published policy say so instead of showing a price.
  */
 export function ServicePriceList({ services }: { services: any[] }) {
   useLanguage();
@@ -52,7 +53,20 @@ export function ServicePriceList({ services }: { services: any[] }) {
                 .join(" · ");
               return (
                 <tr key={s.serviceNo}>
-                  <th scope="row">{name}</th>
+                  <th scope="row">
+                    {name}
+                    {(s.requiredDocuments?.length ?? 0) > 0 && (
+                      <>
+                        <br />
+                        <small>
+                          {choose({ bn: "প্রয়োজনীয় কাগজপত্র: ", en: "Required documents: " })}
+                          {(s.requiredDocuments as Array<{ bn: string; en: string }>)
+                            .map((doc) => choose(doc))
+                            .join(" · ")}
+                        </small>
+                      </>
+                    )}
+                  </th>
                   <td>{taka(s.statutoryFeeMinor + s.processingFeeMinor)}</td>
                   <td>
                     {(s.urgencies as string[]).includes("urgent")

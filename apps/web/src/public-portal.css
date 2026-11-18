@@ -363,3 +363,43 @@
     line-height: 1.6;
   }
 }
+
+/* Phase 6: category filters, card/detail category labels, per-office service information. */
+.service-category-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 14px 0 20px;
+}
+.service-category-filters button {
+  min-height: 44px;
+  padding: 8px 14px;
+  font-size: 13px;
+}
+.service-category-label {
+  color: #466157;
+  font-size: 13px;
+  margin: 4px 0 10px;
+}
+.service-office-info {
+  border-top: 1px solid #d8e2d5;
+  margin-top: 18px;
+  padding-top: 14px;
+  text-align: left;
+}
+.service-office-entry {
+  border: 1px solid #d8e2d5;
+  border-radius: 10px;
+  padding: 12px 14px;
+  margin: 10px 0;
+}
+.service-office-entry h4 {
+  margin: 0 0 4px;
+}
+.service-office-entry p {
+  margin: 6px 0;
+}
+.service-office-entry ul {
+  margin: 4px 0 8px;
+  padding-left: 20px;
+}

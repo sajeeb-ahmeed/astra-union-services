@@ -26,6 +26,7 @@ export const udcNavigation: readonly WorkspaceNavItem[] = [
   { key: "profile", bn: "প্রোফাইল", en: "Profile", page: "profile" },
   { key: "citizens", bn: "নাগরিক", en: "Citizens", page: "citizens" },
   { key: "applications", bn: "সকল আবেদন", en: "All applications", page: "applications" },
+  { key: "pending", bn: "অপেক্ষমাণ আবেদন", en: "Pending applications", page: "pending" },
   { key: "new-application", bn: "নতুন আবেদন", en: "New application", page: "services" },
   { key: "renewal", bn: "সনদ নবায়ন", en: "Certificate renewal", page: "applications", state: "ISSUED" },
   { key: "trade-renewal", bn: "ট্রেড লাইসেন্স নবায়ন", en: "Trade licence renewal", page: "applications", state: "ISSUED" },

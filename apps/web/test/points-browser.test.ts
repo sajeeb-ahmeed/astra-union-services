@@ -30,27 +30,29 @@ async function signIn(page: Page, email: string) {
 }
 
 test(
-  "points browser: the owner publishes a point price and adjusts an office; the office sees its points wallet",
+  "pricing browser: the owner publishes a credit price and adjusts an office's points; the office sees its points wallet",
   { timeout: 120000 },
   async () => {
     const browser = await browserInstance();
     const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
     await page.addInitScript(() => { if (!localStorage.getItem("astra.language")) localStorage.setItem("astra.language", "en"); });
-    // Service 47's price is global: the test restores it to 0 before finishing.
+    // Service 47's credit price is global: the test restores it to the default (1) before finishing.
     try {
       await signIn(page, "owner@astra.demo.test");
       await goToWorkspacePage(page, "Platform management");
-      const prices = page.locator(".owner-point-prices");
+      const prices = page.locator(".owner-pricing");
       await prices.waitFor();
       const row = prices.locator("tbody tr").nth(46);
-      await row.locator("input").fill("2.50");
+      await row.getByLabel("New price", { exact: true }).fill("3");
+      await row.getByLabel("Reason for the change", { exact: true }).fill("Synthetic browser test price");
       await row.getByRole("button", { name: "Publish", exact: true }).click();
-      await prices.getByText("Price published.", { exact: true }).waitFor();
-      assert.equal(await row.locator("input").inputValue(), "2.50");
-      await row.locator("input").fill("0");
+      await prices.getByText("Credit price published.", { exact: true }).waitFor();
+      await row.getByLabel("New price", { exact: true }).fill("1");
+      await row.getByLabel("Reason for the change", { exact: true }).fill("Restore the default price");
       await row.getByRole("button", { name: "Publish", exact: true }).click();
+      await prices.getByText("Credit price published.", { exact: true }).waitFor();
       await page.waitForFunction(
-        () => (document.querySelectorAll(".owner-point-prices tbody tr")[46]?.querySelector("input") as HTMLInputElement)?.value === "0.00",
+        () => (document.querySelectorAll(".owner-pricing tbody tr")[46]?.querySelector("input") as HTMLInputElement)?.value === "1",
       );
 
       const card = page.locator(".tenant-card", { hasText: "Alpha Union" }).first();

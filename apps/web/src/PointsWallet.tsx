@@ -44,8 +44,8 @@ export function PointsWallet({ children }: { children?: React.ReactNode }) {
       </p>
       <p className="hint">
         {label(
-          "প্রতিটি সনদ ইস্যুর সময় সেবার নির্ধারিত পয়েন্ট কাটা হয়। পয়েন্ট কম থাকলে আবেদন অনুমোদিত অবস্থায় থাকবে।",
-          "Each certificate deducts its service's point price when issued. With too few points the application stays approved.",
+          "পয়েন্ট আর কোনো কাজে কাটা হয় না — আবেদনের ফি এখন ক্রেডিটে, জমার সময় কাটা হয়। আগের ব্যালান্স এখানে দেখা যাবে।",
+          "Points are no longer deducted anywhere — the application fee is in credits, charged at submit. Earlier balances remain visible here.",
         )}
       </p>
       {children}
@@ -80,108 +80,9 @@ export function PointsWallet({ children }: { children?: React.ReactNode }) {
   );
 }
 
-/** Phase 5a: the owner's per-service point price list, published as new versions. */
-export function OwnerPointPrices() {
-  useLanguage();
-  const [items, setItems] = useState<any[]>([]);
-  const [drafts, setDrafts] = useState<Record<number, string>>({});
-  const [busy, setBusy] = useState(false);
-  const [message, setMessage] = useState("");
-  const [error, setError] = useState("");
-  const load = async () => {
-    const r = await api("/owner/point-prices");
-    setItems(r.items);
-    setDrafts(Object.fromEntries(r.items.map((i: any) => [i.serviceNo, formatMinorAsTaka(i.priceMinor)])));
-  };
-  useEffect(() => {
-    load().catch((e) => setError((e as Error).message));
-  }, []);
-  async function publish(item: any) {
-    setBusy(true);
-    setError("");
-    setMessage("");
-    try {
-      let priceMinor: number;
-      try {
-        priceMinor = parseTakaToMinor(drafts[item.serviceNo] ?? "");
-      } catch {
-        throw Error(label("পয়েন্ট সঠিকভাবে লিখুন, সর্বোচ্চ দুই দশমিক ঘর।", "Enter points with at most two decimal places."));
-      }
-      await api(`/owner/point-prices/${item.serviceNo}`, "POST", {
-        expectedVersion: item.version,
-        priceMinor,
-        reason: "Owner price list update",
-      });
-      await load();
-      setMessage(label("মূল্য প্রকাশিত হয়েছে।", "Price published."));
-    } catch (e) {
-      setError((e as Error).message);
-    } finally {
-      setBusy(false);
-    }
-  }
-  return (
-    <section className="panel owner-point-prices">
-      <h2>{label("সনদ প্রতি পয়েন্ট মূল্য", "Points per certificate")}</h2>
-      <p className="hint">
-        {label(
-          "সব অফিসের জন্য একই মূল্য। ০ মানে কোনো পয়েন্ট কাটা হবে না। প্রতিটি পরিবর্তন নতুন সংস্করণ হিসেবে সংরক্ষিত হয়।",
-          "One price for every office. 0 means no points are deducted. Each change is kept as a new version.",
-        )}
-      </p>
-      {message && (
-        <p className="notice" role="status">
-          {message}
-        </p>
-      )}
-      {error && (
-        <p className="error" role="alert">
-          {error}
-        </p>
-      )}
-      <div className="table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th scope="col">{label("সেবা", "Service")}</th>
-              <th scope="col">{label("পয়েন্ট", "Points")}</th>
-              <th scope="col">
-                <span className="sr-only">{label("প্রকাশ", "Publish")}</span>
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {items.map((item) => (
-              <tr key={item.serviceNo}>
-                <th scope="row">
-                  {item.serviceNo}. {choose({ bn: item.nameBn, en: item.nameEn })}
-                </th>
-                <td>
-                  <input
-                    aria-label={`${label("পয়েন্ট", "Points")}: ${choose({ bn: item.nameBn, en: item.nameEn })}`}
-                    inputMode="decimal"
-                    value={drafts[item.serviceNo] ?? ""}
-                    onChange={(e) => setDrafts({ ...drafts, [item.serviceNo]: e.target.value })}
-                  />
-                </td>
-                <td>
-                  <button
-                    type="button"
-                    className="secondary"
-                    disabled={busy || drafts[item.serviceNo] === formatMinorAsTaka(item.priceMinor)}
-                    onClick={() => void publish(item)}
-                  >
-                    {label("প্রকাশ করুন", "Publish")}
-                  </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </section>
-  );
-}
+/** Phase 3B: the owner point-price editor was retired with the points spend path;
+ * per-service prices are credits now and live in OwnerPricing.tsx. The point-price
+ * endpoints remain for the historical record. */
 
 /** Phase 5a: owner adjustment of one office's points through the ledger. */
 export function OwnerPointsAdjust({ tenantId }: { tenantId: string }) {

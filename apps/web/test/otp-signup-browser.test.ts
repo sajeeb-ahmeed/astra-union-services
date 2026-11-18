@@ -34,21 +34,44 @@ test(
     const unique = Date.now();
     const mobile = `016${String(unique).slice(-8)}`;
     const password = randomBytes(18).toString("base64url"); // generated per run
+    // Phase 3E (§3.6): registration only offers offices that serve the selected
+    // union — onboard a mapped office for this test's union first.
+    const union = JSON.parse(fs.readFileSync("data/geo/unions.json", "utf8")).find((row: any) => row.upazilaCode === "upa-001");
+    const officeName = `OTP Union Office ${unique}`;
+    {
+      const owner = await browser.newContext();
+      const login = await owner.request.post(`${origin}/api/v1/auth/login`, {
+        data: { email: "owner@astra.demo.test", password: "Demo-Phase1!" },
+      });
+      const created = await owner.request.post(`${origin}/api/v1/owner/tenants`, {
+        headers: { "X-CSRF-Token": (await login.json()).csrfToken },
+        data: {
+          slug: `otp-union-${unique}`,
+          nameBn: "ওটিপি ইউনিয়ন অফিস",
+          nameEn: officeName,
+          officeType: "UNION",
+          geography: { divisionCode: "div-01", districtCode: "dis-01", upazilaCode: "upa-001", unionCode: union.code },
+          adminEmail: `admin@otp-union-${unique}.test`,
+          adminName: "OTP Union Admin",
+          adminPassword: randomBytes(18).toString("base64url"),
+        },
+      });
+      assert.equal(created.status(), 201, await created.text());
+      await owner.close();
+    }
     try {
       const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
       const errors: string[] = [];
       page.on("pageerror", (error) => errors.push(error.message));
       await page.addInitScript(() => localStorage.setItem("astra.language", "en"));
       await page.goto(`${origin}/register`);
-      const union = JSON.parse(fs.readFileSync("data/geo/unions.json", "utf8")).find((row: any) => row.upazilaCode === "upa-001");
       for (const [level, code] of [["division", "div-01"], ["district", "dis-01"], ["upazila", "upa-001"], ["union", union.code], ["ward", `${union.code}-w01`]]) {
         await page.locator(`#signup-geo-${level} option[value="${code}"]`).waitFor({ state: "attached" });
         await page.locator(`#signup-geo-${level}`).selectOption(code);
       }
-      await page.getByRole("button", { name: "Register with this office", exact: true }).click();
-      const alphaOption = page.locator("#signup-office option").filter({ hasText: "Alpha Union" });
-      await alphaOption.waitFor({ state: "attached" });
-      await page.getByLabel("Select office", { exact: true }).selectOption((await alphaOption.getAttribute("value"))!);
+      const officeOption = page.locator("#signup-office option").filter({ hasText: officeName });
+      await officeOption.waitFor({ state: "attached" });
+      await page.getByLabel("Select office", { exact: true }).selectOption((await officeOption.getAttribute("value"))!);
       for (const [label, value] of Object.entries({
         "Email address": `otp-signup-${unique}@example.test`,
         "Choose password": password,

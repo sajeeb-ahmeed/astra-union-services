@@ -11,7 +11,9 @@ import {
   operationalServiceNumbers,
   getServiceSchema,
 } from "@astra/shared-schemas";
-import { api, items } from "./api.js";
+import { api, clearSessionToken, items } from "./api.js";
+import { useBranding } from "./branding.js";
+import { GlobalNoticeBanner } from "./GlobalNotices.js";
 import emblem from "./assets/brand/emblem.webp";
 import { AsyncPanel } from "./AsyncPanel.js";
 import { DynamicForm } from "./DynamicForm.js";
@@ -81,11 +83,39 @@ const OwnerWitnessTypes = lazy(() =>
 const PointsWallet = lazy(() =>
   import("./PointsWallet.js").then((m) => ({ default: m.PointsWallet })),
 );
-const OwnerPointPrices = lazy(() =>
-  import("./PointsWallet.js").then((m) => ({ default: m.OwnerPointPrices })),
+const OwnerPricing = lazy(() =>
+  import("./OwnerPricing.js").then((m) => ({ default: m.OwnerPricing })),
+);
+const OwnerPlans = lazy(() =>
+  import("./OwnerPlans.js").then((m) => ({ default: m.OwnerPlans })),
+);
+const OwnerBranding = lazy(() =>
+  import("./OwnerBranding.js").then((m) => ({ default: m.OwnerBranding })),
+);
+const OwnerAudit = lazy(() =>
+  import("./OwnerAudit.js").then((m) => ({ default: m.OwnerAudit })),
+);
+const OwnerCoupons = lazy(() =>
+  import("./OwnerCoupons.js").then((m) => ({ default: m.OwnerCoupons })),
+);
+const OwnerNotices = lazy(() =>
+  import("./OwnerNotices.js").then((m) => ({ default: m.OwnerNotices })),
+);
+const OwnerDemand = lazy(() =>
+  import("./OwnerDemand.js").then((m) => ({ default: m.OwnerDemand })),
 );
 const OwnerPointsPanel = lazy(() =>
   import("./PointsWallet.js").then((m) => ({ default: m.OwnerPointsPanel })),
+);
+const OwnerSubscriptionPanel = lazy(() =>
+  import("./OwnerSubscriptions.js").then((m) => ({
+    default: m.OwnerSubscriptionPanel,
+  })),
+);
+const OwnerPendingOrders = lazy(() =>
+  import("./OwnerSubscriptions.js").then((m) => ({
+    default: m.OwnerPendingOrders,
+  })),
 );
 const OfficeRefunds = lazy(() =>
   import("./Refunds.js").then((m) => ({ default: m.OfficeRefunds })),
@@ -114,6 +144,7 @@ const labels: Record<string, string> = {
   services: "Service catalog",
   citizens: "Citizens",
   applications: "Applications",
+  pending: "Pending applications",
   billing: "Subscription & credits",
   payments: "Payments and receipts",
   owner: "Platform management",
@@ -130,6 +161,7 @@ const localized: Record<string, string> = {
   services: "সেবার তালিকা",
   citizens: "নাগরিক",
   applications: "আবেদন",
+  pending: "অপেক্ষমাণ আবেদন",
   billing: "সাবস্ক্রিপশন ও ক্রেডিট",
   payments: "পেমেন্ট ও রসিদ",
   owner: "প্ল্যাটফর্ম ব্যবস্থাপনা",
@@ -162,6 +194,7 @@ export function WorkspaceApp({
   onPaymentReturnHandled: () => void;
 }) {
   const [language] = useLanguage();
+  const branding = useBranding();
   // Phone layout (<=767px): card lists replace the wide tables; rendered conditionally so the
   // table data is never duplicated in the DOM on larger screens.
   const phoneLayout = useSyncExternalStore(
@@ -183,7 +216,10 @@ export function WorkspaceApp({
     [applications, setApplications] = useState<any[]>([]),
     [wallet, setWallet] = useState<any>(null),
     [billing, setBilling] = useState<any>(null),
-    [tenants, setTenants] = useState<any[]>([]);
+    // Phase 3E (§3.7): the office's coupon code for its next order, if any.
+    [orderCoupon, setOrderCoupon] = useState(""),
+    [tenants, setTenants] = useState<any[]>([]),
+    [plans, setPlans] = useState<any[]>([]);
   // Phase 1 slice (iii), approved: dashboard tiles open the guided application flow.
   const [flowService, setFlowService] = useState<number | null>(null);
   const [flowCitizen, setFlowCitizen] = useState<any>(null);
@@ -203,6 +239,13 @@ export function WorkspaceApp({
   const [appFrom, setAppFrom] = useState(""),
     [appTo, setAppTo] = useState(""),
     [appRenewals, setAppRenewals] = useState(false);
+  // CHAIRMAN-DASH-01: service filter for the applications list, and the Pending
+  // applications queue (per-state counts from the API + each pending state's rows).
+  const [appService, setAppService] = useState("");
+  const [pendingCounts, setPendingCounts] = useState<any>(null),
+    [pendingLists, setPendingLists] = useState<
+      Record<string, { items: any[]; total: number }>
+    >({});
   const [applicationReference, setApplicationReference] = useState("");
   const [renewalOrder, setRenewalOrder] = useState<IntakeOrderState | null>(
     null,
@@ -272,7 +315,7 @@ export function WorkspaceApp({
         : Promise.resolve({ items: [] }),
       !["owner", "finance"].includes(role)
         ? api(
-            `/applications?${new URLSearchParams({ ...(filter ? { state: filter } : {}), q: appQuery, page: String(appPage), pageSize: String(appPageSize), ...(appFrom ? { from: appFrom } : {}), ...(appTo ? { to: appTo } : {}), ...(appRenewals ? { renewal: "true" } : {}) })}`,
+            `/applications?${new URLSearchParams({ ...(filter ? { state: filter } : {}), ...(appService ? { serviceNo: appService } : {}), q: appQuery, page: String(appPage), pageSize: String(appPageSize), ...(appFrom ? { from: appFrom } : {}), ...(appTo ? { to: appTo } : {}), ...(appRenewals ? { renewal: "true" } : {}) })}`,
           )
         : Promise.resolve({ items: [], total: 0 }),
       ["admin", "finance", "approver"].includes(role)
@@ -292,10 +335,11 @@ export function WorkspaceApp({
     setWallet(walletResult);
     setBilling(billingResult);
     setTenants(items(tenantResult));
+    setPlans(tenantResult.plans ?? []);
   }
   useEffect(() => {
     if (session) run(refresh);
-  }, [session, filter, appQuery, appPage, appPageSize, citizenQuery, appFrom, appTo, appRenewals]);
+  }, [session, filter, appService, appQuery, appPage, appPageSize, citizenQuery, appFrom, appTo, appRenewals]);
   const paymentReturnHandled = useRef(false);
   useEffect(() => {
     if (!session || !paymentReturnApplication || paymentReturnHandled.current)
@@ -340,6 +384,8 @@ export function WorkspaceApp({
         ].includes(p)
       : !["owner", "support"].includes(p) &&
         (p !== "admin" || role === "admin") &&
+        (p !== "pending" ||
+          ["staff", "admin", "reviewer", "approver"].includes(role)) &&
         (p !== "reports" || finance) &&
         (p !== "prints" || staff || role === "citizen") &&
         (p !== "billing" || finance) &&
@@ -378,6 +424,7 @@ export function WorkspaceApp({
   }
   function clearApplicationFilters() {
     setFilter("");
+    setAppService("");
     setAppSearch("");
     setAppQuery("");
     setAppPage(1);
@@ -389,7 +436,6 @@ export function WorkspaceApp({
     }
     nav(next);
   }
-  const issueCost = detail?.serviceConfiguration?.creditCost ?? 1;
   const application = detail?.application || detail,
     detailPayload = detail?.payload || application?.payload || {};
   const renewalLanguage =
@@ -409,6 +455,175 @@ export function WorkspaceApp({
     await openApplication(application.id);
     await refresh();
     setMessage(`${actionText[action]} completed.`);
+  }
+  // CHAIRMAN-DASH-01: the Pending applications queue. Counts always come from the
+  // API (/applications/counts) — never from counting a fetched page — and the rows
+  // come from the same list endpoint the applications page uses, one state at a
+  // time. CORRECTION_REQUIRED is excluded on purpose: after a correction request
+  // the next move is the citizen's, so it is not office-pending work.
+  const pendingReviewStates = ["SUBMITTED", "RESUBMITTED", "UNDER_REVIEW"],
+    pendingIssuanceStates = ["APPROVED"];
+  async function loadPending() {
+    const counts = await api("/applications/counts");
+    setPendingCounts(counts);
+    const lists: Record<string, { items: any[]; total: number }> = {};
+    await Promise.all(
+      [...pendingReviewStates, ...pendingIssuanceStates].map(async (state) => {
+        const r = await api(
+          `/applications?${new URLSearchParams({ state, page: "1", pageSize: "100" })}`,
+        );
+        lists[state] = {
+          items: items(r),
+          total: r.total ?? items(r).length,
+        };
+      }),
+    );
+    setPendingLists(lists);
+  }
+  useEffect(() => {
+    if (page === "pending" && session) void run(loadPending);
+  }, [page, session]);
+  // One row presentation for application lists, shared by the applications page
+  // and the Pending queue so the two can never drift apart.
+  function applicationRow(a: any) {
+    return (
+      <tr key={a.id}>
+        <td>
+          <code>{tx(a.id.slice(0, 8))}</code>
+          <small>{applicationDate(a.createdAt || a.created_at)}</small>
+        </td>
+        <td>
+          {t("#")}
+          {tx(a.serviceNo || a.service_no)}
+          {tx(" ")}
+          {tx(
+            recordName(
+              catalog.find(
+                (s) => s.service_no === (a.serviceNo || a.service_no),
+              ),
+            ),
+          )}
+        </td>
+        <td>
+          <span className="status">{tx(a.state || a.status)}</span>
+        </td>
+        <td>
+          <button
+            className="text-button"
+            onClick={() => run(() => openApplication(a.id))}
+          >
+            {t("Open application ")}
+          </button>
+        </td>
+      </tr>
+    );
+  }
+  function applicationCard(a: any) {
+    return (
+      <article className="ax-card" key={a.id}>
+        <div className="ax-card-head">
+          <code>{tx(a.id.slice(0, 8))}</code>
+          <span className="status">{tx(a.state || a.status)}</span>
+        </div>
+        <strong>
+          {t("#")}
+          {tx(a.serviceNo || a.service_no)}
+          {tx(" ")}
+          {tx(
+            recordName(
+              catalog.find(
+                (svc) => svc.service_no === (a.serviceNo || a.service_no),
+              ),
+            ),
+          )}
+        </strong>
+        <small>{applicationDate(a.createdAt || a.created_at)}</small>
+        <button
+          className="text-button"
+          onClick={() => run(() => openApplication(a.id))}
+        >
+          {t("Open application ")}
+        </button>
+      </article>
+    );
+  }
+  // CHAIRMAN-DASH-01: one Pending queue group — a heading with the API count,
+  // then the group's rows in the shared list presentation. When a group holds
+  // more than the fetched rows, each state links into the full filtered list.
+  function pendingGroupSection(
+    title: { bn: string; en: string },
+    count: number | null,
+    states: string[],
+  ) {
+    const rows = states
+      .flatMap((state) => pendingLists[state]?.items ?? [])
+      .sort((x, y) =>
+        String(y.updatedAt || y.updated_at || "").localeCompare(
+          String(x.updatedAt || x.updated_at || ""),
+        ),
+      );
+    return (
+      <section className="panel">
+        <div className="section-heading">
+          <h2>
+            {choose(title)}
+            {count !== null &&
+              ` · ${count.toLocaleString(language === "bn" ? "bn-BD" : "en-GB")}`}
+          </h2>
+        </div>
+        {rows.length ? (
+          <>
+            <div className="table-wrap responsive-table">
+              <table>
+                <thead>
+                  <tr>
+                    <th>{t("Application")}</th>
+                    <th>{t("Service")}</th>
+                    <th>{t("Status")}</th>
+                    <th>{t("Open")}</th>
+                  </tr>
+                </thead>
+                <tbody>{tx(rows.map(applicationRow))}</tbody>
+              </table>
+            </div>
+            {phoneLayout && (
+              <div className="ax-card-list">
+                {tx(rows.map(applicationCard))}
+              </div>
+            )}
+          </>
+        ) : (
+          <EmptyState
+            title={choose({
+              bn: "এই মুহূর্তে কিছুই অপেক্ষমাণ নেই",
+              en: "Nothing is waiting right now",
+            })}
+            hint={choose({
+              bn: "নতুন আবেদন এলে এখানে দেখা যাবে।",
+              en: "New applications will appear here.",
+            })}
+          />
+        )}
+        {count !== null && count > rows.length && (
+          <p className="hint">
+            {choose({
+              bn: "সাম্প্রতিকগুলো দেখানো হচ্ছে — বাকিগুলো আবেদনের তালিকায়:",
+              en: "Showing the most recent — see the rest in the applications list:",
+            })}
+            {tx(" ")}
+            {states.map((state) => (
+              <button
+                key={state}
+                className="text-button"
+                onClick={() => openTask("applications", state)}
+              >
+                {tx(state)}
+              </button>
+            ))}
+          </p>
+        )}
+      </section>
+    );
   }
   function nav(next: string) {
     setReturnToIntake(false);
@@ -508,12 +723,9 @@ export function WorkspaceApp({
             height={38}
           />
           <span>
-            DigitalUnion
+            {branding.name}
             <small>
-              {choose({
-                bn: "স্মার্ট ইউনিয়ন, স্মার্ট বাংলাদেশ",
-                en: "Smart Union, Smart Bangladesh",
-              })}
+              {choose({ bn: branding.taglineBn, en: branding.taglineEn })}
             </small>
           </span>
         </a>
@@ -606,7 +818,19 @@ export function WorkspaceApp({
             className="text-button"
             onClick={() =>
               run(async () => {
-                await api("/auth/logout", "POST");
+                // Phase 5 (5A): leaving the workspace must never depend on the logout
+                // request succeeding — in the broken-session state that request is
+                // exactly what fails (it is CSRF-protected like every POST), which left
+                // sign-out clicks doing nothing. The API client first resyncs and tries
+                // to complete the server logout; whatever the outcome, local state is
+                // cleared and the user returns to the sign-in portal. A server session
+                // that could not be ended here expires on its own schedule.
+                try {
+                  await api("/auth/logout", "POST");
+                } catch {
+                  // Ignored deliberately: local sign-out proceeds regardless.
+                }
+                clearSessionToken();
                 refreshEpoch.current++;
                 onSignOut();
                 setCitizens([]);
@@ -631,6 +855,7 @@ export function WorkspaceApp({
         </div>
       </aside>
       <main id="content" aria-busy={busy || undefined}>
+        <GlobalNoticeBanner />
         <header>
           <div>
             <span className="eyebrow">
@@ -894,13 +1119,12 @@ export function WorkspaceApp({
                     </thead>
                     <tbody>
                       {tx(
-                        citizens
-                          .filter((c) =>
-                            JSON.stringify(c)
-                              .toLowerCase()
-                              .includes(citizenQuery.toLowerCase()),
-                          )
-                          .map((c) => (
+                        // Phase 5 (5B): the server already filters this list by the same
+                        // query (Bangla + English names, reference, mobile). The old extra
+                        // client-side substring filter over the serialized citizen could
+                        // only hide server matches — the phone card list below never
+                        // applied it, so the two layouts could disagree.
+                        citizens.map((c) => (
                             <tr key={c.id}>
                               <td>
                                 {c.nameBn || c.name_bn}
@@ -1198,6 +1422,28 @@ export function WorkspaceApp({
                   )),
                 )}
               </select>
+              <label htmlFor="service-filter">
+                {choose({ bn: "সেবা অনুযায়ী ছাঁকুন", en: "Filter by service" })}
+              </label>
+              <select
+                id="service-filter"
+                value={appService}
+                onChange={(e) => {
+                  setAppService(e.target.value);
+                  setAppPage(1);
+                }}
+              >
+                <option value="">
+                  {choose({ bn: "সব সেবা", en: "All services" })}
+                </option>
+                {tx(
+                  catalog.map((s) => (
+                    <option key={s.service_no} value={s.service_no}>
+                      {tx(`#${s.service_no} ${recordName(s)}`)}
+                    </option>
+                  )),
+                )}
+              </select>
               <div className="form-grid date-range">
                 <div className="field">
                   <label htmlFor="application-from">{choose({ bn: "যে তারিখ থেকে", en: "From date" })}</label>
@@ -1247,7 +1493,7 @@ export function WorkspaceApp({
                   )}{" "}
                   {choose({ bn: "টি আবেদন", en: "applications" })}
                 </p>
-                {(filter || appSearch) && (
+                {(filter || appService || appSearch) && (
                   <button
                     className="secondary"
                     onClick={clearApplicationFilters}
@@ -1266,47 +1512,7 @@ export function WorkspaceApp({
                       <th>{t("Open")}</th>
                     </tr>
                   </thead>
-                  <tbody>
-                    {tx(
-                      applications.map((a) => (
-                        <tr key={a.id}>
-                          <td>
-                            <code>{tx(a.id.slice(0, 8))}</code>
-                            <small>
-                              {applicationDate(a.createdAt || a.created_at)}
-                            </small>
-                          </td>
-                          <td>
-                            {t("#")}
-                            {tx(a.serviceNo || a.service_no)}
-                            {tx(" ")}
-                            {tx(
-                              recordName(
-                                catalog.find(
-                                  (s) =>
-                                    s.service_no ===
-                                    (a.serviceNo || a.service_no),
-                                ),
-                              ),
-                            )}
-                          </td>
-                          <td>
-                            <span className="status">
-                              {tx(a.state || a.status)}
-                            </span>
-                          </td>
-                          <td>
-                            <button
-                              className="text-button"
-                              onClick={() => run(() => openApplication(a.id))}
-                            >
-                              {t("Open application ")}
-                            </button>
-                          </td>
-                        </tr>
-                      )),
-                    )}
-                  </tbody>
+                  <tbody>{tx(applications.map(applicationRow))}</tbody>
                 </table>
               </div>
               {tx(busy && !applications.length && <SkeletonRows rows={5} />)}
@@ -1314,7 +1520,7 @@ export function WorkspaceApp({
                 !busy && !applications.length && (
                   <EmptyState
                     title={choose(
-                      filter || appSearch
+                      filter || appService || appSearch
                         ? {
                             bn: "মিলে এমন আবেদন নেই",
                             en: "No matching applications",
@@ -1325,7 +1531,7 @@ export function WorkspaceApp({
                           },
                     )}
                     hint={choose(
-                      filter || appSearch
+                      filter || appService || appSearch
                         ? {
                             bn: "অন্য নাম দিয়ে খুঁজুন অথবা ফিল্টার মুছে সব আবেদন দেখুন।",
                             en: "Try another name or clear the filters to see all applications.",
@@ -1336,7 +1542,7 @@ export function WorkspaceApp({
                           },
                     )}
                     action={
-                      !filter && !appSearch && canApply ? (
+                      !filter && !appService && !appSearch && canApply ? (
                         <button onClick={() => nav("services")}>
                           {choose({
                             bn: "প্রথম আবেদন শুরু করুন",
@@ -1350,40 +1556,8 @@ export function WorkspaceApp({
               )}
               {phoneLayout && (
                 <div className="ax-card-list">
-                {tx(
-                  applications.map((a) => (
-                    <article className="ax-card" key={a.id}>
-                      <div className="ax-card-head">
-                        <code>{tx(a.id.slice(0, 8))}</code>
-                        <span className="status">{tx(a.state || a.status)}</span>
-                      </div>
-                      <strong>
-                        {t("#")}
-                        {tx(a.serviceNo || a.service_no)}
-                        {tx(" ")}
-                        {tx(
-                          recordName(
-                            catalog.find(
-                              (svc) =>
-                                svc.service_no ===
-                                (a.serviceNo || a.service_no),
-                            ),
-                          ),
-                        )}
-                      </strong>
-                      <small>
-                        {applicationDate(a.createdAt || a.created_at)}
-                      </small>
-                      <button
-                        className="text-button"
-                        onClick={() => run(() => openApplication(a.id))}
-                      >
-                        {t("Open application ")}
-                      </button>
-                    </article>
-                  )),
-                )}
-              </div>
+                  {tx(applications.map(applicationCard))}
+                </div>
               )}
               <div className="pagination">
                 <button
@@ -1530,7 +1704,7 @@ export function WorkspaceApp({
                 <input
                   id="application-reference"
                   readOnly
-                  value={application.id}
+                  value={application.reference || application.id}
                   onFocus={(e) => e.target.select()}
                 />
                 <p className="hint">
@@ -1736,7 +1910,7 @@ export function WorkspaceApp({
                               await openApplication(application.id);
                               await refresh();
                               setMessage(
-                                `Certificate issued. ${issueCost} credit${issueCost === 1 ? "" : "s"} debited once; retries return the same certificate.`,
+                                `Certificate issued. The application fee was settled at submission; retries return the same certificate.`,
                               );
                             })
                           }
@@ -1744,7 +1918,7 @@ export function WorkspaceApp({
                           {tx(
                             application.state === "ISSUED"
                               ? "Retry issuance safely"
-                              : `Issue certificate · ${issueCost} credit${issueCost === 1 ? "" : "s"}`,
+                              : "Issue certificate",
                           )}
                         </button>
                       ),
@@ -1872,6 +2046,28 @@ export function WorkspaceApp({
           ),
         )}
         {tx(
+          page === "pending" && (
+            <>
+              {pendingGroupSection(
+                { bn: "পর্যালোচনার অপেক্ষায়", en: "Awaiting review" },
+                pendingCounts ? pendingCounts.awaitingReview : null,
+                pendingReviewStates,
+              )}
+              {pendingGroupSection(
+                { bn: "সনদ ইস্যুর অপেক্ষায়", en: "Awaiting issuance" },
+                pendingCounts ? pendingCounts.awaitingIssuance : null,
+                pendingIssuanceStates,
+              )}
+              <p className="hint">
+                {choose({
+                  bn: "সংশোধনের জন্য ফেরত পাঠানো আবেদন এই তালিকায় নেই — সেটির পরের পদক্ষেপ নাগরিকের।",
+                  en: "Applications sent back for correction are not listed here — the next step there is the citizen's.",
+                })}
+              </p>
+            </>
+          ),
+        )}
+        {tx(
           page === "billing" && (
             <>
               <div className="stats">
@@ -1905,7 +2101,9 @@ export function WorkspaceApp({
                           (billing?.plans || []).find(
                             (plan: any) =>
                               plan.id === billing.subscription.planId,
-                          )?.name || "—",
+                          )?.name ||
+                            billing?.currentPlan?.name ||
+                            "—",
                         )}
                       </dd>
                     </div>
@@ -1930,6 +2128,15 @@ export function WorkspaceApp({
                     })}
                   </p>
                 )}
+                <label htmlFor="order-coupon-code">
+                  {choose({ bn: "কুপন কোড (যদি থাকে)", en: "Coupon code (if any)" })}
+                </label>
+                <input
+                  id="order-coupon-code"
+                  value={orderCoupon}
+                  onChange={(e) => setOrderCoupon(e.target.value)}
+                  placeholder={choose({ bn: "কোড লিখুন", en: "Enter code" })}
+                />
                 <div className="actions">
                   <button
                     onClick={() =>
@@ -1937,6 +2144,9 @@ export function WorkspaceApp({
                         await api("/billing/orders", "POST", {
                           kind: "topup",
                           credits: 10,
+                          ...(orderCoupon.trim()
+                            ? { couponCode: orderCoupon.trim() }
+                            : {}),
                         });
                         setBilling(await api("/billing"));
                         setMessage("Sandbox top-up order created.");
@@ -1955,6 +2165,9 @@ export function WorkspaceApp({
                             await api("/billing/orders", "POST", {
                               kind: "subscription",
                               planId: plan.id,
+                              ...(orderCoupon.trim()
+                                ? { couponCode: orderCoupon.trim() }
+                                : {}),
                             });
                             setBilling(await api("/billing"));
                             setMessage("Subscription order created.");
@@ -1984,7 +2197,14 @@ export function WorkspaceApp({
                           <tr key={o.id}>
                             <td>{tx(o.id.slice(0, 8))}</td>
                             <td>{tx(o.kind)}</td>
-                            <td>{tx(o.amountMinor ?? o.amount_minor)}</td>
+                            <td>
+                              {tx(o.amountMinor ?? o.amount_minor)}
+                              {tx(
+                                o.couponCode
+                                  ? ` · ${o.couponCode} −${o.discountMinor ?? 0}`
+                                  : "",
+                              )}
+                            </td>
                             <td>
                               {tx(o.status)}
                               {tx(" ")}
@@ -2111,17 +2331,62 @@ export function WorkspaceApp({
               <AdditionalWorkspace page={page} session={session} />
             ),
           )}
-          {tx(page === "owner" && <OwnerOperations />)}
-          {tx(page === "owner" && <OwnerOnboarding onSaved={refresh} />)}
-          {tx(page === "owner" && <OwnerAccountRequests />)}
-          {tx(page === "owner" && <OwnerPointPrices />)}
-          {tx(page === "owner" && <OwnerRecharges />)}
-          {tx(page === "owner" && <OwnerInclusionRequests />)}
-          {tx(page === "owner" && <OwnerWitnessTypes />)}
-        </AsyncPanel>
-        {tx(
-          page === "owner" && (
-            <section className="panel">
+          {tx(
+            page === "owner" && (
+              <>
+                {/* Phase 3D: the owner console is organised into the billing plan
+                    §3.9 sections with a jump nav. Everything stays on one page —
+                    the per-office subscription panel lives on each office card
+                    (Offices section), so no control is hidden behind a tab.
+                    Phase 3E: Coupons and Notices now join the nav (§3.9 order:
+                    Pricing · Coupons · Notices · Permissions · Audit).
+                    Demand list (§3.6, owner-approved 18 Nov): the Registration
+                    demand section sits right after Offices — it is the demand
+                    side of onboarding. */}
+                <nav
+                  className="owner-nav"
+                  aria-label={choose({
+                    bn: "প্ল্যাটফর্ম ব্যবস্থাপনার অংশসমূহ",
+                    en: "Platform management sections",
+                  })}
+                >
+                  <a href="#owner-overview">
+                    {choose({ bn: "সারসংক্ষেপ", en: "Overview" })}
+                  </a>
+                  <a href="#owner-offices">
+                    {choose({ bn: "অফিসসমূহ", en: "Offices" })}
+                  </a>
+                  <a href="#owner-demand">
+                    {choose({ bn: "নিবন্ধনের চাহিদা", en: "Registration demand" })}
+                  </a>
+                  <a href="#owner-subscriptions">
+                    {choose({ bn: "সাবস্ক্রিপশন", en: "Subscriptions" })}
+                  </a>
+                  <a href="#owner-pricing">
+                    {choose({ bn: "মূল্য নির্ধারণ", en: "Pricing" })}
+                  </a>
+                  <a href="#owner-coupons">
+                    {choose({ bn: "কুপন", en: "Coupons" })}
+                  </a>
+                  <a href="#owner-notices">
+                    {choose({ bn: "নোটিশ", en: "Notices" })}
+                  </a>
+                  <a href="#owner-permissions">
+                    {choose({ bn: "অনুমতি", en: "Permissions" })}
+                  </a>
+                  <a href="#owner-audit">{choose({ bn: "অডিট", en: "Audit" })}</a>
+                </nav>
+                <section className="owner-section" id="owner-overview">
+                  <h2>{choose({ bn: "সারসংক্ষেপ", en: "Overview" })}</h2>
+                  <OwnerOperations />
+                  <OwnerBranding />
+                  <OwnerWitnessTypes />
+                </section>
+                <section className="owner-section" id="owner-offices">
+                  <h2>{choose({ bn: "অফিসসমূহ", en: "Offices" })}</h2>
+                  <OwnerOnboarding onSaved={refresh} />
+                  <OwnerInclusionRequests />
+                  <section className="panel">
               <h2>{t("Tenant credit management")}</h2>
               <p>
                 {t(
@@ -2213,14 +2478,59 @@ export function WorkspaceApp({
                       <button>{t("Record adjustment")}</button>
                     </form>
                     <OwnerPointsPanel tenantId={officeTenant.id} />
+                    <OwnerSubscriptionPanel
+                      tenantId={officeTenant.id}
+                      subscription={officeTenant.subscription}
+                      plans={plans}
+                      onChanged={refresh}
+                    />
                   </div>
                 )),
               )}
-            </section>
-          ),
-        )}
+                  </section>
+                  <OwnerRecharges />
+                </section>
+                <section className="owner-section" id="owner-demand">
+                  <h2>{choose({ bn: "নিবন্ধনের চাহিদা", en: "Registration demand" })}</h2>
+                  <OwnerDemand />
+                </section>
+                <section className="owner-section" id="owner-subscriptions">
+                  <h2>{choose({ bn: "সাবস্ক্রিপশন", en: "Subscriptions" })}</h2>
+                  <p className="hint">
+                    {choose({
+                      bn: "প্রতিটি অফিসের সাবস্ক্রিপশন চালু করা, মেয়াদ বাড়ানো, স্থগিত করা ও প্ল্যান বদল — অফিস অংশে প্রতিটি অফিসের কার্ডে নিয়ন্ত্রণ করা যায়। এই অংশে প্ল্যানের তালিকা ও অপেক্ষমাণ পেমেন্ট অর্ডার থাকে।",
+                      en: "Activating, extending, suspending and changing each office's subscription is controlled on its card in the Offices section. This section holds the plan catalogue and the waiting payment orders.",
+                    })}
+                  </p>
+                  <OwnerPlans />
+                  <OwnerPendingOrders />
+                </section>
+                <section className="owner-section" id="owner-pricing">
+                  <h2>{choose({ bn: "মূল্য নির্ধারণ", en: "Pricing" })}</h2>
+                  <OwnerPricing />
+                </section>
+                <section className="owner-section" id="owner-coupons">
+                  <h2>{choose({ bn: "কুপন", en: "Coupons" })}</h2>
+                  <OwnerCoupons />
+                </section>
+                <section className="owner-section" id="owner-notices">
+                  <h2>{choose({ bn: "নোটিশ", en: "Notices" })}</h2>
+                  <OwnerNotices />
+                </section>
+                <section className="owner-section" id="owner-permissions">
+                  <h2>{choose({ bn: "অনুমতি", en: "Permissions" })}</h2>
+                  <OwnerAccountRequests />
+                </section>
+                <section className="owner-section" id="owner-audit">
+                  <h2>{choose({ bn: "অডিট", en: "Audit" })}</h2>
+                  <OwnerAudit />
+                </section>
+              </>
+            ),
+          )}
+        </AsyncPanel>
         <footer>
-          {t("DigitalUnion · Smart Union, Smart Bangladesh")}
+          {branding.name} · {choose({ bn: branding.taglineBn, en: branding.taglineEn })}
         </footer>
       </main>
     </div>

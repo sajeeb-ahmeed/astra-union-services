@@ -589,7 +589,7 @@ test("PAY-05: one execution survives timeout and duplicate callbacks; query plus
     total_minor: 12707,
   });
 });
-test("PAY-06: verified citizen payment preserves independent approver authorization and exactly-once SaaS credit deduction", async () => {
+test("PAY-06: verified citizen payment preserves independent approver authorization and issuance deducts no SaaS credit (fee settled at submit)", async () => {
   assert.equal(
     (await request("POST", `/applications/${approved.id}/issue`, {}, "staff"))
       .status,
@@ -608,7 +608,7 @@ test("PAY-06: verified citizen payment preserves independent approver authorizat
   assert.equal(result[0].body.id, result[1].body.id);
   assert.equal(
     (await request("GET", "/wallet", undefined, "finance")).body.balance,
-    balance - 1,
+    balance,
   );
   assert.equal(
     (
@@ -617,7 +617,7 @@ test("PAY-06: verified citizen payment preserves independent approver authorizat
         [result[0].body.id],
       )
     ).rows[0].n,
-    1,
+    0,
   );
 });
 test("PAY-07: wrong amount, currency, invoice, payment identity, merchant or transaction evidence never creates a receipt", async () => {
@@ -1128,9 +1128,10 @@ test("PAY-16: later contradictory provider evidence holds issuance without rewri
     ).status,
     201,
   );
+  // Phase 3B: issuance deducts nothing — the fee settled at submit.
   assert.equal(
     (await request("GET", "/wallet", undefined, "finance")).body.balance,
-    balance - 1,
+    balance,
   );
 });
 

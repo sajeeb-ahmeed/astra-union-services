@@ -1,6 +1,6 @@
 import React, { lazy, useCallback, useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
-import { api } from "./api.js";
+import { api, adoptSession } from "./api.js";
 import { t, tx, choose, useLanguage, LanguageSwitcher } from "./i18n.js";
 const PublicPortal = lazy(() =>
   import("./PublicPortal.js").then((module) => ({
@@ -335,27 +335,81 @@ function SessionApp() {
   const [pendingPaymentReturn, setPendingPaymentReturn] = useState(
     paymentReturnApplication,
   );
-  useEffect(() => {
-    let active = true;
-    api("/auth/me")
-      .then((result) => {
-        if (active) setSession(result);
-      })
-      .catch(() => {})
-      .finally(() => {
-        if (active) setLoaded(true);
+  const sessionRef = useRef<any>(null);
+  const loadedRef = useRef(false);
+  // Phase 5 (5A): identity is revalidated, not read once at boot. The browser cookie is the
+  // only session truth, and another sign-in in the same browser replaces it — so the shell
+  // re-reads /auth/me when the tab regains focus, becomes visible again, or the API client
+  // reports a session change. When the account (or its office) differs, the workspace is
+  // remounted for the account that is actually signed in (see the key below), so a tab can
+  // never keep one account's shell over another account's data — the live "identity flip".
+  const checkSession = useCallback(async () => {
+    try {
+      const response = await fetch("/api/v1/auth/me", {
+        credentials: "include",
       });
-    return () => {
-      active = false;
-    };
+      // Always consume the body, including on 401: an unread body leaves the request
+      // open in the browser's network stack and can stall connection reuse (found by
+      // the platform browser test — the portal never reached network idle).
+      const result = await response.json().catch(() => null);
+      if (!response.ok || !result) {
+        if (sessionRef.current) {
+          sessionRef.current = null;
+          setSession(null);
+        }
+        return;
+      }
+      adoptSession(result);
+      const current = sessionRef.current;
+      if (
+        !current ||
+        current.user?.id !== result.user?.id ||
+        current.user?.tenantId !== result.user?.tenantId
+      ) {
+        sessionRef.current = result;
+        setSession(result);
+      }
+    } catch {
+      // A network failure proves nothing about the session; keep the current state.
+    } finally {
+      if (!loadedRef.current) {
+        loadedRef.current = true;
+        setLoaded(true);
+      }
+    }
   }, []);
+  useEffect(() => {
+    void checkSession();
+    const revalidate = () => void checkSession();
+    const onVisibility = () => {
+      if (document.visibilityState === "visible") void checkSession();
+    };
+    addEventListener("focus", revalidate);
+    addEventListener("astra:session-changed", revalidate);
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => {
+      removeEventListener("focus", revalidate);
+      removeEventListener("astra:session-changed", revalidate);
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
+  }, [checkSession]);
   if (!loaded) return <LoadingPanel />;
-  if (!session) return <SignedOutPortal onLogin={setSession} />;
+  if (!session)
+    return (
+      <SignedOutPortal
+        onLogin={(next) => {
+          sessionRef.current = next;
+          setSession(next);
+        }}
+      />
+    );
   return (
     <AsyncPanel>
       <WorkspaceApp
+        key={`${session.user.id}:${session.user.tenantId ?? ""}`}
         session={session}
         onSignOut={() => {
+          sessionRef.current = null;
           setSession(null);
         }}
         paymentReturnApplication={pendingPaymentReturn}

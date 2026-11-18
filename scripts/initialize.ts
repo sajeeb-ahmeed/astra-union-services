@@ -1,9 +1,9 @@
 import pg from 'pg';
 import {createHash} from 'node:crypto';
 import {serviceCatalog,allServiceSchemaVersions,getCatalogPreviewSchema,stableSchemaJson} from '@astra/shared-schemas';
-import {hashPassword} from '../apps/api/src/security.js';
+import {hashPassword,isCommonPassword} from '../apps/api/src/security.js';
 const connectionString=process.env.DATABASE_ADMIN_URL,email=process.env.OWNER_EMAIL,password=process.env.OWNER_PASSWORD;
-if(!connectionString||!email||!/^\S+@\S+\.\S+$/.test(email)||!password||password.length<16||password==='Demo-Phase1!')throw Error('Provide administrator DB URL, OWNER_EMAIL and a unique OWNER_PASSWORD of at least 16 characters.');
+if(!connectionString||!email||!/^\S+@\S+\.\S+$/.test(email)||!password||password.length<16||password==='Demo-Phase1!'||isCommonPassword(password))throw Error('Provide administrator DB URL, OWNER_EMAIL and a unique OWNER_PASSWORD of at least 16 characters that is not a common password.');
 const db=new pg.Pool({connectionString});const client=await db.connect();
 try{
   await client.query('BEGIN');

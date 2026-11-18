@@ -46,7 +46,31 @@ import {
   duplicateNumberError,
   type CitizenDetails,
 } from "./citizen-data.js";
-import { pointsRouter, chargeIssuancePoints } from "./points.js";
+import {
+  applicationReferenceExists,
+  citizenNidForReference,
+  citizenReferenceExists,
+  isoDate,
+  mintReference,
+  parseReferenceInput,
+  referenceDigits,
+} from "./references.js";
+import { pointsRouter } from "./points.js";
+import { billingRouter, brandingRouter, settleApplicationFee } from "./billing.js";
+import {
+  couponsRouter,
+  publicCouponsRouter,
+  platformCouponCode,
+  platformCouponDiscount,
+  recordCouponRedemption,
+} from "./coupons.js";
+import { noticesRouter, publicNoticesRouter } from "./notices.js";
+import { demandRouter } from "./demand.js";
+import {
+  certificateAssetsRouter,
+  resolveCertificateAssets,
+} from "./certificate-assets.js";
+import { applySubscriptionAction } from "./subscriptions.js";
 import { rechargeRouter } from "./recharge.js";
 import { merchantRouter } from "./gateways.js";
 import { merchantSecretsAvailable } from "./sslcommerz.js";
@@ -139,6 +163,22 @@ function roles(req: Req, allowed: string[]) {
   return a;
 }
 const staffRead = ["staff", "admin", "reviewer", "approver"];
+/**
+ * Phase 5 (5B): free-text search input is normalized before it reaches ILIKE — Bengali digits fold
+ * to ASCII, surrounding whitespace is trimmed and internal runs collapse to one space. Without
+ * this, a pasted name with stray or doubled spaces silently matched nothing.
+ * Security Audit 01, F8: LIKE metacharacters (\, %, _) are escaped last, so a typed
+ * "%" or "_" matches literally instead of widening the pattern. PostgreSQL's LIKE
+ * uses the backslash as its default escape character, and the escaped value is
+ * always sent as a bound parameter. The result is used only as an ILIKE pattern
+ * (and as referenceDigits input, which ignores non-digits).
+ */
+const normalizeSearchQuery = (raw: string): string =>
+  raw
+    .replace(/[০-৯]/g, (d) => String(d.charCodeAt(0) - 0x09e6))
+    .trim()
+    .replace(/\s+/g, " ")
+    .replace(/[\\%_]/g, (c) => `\\${c}`);
 async function authorization(db: DB, a: Auth, no: number) {
   const current = await db.query(
     "SELECT 1 FROM approval_authorizations aa JOIN staff_memberships m ON m.tenant_id=aa.tenant_id AND m.user_id=aa.user_id JOIN platform_users u ON u.id=m.user_id JOIN tenants t ON t.id=m.tenant_id WHERE aa.tenant_id=$1 AND aa.user_id=$2 AND aa.service_no=$3 AND aa.active AND m.active AND m.role='approver' AND u.active AND t.status='ACTIVE' FOR SHARE OF aa,m,u,t",
@@ -241,6 +281,53 @@ async function event(
     { from: r.state, to },
   );
 }
+/**
+ * Phase 3A: the settlement effects of a payment order, shared verbatim by the
+ * gateway webhook path (settle below) and the owner's manual settlement
+ * endpoint, so the two can never diverge: one PLAN_GRANT/TOPUP ledger entry
+ * (idempotency key `payment:<order>`), the subscription upsert for
+ * subscription orders, the order status flip, the invoice, and the audit
+ * event. The ledger actor stays the order's creator in both paths; the audit
+ * actor/action identify who actually settled.
+ */
+async function applyOrderSettlement(
+  db: DB,
+  order: any,
+  actorId: string,
+  auditAction: string,
+  auditMetadata: object,
+) {
+  await db.query(
+    "INSERT INTO credit_ledger(tenant_id,delta,kind,idempotency_key,actor_id,reason,balance_after) VALUES($1,$2,$3,$4,$5,$6,0)",
+    [
+      order.tenant_id,
+      order.credits,
+      order.kind === "subscription" ? "PLAN_GRANT" : "TOPUP",
+      `payment:${order.id}`,
+      order.created_by,
+      "Verified payment settlement",
+    ],
+  );
+  if (order.kind === "subscription") {
+    const plan = (
+      await db.query("SELECT * FROM subscription_plans WHERE id=$1", [
+        order.plan_id,
+      ])
+    ).rows[0];
+    await db.query(
+      "INSERT INTO tenant_subscriptions(tenant_id,plan_id,valid_until,status,plan_duration_days,plan_grant_credits,plan_allowance_limit) VALUES($1,$2,now()+($3::int*interval '1 day'),'ACTIVE',$4,$5,$6) ON CONFLICT(tenant_id) DO UPDATE SET plan_id=excluded.plan_id,valid_until=greatest(tenant_subscriptions.valid_until,now())+($3::int*interval '1 day'),status='ACTIVE',plan_duration_days=excluded.plan_duration_days,plan_grant_credits=excluded.plan_grant_credits,plan_allowance_limit=excluded.plan_allowance_limit",
+      [order.tenant_id, plan.id, plan.duration_days, plan.duration_days, plan.grant_credits, plan.monthly_allowance_limit],
+    );
+  }
+  await db.query("UPDATE payment_orders SET status='SETTLED' WHERE id=$1", [
+    order.id,
+  ]);
+  await db.query(
+    "INSERT INTO invoices(tenant_id,order_id,amount_minor,currency) VALUES($1,$2,$3,$4)",
+    [order.tenant_id, order.id, order.amount_minor, order.currency],
+  );
+  await audit(db, order.tenant_id, actorId, auditAction, order.id, auditMetadata);
+}
 async function settle(body: any, bodyHash: string) {
   const data = z
     .object({
@@ -290,49 +377,146 @@ async function settle(body: any, bodyHash: string) {
         "INSERT INTO payment_events(event_id,tenant_id,order_id,body_hash) VALUES($1,$2,$3,$4)",
         [data.eventId, data.tenantId, order.id, bodyHash],
       );
+      if (order.status === "CANCELLED")
+        fail(
+          409,
+          "ORDER_CANCELLED",
+          "This payment order was cancelled by the platform owner.",
+        );
       if (order.status === "SETTLED")
         return { settled: true, replayed: true, orderId: order.id };
-      await db.query(
-        "INSERT INTO credit_ledger(tenant_id,delta,kind,idempotency_key,actor_id,reason,balance_after) VALUES($1,$2,$3,$4,$5,$6,0)",
-        [
-          data.tenantId,
-          order.credits,
-          order.kind === "subscription" ? "PLAN_GRANT" : "TOPUP",
-          `payment:${order.id}`,
-          order.created_by,
-          "Verified payment settlement",
-        ],
-      );
-      if (order.kind === "subscription") {
-        const plan = (
-          await db.query("SELECT * FROM subscription_plans WHERE id=$1", [
-            order.plan_id,
-          ])
-        ).rows[0];
+      await applyOrderSettlement(db, order, order.created_by, "SANDBOX_PAYMENT_SETTLED", {
+        credits: order.credits,
+      });
+      return { settled: true, replayed: false, orderId: order.id };
+    },
+    true,
+  );
+}
+/**
+ * Phase 3A: owner manual settlement. Mirrors the webhook's idempotency
+ * discipline — a deterministic `manual:<order>` payment event whose hash binds
+ * the settling owner — then runs the exact same applyOrderSettlement effects,
+ * so a manual settle grants credits and activates the subscription exactly
+ * once, and a repeat call replays without touching state.
+ */
+async function settleOrderManually(
+  orderId: string,
+  tenantId: string,
+  owner: Auth,
+  reason: string,
+) {
+  return transaction(
+    tenantId,
+    async (db) => {
+      const order = (
         await db.query(
-          "INSERT INTO tenant_subscriptions(tenant_id,plan_id,valid_until,status) VALUES($1,$2,now()+($3::int*interval '1 day'),'ACTIVE') ON CONFLICT(tenant_id) DO UPDATE SET plan_id=excluded.plan_id,valid_until=greatest(tenant_subscriptions.valid_until,now())+($3::int*interval '1 day'),status='ACTIVE'",
-          [data.tenantId, plan.id, plan.duration_days],
+          "SELECT * FROM payment_orders WHERE id=$1 AND tenant_id=$2 FOR UPDATE",
+          [orderId, tenantId],
+        )
+      ).rows[0];
+      if (!order) fail(404, "ORDER_NOT_FOUND", "Payment order not found.");
+      if (order.status === "CANCELLED")
+        fail(
+          409,
+          "ORDER_CANCELLED",
+          "This payment order was cancelled and can no longer be settled.",
         );
+      const eventId = `manual:${order.id}`,
+        bodyHash = digest(
+          JSON.stringify({
+            manual: true,
+            orderId: order.id,
+            tenantId,
+            actorId: owner.userId,
+          }),
+        );
+      const prior = (
+        await db.query("SELECT * FROM payment_events WHERE event_id=$1", [
+          eventId,
+        ])
+      ).rows[0];
+      if (prior) {
+        if (prior.body_hash !== bodyHash || prior.order_id !== order.id)
+          fail(
+            409,
+            "EVENT_REUSE",
+            "Payment event was already used with different content.",
+          );
+        return { settled: true, replayed: true, orderId: order.id };
       }
-      await db.query("UPDATE payment_orders SET status='SETTLED' WHERE id=$1", [
-        order.id,
-      ]);
       await db.query(
-        "INSERT INTO invoices(tenant_id,order_id,amount_minor,currency) VALUES($1,$2,$3,$4)",
-        [data.tenantId, order.id, order.amount_minor, order.currency],
+        "INSERT INTO payment_events(event_id,tenant_id,order_id,body_hash) VALUES($1,$2,$3,$4)",
+        [eventId, tenantId, order.id, bodyHash],
       );
-      await audit(
+      if (order.status === "SETTLED")
+        return { settled: true, replayed: true, orderId: order.id };
+      await applyOrderSettlement(
         db,
-        data.tenantId,
-        order.created_by,
-        "SANDBOX_PAYMENT_SETTLED",
-        order.id,
-        { credits: order.credits },
+        order,
+        owner.userId,
+        "PAYMENT_ORDER_MANUALLY_SETTLED",
+        { credits: order.credits, reason, manual: true },
       );
       return { settled: true, replayed: false, orderId: order.id };
     },
     true,
   );
+}
+async function cancelOrderManually(
+  orderId: string,
+  tenantId: string,
+  owner: Auth,
+  reason: string,
+) {
+  return transaction(
+    tenantId,
+    async (db) => {
+      const order = (
+        await db.query(
+          "SELECT * FROM payment_orders WHERE id=$1 AND tenant_id=$2 FOR UPDATE",
+          [orderId, tenantId],
+        )
+      ).rows[0];
+      if (!order) fail(404, "ORDER_NOT_FOUND", "Payment order not found.");
+      if (order.status === "SETTLED")
+        fail(
+          409,
+          "ORDER_ALREADY_SETTLED",
+          "A settled payment order cannot be cancelled.",
+        );
+      if (order.status === "CANCELLED")
+        return { cancelled: true, replayed: true, orderId: order.id };
+      await db.query("UPDATE payment_orders SET status='CANCELLED' WHERE id=$1", [
+        order.id,
+      ]);
+      await audit(db, tenantId, owner.userId, "PAYMENT_ORDER_CANCELLED", order.id, {
+        reason,
+      });
+      return { cancelled: true, replayed: false, orderId: order.id };
+    },
+    true,
+  );
+}
+/**
+ * Owner endpoints act across offices while payment_orders sits behind
+ * per-tenant RLS, so locate an order's office the same way GET
+ * /owner/tenants enumerates offices: one tenant transaction at a time.
+ */
+async function locateOrderTenant(orderId: string): Promise<string | null> {
+  const tenants = (await pool.query("SELECT id FROM tenants ORDER BY slug"))
+    .rows;
+  for (const t of tenants) {
+    const found = await transaction(t.id, async (db) =>
+      (
+        await db.query("SELECT tenant_id FROM payment_orders WHERE id=$1", [
+          orderId,
+        ])
+      ).rows[0],
+    );
+    if (found) return t.id;
+  }
+  return null;
 }
 app.post(
   "/api/v1/billing/webhook",
@@ -357,6 +541,9 @@ app.use(express.json({ limit: "3mb" }));
 app.use("/api/v1", attachmentScannerRouter);
 app.use("/api/v1", otpRouter);
 app.use("/api/v1", publicEmailRouter);
+app.use("/api/v1", brandingRouter);
+app.use("/api/v1", publicCouponsRouter);
+app.use("/api/v1", publicNoticesRouter);
 app.use("/api/v1", publicOfficeRegistrationRouter);
 app.use("/api/v1", publicManagementRouter);
 app.use("/api/v1", geographyRouter);
@@ -592,6 +779,11 @@ app.use("/api/v1", ownerOfficeRegistrationRouter);
 app.use("/api/v1", protectedToolsRouter);
 app.use("/api/v1", ordersRouter);
 app.use("/api/v1", pointsRouter);
+app.use("/api/v1", billingRouter);
+app.use("/api/v1", couponsRouter);
+app.use("/api/v1", noticesRouter);
+app.use("/api/v1", demandRouter);
+app.use("/api/v1", certificateAssetsRouter);
 app.use("/api/v1", rechargeRouter);
 app.use("/api/v1", merchantRouter);
 app.use("/api/v1", refundsRouter);
@@ -773,13 +965,19 @@ app.get(
   "/api/v1/citizens",
   wrap(async (req, res) => {
     const a = roles(req, [...staffRead, "citizen"]);
-    const q = String(req.query.q ?? "").slice(0, 100);
+    // Phase 5 (5B): the query is normalized (whitespace/Bengali digits) and matches the Bangla
+    // name, the English name, the reference and the contact mobile. The reference also matches in
+    // digits-only form, so the grouped Phase 5 reference can be pasted with or without hyphens.
+    const q = normalizeSearchQuery(String(req.query.q ?? "").slice(0, 100));
+    const digits = referenceDigits(q);
     const { items, total } = await transaction(tenant(req), async (db) => {
-      const filter = `WHERE tenant_id=$1 ${a.role === "citizen" ? "AND user_id=$2" : ""} AND (full_name_bn ILIKE ${a.role === "citizen" ? "$3" : "$2"} OR full_name_en ILIKE ${a.role === "citizen" ? "$3" : "$2"} OR synthetic_reference ILIKE ${a.role === "citizen" ? "$3" : "$2"})`;
+      const nameParam = a.role === "citizen" ? "$3" : "$2";
+      const digitsParam = a.role === "citizen" ? "$4" : "$3";
+      const filter = `WHERE tenant_id=$1 ${a.role === "citizen" ? "AND user_id=$2" : ""} AND (full_name_bn ILIKE ${nameParam} OR full_name_en ILIKE ${nameParam} OR synthetic_reference ILIKE ${nameParam} OR contact_mobile ILIKE ${nameParam} OR (${digitsParam}::text IS NOT NULL AND replace(synthetic_reference,'-','') ILIKE ${digitsParam}))`;
       const params =
         a.role === "citizen"
-          ? [a.tenantId, a.userId, `%${q}%`]
-          : [a.tenantId, `%${q}%`];
+          ? [a.tenantId, a.userId, `%${q}%`, digits ? `%${digits}%` : null]
+          : [a.tenantId, `%${q}%`, digits ? `%${digits}%` : null];
       return {
         items: (
           await db.query(
@@ -845,10 +1043,29 @@ app.post(
           .rowCount
       )
         fail(409, "PROFILE_EXISTS", "This account already has a profile.");
+      // Phase 5 (5C): a citizen created without an explicit reference gets the new 18-digit
+      // public reference (segments derived from the DOB and, when supplied with the request,
+      // the NID — otherwise the citizen id fallback). Caller-supplied REF-… references and all
+      // previously issued references are unchanged. The id is generated here so it can feed
+      // the fallback segment before the row exists.
+      const citizenId = randomUUID();
+      const syntheticReference =
+        data.syntheticReference ??
+        (await mintReference(
+          {
+            dateOfBirth: data.dateOfBirth,
+            nid: data.details?.nid
+              ? normalizeIdentifier("nid", data.details.nid)
+              : null,
+            citizenId,
+          },
+          citizenReferenceExists(db, a.tenantId!),
+        ));
       const r = (
         await db.query(
-          "INSERT INTO citizens(tenant_id,user_id,full_name_bn,full_name_en,date_of_birth,address_bn,address_en,synthetic_reference,division_code,district_code,upazila_code,union_code,ward_code,present_same_as_permanent,present_address_bn,present_address_en,present_division_code,present_district_code,present_upazila_code,present_union_code,present_ward_code) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21) RETURNING *",
+          "INSERT INTO citizens(id,tenant_id,user_id,full_name_bn,full_name_en,date_of_birth,address_bn,address_en,synthetic_reference,division_code,district_code,upazila_code,union_code,ward_code,present_same_as_permanent,present_address_bn,present_address_en,present_division_code,present_district_code,present_upazila_code,present_union_code,present_ward_code) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22) RETURNING *",
           [
+            citizenId,
             a.tenantId,
             a.role === "citizen" ? a.userId : null,
             data.nameBn,
@@ -856,7 +1073,7 @@ app.post(
             data.dateOfBirth,
             data.addressBn,
             data.addressEn,
-            data.syntheticReference ?? `REF-${randomUUID()}`,
+            syntheticReference,
             ...geographyValues(data.geography),
             ...(await presentAddressValues(db, data.presentAddress)),
           ],
@@ -897,7 +1114,12 @@ app.get(
       .max(100)
       .default(100)
       .parse(req.query.pageSize);
-    const search = z.string().max(100).default("").parse(req.query.q);
+    // Phase 5 (5B/5C): same query normalization as the citizen search, and the Phase 5
+    // application reference matches in grouped or digits-only form.
+    const search = normalizeSearchQuery(
+      z.string().max(100).default("").parse(req.query.q),
+    );
+    const searchDigits = referenceDigits(search);
     const state = req.query.state
       ? z
           .enum([
@@ -921,17 +1143,29 @@ app.get(
     const range = dateRange.parse({ from: req.query.from, to: req.query.to });
     const renewalOnly = req.query.renewal === "true";
     const result = await transaction(tenant(req), async (db) => {
-      const values = [
+      const values: unknown[] = [
         a.tenantId,
         state,
         no,
         a.role === "citizen" ? a.userId : null,
         `%${search}%`,
+        searchDigits ? `%${searchDigits}%` : null,
       ];
-      const from = `FROM applications a JOIN citizens c ON c.id=a.citizen_id AND c.tenant_id=a.tenant_id WHERE a.tenant_id=$1 AND ($2::text IS NULL OR a.state=$2) AND ($3::int IS NULL OR a.service_no=$3) AND ($4::uuid IS NULL OR c.user_id=$4) AND (a.id::text ILIKE $5 OR c.full_name_bn ILIKE $5 OR c.full_name_en ILIKE $5 OR c.synthetic_reference ILIKE $5 OR c.contact_mobile ILIKE $5)${range.from ? ` AND (a.created_at AT TIME ZONE 'Asia/Dhaka')::date >= '${range.from}'::date` : ""}${range.to ? ` AND (a.created_at AT TIME ZONE 'Asia/Dhaka')::date <= '${range.to}'::date` : ""}${renewalOnly ? " AND EXISTS(SELECT 1 FROM renewal_links l WHERE l.tenant_id=a.tenant_id AND l.application_id=a.id)" : ""}`;
+      // Security Audit 01, F7: the (already Zod-validated) range bounds are bound
+      // as parameters like every other value, never interpolated into the SQL text.
+      let rangeFilter = "";
+      if (range.from) {
+        values.push(range.from);
+        rangeFilter += ` AND (a.created_at AT TIME ZONE 'Asia/Dhaka')::date >= $${values.length}::date`;
+      }
+      if (range.to) {
+        values.push(range.to);
+        rangeFilter += ` AND (a.created_at AT TIME ZONE 'Asia/Dhaka')::date <= $${values.length}::date`;
+      }
+      const from = `FROM applications a JOIN citizens c ON c.id=a.citizen_id AND c.tenant_id=a.tenant_id WHERE a.tenant_id=$1 AND ($2::text IS NULL OR a.state=$2) AND ($3::int IS NULL OR a.service_no=$3) AND ($4::uuid IS NULL OR c.user_id=$4) AND (a.id::text ILIKE $5 OR a.reference ILIKE $5 OR ($6::text IS NOT NULL AND replace(a.reference,'-','') ILIKE $6) OR c.full_name_bn ILIKE $5 OR c.full_name_en ILIKE $5 OR c.synthetic_reference ILIKE $5 OR ($6::text IS NOT NULL AND replace(c.synthetic_reference,'-','') ILIKE $6) OR c.contact_mobile ILIKE $5)${rangeFilter}${renewalOnly ? " AND EXISTS(SELECT 1 FROM renewal_links l WHERE l.tenant_id=a.tenant_id AND l.application_id=a.id)" : ""}`;
       const items = (
         await db.query(
-          `SELECT a.*,EXISTS(SELECT 1 FROM renewal_links l WHERE l.tenant_id=a.tenant_id AND l.application_id=a.id) AS is_renewal ${from} ORDER BY a.updated_at DESC,a.id LIMIT $6 OFFSET $7`,
+          `SELECT a.*,EXISTS(SELECT 1 FROM renewal_links l WHERE l.tenant_id=a.tenant_id AND l.application_id=a.id) AS is_renewal ${from} ORDER BY a.updated_at DESC,a.id LIMIT $${values.length + 1} OFFSET $${values.length + 2}`,
           [...values, pageSize, (page - 1) * pageSize],
         )
       ).rows.map(camelRow);
@@ -941,6 +1175,49 @@ app.get(
       return { items, total, page, pageSize };
     });
     res.json(result);
+  }),
+);
+app.get(
+  "/api/v1/applications/counts",
+  wrap(async (req, res) => {
+    // CHAIRMAN-DASH-01: per-state application counts for the caller's own office,
+    // feeding the Pending applications queue. Office roles only — a citizen never
+    // sees office-wide figures. The tenant transaction applies forced RLS, and the
+    // explicit tenant predicate keeps the count scoped even if policies change.
+    // CORRECTION_REQUIRED is deliberately NOT part of either pending group: after a
+    // correction request the next move is the citizen's, not the office's.
+    const a = roles(req, staffRead);
+    const counts = await transaction(tenant(req), async (db) => {
+      const rows = (
+        await db.query(
+          "SELECT state, count(*)::int AS count FROM applications WHERE tenant_id=$1 GROUP BY state",
+          [a.tenantId],
+        )
+      ).rows as { state: string; count: number }[];
+      const byState: Record<string, number> = {
+        DRAFT: 0,
+        SUBMITTED: 0,
+        UNDER_REVIEW: 0,
+        CORRECTION_REQUIRED: 0,
+        RESUBMITTED: 0,
+        APPROVED: 0,
+        ISSUED: 0,
+        REJECTED: 0,
+        CANCELLED: 0,
+        REVOKED: 0,
+      };
+      for (const row of rows) byState[row.state] = row.count;
+      return byState;
+    });
+    res.json({
+      counts,
+      awaitingReview:
+        counts.SUBMITTED + counts.RESUBMITTED + counts.UNDER_REVIEW,
+      // ISSUANCE_PENDING is not a state in the current state machine (migration
+      // 001 CHECK); it is counted defensively should it ever be introduced.
+      awaitingIssuance:
+        counts.APPROVED + (counts.ISSUANCE_PENDING ?? 0),
+    });
   }),
 );
 app.post(
@@ -1002,9 +1279,21 @@ app.post(
         data.order,
         data.payload,
       );
+      // Phase 5 (5C): every new application carries the public 18-digit reference, derived
+      // from the citizen (DOB + NID when on file, else the citizen-id fallback). The UUID id
+      // remains the internal key; previously created applications keep reference NULL and
+      // stay reachable by UUID.
+      const reference = await mintReference(
+        {
+          dateOfBirth: isoDate(citizen.date_of_birth),
+          nid: citizenNidForReference(citizen, a.tenantId!),
+          citizenId: citizen.id,
+        },
+        applicationReferenceExists(db),
+      );
       const r = (
         await db.query(
-          "INSERT INTO applications(tenant_id,citizen_id,service_no,schema_version,schema_hash,created_by,order_mode) VALUES($1,$2,$3,$6,$4,$5,$7) RETURNING *",
+          "INSERT INTO applications(tenant_id,citizen_id,service_no,schema_version,schema_hash,created_by,order_mode,reference) VALUES($1,$2,$3,$6,$4,$5,$7,$8) RETURNING *",
           [
             a.tenantId,
             data.citizenId,
@@ -1013,6 +1302,7 @@ app.post(
             a.userId,
             schemaVersion,
             order ? "POLICY" : "LEGACY",
+            reference,
           ],
         )
       ).rows[0];
@@ -1051,15 +1341,23 @@ app.get(
         "Provide an exact application or certificate reference.",
       );
     const result = await transaction(tenant(req), async (db) => {
+      // Phase 5 (5C): the Phase 5 public reference resolves here too, typed grouped or as
+      // plain digits; UUID ids and certificate numbers keep working unchanged.
+      const publicReference = parseReferenceInput(input.data);
       const row = (
         await db.query(
           `SELECT a.id,a.service_no,a.state,cert.id certificate_id,cert.number certificate_number,cert.status certificate_status
            FROM applications a
            JOIN citizens c ON c.id=a.citizen_id AND c.tenant_id=a.tenant_id
            LEFT JOIN certificates cert ON cert.application_id=a.id AND cert.tenant_id=a.tenant_id
-           WHERE a.tenant_id=$1 AND (a.id::text=lower($2) OR upper(cert.number)=upper($2))
+           WHERE a.tenant_id=$1 AND (a.id::text=lower($2) OR upper(cert.number)=upper($2) OR ($4::text IS NOT NULL AND a.reference=$4))
              AND ($3::uuid IS NULL OR c.user_id=$3)`,
-          [a.tenantId, input.data, a.role === "citizen" ? a.userId : null],
+          [
+            a.tenantId,
+            input.data,
+            a.role === "citizen" ? a.userId : null,
+            publicReference,
+          ],
         )
       ).rows[0];
       if (!row) fail(404, "NOT_FOUND", "Application not found.");
@@ -1261,9 +1559,25 @@ app.post(
             [parent.service_no, schemaVersion],
           )
         ).rows[0];
+        // Phase 5 (5C): a renewal is a new application and gets its own public reference,
+        // derived from the same citizen (segments 1–2 match the parent's derivation).
+        const renewalCitizen = (
+          await db.query("SELECT * FROM citizens WHERE id=$1 AND tenant_id=$2", [
+            parent.citizen_id,
+            a.tenantId,
+          ])
+        ).rows[0];
+        const renewalReference = await mintReference(
+          {
+            dateOfBirth: isoDate(renewalCitizen.date_of_birth),
+            nid: citizenNidForReference(renewalCitizen, a.tenantId!),
+            citizenId: renewalCitizen.id,
+          },
+          applicationReferenceExists(db),
+        );
         const child = (
           await db.query(
-            "INSERT INTO applications(tenant_id,citizen_id,service_no,schema_version,schema_hash,created_by,order_mode) VALUES($1,$2,$3,$6,$4,$5,$7) RETURNING *",
+            "INSERT INTO applications(tenant_id,citizen_id,service_no,schema_version,schema_hash,created_by,order_mode,reference) VALUES($1,$2,$3,$6,$4,$5,$7,$8) RETURNING *",
             [
               a.tenantId,
               parent.citizen_id,
@@ -1272,6 +1586,7 @@ app.post(
               a.userId,
               schemaVersion,
               order ? "POLICY" : "LEGACY",
+              renewalReference,
             ],
           )
         ).rows[0];
@@ -1368,9 +1683,14 @@ app.patch(
  * Chairman (approver) verifies the submitted application himself: his approval IS the issuance —
  * one action that approves and issues atomically. The separate POST /issue endpoint remains only
  * as the completion path for applications whose approval was recorded while an issuance gate was
- * closed (fee not yet collected, insufficient credits/points, inactive subscription, incomplete
- * profile, disabled service, revoked renewal source). Those gates keep the exact failure semantics
- * the old two-step flow had: the decision stands, nothing is issued or charged.
+ * closed (order payment outstanding, incomplete profile, disabled service, revoked renewal
+ * source). Those gates keep the exact failure semantics the old two-step flow had: the decision
+ * stands, nothing is issued.
+ *
+ * Phase 3B (billing model, 18 Nov 2026): issuance no longer touches money at all. The platform
+ * fee is settled once at the application's first submit (see billing.ts), so the old issuance
+ * gates SUBSCRIPTION_INACTIVE / INSUFFICIENT_CREDITS / POINTS_INSUFFICIENT are gone: an active
+ * subscription is not required to issue, and neither wallet is debited here.
  */
 const DECISION_STATES = ["SUBMITTED", "RESUBMITTED", "UNDER_REVIEW"];
 const APPROVE_STATES = [...DECISION_STATES, "APPROVED"];
@@ -1378,9 +1698,6 @@ const ISSUANCE_GATE_CODES = new Set([
   "ORDER_PAYMENT_REQUIRED",
   "PROFILE_INCOMPLETE",
   "RENEWAL_SOURCE_INVALID",
-  "INSUFFICIENT_CREDITS",
-  "SUBSCRIPTION_INACTIVE",
-  "POINTS_INSUFFICIENT",
   "SERVICE_DISABLED",
 ]);
 async function prepareIssuance(
@@ -1486,6 +1803,10 @@ async function prepareIssuance(
       identity,
       citizenGeography: await citizenAddressParts(db, citizen, tenant),
       officeGeography: await officeAddressParts(db, tenant),
+      // CERTASSETS-01: the office's uploaded profile artwork (logo, seal,
+      // signature) resolved inside this tenant transaction; Template v7
+      // prefers it over the legacy filesystem drop-ins.
+      assets: await resolveCertificateAssets(db, a.tenantId!),
     };
     return {
       r,
@@ -1563,35 +1884,16 @@ async function finalizeIssuance(
         )
       ).rows[0].payload;
       await validateAttachmentReferences(db, currentPayload, r.citizen_id, true);
-      if (
-        !(
-          await db.query(
-            "SELECT 1 FROM tenant_subscriptions WHERE tenant_id=$1 AND status='ACTIVE' AND valid_until>now() FOR UPDATE",
-            [a.tenantId],
-          )
-        ).rowCount
-      )
-        fail(
-          402,
-          "SUBSCRIPTION_INACTIVE",
-          "An active tenant subscription is required. Application is retained.",
-        );
-      const cost = (
+      // Phase 3B: no money moves at issuance — the fee was settled at submit (billing.ts) and
+      // no subscription is required here. The only money-adjacent gate left is that the office
+      // still offers the service at all.
+      const config = (
         await db.query(
           "SELECT credit_cost FROM tenant_service_configuration WHERE tenant_id=$1 AND service_no=$2 AND enabled",
           [a.tenantId, r.service_no],
         )
-      ).rows[0]?.credit_cost;
-      if (!cost) fail(422, "SERVICE_DISABLED", "Service is disabled.");
-      const wallet = (
-        await db.query("SELECT balance FROM lock_tenant_wallet()")
       ).rows[0];
-      if (!wallet || wallet.balance < cost)
-        fail(
-          402,
-          "INSUFFICIENT_CREDITS",
-          "Insufficient tenant credits. Approved application is retained.",
-        );
+      if (!config) fail(422, "SERVICE_DISABLED", "Service is disabled.");
       const c = (
         await db.query(
           "INSERT INTO certificates(id,tenant_id,application_id,number,service_no,token_hash,pdf,issued_by,template_version) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING *",
@@ -1608,12 +1910,9 @@ async function finalizeIssuance(
           ],
         )
       ).rows[0];
-      await db.query(
-        "INSERT INTO credit_ledger(tenant_id,delta,kind,idempotency_key,certificate_id,actor_id,reason,balance_after) VALUES($1,$2,'ISSUANCE',$3,$4,$5,'Certificate issuance',0)",
-        [a.tenantId, -cost, `issuance:${c.id}`, c.id, a.userId],
-      );
-      // Phase 5a: the owner-set point price, deducted once in the same transaction (402 keeps it approved).
-      await chargeIssuancePoints(db, a.tenantId!, r.service_no, c.id, a.userId);
+      // Phase 3B: the issuance-time credit debit and point deduction are retired — the
+      // application's fee was settled once at submit. The injected failure point keeps its
+      // historical name; it still proves the whole issuance transaction rolls back.
       if (
         process.env.NODE_ENV === "test" &&
         opts.testFailure === "after-debit"
@@ -1846,6 +2145,13 @@ app.post(
         ).rows[0].payload;
         await validateAttachmentReferences(db, payload, r.citizen_id, true);
       }
+      // Phase 3B: the application's fee is settled inside this same transaction, at its
+      // first successful submit only. If the fee cannot be taken (insufficient office
+      // credit, or citizen-pays with no payment rail yet) settleApplicationFee throws and
+      // the whole submit rolls back — the application stays a draft, nothing is charged.
+      // Resubmits never reach this: the fee is settled once per application (billing.ts).
+      if (data.action === "submit")
+        await settleApplicationFee(db, r.tenant_id, r, a.userId);
       const updated = (
         await db.query(
           "UPDATE applications SET state=$2,updated_at=now(),approved_by=CASE WHEN $2='APPROVED' THEN $3 ELSE approved_by END,approved_version=CASE WHEN $2='APPROVED' THEN latest_version ELSE approved_version END WHERE id=$1 RETURNING *",
@@ -2034,18 +2340,31 @@ app.get(
   "/api/v1/billing",
   wrap(async (req, res) => {
     roles(req, ["admin", "finance"]);
-    const result = await transaction(tenant(req), async (db) => ({
+    const result = await transaction(tenant(req), async (db) => {
+      const subscription = (
+        await db.query("SELECT * FROM tenant_subscriptions WHERE tenant_id=$1", [
+          tenant(req),
+        ])
+      ).rows[0];
+      return {
+      // Phase 3C: offices are offered only plans currently on sale; their own
+      // current plan rides along separately so its name still renders after
+      // the owner hides it (existing subscriptions are unaffected by hiding).
       plans: (
-        await db.query("SELECT * FROM subscription_plans ORDER BY id")
+        await db.query(
+          "SELECT * FROM subscription_plans WHERE on_sale ORDER BY sort_order, id",
+        )
       ).rows.map(camelRow),
-      subscription: camelRow(
-        (
-          await db.query(
-            "SELECT * FROM tenant_subscriptions WHERE tenant_id=$1",
-            [tenant(req)],
+      currentPlan: subscription
+        ? camelRow(
+            (
+              await db.query("SELECT * FROM subscription_plans WHERE id=$1", [
+                subscription.plan_id,
+              ])
+            ).rows[0],
           )
-        ).rows[0],
-      ),
+        : null,
+      subscription: camelRow(subscription),
       orders: (
         await db.query(
           "SELECT * FROM payment_orders WHERE tenant_id=$1 ORDER BY created_at DESC",
@@ -2061,7 +2380,8 @@ app.get(
       sandbox: true,
       demoSettleEnabled: demoSettleEnabled(),
       governmentFees: "NOT_CONFIGURED_SEPARATE_ACCOUNTING",
-    }));
+      };
+    });
     res.json(result);
   }),
 );
@@ -2074,6 +2394,8 @@ app.post(
         kind: z.enum(["topup", "subscription"]),
         planId: z.string().max(50).optional(),
         credits: z.number().int().min(1).max(100).optional(),
+        // Phase 3E (§3.7): an owner coupon code, redeemed against this order.
+        couponCode: platformCouponCode.optional(),
       })
       .strict()
       .parse(req.body);
@@ -2088,16 +2410,47 @@ app.post(
           ])
         ).rows[0];
         if (!plan) fail(422, "PLAN_INVALID", "Plan not found.");
+        if (!plan.on_sale)
+          fail(
+            422,
+            "PLAN_NOT_ON_SALE",
+            "This plan is not available for new orders. / এই প্ল্যানটি নতুন অর্ডারের জন্য উপলব্ধ নয়।",
+          );
         credits = plan.grant_credits;
         planId = plan.id;
         amountMinor = plan.price_minor;
       } else credits = data.credits ?? 10;
       // Engineering fixtures have zero monetary value. No live price or gateway contract is implied.
+      const order = (
+        await db.query(
+          "INSERT INTO payment_orders(tenant_id,kind,plan_id,credits,amount_minor,currency,created_by) VALUES($1,$2,$3,$4,$5,'BDT',$6) RETURNING *",
+          [a.tenantId, data.kind, planId, credits, amountMinor, a.userId],
+        )
+      ).rows[0];
+      if (!data.couponCode) return camelRow(order);
+      // Phase 3E (§3.7): redeem the owner coupon against this order, inside the same
+      // transaction — any validation failure rolls the order back with it. The stored
+      // amount_minor becomes the net payable amount; the redemption row and the
+      // order's coupon_code/discount_minor are the §3.7 record of the redemption.
+      const discount = await platformCouponDiscount(db, {
+        code: data.couponCode,
+        tenantId: tenant(req),
+        kind: data.kind,
+        planId,
+        amountMinor,
+      });
+      await recordCouponRedemption(db, {
+        code: data.couponCode,
+        tenantId: tenant(req),
+        orderId: order.id,
+        discountMinor: discount,
+        actorId: a.userId,
+      });
       return camelRow(
         (
           await db.query(
-            "INSERT INTO payment_orders(tenant_id,kind,plan_id,credits,amount_minor,currency,created_by) VALUES($1,$2,$3,$4,$5,'BDT',$6) RETURNING *",
-            [a.tenantId, data.kind, planId, credits, amountMinor, a.userId],
+            "UPDATE payment_orders SET amount_minor=$2, coupon_code=$3, discount_minor=$4 WHERE id=$1 RETURNING *",
+            [order.id, amountMinor - discount, data.couponCode, discount],
           )
         ).rows[0],
       );
@@ -2181,7 +2534,12 @@ app.get(
       }));
       items.push({ ...camelRow(t), ...wallet });
     }
-    res.json({ items });
+    // Phase 3A: the plan catalogue rides along so the owner UI can offer plan
+    // choices for subscription actions without a second round-trip.
+    const plans = (
+      await pool.query("SELECT * FROM subscription_plans ORDER BY id")
+    ).rows.map(camelRow);
+    res.json({ items, plans });
   }),
 );
 app.post(
@@ -2238,6 +2596,118 @@ app.post(
     res.status(201).json(result);
   }),
 );
+app.post(
+  "/api/v1/owner/tenants/:id/subscription",
+  wrap(async (req, res) => {
+    const a = roles(req, ["owner"]);
+    const id = uuid.parse(req.params.id);
+    const data = z
+      .object({
+        action: z.enum([
+          "activate",
+          "extend",
+          "set_expiry",
+          "suspend",
+          "change_plan",
+        ]),
+        planId: z.string().min(1).max(50).optional(),
+        days: z.number().int().min(1).max(3650).optional(),
+        validUntil: z.string().datetime({ offset: true }).optional(),
+        status: z.enum(["ACTIVE", "EXPIRED", "SUSPENDED"]).optional(),
+        grantCredits: z.boolean().optional(),
+        reason: z.string().trim().min(8).max(500),
+      })
+      .strict()
+      .refine((v) => v.action !== "change_plan" || !!v.planId, {
+        message: "planId is required to change the plan.",
+      })
+      .refine((v) => v.action !== "set_expiry" || !!v.validUntil, {
+        message: "validUntil is required to set the expiry.",
+      })
+      .parse(req.body);
+    if (!(await pool.query("SELECT 1 FROM tenants WHERE id=$1", [id])).rowCount)
+      fail(404, "NOT_FOUND", "Tenant not found.");
+    const result = await transaction(
+      id,
+      async (db) => {
+        const { before, after, creditsGranted } = await applySubscriptionAction(
+          db,
+          id,
+          a.userId,
+          data,
+        );
+        return {
+          subscription: camelRow(after),
+          previous: camelRow(before),
+          creditsGranted,
+        };
+      },
+      true,
+    );
+    res.status(201).json(result);
+  }),
+);
+app.get(
+  "/api/v1/owner/payment-orders",
+  wrap(async (req, res) => {
+    roles(req, ["owner"]);
+    const status = z
+      .enum(["PENDING", "SETTLED", "CANCELLED", "ALL"])
+      .default("PENDING")
+      .parse(req.query.status ?? undefined);
+    const tenants = (await pool.query("SELECT * FROM tenants ORDER BY slug"))
+      .rows;
+    const items: any[] = [];
+    for (const t of tenants) {
+      const orders = await transaction(t.id, async (db) =>
+        (
+          await db.query(
+            status === "ALL"
+              ? "SELECT * FROM payment_orders WHERE tenant_id=$1 ORDER BY created_at DESC"
+              : "SELECT * FROM payment_orders WHERE tenant_id=$1 AND status=$2 ORDER BY created_at DESC",
+            status === "ALL" ? [t.id] : [t.id, status],
+          )
+        ).rows.map((o) => ({
+          ...camelRow(o),
+          tenantSlug: t.slug,
+          tenantNameBn: t.name_bn,
+          tenantNameEn: t.name_en,
+        })),
+      );
+      items.push(...orders);
+    }
+    items.sort((x, y) =>
+      String(y.createdAt).localeCompare(String(x.createdAt)),
+    );
+    res.json({ items });
+  }),
+);
+const ownerOrderDecision = () =>
+  z
+    .object({ reason: z.string().trim().min(8).max(500) })
+    .strict();
+app.post(
+  "/api/v1/owner/payment-orders/:id/settle",
+  wrap(async (req, res) => {
+    const a = roles(req, ["owner"]);
+    const id = uuid.parse(req.params.id);
+    const data = ownerOrderDecision().parse(req.body);
+    const tenantId = await locateOrderTenant(id);
+    if (!tenantId) fail(404, "ORDER_NOT_FOUND", "Payment order not found.");
+    res.json(await settleOrderManually(id, tenantId!, a, data.reason));
+  }),
+);
+app.post(
+  "/api/v1/owner/payment-orders/:id/cancel",
+  wrap(async (req, res) => {
+    const a = roles(req, ["owner"]);
+    const id = uuid.parse(req.params.id);
+    const data = ownerOrderDecision().parse(req.body);
+    const tenantId = await locateOrderTenant(id);
+    if (!tenantId) fail(404, "ORDER_NOT_FOUND", "Payment order not found.");
+    res.json(await cancelOrderManually(id, tenantId!, a, data.reason));
+  }),
+);
 app.use("/api/v1", (_req, res) =>
   res
     .status(404)
@@ -2259,7 +2729,11 @@ app.use(
             ? 409
             : error.type === "entity.too.large"
               ? 413
-              : 500;
+              : // Security Audit 01, F2: a body the JSON parser rejected is a
+                // client error (400 INPUT_INVALID), not a server failure.
+                error.type === "entity.parse.failed"
+                ? 400
+                : 500;
     const code =
       error instanceof ApiError
         ? error.code
@@ -2269,7 +2743,9 @@ app.use(
             ? "DUPLICATE"
             : status === 413
               ? "UPLOAD_SIZE"
-              : "INTERNAL_ERROR";
+              : status === 400
+                ? "INPUT_INVALID"
+                : "INTERNAL_ERROR";
     const message =
       error instanceof ApiError
         ? error.message
@@ -2279,7 +2755,9 @@ app.use(
             ? "A duplicate record already exists."
             : status === 413
               ? "Request body exceeds the allowed size."
-              : "The operation could not be completed.";
+              : status === 400
+                ? "Input validation failed."
+                : "The operation could not be completed.";
     const send = () =>
       res.status(status).json({
         error: {

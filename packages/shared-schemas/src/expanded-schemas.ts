@@ -1153,6 +1153,108 @@ export function buildFamilyV2(v1: FormSchema): FormSchema {
   });
 }
 
+/** Services whose next version carries the Phase 4 conditional-group fixes. */
+export const conditionalGroupServices: readonly number[] = deepFreeze([
+  4, 7, 23, 29, 31,
+]);
+
+const groupControllerIds = new Set([
+  "optradio",
+  "other_person",
+  "other_freedom_fighter",
+  "relation_person",
+  "marital_status_radio",
+]);
+
+/**
+ * Field ids governed by the `optradio` opt-in, derived from the captured form
+ * layout: the plain fields that follow `optradio` up to the next controller
+ * or repeatable group (e.g. death details after "include registration
+ * information", profession after it on the income certificates).
+ */
+function optradioGroupFieldIds(serviceNo: number): readonly string[] {
+  const service = (
+    referenceData.services as unknown as readonly ReferenceService[]
+  ).find((item) => item.service_no === serviceNo);
+  if (!service) return [];
+  const ids: string[] = [];
+  let active = false;
+  for (const form of service.forms) {
+    for (const field of form.fields) {
+      const id = field.name.replace(/\[\]$/, "");
+      if (id === "optradio") {
+        active = true;
+        continue;
+      }
+      if (!active) continue;
+      if (field.repeatable_array || groupControllerIds.has(id)) {
+        active = false;
+        continue;
+      }
+      if (
+        !["hidden", "submit", "button"].includes(field.type) &&
+        !commonExclusions.has(field.name) &&
+        !ids.includes(id)
+      )
+        ids.push(id);
+    }
+  }
+  return ids;
+}
+
+/**
+ * Phase 4: publish a new version instead of editing v2, so applications pinned
+ * to v2 keep their exact schema (same rule as the geography release). The
+ * opt-in group fields gain `visibleWhen` on the `optradio` toggle — until now
+ * they stayed unconditionally required and blocked citizens who never opted
+ * in — and, per the owner's Finding B decision, the income amount becomes
+ * optional on the two income certificates (23/29).
+ */
+export function buildConditionalGroupVersion(
+  previous: FormSchema,
+): FormSchema {
+  if (!conditionalGroupServices.includes(previous.serviceNo))
+    throw new RangeError(
+      `Service ${previous.serviceNo} has no conditional-group version.`,
+    );
+  const groupIds = new Set(optradioGroupFieldIds(previous.serviceNo));
+  if (!groupIds.size)
+    throw new Error(
+      `Service ${previous.serviceNo} has no optradio group fields to condition.`,
+    );
+  const incomeOptional = [23, 29].includes(previous.serviceNo);
+  const sections = previous.sections.map((section) => ({
+    ...section,
+    fields: section.fields.map((field) => {
+      let next = field;
+      if (groupIds.has(field.id) && !field.visibleWhen)
+        next = {
+          ...next,
+          visibleWhen: { field: "optradio", equals: true },
+        };
+      if (
+        incomeOptional &&
+        field.id === "income_info_amount" &&
+        field.constraints?.required
+      )
+        next = {
+          ...next,
+          constraints: { ...next.constraints, required: false },
+        };
+      return next;
+    }),
+  }));
+  return deepFreeze({
+    ...previous,
+    version: previous.version + 1,
+    evidence: {
+      ...previous.evidence,
+      limitation: `${previous.evidence.limitation} Version ${previous.version + 1} (Phase 4) conditions the opt-in group on its toggle and makes the income amount optional where the owner decided so.`,
+    },
+    sections,
+  });
+}
+
 /** Dataset-valid rural example location (Subil Union, Debidwar, Cumilla). Not an applicant's real address. */
 export const syntheticGeography = deepFreeze({
   divisionCode: "div-02",

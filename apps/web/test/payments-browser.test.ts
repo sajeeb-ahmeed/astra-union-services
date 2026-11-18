@@ -87,6 +87,22 @@ before(async () => {
       adminPassword: password,
     });
     assert.equal(office.status, 201, JSON.stringify(office.data));
+    // Phase 3B: the platform application fee settles at submit; this office
+    // runs on an owner-activated subscription, so submits consume monthly
+    // allowance and the tests below measure only the citizen-payment flow.
+    const subscription = await request(
+      setup,
+      `/owner/tenants/${office.data.id}/subscription`,
+      "POST",
+      {
+        action: "activate",
+        planId: "standard-monthly",
+        days: 90,
+        grantCredits: false,
+        reason: "Synthetic payment browser subscription activation",
+      },
+    );
+    assert.equal(subscription.status, 201, JSON.stringify(subscription.data));
     await apiLogin(setup, "admin");
     for (const role of ["staff", "reviewer", "approver", "finance"]) {
       const user = await request(setup, "/admin/users", "POST", {

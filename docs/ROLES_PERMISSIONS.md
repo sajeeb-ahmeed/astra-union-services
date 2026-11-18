@@ -55,7 +55,7 @@ The **platform owner** verifies requests (owner decision) in Platform management
 | Grant/revoke demo service authority for active approver | — | — | — | — | — | Tenant, audited | — | — |
 | Create/suspend/reactivate tenants | — | — | — | — | — | — | — | Yes |
 
-Actual membership role values are `citizen`, `staff`, `reviewer`, `approver`, `admin` and `finance`. The global platform role is `owner`. Union-head administrative responsibilities can later be mapped to `admin`, but that role cannot approve/issue in this release. The office may separately appoint a legally authorized approver; real appointment onboarding is not implemented. The seeded approver's authority note explicitly says DEMO ONLY.
+Actual membership role values are `citizen`, `staff`, `reviewer`, `approver`, `admin` and `finance`. The global platform role is `owner`. Union-head administrative responsibilities can later be mapped to `admin`, but that role cannot approve/issue in this release. The office may separately appoint a legally authorized approver; real appointment onboarding is not implemented. The seeded approver's authority note records the initial office-setup authorization.
 
 The SaaS owner owns the independent software and commercial platform; this is not an entitlement to inspect citizen records, approve an application, impersonate an official or issue a legal certificate. Owner billing routes are deliberate cross-tenant commercial operations. They set the target tenant context after owner policy checks and expose no citizen payloads. Adjustments append a reasoned ledger entry; they cannot rewrite existing accounting.
 

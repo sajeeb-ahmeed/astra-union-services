@@ -98,21 +98,33 @@ after(async () => {
   await db.end();
 });
 
-test("Phase X: the log transports write the server-log line and the dev outbox record", async () => {
+test("Phase X + Audit 01 F1: the log transports write a hint-only server-log line and the dev outbox record", async () => {
   setMailProvider(logMailProvider);
   setSmsProvider(logSmsProvider);
+  const lines: string[] = [];
+  const originalLog = console.log;
+  console.log = (...args: unknown[]) => {
+    lines.push(args.map(String).join(" "));
+  };
   try {
     const marker = `phasex-marker-${run}`;
     assert.equal(await sendEmail({ to: `log-${run}@phasex.synthetic.test`, subject: marker, text: `body ${marker}` }), true);
     const mailOutbox = fs.readFileSync(".runtime/email-outbox.log", "utf8");
-    assert.ok(mailOutbox.includes(marker), "email outbox carries the message");
+    assert.ok(mailOutbox.includes(marker), "dev outbox carries the message (non-production mailbox)");
     assert.equal(
       await sendStatusSms({ mobile: citizenMobile, message: `status ${marker}`, purpose: "certificate_issued" }),
       true,
     );
     const smsOutbox = fs.readFileSync(".runtime/sms-outbox.log", "utf8");
-    assert.ok(smsOutbox.includes(`status ${marker}`), "sms outbox carries the message");
+    assert.ok(smsOutbox.includes(`status ${marker}`), "dev outbox carries the message (non-production mailbox)");
+    // F1: the server log itself never carries the content — only masked hints.
+    const logged = lines.join("\n");
+    assert.ok(!logged.includes(marker), "server log must not carry subject or body");
+    assert.ok(!logged.includes(citizenMobile), "server log must not carry the full mobile number");
+    assert.ok(!logged.includes(`log-${run}@phasex.synthetic.test`), "server log must not carry the full address");
+    assert.ok(logged.includes("l***@phasex.synthetic.test"), "server log carries the masked email hint");
   } finally {
+    console.log = originalLog;
     setMailProvider({ async send(m) { mailSent.push(m); } });
     setSmsProvider({ async send(m) { smsSent.push(m); } });
   }

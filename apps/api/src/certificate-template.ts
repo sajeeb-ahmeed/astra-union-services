@@ -76,6 +76,18 @@ export interface PdfInput {
     upazila?: { bn: string; en: string };
     district?: { bn: string; en: string };
   };
+  /**
+   * CERTASSETS-01: the issuing office's profile artwork as data URLs,
+   * resolved at issuance from office_certificate_assets (see
+   * certificate-assets.ts). Profile artwork outranks the legacy filesystem
+   * drop-ins in template-assets.ts; a null/absent kind renders exactly as
+   * before (no logo, blank signature line, drop-in or no seal watermark).
+   */
+  assets?: {
+    logo?: string | null;
+    seal?: string | null;
+    signature?: string | null;
+  };
 }
 const escape = (value: unknown) =>
   String(value ?? "").replace(

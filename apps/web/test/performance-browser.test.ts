@@ -135,10 +135,11 @@ test("performance: compact public service names exactly match all 47 canonical r
   assert.equal(publicCatalog.length, 47);
   assert.deepEqual(
     publicCatalog,
-    reference.services.map(({ service_no, name_bn, name_en }) => ({
+    reference.services.map(({ service_no, name_bn, name_en, category_en }) => ({
       service_no,
       name_bn,
       name_en,
+      category_en,
     })),
   );
   assert.ok(

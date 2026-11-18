@@ -5,10 +5,12 @@ import { pool, transaction, audit } from "./db.js";
 import {
   hashPassword,
   checkPassword,
+  isCommonPassword,
   randomToken,
   digest,
 } from "./security.js";
-import { camelRow, fail } from "./models.js";
+import { ApiError, camelRow, fail } from "./models.js";
+import { applySubscriptionAction } from "./subscriptions.js";
 import { consumeSignupOtp } from "./otp.js";
 import { emailAvailable } from "./mailer.js";
 import {
@@ -20,6 +22,8 @@ import {
   identifierHint,
   normalizeIdentifier,
 } from "./identifiers.js";
+import { citizenReferenceExists, mintReference } from "./references.js";
+import { recordRegistrationDemand } from "./demand.js";
 import type { Auth } from "./app.js";
 import {
   lockAccount,
@@ -69,7 +73,16 @@ const roleInput = z.enum([
   "finance",
   "citizen",
 ]);
-const password = z.string().min(12).max(200);
+// Security Audit 01, F5: every password set/change point in this module (signup,
+// staff create, tenant create, recovery consume, password change) shares this
+// schema, so the common-password blocklist refine covers all of them at once.
+const password = z
+  .string()
+  .min(12)
+  .max(200)
+  .refine((value) => !isCommonPassword(value), {
+    message: "This password is too common. Choose a less predictable password.",
+  });
 const email = z
   .string()
   .email()
@@ -399,7 +412,8 @@ publicManagementRouter.get(
           // Phase 4a: each enabled service with the office's current published price list entry, if any.
           `SELECT s.service_no,s.name_bn,s.name_en,s.readiness,c.credit_cost,
              p.version AS policy_version,p.statutory_fee_minor,p.processing_fee_minor,p.emergency_surcharge_minor,
-             p.office_collection_fee_minor,p.digital_copy_fee_minor,p.delivery_modes,p.urgencies,p.charter_days
+             p.office_collection_fee_minor,p.digital_copy_fee_minor,p.delivery_modes,p.urgencies,p.charter_days,
+             p.required_documents
            FROM service_catalog s JOIN tenant_service_configuration c USING(service_no)
            LEFT JOIN LATERAL (SELECT * FROM service_order_policies o WHERE o.tenant_id=c.tenant_id AND o.service_no=c.service_no ORDER BY o.version DESC LIMIT 1) p ON true
            WHERE c.enabled ORDER BY s.service_no`,
@@ -428,6 +442,26 @@ publicManagementRouter.get(
       ).rows.map((r) => ({ name: r.display_name, postBn: r.post_bn, postEn: r.post_en, services: r.services })),
     );
     res.json({ office: officeRow(office), services, notices, officers });
+  }),
+);
+// Phase 6: public per-service view across participating offices — for each ACTIVE office that offers
+// the service, its current published fee policy (fees, citizen-charter time, required documents).
+// Offices without a published policy are returned with policyVersion null; no values are inferred.
+publicManagementRouter.get(
+  "/services/:no/office-info",
+  wrap(async (req, res) => {
+    const no = z.coerce.number().int().min(1).max(47).parse(req.params.no);
+    const service = (
+      await pool.query(
+        "SELECT service_no,name_bn,name_en,category FROM service_catalog WHERE service_no=$1",
+        [no],
+      )
+    ).rows[0];
+    if (!service) fail(404, "NOT_FOUND", "Service not found.");
+    const offices = (
+      await pool.query("SELECT * FROM public_service_office_info($1)", [no])
+    ).rows.map(camelRow);
+    res.json({ service: camelRow(service), offices });
   }),
 );
 publicManagementRouter.get(
@@ -501,7 +535,8 @@ publicManagementRouter.post(
     // Phase X: when email delivery is configured, a verification token is created inside the
     // registration transaction and the message is sent only after it commits.
     const verification: { current: { token: string; email: string } | null } = { current: null };
-    await transaction(d.tenantId, async (db) => {
+    try {
+      await transaction(d.tenantId, async (db) => {
       const office = (
         await db.query(
           "SELECT * FROM tenants WHERE id=$1 AND status='ACTIVE' FOR SHARE",
@@ -518,6 +553,31 @@ publicManagementRouter.post(
       if (d.geography) {
         await validateGeography(db, d.geography, "citizen");
         validateOfficeJurisdiction(office, d.geography);
+        // Phase 3E (§3.6): the citizen's union must be listed on the platform — an
+        // ACTIVE office serves it (a union office for that union, or an upazila-wide
+        // office with no union of its own) — otherwise registration cannot proceed.
+        // Signups without geography (legacy callers) make no union claim and are
+        // unchanged; the office-jurisdiction check above still binds mapped offices.
+        if (d.geography.unionCode) {
+          const listed = (
+            await db.query(
+              `SELECT 1 FROM tenants WHERE status='ACTIVE' AND division_code=$1 AND district_code=$2 AND upazila_code=$3
+               AND (union_code=$4 OR union_code IS NULL) LIMIT 1`,
+              [
+                d.geography.divisionCode,
+                d.geography.districtCode,
+                d.geography.upazilaCode,
+                d.geography.unionCode,
+              ],
+            )
+          ).rowCount;
+          if (!listed)
+            fail(
+              422,
+              "UNION_NOT_LISTED",
+              "এই ইউনিয়ন এখনো DigitalUnion-এ যুক্ত হয়নি। / This union has not joined DigitalUnion yet, so registration is not available for it.",
+            );
+        }
       }
       const user = (
         await db.query(
@@ -529,9 +589,21 @@ publicManagementRouter.post(
         "INSERT INTO staff_memberships(user_id,tenant_id,role) VALUES($1,$2,'citizen')",
         [user.id, d.tenantId],
       );
+      // Phase 5 (5C): self-registration mints the new 18-digit public reference when the
+      // caller did not supply one (signup collects no NID, so segment 2 uses the citizen-id
+      // fallback; the id is generated here so it can feed that segment). Caller-supplied
+      // REF-… references and previously issued references are unchanged.
+      const citizenId = randomUUID();
+      const syntheticReference =
+        d.syntheticReference ??
+        (await mintReference(
+          { dateOfBirth: d.dateOfBirth, nid: null, citizenId },
+          citizenReferenceExists(db, d.tenantId),
+        ));
       await db.query(
-        "INSERT INTO citizens(tenant_id,user_id,full_name_bn,full_name_en,date_of_birth,address_bn,address_en,synthetic_reference,division_code,district_code,upazila_code,union_code,ward_code,present_same_as_permanent,present_address_bn,present_address_en,present_division_code,present_district_code,present_upazila_code,present_union_code,present_ward_code) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21)",
+        "INSERT INTO citizens(id,tenant_id,user_id,full_name_bn,full_name_en,date_of_birth,address_bn,address_en,synthetic_reference,division_code,district_code,upazila_code,union_code,ward_code,present_same_as_permanent,present_address_bn,present_address_en,present_division_code,present_district_code,present_upazila_code,present_union_code,present_ward_code) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22)",
         [
+          citizenId,
           d.tenantId,
           user.id,
           d.nameBn,
@@ -539,7 +611,7 @@ publicManagementRouter.post(
           d.dateOfBirth,
           d.addressBn,
           d.addressEn,
-          d.syntheticReference ?? `REF-${randomUUID()}`,
+          syntheticReference,
           ...geographyValues(d.geography),
           ...(await presentAddressValues(db, d.presentAddress)),
         ],
@@ -559,7 +631,25 @@ publicManagementRouter.post(
         verification.current = { token: issued.token, email: d.email };
       }
       await audit(db, d.tenantId, user.id, "DEMO_SELF_REGISTRATION", user.id);
-    });
+      });
+    } catch (error) {
+      // Demand list (§3.6, owner-approved 18 Nov 08:01): a signup refused only because
+      // its union is not listed is captured for the owner — after the transaction has
+      // rolled back, in the failure-isolated write of demand.ts, so the response the
+      // gate produced is exactly the one returned, capture or no capture.
+      if (
+        error instanceof ApiError &&
+        error.code === "UNION_NOT_LISTED" &&
+        d.geography?.unionCode
+      )
+        await recordRegistrationDemand({
+          nameBn: d.nameBn,
+          nameEn: d.nameEn,
+          phone: mobile,
+          geography: d.geography,
+        });
+      throw error;
+    }
     // Verification never gates the account: it is reported honestly as sent, failed or
     // unavailable (no mail provider configured), and sign-in works in every case.
     let emailVerification: "sent" | "failed" | "unavailable" = "unavailable";
@@ -1010,6 +1100,18 @@ managementRouter.post(
           adminEmail: email,
           adminName: z.string().min(2).max(120),
           adminPassword: password,
+          // Phase 3A: office creation is the owner's approval moment (there is
+          // no pending-office queue), so the owner may activate the new
+          // office's subscription in the same step instead of leaving it
+          // EXPIRED for a second action.
+          activateSubscription: z
+            .object({
+              planId: z.string().min(1).max(50).optional(),
+              days: z.number().int().min(1).max(3650).optional(),
+              grantCredits: z.boolean().optional(),
+            })
+            .strict()
+            .optional(),
         })
         .strict()
         .parse(req.body),
@@ -1052,9 +1154,17 @@ managementRouter.post(
       );
       await db.query("INSERT INTO tenant_wallets(tenant_id) VALUES($1)", [id]);
       await db.query(
-        "INSERT INTO tenant_subscriptions(tenant_id,plan_id,valid_until,status) VALUES($1,'standard-monthly',now(),'EXPIRED')",
+        "INSERT INTO tenant_subscriptions(tenant_id,plan_id,valid_until,status,plan_duration_days,plan_grant_credits,plan_allowance_limit) SELECT $1,id,now(),'EXPIRED',duration_days,grant_credits,monthly_allowance_limit FROM subscription_plans WHERE id='standard-monthly'",
         [id],
       );
+      if (d.activateSubscription)
+        await applySubscriptionAction(db, id, a.userId, {
+          action: "activate",
+          planId: d.activateSubscription.planId,
+          days: d.activateSubscription.days,
+          grantCredits: d.activateSubscription.grantCredits,
+          reason: "Subscription activated on office approval",
+        });
       await db.query(
         "INSERT INTO tenant_service_configuration(tenant_id,service_no) SELECT $1,service_no FROM service_catalog",
         [id],

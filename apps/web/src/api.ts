@@ -7,11 +7,85 @@ export class ApiError extends Error {
     super(message);
   }
 }
+
+/**
+ * Phase 5 (5A): the CSRF token is stored together with the id of the user it was issued to.
+ *
+ * Root cause of the live session failures: the token used to be a bare module variable and the
+ * workspace never re-checked which session the browser cookie actually held. When a second
+ * account (or a second sign-in of the same account) replaced the cookie in the same browser,
+ * the open tab kept sending the previous session's token: every POST failed with
+ * CSRF_REQUIRED, sign-out — itself a CSRF-protected POST — failed the same way, and the tab
+ * kept rendering the first account's shell over the second account's data.
+ *
+ * The fix keeps the server contract unchanged (a stale token is still rejected): on a
+ * CSRF_REQUIRED rejection the client re-reads /auth/me once. If the browser session still
+ * belongs to the same user, the fresh token is adopted and the request is retried once — the
+ * rejected attempt was stopped by the auth middleware before any handler ran, so a retry
+ * cannot double-apply it. If the session now belongs to a different user, the request is NOT
+ * retried under the wrong account; a session-changed event lets the app shell swap the
+ * workspace to the account that is actually signed in. If the session is gone, the shell
+ * returns to the sign-in portal.
+ */
 let csrfToken = "";
-export async function api<T = any>(
+let csrfUserId = "";
+let resyncInFlight: Promise<"same" | "changed" | "expired" | "unknown"> | null =
+  null;
+
+/** Adopt the session material from a response that carries it (sign-in, MFA verify, /auth/me). */
+export function adoptSession(data: any) {
+  if (data?.csrfToken) {
+    csrfToken = data.csrfToken;
+    if (data?.user?.id) csrfUserId = data.user.id;
+  }
+}
+
+export function clearSessionToken() {
+  csrfToken = "";
+  csrfUserId = "";
+}
+
+function notifySessionChanged() {
+  if (typeof window !== "undefined")
+    window.dispatchEvent(new CustomEvent("astra:session-changed"));
+}
+
+function resyncSession() {
+  if (!resyncInFlight) {
+    const before = csrfUserId;
+    resyncInFlight = (async () => {
+      try {
+        const response = await fetch("/api/v1/auth/me", {
+          credentials: "include",
+        });
+        // Consume the body on every path (see main.tsx): an unread body leaves the
+        // request open in the browser's network stack.
+        const data = await response.json().catch(() => null);
+        if (response.status === 401) {
+          clearSessionToken();
+          return "expired" as const;
+        }
+        if (!response.ok) return "unknown" as const;
+        if (!data?.csrfToken || !data?.user?.id) return "unknown" as const;
+        adoptSession(data);
+        return before && data.user.id !== before
+          ? ("changed" as const)
+          : ("same" as const);
+      } catch {
+        return "unknown" as const;
+      } finally {
+        resyncInFlight = null;
+      }
+    })();
+  }
+  return resyncInFlight;
+}
+
+async function request<T>(
   path: string,
-  method = "GET",
-  body?: unknown,
+  method: string,
+  body: unknown,
+  retried: boolean,
 ): Promise<T> {
   const response = await fetch(`/api/v1${path}`, {
     method,
@@ -25,7 +99,40 @@ export async function api<T = any>(
   const data = await response
     .json()
     .catch(() => ({ message: "Server response could not be read." }));
-  if (!response.ok)
+  if (!response.ok) {
+    if (
+      !retried &&
+      method !== "GET" &&
+      response.status === 403 &&
+      data?.error?.code === "CSRF_REQUIRED"
+    ) {
+      const outcome = await resyncSession();
+      if (outcome === "same") return request(path, method, body, true);
+      if (outcome === "changed" || outcome === "expired") {
+        notifySessionChanged();
+        if (outcome === "expired")
+          throw new ApiError(
+            "Sign in required.",
+            { error: { code: "LOGIN_REQUIRED", message: "Sign in required." } },
+            401,
+          );
+        throw new ApiError(
+          "The signed-in account changed in this browser, so this action was not sent. The workspace now shows the account that is actually signed in.",
+          {
+            error: {
+              code: "SESSION_CHANGED",
+              message:
+                "The signed-in account changed in this browser; the action was not sent.",
+            },
+          },
+          409,
+        );
+      }
+    }
+    // A 401 anywhere means the browser no longer holds the session this tab was built on;
+    // let the app shell revalidate and drop to the sign-in portal instead of leaving a
+    // dead workspace on screen.
+    if (response.status === 401) notifySessionChanged();
     throw new ApiError(
       data.error?.message ||
         data.error ||
@@ -34,8 +141,17 @@ export async function api<T = any>(
       data,
       response.status,
     );
-  if (data.csrfToken) csrfToken = data.csrfToken;
+  }
+  adoptSession(data);
   return data;
+}
+
+export async function api<T = any>(
+  path: string,
+  method = "GET",
+  body?: unknown,
+): Promise<T> {
+  return request<T>(path, method, body, false);
 }
 export const items = (value: any): any[] =>
   Array.isArray(value)

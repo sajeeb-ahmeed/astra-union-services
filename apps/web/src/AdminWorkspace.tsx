@@ -3,6 +3,7 @@ import { SignInIdentifiers } from "./SignInIdentifiers.js";
 import React, { useEffect, useState } from "react";
 import { api, items } from "./api.js";
 import { OrderPolicySettings } from "./OrderPolicySettings.js";
+import { CertificateAssetsSettings } from "./CertificateAssets.js";
 import { CouponSettings } from "./CouponSettings.js";
 import { BkashMerchantSettings, PaymentMerchantSettings } from "./PaymentMerchantSettings.js";
 import { AccountSessions } from "./AccountSessions.js";
@@ -165,6 +166,7 @@ export function AdminWorkspace() {
           {tx(
             [
               ["office", "Office profile"],
+              ["cert-assets", "Certificate assets"],
               ["users", "Staff accounts"],
               ["services", "Service settings"],
               ["authority", "Approval authority"],
@@ -606,11 +608,18 @@ export function AdminWorkspace() {
       {tx(
         tab === "services" && (
           <section className="panel">
-            <h2>{t("Enabled services and software credits")}</h2>
+            {/* Phase 3D (3B follow-up): the legacy per-office credit_cost editor is
+                gone from this screen. Since 3B it no longer moves money — the
+                platform credit price (owner Pricing panel) is what a submit
+                charges — so showing an editable "credits per issue" here only
+                misled office admins. The API field itself is untouched. */}
+            <h2>
+              {choose({ bn: "সেবার প্রাপ্যতা", en: "Service availability" })}
+            </h2>
             <p className="hint">
               {choose({
-                bn: "ক্রেডিট হলো সফটওয়্যার ব্যবহারের খরচ। আবেদন ফি নীতিতে সরকারি ফি ও প্রসেসিং ফি আলাদাভাবে নির্ধারিত হয়।",
-                en: "Credits pay for software use. Statutory and processing fees are configured separately under Application fee policies.",
+                bn: "এখানে শুধু সেবা চালু বা বন্ধ করা যায়। প্রতিটি আবেদনের ক্রেডিট মূল্য প্ল্যাটফর্ম মালিক মূল্য নির্ধারণ প্যানেল থেকে নির্ধারণ করেন — আবেদন প্রথমবার জমা দেওয়ার সময় সেই মূল্যই কাটা হয়। আবেদন ফি নীতিতে সরকারি ফি ও প্রসেসিং ফি আলাদাভাবে নির্ধারিত হয়।",
+                en: "Here you only switch services on or off. The credit price of each application is set by the platform owner in the Pricing panel — that is the price charged when an application is first submitted. Statutory and processing fees are configured separately under Application fee policies.",
               })}
             </p>
             <div className="table-wrap">
@@ -618,7 +627,6 @@ export function AdminWorkspace() {
                 <thead>
                   <tr>
                     <th>{t("Service")}</th>
-                    <th>{t("Credits per issue")}</th>
                     <th>{t("Available")}</th>
                   </tr>
                 </thead>
@@ -635,35 +643,6 @@ export function AdminWorkspace() {
                               bn: read(s, "nameBn", "name_bn"),
                               en: read(s, "nameEn", "name_en"),
                             })}
-                          </td>
-                          <td>
-                            <form
-                              className="inline-form"
-                              onSubmit={(e) => {
-                                e.preventDefault();
-                                const d = new FormData(e.currentTarget);
-                                void run(async () => {
-                                  await api(`/admin/services/${no}`, "PATCH", {
-                                    creditCost: Number(d.get("creditCost")),
-                                  });
-                                }, "Service credit cost saved.");
-                              }}
-                            >
-                              <input
-                                aria-label={`${t("Credit cost for service")} ${no}`}
-                                type="number"
-                                name="creditCost"
-                                min={1}
-                                max={10000}
-                                defaultValue={
-                                  s.creditCost ?? s.credit_cost ?? 1
-                                }
-                                required
-                              />
-                              <button disabled={busy} className="secondary">
-                                {t("Save credits ")}
-                              </button>
-                            </form>
                           </td>
                           <td>
                             <button
@@ -695,6 +674,7 @@ export function AdminWorkspace() {
         ),
       )}
       {tab === "order-policies" && <OrderPolicySettings services={services} />}
+      {tab === "cert-assets" && <CertificateAssetsSettings />}
       {tab === "coupons" && <CouponSettings services={services} />}
       {tab === "payments" && (
         <>
@@ -911,9 +891,16 @@ export function AdminWorkspace() {
 export function OwnerOnboarding({ onSaved }: { onSaved: () => Promise<void> }) {
   const [geography, setGeography] = useState(emptyGeography);
   const [officeType, setOfficeType] = useState("UNION");
+  const [activateNow, setActivateNow] = useState(false);
+  const [plans, setPlans] = useState<any[]>([]);
   const [message, setMessage] = useState(""),
     [errorMessage, setErrorMessage] = useState(""),
     [busy, setBusy] = useState(false);
+  useEffect(() => {
+    api("/owner/tenants")
+      .then((r) => setPlans(r.plans ?? []))
+      .catch(() => setPlans([]));
+  }, []);
   return (
     <section className="panel">
       <h2>{t("নতুন অফিস যুক্ত করুন / Onboard an office")}</h2>
@@ -937,9 +924,27 @@ export function OwnerOnboarding({ onSaved }: { onSaved: () => Promise<void> }) {
                 : geography.upazilaCode)
             )
               throw Error("Choose the office's complete administrative area.");
+            const fields = Object.fromEntries(d) as Record<string, any>;
+            const {
+              activationPlanId,
+              activationDays,
+              activationGrantCredits,
+              ...officeFields
+            } = fields;
             await api("/owner/tenants", "POST", {
-              ...Object.fromEntries(d),
+              ...officeFields,
               geography: geographyPayload(geography),
+              ...(activateNow
+                ? {
+                    activateSubscription: {
+                      planId: String(activationPlanId || "standard-monthly"),
+                      ...(Number(activationDays)
+                        ? { days: Number(activationDays) }
+                        : {}),
+                      grantCredits: activationGrantCredits === "on",
+                    },
+                  }
+                : {}),
             });
             await onSaved();
             form.reset();
@@ -1021,6 +1026,41 @@ export function OwnerOnboarding({ onSaved }: { onSaved: () => Promise<void> }) {
             </p>
           ),
         )}
+        <fieldset className="subscription-activation">
+          <legend>{t("Subscription on approval")}</legend>
+          <label className="checkbox-label">
+            <input
+              type="checkbox"
+              checked={activateNow}
+              onChange={(e) => setActivateNow(e.target.checked)}
+            />{" "}
+            {t("Activate subscription now")}
+          </label>
+          {activateNow && (
+            <div className="form-grid">
+              <label>
+                {t("Plan")}
+                <select name="activationPlanId" defaultValue="standard-monthly">
+                  {(plans.length ? plans : [{ id: "standard-monthly", name: "Standard Monthly" }]).map(
+                    (p: any) => (
+                      <option key={p.id} value={p.id}>
+                        {p.name ?? p.id}
+                      </option>
+                    ),
+                  )}
+                </select>
+              </label>
+              <label>
+                {t("Days (optional)")}
+                <input name="activationDays" type="number" min={1} max={3650} />
+              </label>
+              <label className="checkbox-label">
+                <input name="activationGrantCredits" type="checkbox" defaultChecked />{" "}
+                {t("Grant the plan credits")}
+              </label>
+            </div>
+          )}
+        </fieldset>
         <button disabled={busy}>{t("Create office")}</button>
       </form>
       {tx(

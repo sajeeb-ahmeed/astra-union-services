@@ -803,7 +803,17 @@ test("ATT-05: pending handles save as drafts but block submit/resubmit/approval/
       [issued[0]!.body.id],
     )
   ).rows[0];
-  assert.deepEqual(ledger, { n: 1, delta: -1 });
+  // Phase 3B: issuance writes no ledger entry — the application's fee was
+  // settled at submit (subscription allowance for this office).
+  assert.deepEqual(ledger, { n: 0, delta: null });
+  assert.ok(
+    (
+      await db.query(
+        "SELECT fee_settled_at IS NOT NULL settled FROM applications WHERE id=$1",
+        [clean.id],
+      )
+    ).rows[0].settled,
+  );
   const pdf = await request(
     "GET",
     `/certificates/${issued[0]!.body.id}/pdf`,

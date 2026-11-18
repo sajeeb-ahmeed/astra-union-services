@@ -41,3 +41,39 @@
     padding: 28px 24px;
   }
 }
+
+/* Phase 3D: owner console section navigation + section grouping. The nav is a
+   wrapping row of jump links (44px touch targets, wraps on phones); sections
+   carry a scroll margin so anchored headings are not hidden under the top. */
+.owner-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0 0 20px;
+}
+.owner-nav a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 8px 14px;
+  border: 1px solid var(--du-line);
+  border-radius: 999px;
+  background: var(--du-surface, #fff);
+  color: var(--du-green-700);
+  font-weight: 600;
+  text-decoration: none;
+}
+.owner-nav a:hover,
+.owner-nav a:focus-visible {
+  border-color: var(--du-green-700);
+  text-decoration: underline;
+}
+.owner-section {
+  scroll-margin-top: 16px;
+  margin: 0 0 28px;
+}
+.owner-section > h2 {
+  margin: 0 0 12px;
+  padding-bottom: 6px;
+  border-bottom: 2px solid var(--du-green-700);
+}

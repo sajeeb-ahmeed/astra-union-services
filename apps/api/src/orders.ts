@@ -53,6 +53,18 @@ const policyInput = z
       .refine((items) => new Set(items).size === items.length),
     // Phase 4a: citizen-charter delivery time in days; null when the office does not state one.
     charterDays: z.number().int().min(1).max(365).nullable().optional(),
+    // Phase 6: citizen-facing required documents as bilingual pairs; an empty list states none.
+    requiredDocuments: z
+      .array(
+        z
+          .object({
+            bn: z.string().trim().min(1).max(200),
+            en: z.string().trim().min(1).max(200),
+          })
+          .strict(),
+      )
+      .max(20)
+      .optional(),
   })
   .strict();
 
@@ -69,6 +81,10 @@ function policyRow(row: any) {
     deliveryModes: row.delivery_modes as string[],
     urgencies: row.urgencies as string[],
     charterDays: (row.charter_days ?? null) as number | null,
+    requiredDocuments: (row.required_documents ?? []) as Array<{
+      bn: string;
+      en: string;
+    }>,
     currency: "BDT" as const,
   };
 }
@@ -433,8 +449,8 @@ ordersRouter.post(
         );
       const row = (
         await db.query(
-          `INSERT INTO service_order_policies(tenant_id,service_no,version,statutory_fee_minor,processing_fee_minor,emergency_surcharge_minor,office_collection_fee_minor,digital_copy_fee_minor,delivery_modes,urgencies,reason,created_by,charter_days)
-       VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) RETURNING *`,
+          `INSERT INTO service_order_policies(tenant_id,service_no,version,statutory_fee_minor,processing_fee_minor,emergency_surcharge_minor,office_collection_fee_minor,digital_copy_fee_minor,delivery_modes,urgencies,reason,created_by,charter_days,required_documents)
+       VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14) RETURNING *`,
           [
             a.tenantId,
             no,
@@ -449,6 +465,7 @@ ordersRouter.post(
             data.reason,
             a.userId,
             data.charterDays ?? null,
+            JSON.stringify(data.requiredDocuments ?? []),
           ],
         )
       ).rows[0];

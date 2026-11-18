@@ -7,6 +7,14 @@ import type { Auth } from "./app.js";
 /**
  * Phase 5a: the points wallet (1 BDT = 1 point, in poisha) beside the credit wallet. The append-only
  * point_ledger is the source of truth; balances change only through ledger entries (migration 029).
+ *
+ * Phase 3B (billing consolidation, 18 Nov 2026): credit is the platform's single currency and the
+ * only chargeable moment is application submit, so the points ISSUANCE spend path that used to run
+ * inside the issuance transaction is retired — issuing a certificate no longer deducts points.
+ * Balances stay fully readable here and through the owner endpoints below, and the recharge and
+ * adjustment paths are untouched: offices funded real point balances by bank deposit, and no
+ * code-documented points→credits conversion rate exists, so converting balances is an owner
+ * decision, not something this phase invents.
  */
 type Req = express.Request & { auth?: Auth };
 const wrap =
@@ -29,45 +37,6 @@ const ledgerRow = (r: any) => ({
   balanceAfterMinor: Number(r.balance_after),
   createdAt: r.created_at,
 });
-
-/** The service's current owner-set price in poisha, or 0 when it has none. */
-export async function currentPointPrice(db: DB, serviceNo: number) {
-  const row = (
-    await db.query(
-      "SELECT price_minor FROM service_point_prices WHERE service_no=$1 ORDER BY version DESC LIMIT 1",
-      [serviceNo],
-    )
-  ).rows[0];
-  return (row?.price_minor ?? 0) as number;
-}
-/**
- * Deduct a certificate's point price inside the issuance transaction. Exactly once per certificate: the
- * idempotency key and the unique issuance index both name the certificate.
- */
-export async function chargeIssuancePoints(
-  db: DB,
-  tenantId: string,
-  serviceNo: number,
-  certificateId: string,
-  actorId: string,
-) {
-  const price = await currentPointPrice(db, serviceNo);
-  if (!price) return 0;
-  const balance = Number(
-    (await db.query("SELECT balance_minor FROM point_wallets WHERE tenant_id=$1", [tenantId])).rows[0]?.balance_minor ?? 0,
-  );
-  if (balance < price)
-    fail(
-      402,
-      "POINTS_INSUFFICIENT",
-      `This certificate costs ${(price / 100).toFixed(2)} points and the office has ${(balance / 100).toFixed(2)}. Recharge the points wallet. The approved application is kept.`,
-    );
-  await db.query(
-    "INSERT INTO point_ledger(tenant_id,delta_minor,kind,idempotency_key,certificate_id,actor_id,reason,balance_after) VALUES($1,$2,'ISSUANCE',$3,$4,$5,'Certificate issuance',0)",
-    [tenantId, -price, `issuance:${certificateId}`, certificateId, actorId],
-  );
-  return price;
-}
 
 export const pointsRouter = express.Router();
 

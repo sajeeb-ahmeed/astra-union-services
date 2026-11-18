@@ -7,6 +7,7 @@ import { camelRow, citizenRow, fail } from "./models.js";
 import { digest } from "./security.js";
 import { renderHtmlPdf } from "./pdf.js";
 import { geographyInput, geographyRow, geographyValues, validateGeography, validateOfficeJurisdiction, presentAddressInput, presentAddressRow, presentAddressValues, presentAddressColumns } from "./geography.js";
+import { parseReferenceInput } from "./references.js";
 
 type Req = express.Request & { auth?: Auth };
 const wrap = (fn: (req: Req, res: express.Response) => Promise<unknown>) => (req: Req, res: express.Response, next: express.NextFunction) => { Promise.resolve(fn(req, res)).catch(next); };
@@ -24,9 +25,18 @@ const rows = (values: [string, unknown][]) => `<table>${values.map(([k,v])=>`<tr
 
 export const publicToolsRouter = express.Router();
 publicToolsRouter.get("/track/:id",wrap(async(req,res)=>{
+  // Phase 5 (5C): tracking accepts the legacy application UUID and the Phase 5 public
+  // reference (grouped or plain digits). Anything else is simply not found, as before.
   const parsed=id.safeParse(req.params.id);
-  if(!parsed.success)fail(404,"NOT_FOUND","Application status not found.");
-  const r=(await pool.query("SELECT * FROM public_track($1)",[parsed.data])).rows[0];
+  if(parsed.success){
+    const r=(await pool.query("SELECT * FROM public_track($1)",[parsed.data])).rows[0];
+    if(!r)fail(404,"NOT_FOUND","Application status not found.");
+    res.json(camelRow(r));
+    return;
+  }
+  const reference=parseReferenceInput(req.params.id);
+  if(!reference)fail(404,"NOT_FOUND","Application status not found.");
+  const r=(await pool.query("SELECT * FROM public_track_by_reference($1)",[reference])).rows[0];
   if(!r)fail(404,"NOT_FOUND","Application status not found.");
   res.json(camelRow(r));
 }));

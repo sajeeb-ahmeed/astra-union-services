@@ -79,7 +79,7 @@ test("Phase W: the Chairman may ask the applicant to come; the application stays
   assert.ok(approved.body.certificate?.number);
 });
 
-test("Phase W: the Chairman's approval of a submitted application issues atomically — one certificate, one credit, notifications both ways", async () => {
+test("Phase W: the Chairman's approval of a submitted application issues atomically — one certificate, no issuance charge (the fee settled at submit), notifications both ways", async () => {
   const id = await submittedApplication();
   // The office hears about the new submission; the citizen does not get the office-facing notice.
   const officeFeed = await req("GET", "/notifications", undefined, "approver");
@@ -109,11 +109,14 @@ test("Phase W: the Chairman's approval of a submitted application issues atomica
   const certificate = approved.body.certificate;
   assert.ok(certificate.number && certificate.pdfUrl && certificate.verificationUrl);
   assert.equal(certificate.templateVersion, DEMO_TEMPLATE_VERSION);
-  // Exactly one credit was deducted by the single action.
-  assert.equal((await req("GET", "/wallet", undefined, "approver")).body.balance, balanceBefore - 1);
+  // Phase 3B: no credit is deducted by the approval/issuance — the fee was
+  // settled at submit (this office's subscription consumed one allowance).
+  assert.equal((await req("GET", "/wallet", undefined, "approver")).body.balance, balanceBefore);
   // The stored record agrees: one certificate, an approve event and an issue event by the Chairman.
   const detail = await req("GET", `/applications/${id}`, undefined, "citizen");
   assert.equal(detail.body.application.state, "ISSUED");
+  assert.equal(detail.body.application.feeMethod, "ALLOWANCE");
+  assert.equal(detail.body.application.feeCredits, 0);
   assert.equal(detail.body.certificate.id, certificate.id);
   const actions = detail.body.events.map((e: any) => e.action);
   assert.ok(actions.includes("approve") && actions.includes("issue"));

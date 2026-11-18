@@ -163,7 +163,14 @@ export function validateForm(
         rules.required ||
         (field.requiredWhen && evaluatePredicate(field.requiredWhen, values));
       if (empty(value)) {
-        if (required)
+        // Phase 4: a plain checkbox is fully answered by being unticked —
+        // absence means "no", never a missing required field. Citizens who
+        // never opened an opt-in group (e.g. "add another person's details")
+        // were blocked by a required error on the untouched toggle itself.
+        // Only a mustBeTrue declaration must actively be given.
+        const answeredByAbsence =
+          field.type === "checkbox" && !rules.mustBeTrue;
+        if (required && !answeredByAbsence)
           issue(
             path,
             "required",
