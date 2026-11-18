@@ -187,9 +187,16 @@ try {
       // exercises the office-profile asset resolution with the real artwork.
       // (The production Belabo office is migrated as a redeploy-time data
       // step — no production SQL is written here.)
-      const sealBytes = fs.readFileSync(
-        "apps/api/assets/offices/belabo-up/seal.png",
-      );
+      // On a clean GitHub checkout the seal exists only as seal.png.b64
+      // (binary assets travel as base64 text); decode it inline when the
+      // materialised .png is absent so seeding works before any build.
+      const sealPath = "apps/api/assets/offices/belabo-up/seal.png";
+      const sealBytes = fs.existsSync(sealPath)
+        ? fs.readFileSync(sealPath)
+        : Buffer.from(
+            fs.readFileSync(`${sealPath}.b64`, "utf8").replace(/\s+/g, ""),
+            "base64",
+          );
       const inserted = await db.query(
         "INSERT INTO office_certificate_assets(id,tenant_id,kind,version,mime_type,byte_length,content_sha256,bytes,uploaded_by) VALUES($1,$2,'SEAL',1,'image/png',$3,$4,$5,$6) ON CONFLICT (tenant_id,kind,version) DO NOTHING RETURNING id",
         [

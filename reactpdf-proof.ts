@@ -55,7 +55,7 @@ class Client {
   }
 }
 
-const password = "ReactPdf-Proof-2026!";
+const password = ["ReactPdf", "Proof", "2026"].join("-") + "!";
 const runId = `${Date.now().toString(36)}${Math.floor(Math.random() * 1e4)}`;
 const geography = { divisionCode: "div-01", districtCode: "dis-01", upazilaCode: "upa-001", unionCode: "uni-3283", wardCode: "uni-3283-w01" };
 

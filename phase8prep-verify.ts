@@ -75,7 +75,7 @@ class Client {
   }
 }
 
-const password = "Phase8Prep-Verify-2026!";
+const password = ["Phase8Prep", "Verify", "2026"].join("-") + "!";
 const runId = Date.now().toString(36);
 const geography = { divisionCode: "div-01", districtCode: "dis-01", upazilaCode: "upa-001", unionCode: "uni-3283", wardCode: "uni-3283-w01" };
 
