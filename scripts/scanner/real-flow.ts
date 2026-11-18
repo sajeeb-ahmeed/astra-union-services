@@ -252,7 +252,26 @@ try {
       [issued.body.id],
     )
   ).rows[0];
-  assert.deepEqual(ledger, { n: 1, delta: -1 });
+  // Phase 3B: issuance writes no ledger entry — the application's fee was
+  // settled at submit (subscription allowance for this office).
+  assert.deepEqual(ledger, { n: 0, delta: null });
+  assert.ok(
+    (
+      await db.query(
+        "SELECT fee_settled_at IS NOT NULL settled FROM applications WHERE id=$1",
+        [approved.id],
+      )
+    ).rows[0].settled,
+  );
+  assert.equal(
+    (
+      await db.query(
+        "SELECT count(*)::int n FROM subscription_allowance_consumptions WHERE application_id=$1",
+        [approved.id],
+      )
+    ).rows[0].n,
+    1,
+  );
   const pdf = await request(
     "GET",
     `/certificates/${issued.body.id}/pdf`,
@@ -262,7 +281,7 @@ try {
   assert.equal(pdf.status, 200);
   assert.equal(pdf.body.subarray(0, 5).toString(), "%PDF-");
   pass(
-    "A real scanned file completes submit, review, authorized approval, PDF and exactly-once credit deduction",
+    "A real scanned file completes submit, review, authorized approval, PDF and exactly-once submit-time fee settlement with no issuance charge",
   );
   const waiting = await upload(safe);
   const probe = net.createServer();
