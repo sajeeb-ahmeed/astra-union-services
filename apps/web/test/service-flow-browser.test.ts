@@ -112,11 +112,11 @@ test(
       const createdApplication = await (await created).json();
 
       // Step 5: done, with the reference; the server agrees it is submitted.
-      // Phase 5: the done screen shows the public application reference
-      // (dddddd-dddddd-dddddd), not the internal application UUID.
+      // CERTNO-01: the done screen shows the public application reference
+      // (16 digits), not the internal application UUID.
       await stepHeading(page).getByText("Done", { exact: true }).waitFor();
       const reference = (await page.locator(".ax-flow-reference").textContent())!.trim();
-      assert.match(reference, /^\d{6}-\d{6}-\d{6}$/);
+      assert.match(reference, /^\d{16}$/);
       assert.equal(reference, createdApplication.reference);
       const stored = await page.evaluate(
         async (id) => (await (await fetch(`/api/v1/applications/${id}`)).json()).application.state,

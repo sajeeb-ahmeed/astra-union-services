@@ -33,6 +33,7 @@ import { paymentsRouter, publicPaymentsRouter } from "./payments.js";
 import {
   attachmentsRouter,
   attachmentScannerRouter,
+  decodeUpload,
   validateAttachmentReferences,
 } from "./attachments.js";
 import { mfaRouter, publicMfaRouter, passwordLogin, sendLogin } from "./mfa.js";
@@ -48,13 +49,13 @@ import {
 } from "./citizen-data.js";
 import {
   applicationReferenceExists,
-  citizenNidForReference,
   citizenReferenceExists,
-  isoDate,
   mintReference,
   parseReferenceInput,
   referenceDigits,
 } from "./references.js";
+import { dhakaDateStamp } from "./dhaka.js";
+import { randomEightDigits } from "./references.js";
 import { pointsRouter } from "./points.js";
 import { billingRouter, brandingRouter, settleApplicationFee } from "./billing.js";
 import {
@@ -627,11 +628,23 @@ app.get(
       .trim()
       .replace(/[০-৯]/g, (d) => String("০১২৩৪৫৬৭৮৯".indexOf(d)))
       .toUpperCase();
-    if (!/^[A-Z0-9][A-Z0-9-]{3,79}$/.test(number))
+    if (!/^[A-Z0-9][A-Z0-9 -]{3,79}$/.test(number))
       fail(404, "NOT_FOUND", "Verification record not found.");
-    const record = (
-      await pool.query("SELECT * FROM public_verify_by_number($1)", [number])
-    ).rows[0];
+    // CERTNO-01: the printed 16-digit number may be typed plain, grouped with
+    // spaces/hyphens, or in Bengali digits (folded above). Try the exact form
+    // first (legacy numbers keep their hyphens), then the plain-digit form.
+    const candidates = [number];
+    const digitsOnly = number.replace(/\D/g, "");
+    if (digitsOnly.length === 16) {
+      candidates.push(digitsOnly, `DEMO-${digitsOnly}`);
+    }
+    let record: any;
+    for (const candidate of candidates) {
+      record = (
+        await pool.query("SELECT * FROM public_verify_by_number($1)", [candidate])
+      ).rows[0];
+      if (record) break;
+    }
     if (!record) fail(404, "NOT_FOUND", "Verification record not found.");
     res.json(camelRow(record));
   }),
@@ -943,6 +956,75 @@ app.put(
     res.json(item);
   }),
 );
+/**
+ * CERTNO-01: the citizen's optional photo, stored on the citizen record
+ * (migration 051) and printed on certificates only when present. The upload is
+ * validated by the attachments pipeline's decoder (magic bytes + 2 MiB cap),
+ * restricted to PNG/JPEG like the office certificate assets.
+ */
+app.put(
+  "/api/v1/citizens/:id/photo",
+  wrap(async (req, res) => {
+    const a = roles(req, ["staff", "admin", "citizen"]);
+    const id = uuid.parse(req.params.id);
+    const input = z
+      .object({
+        mimeType: z.enum(["image/png", "image/jpeg"]),
+        base64: z.string().min(1).max(3_000_000),
+      })
+      .strict()
+      .parse(req.body);
+    const bytes = decodeUpload(input);
+    const item = await transaction(tenant(req), async (db) => {
+      await reachableCitizen(db, a, id, "id");
+      const row = (
+        await db.query(
+          "UPDATE citizens SET photo=$3,photo_mime=$4,photo_updated_at=now() WHERE tenant_id=$1 AND id=$2 RETURNING *",
+          [a.tenantId, id, bytes, input.mimeType],
+        )
+      ).rows[0];
+      await audit(db, a.tenantId!, a.userId, "CITIZEN_PHOTO_UPDATED", id, {
+        mimeType: input.mimeType,
+        bytes: bytes.length,
+      });
+      return citizenRow(row);
+    });
+    res.json(item);
+  }),
+);
+app.delete(
+  "/api/v1/citizens/:id/photo",
+  wrap(async (req, res) => {
+    const a = roles(req, ["staff", "admin", "citizen"]);
+    const id = uuid.parse(req.params.id);
+    const item = await transaction(tenant(req), async (db) => {
+      await reachableCitizen(db, a, id, "id");
+      const row = (
+        await db.query(
+          "UPDATE citizens SET photo=NULL,photo_mime=NULL,photo_updated_at=NULL WHERE tenant_id=$1 AND id=$2 RETURNING *",
+          [a.tenantId, id],
+        )
+      ).rows[0];
+      await audit(db, a.tenantId!, a.userId, "CITIZEN_PHOTO_REMOVED", id, {});
+      return citizenRow(row);
+    });
+    res.json(item);
+  }),
+);
+app.get(
+  "/api/v1/citizens/:id/photo/image",
+  wrap(async (req, res) => {
+    const a = roles(req, [...staffRead, "citizen"]);
+    const id = uuid.parse(req.params.id);
+    const photo = await transaction(tenant(req), async (db) => {
+      const r = await reachableCitizen(db, a, id, "photo,photo_mime");
+      if (!r.photo) fail(404, "NOT_FOUND", "This citizen has no photo.");
+      return r;
+    });
+    res.setHeader("Cache-Control", "no-store");
+    res.type(photo.photo_mime).send(Buffer.from(photo.photo));
+  }),
+);
 app.get(
   "/api/v1/citizens/:id/identity",
   wrap(async (req, res) => {
@@ -1043,24 +1125,13 @@ app.post(
           .rowCount
       )
         fail(409, "PROFILE_EXISTS", "This account already has a profile.");
-      // Phase 5 (5C): a citizen created without an explicit reference gets the new 18-digit
-      // public reference (segments derived from the DOB and, when supplied with the request,
-      // the NID — otherwise the citizen id fallback). Caller-supplied REF-… references and all
-      // previously issued references are unchanged. The id is generated here so it can feed
-      // the fallback segment before the row exists.
+      // CERTNO-01: a citizen created without an explicit reference gets the new 16-digit
+      // public reference (Asia/Dhaka registration date + 8 random digits, uniqueness-checked).
+      // Caller-supplied REF-… references and all previously issued references are unchanged.
       const citizenId = randomUUID();
       const syntheticReference =
         data.syntheticReference ??
-        (await mintReference(
-          {
-            dateOfBirth: data.dateOfBirth,
-            nid: data.details?.nid
-              ? normalizeIdentifier("nid", data.details.nid)
-              : null,
-            citizenId,
-          },
-          citizenReferenceExists(db, a.tenantId!),
-        ));
+        (await mintReference(citizenReferenceExists(db, a.tenantId!)));
       const r = (
         await db.query(
           "INSERT INTO citizens(id,tenant_id,user_id,full_name_bn,full_name_en,date_of_birth,address_bn,address_en,synthetic_reference,division_code,district_code,upazila_code,union_code,ward_code,present_same_as_permanent,present_address_bn,present_address_en,present_division_code,present_district_code,present_upazila_code,present_union_code,present_ward_code) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22) RETURNING *",
@@ -1279,18 +1350,11 @@ app.post(
         data.order,
         data.payload,
       );
-      // Phase 5 (5C): every new application carries the public 18-digit reference, derived
-      // from the citizen (DOB + NID when on file, else the citizen-id fallback). The UUID id
-      // remains the internal key; previously created applications keep reference NULL and
-      // stay reachable by UUID.
-      const reference = await mintReference(
-        {
-          dateOfBirth: isoDate(citizen.date_of_birth),
-          nid: citizenNidForReference(citizen, a.tenantId!),
-          citizenId: citizen.id,
-        },
-        applicationReferenceExists(db),
-      );
+      // CERTNO-01: every new application carries the public 16-digit reference
+      // (Asia/Dhaka submission date + 8 random digits, uniqueness-checked). The UUID id
+      // remains the internal key; previously created applications keep their reference
+      // (or NULL) and stay reachable by UUID.
+      const reference = await mintReference(applicationReferenceExists(db));
       const r = (
         await db.query(
           "INSERT INTO applications(tenant_id,citizen_id,service_no,schema_version,schema_hash,created_by,order_mode,reference) VALUES($1,$2,$3,$6,$4,$5,$7,$8) RETURNING *",
@@ -1559,22 +1623,9 @@ app.post(
             [parent.service_no, schemaVersion],
           )
         ).rows[0];
-        // Phase 5 (5C): a renewal is a new application and gets its own public reference,
-        // derived from the same citizen (segments 1–2 match the parent's derivation).
-        const renewalCitizen = (
-          await db.query("SELECT * FROM citizens WHERE id=$1 AND tenant_id=$2", [
-            parent.citizen_id,
-            a.tenantId,
-          ])
-        ).rows[0];
-        const renewalReference = await mintReference(
-          {
-            dateOfBirth: isoDate(renewalCitizen.date_of_birth),
-            nid: citizenNidForReference(renewalCitizen, a.tenantId!),
-            citizenId: renewalCitizen.id,
-          },
-          applicationReferenceExists(db),
-        );
+        // CERTNO-01: a renewal is a new application and gets its own fresh 16-digit
+        // public reference (Asia/Dhaka submission date + 8 random digits).
+        const renewalReference = await mintReference(applicationReferenceExists(db));
         const child = (
           await db.query(
             "INSERT INTO applications(tenant_id,citizen_id,service_no,schema_version,schema_hash,created_by,order_mode,reference) VALUES($1,$2,$3,$6,$4,$5,$7,$8) RETURNING *",
@@ -1807,6 +1858,13 @@ async function prepareIssuance(
       // signature) resolved inside this tenant transaction; Template v7
       // prefers it over the legacy filesystem drop-ins.
       assets: await resolveCertificateAssets(db, a.tenantId!),
+      // CERTNO-01: the citizen's optional photo (migration 051), as a data URL
+      // for the templates. NULL photo → null here → the templates print
+      // nothing at all in the photo position.
+      citizenPhoto:
+        citizen.photo && citizen.photo_mime
+          ? `data:${citizen.photo_mime};base64,${Buffer.from(citizen.photo).toString("base64")}`
+          : null,
     };
     return {
       r,
@@ -1851,6 +1909,7 @@ async function finalizeIssuance(
     number: string;
     verificationUrl: string;
     pdf: Buffer;
+    pdfEn: Buffer;
   },
   opts: {
     states: string[];
@@ -1896,7 +1955,7 @@ async function finalizeIssuance(
       if (!config) fail(422, "SERVICE_DISABLED", "Service is disabled.");
       const c = (
         await db.query(
-          "INSERT INTO certificates(id,tenant_id,application_id,number,service_no,token_hash,pdf,issued_by,template_version) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING *",
+          "INSERT INTO certificates(id,tenant_id,application_id,number,service_no,token_hash,pdf,pdf_en,issued_by,template_version) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING *",
           [
             meta.certId,
             a.tenantId,
@@ -1905,6 +1964,7 @@ async function finalizeIssuance(
             r.service_no,
             digest(meta.token),
             meta.pdf,
+            meta.pdfEn,
             a.userId,
             DEMO_TEMPLATE_VERSION,
           ],
@@ -1964,11 +2024,111 @@ async function recordApprovalOnGate(a: Auth, id: string) {
  * carries no demo wording of any kind) the number is the plain year + the
  * unguessable certificate fragment, as printed on Template v7 documents.
  */
-function newCertificateNumber(certId: string): string {
-  const fragment = certId.slice(0, 18).toUpperCase();
-  return process.env.ISSUANCE_MODE === "official"
-    ? `${new Date().getFullYear()}-${fragment}`
-    : `DEMO-${new Date().getFullYear()}-${fragment}`;
+/**
+ * CERTNO-01: the certificate number is 16 digits — the Asia/Dhaka issue date
+ * (YYYYMMDD) followed by 8 random digits — stored as 16 consecutive digits.
+ * Uniqueness is enforced by certificates_number_key; issuance retries with a
+ * fresh number when the insert reports a collision (see issueWithFreshNumber).
+ * Test/demo mode keeps the DEMO- marker so a sandbox document can never be
+ * mistaken for an official one. Existing records keep their numbers — nothing
+ * renumbers.
+ */
+function newCertificateNumber(): string {
+  const digits = `${dhakaDateStamp()}${randomEightDigits()}`;
+  return process.env.ISSUANCE_MODE === "official" ? digits : `DEMO-${digits}`;
+}
+
+/**
+ * CERTNO-01 bilingual issuance: ONE issuance, ONE number, ONE QR — the Bangla
+ * render is stored in certificates.pdf and the English render in
+ * certificates.pdf_en. The payload's own delivery_language is overridden per
+ * render so both languages are always produced.
+ */
+async function renderCertificatePair(
+  prepared: any,
+  number: string,
+  verificationUrl: string,
+) {
+  const base = {
+    number,
+    verificationUrl,
+    tenant: prepared.tenant,
+    service: prepared.service,
+    citizen: prepared.citizen,
+    schema: prepared.schema,
+    geographyNames: prepared.geographyNames,
+    renewalNumber: prepared.renewal,
+    ...prepared.pdfExtras,
+  };
+  const pdf = await generatePdf({
+    ...base,
+    payload: { ...prepared.payload, delivery_language: "bn" },
+  });
+  const pdfEn = await generatePdf({
+    ...base,
+    payload: { ...prepared.payload, delivery_language: "en" },
+  });
+  return { pdf, pdfEn };
+}
+
+/**
+ * Run `fn` until it succeeds, retrying ONLY a certificate-number collision
+ * (PostgreSQL 23505 on certificates_number_key). Exported for the CERTNO-01
+ * collision test, which drives it with synthetic 23505 failures.
+ */
+export async function retryOnCertificateNumberCollision<T>(
+  fn: (attempt: number) => Promise<T>,
+  maxAttempts = 5,
+): Promise<T> {
+  for (let attempt = 0; ; attempt++) {
+    try {
+      return await fn(attempt);
+    } catch (error: any) {
+      if (
+        error?.code === "23505" &&
+        error?.constraint === "certificates_number_key" &&
+        attempt < maxAttempts - 1
+      )
+        continue;
+      throw error;
+    }
+  }
+}
+
+/**
+ * Mint a number, render both languages and finalise; on a number collision
+ * regenerate the number and re-render — the number is printed on the
+ * document, so a retry must render again. Any other failure propagates.
+ */
+async function issueWithFreshNumber(
+  a: Auth,
+  id: string,
+  prepared: any,
+  opts: {
+    states: string[];
+    stateMessage: string;
+    recordApproval: boolean;
+    testFailure?: string | null;
+  },
+) {
+  const certId = randomUUID(),
+    token = randomToken();
+  const verificationUrl = `${publicOrigin}/verify/${token}`;
+  return retryOnCertificateNumberCollision(async () => {
+    const number = newCertificateNumber();
+    const { pdf, pdfEn } = await renderCertificatePair(
+      prepared,
+      number,
+      verificationUrl,
+    );
+    const certificate = await finalizeIssuance(
+      a,
+      id,
+      { certId, token, number, verificationUrl, pdf, pdfEn },
+      opts,
+    );
+    return { certificate, number };
+  });
 }
 async function approveAndIssue(req: Req, a: Auth, id: string) {
   try {
@@ -1985,33 +2145,12 @@ async function approveAndIssue(req: Req, a: Auth, id: string) {
       return { ...application, certificate: certificateRow(prepared.existing) };
     }
     assertProfileComplete(prepared);
-    const certId = randomUUID(),
-      token = randomToken(),
-      number = newCertificateNumber(certId);
-    const verificationUrl = `${publicOrigin}/verify/${token}`;
-    const pdf = await generatePdf({
-      number,
-      verificationUrl,
-      tenant: prepared.tenant,
-      service: prepared.service,
-      citizen: prepared.citizen,
-      payload: prepared.payload,
-      schema: prepared.schema,
-      geographyNames: prepared.geographyNames,
-      renewalNumber: prepared.renewal,
-      ...prepared.pdfExtras,
+    const { certificate, number } = await issueWithFreshNumber(a, id, prepared, {
+      states: APPROVE_STATES,
+      stateMessage: "Approval requires a submitted application.",
+      recordApproval: true,
+      testFailure: req.header("X-Test-Failure"),
     });
-    const certificate = await finalizeIssuance(
-      a,
-      id,
-      { certId, token, number, verificationUrl, pdf },
-      {
-        states: APPROVE_STATES,
-        stateMessage: "Approval requires a submitted application.",
-        recordApproval: true,
-        testFailure: req.header("X-Test-Failure"),
-      },
-    );
     const application = await transaction(a.tenantId!, async (db) =>
       camelRow(await loadApplication(db, id, a)),
     );
@@ -2211,26 +2350,10 @@ app.post(
       return;
     }
     assertProfileComplete(prepared);
-    const certId = randomUUID(),
-      token = randomToken(),
-      number = newCertificateNumber(certId);
-    const verificationUrl = `${publicOrigin}/verify/${token}`;
-    const pdf = await generatePdf({
-      number,
-      verificationUrl,
-      tenant: prepared.tenant,
-      service: prepared.service,
-      citizen: prepared.citizen,
-      payload: prepared.payload,
-      schema: prepared.schema,
-      geographyNames: prepared.geographyNames,
-      renewalNumber: prepared.renewal,
-      ...prepared.pdfExtras,
-    });
-    const result = await finalizeIssuance(
+    const { certificate: result, number } = await issueWithFreshNumber(
       a,
       id,
-      { certId, token, number, verificationUrl, pdf },
+      prepared,
       {
         states: ["APPROVED"],
         stateMessage: "Current payload requires final approval.",
@@ -2260,15 +2383,40 @@ app.get(
       ).rows[0];
       if (!c) fail(404, "NOT_FOUND", "Certificate not found.");
       await loadApplication(db, c.application_id, a);
-      return c;
+      // CERTNO-01: the default download keeps the established behaviour —
+      // the language the citizen ordered (the order snapshot's
+      // certificate_language), Bangla when there is no snapshot.
+      const snapshot = (
+        await db.query(
+          "SELECT certificate_language FROM application_order_snapshots WHERE application_id=$1",
+          [c.application_id],
+        )
+      ).rows[0];
+      return { ...c, orderedLanguage: snapshot?.certificate_language ?? null };
     });
+    // CERTNO-01: both language versions are stored at issuance (pdf = Bangla,
+    // pdf_en = English, one number). ?lang=bn / ?lang=en picks a version
+    // explicitly; without it, the ordered language is served. Certificates
+    // issued before bilingual storage have no second render — an explicit
+    // request for it answers LANGUAGE_VERSION_UNAVAILABLE instead of
+    // fabricating one, and the default keeps serving the stored document.
+    const lang = String(req.query.lang ?? "").toLowerCase();
+    if (lang && lang !== "bn" && lang !== "en")
+      fail(400, "INPUT_INVALID", "Language must be bn or en.");
+    if (lang === "en" && !cert.pdf_en)
+      fail(
+        404,
+        "LANGUAGE_VERSION_UNAVAILABLE",
+        "This certificate was issued before bilingual storage; no English version exists.",
+      );
+    const english = lang ? lang === "en" : cert.orderedLanguage === "en" && !!cert.pdf_en;
     res
       .type("application/pdf")
       .setHeader(
         "Content-Disposition",
-        `inline; filename="${cert.number}.pdf"`,
+        `inline; filename="${cert.number}${english ? "-en" : ""}.pdf"`,
       );
-    res.send(cert.pdf);
+    res.send(english ? cert.pdf_en : cert.pdf);
   }),
 );
 app.post(

@@ -552,13 +552,14 @@ test(
         .getByLabel("Search within your tenant", { exact: true })
         .fill(citizen.syntheticReference);
       await page.getByText(citizen.id.slice(0, 8), { exact: true }).waitFor();
-      // Phase 5: server-generated citizen references use the public format
-      // (dddddd-dddddd-dddddd), not the old REF-<uuid>.
-      assert.match(citizen.syntheticReference, /^\d{6}-\d{6}-\d{6}$/);
+      // Phase 5: server-generated citizen references used the public format
+      // (dddddd-dddddd-dddddd), not the old REF-<uuid>. CERTNO-01: references
+      // are now a plain 16-digit number (Dhaka date + 8 random digits).
+      assert.match(citizen.syntheticReference, /^\d{16}$/);
       assert.equal(response.request().postDataJSON().geography.unionCode, union.code);
       const session = await (await context.request.get(`${origin}/api/v1/auth/me`)).json();
-      // Duplicate identity keys are rejected. Phase 5: server-generated references use the
-      // new 18-digit format, which callers cannot supply (the schema accepts only REF-…),
+      // Duplicate identity keys are rejected. Server-generated references use the
+      // CERTNO-01 16-digit format, which callers cannot supply (the schema accepts only REF-…),
       // so the duplicate check uses an explicit reference, as API clients do.
       const explicit = {
         ...response.request().postDataJSON(),

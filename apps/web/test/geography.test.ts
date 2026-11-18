@@ -256,9 +256,9 @@ test("geography browser: mobile registration stores selected geography and serve
     assert.equal(citizens.status(), 200);
     const ownCitizen = (await citizens.json()).items.find((citizen: any) => citizen.nameEn === fields.nameEn);
     assert.ok(ownCitizen);
-    // Phase 5: server-generated citizen references use the public format
-    // (dddddd-dddddd-dddddd), not the old REF-<uuid>.
-    assert.match(ownCitizen.syntheticReference, /^\d{6}-\d{6}-\d{6}$/);
+    // CERTNO-01: server-generated citizen references use the 16-digit public
+    // format (Dhaka date + 8 random digits), not the old REF-<uuid>.
+    assert.match(ownCitizen.syntheticReference, /^\d{16}$/);
     await page.request.post(`${origin}/api/v1/auth/logout`, { data: {}, headers: { "X-CSRF-Token": session.csrfToken } });
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), true);
     await page.screenshot({ path: "execution/screenshots/geography-registration-complete.png", fullPage: true });

@@ -667,6 +667,16 @@ export function WorkspaceApp({
           >
             {t("Download PDF ")}
           </a>
+          {cert.pdfUrlEn ? (
+            <a
+              className="button secondary"
+              href={cert.pdfUrlEn}
+              target="_blank"
+              rel="noreferrer"
+            >
+              {t("Download PDF (English)")}
+            </a>
+          ) : null}
           {cert.verificationUrl ? (
             <a
               className="button secondary"

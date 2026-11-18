@@ -88,6 +88,12 @@ export interface PdfInput {
     seal?: string | null;
     signature?: string | null;
   };
+  /**
+   * CERTNO-01: the citizen's photo as a data URL, or null/absent when the
+   * citizen has none. Templates print it top-right only when present; when
+   * absent nothing at all renders in the photo position.
+   */
+  citizenPhoto?: string | null;
 }
 const escape = (value: unknown) =>
   String(value ?? "").replace(

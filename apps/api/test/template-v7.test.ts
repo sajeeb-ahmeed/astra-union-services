@@ -188,7 +188,7 @@ test("v7 trade licence (BN): Bangla labels, digits and total", () => {
   assert.ok(!/prottoyon/i.test(html));
 });
 
-test("v7 modes: demo shows neither emblem nor seal; official shows both; neither carries DEMO branding or disclaimer lines", () => {
+test("v7 modes: demo shows no emblem; official shows the emblem header + emblem watermark and no seal (CERTNO-01)", () => {
   const input: Partial<PdfInput> = {
     number: "DEMO-2026-ABC123",
     service: { service_no: 12, name_bn: "নাগরিকত্ব সনদ", name_en: "Citizenship certificate" },
@@ -199,13 +199,17 @@ test("v7 modes: demo shows neither emblem nor seal; official shows both; neither
   const demo = render(input);
   assert.ok(!demo.includes("DEMO / NOT OFFICIAL"));
   assert.ok(!demo.includes('class="emblem"'), "no emblem in demo mode");
-  assert.ok(!demo.includes('class="seal-wm"'), "no seal watermark in demo mode");
+  assert.ok(!demo.includes('class="emblem-wm"'), "no emblem watermark in demo mode");
+  assert.ok(!demo.includes("seal-wm"), "no seal watermark in demo mode");
   assert.ok(!demo.includes("এই নথি আইনগত পরিচয় বা সরকারি অনুমোদনের প্রমাণ নয়।"));
   process.env.ISSUANCE_MODE = "official";
   try {
     const official = render(input);
     assert.ok(official.includes('class="emblem"'), "government emblem in the official header");
-    assert.ok(official.includes('class="seal-wm"'), "office seal watermark in official mode");
+    // CERTNO-01: centre watermark = the government emblem; the office seal
+    // is not printed anywhere (supersedes the CERTASSETS-01 seal watermark).
+    assert.ok(official.includes('class="emblem-wm"'), "government emblem watermark in official mode");
+    assert.ok(!official.includes("seal-wm"), "no seal watermark in official mode");
     assert.ok(!official.includes("DEMO / NOT OFFICIAL"));
     assert.ok(!official.includes('class="draft-wm"'));
     // Owner instruction (16 Nov 2026): production output carries NO demo
@@ -280,7 +284,9 @@ test("v7 attestation fixes (owner review 17 Nov): income fallbacks, remarriage w
     payload: { delivery_language: "en", income_info_amount: 240000 },
     schema: getServiceSchema(23),
   });
-  assert.ok(annualWithAmount.includes("Annual income is BDT 2,40,000."));
+  // CERTNO-01: with an amount and no applicant-supplied words, the words are
+  // generated — figures AND words always print together.
+  assert.ok(annualWithAmount.includes("Annual income is BDT 2,40,000 (in words: Two Lakh Forty Thousand)."));
   assert.ok(!annualWithAmount.includes("as stated in the application"));
 
   // Service 29 (monthly income) without an amount: fallback sentence, never empty.
@@ -537,7 +543,17 @@ test("official mode issues production numbers with no DEMO- prefix", async () =>
     assert.equal(approved.status, 200, JSON.stringify(approved.body));
     const number = approved.body.certificate.number as string;
     assert.ok(!/demo/i.test(number), `production number carries no demo wording: ${number}`);
-    assert.match(number, /^\d{4}-[A-Z0-9-]{18}$/);
+    // CERTNO-01: 16 consecutive digits, prefixed with the Asia/Dhaka issue date.
+    assert.match(number, /^\d{16}$/);
+    const dhakaToday = new Intl.DateTimeFormat("en-CA", {
+      timeZone: "Asia/Dhaka",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    })
+      .format(new Date())
+      .replace(/-/g, "");
+    assert.equal(number.slice(0, 8), dhakaToday);
     const byNumber = await req("GET", `/verify/by-number/${encodeURIComponent(number)}`);
     assert.equal(byNumber.status, 200, JSON.stringify(byNumber.body));
     assert.equal(byNumber.body.status, "ISSUED");

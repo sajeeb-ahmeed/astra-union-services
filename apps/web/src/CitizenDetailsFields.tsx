@@ -191,6 +191,105 @@ export function CitizenDetailsFields({
   );
 }
 
+/**
+ * CERTNO-01: the citizen's optional photo. It prints on certificates only
+ * when present; removing it leaves no trace on the document. Uploads are
+ * PNG/JPEG, validated again server-side by the attachments pipeline.
+ */
+export function CitizenPhoto({
+  citizen,
+  canEdit = true,
+  onChanged,
+}: {
+  citizen: any;
+  canEdit?: boolean;
+  onChanged: (citizen: any) => void;
+}) {
+  useLanguage();
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const [stamp, setStamp] = useState(0);
+  async function upload(file: File) {
+    setBusy(true);
+    setError("");
+    try {
+      const dataUrl = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(String(reader.result));
+        reader.onerror = () => reject(new Error("Could not read the file."));
+        reader.readAsDataURL(file);
+      });
+      const match = /^data:([^;,]+);base64,(.+)$/.exec(dataUrl);
+      if (!match) throw new Error("Could not read the file.");
+      const updated = await api(`/citizens/${citizen.id}/photo`, "PUT", {
+        mimeType: match[1],
+        base64: match[2],
+      });
+      setStamp((s) => s + 1);
+      onChanged(updated);
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+  async function remove() {
+    setBusy(true);
+    setError("");
+    try {
+      const updated = await api(`/citizens/${citizen.id}/photo`, "DELETE");
+      setStamp((s) => s + 1);
+      onChanged(updated);
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+  return (
+    <div className="citizen-photo-control">
+      <h3>{t("ছবি / Photo")}</h3>
+      {citizen.hasPhoto ? (
+        <img
+          src={`/api/v1/citizens/${citizen.id}/photo/image?v=${stamp}`}
+          alt={t("নাগরিকের ছবি / Citizen photo")}
+          style={{ width: 76, height: 96, objectFit: "cover" }}
+        />
+      ) : (
+        <p className="hint">{t("কোনো ছবি নেই — সনদে ছবির জায়গায় কিছুই ছাপা হবে না / No photo — nothing prints in the photo position on certificates.")}</p>
+      )}
+      {canEdit && (
+        <div className="actions">
+          <label className="button secondary">
+            {t(citizen.hasPhoto ? "ছবি বদলান / Replace photo" : "ছবি আপলোড / Upload photo")}
+            <input
+              type="file"
+              accept="image/png,image/jpeg"
+              hidden
+              disabled={busy}
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) void upload(file);
+                e.target.value = "";
+              }}
+            />
+          </label>
+          {citizen.hasPhoto && (
+            <button type="button" className="secondary" disabled={busy} onClick={() => void remove()}>
+              {t("ছবি মুছুন / Remove photo")}
+            </button>
+          )}
+        </div>
+      )}
+      {error && (
+        <div className="error" role="alert">
+          {error}
+        </div>
+      )}
+    </div>
+  );
+}
+
 /** Edit an existing citizen's details, with an audited reveal of the full numbers. */
 export function CitizenDetailsEditor({
   citizen,
@@ -263,6 +362,7 @@ export function CitizenDetailsEditor({
         <p className="hint">{t("Viewing full numbers is recorded in the audit log.")}</p>
       )}
       <IdentityDocument citizen={citizen} canEdit={canEdit} onChanged={onSaved} />
+      <CitizenPhoto citizen={citizen} canEdit={canEdit} onChanged={onSaved} />
       {canEdit && (
         <form
           onSubmit={(e) => {
