@@ -11,7 +11,7 @@
     {
       "service_no": 1,
       "name_bn": "হোল্ডিং ট্যাক্স",
-      "name_en": "Holding tax",
+      "name_en": "Collection Receipt (Holding Tax)",
       "category_en": "Property and local taxation",
       "initial_form_path_pattern": "/portal/udcUser/application/create/{user_track_id}/{certificate_id}",
       "initial_form_family": "common_order_payment",
@@ -332,7 +332,7 @@
     {
       "service_no": 2,
       "name_bn": "পারিবারিক সনদ",
-      "name_en": "Family certificate",
+      "name_en": "Family Certificate",
       "category_en": "Family and civil status",
       "initial_form_path_pattern": "/portal/udcUser/application/additional-information/create/{user_track_id}/{certificate_id}",
       "initial_form_family": "specialist_additional_information",
@@ -594,7 +594,7 @@
     {
       "service_no": 3,
       "name_bn": "ওয়ারিশ সনদ",
-      "name_en": "Legal heirs certificate",
+      "name_en": "Legal Heirs Certificate",
       "category_en": "Family and civil status",
       "initial_form_path_pattern": "/portal/udcUser/application/additional-information/create/{user_track_id}/{certificate_id}",
       "initial_form_family": "specialist_additional_information",
@@ -894,7 +894,7 @@
     {
       "service_no": 4,
       "name_bn": "উত্তরাধিকার সনদ",
-      "name_en": "Succession certificate",
+      "name_en": "Succession Certificate",
       "category_en": "Family and civil status",
       "initial_form_path_pattern": "/portal/udcUser/application/additional-information/create/{user_track_id}/{certificate_id}",
       "initial_form_family": "specialist_additional_information",
@@ -1244,7 +1244,7 @@
     {
       "service_no": 5,
       "name_bn": "ক্ষমতা অর্পণ প্রত্যয়ন",
-      "name_en": "Delegation of authority attestation",
+      "name_en": "Delegation of Authority Attestation",
       "category_en": "Consent and authorization",
       "initial_form_path_pattern": "/portal/udcUser/application/additional-information/create/{user_track_id}/{certificate_id}",
       "initial_form_family": "specialist_additional_information",
@@ -1467,7 +1467,7 @@
     {
       "service_no": 6,
       "name_bn": "নতুন বিদ্যুৎ সংযোগের প্রত্যয়ন",
-      "name_en": "New electricity connection attestation",
+      "name_en": "New Electricity Connection Attestation",
       "category_en": "Utilities",
       "initial_form_path_pattern": "/portal/udcUser/application/additional-information/create/{user_track_id}/{certificate_id}",
       "initial_form_family": "specialist_additional_information",
@@ -1588,7 +1588,7 @@
     {
       "service_no": 7,
       "name_bn": "মৃত্যু প্রত্যয়ন",
-      "name_en": "Death attestation",
+      "name_en": "Death Certificate",
       "category_en": "Family and civil status",
       "initial_form_path_pattern": "/portal/udcUser/application/additional-information/create/{user_track_id}/{certificate_id}",
       "initial_form_family": "specialist_additional_information",
@@ -1859,7 +1859,7 @@
     {
       "service_no": 8,
       "name_bn": "রোহিঙ্গা নয় প্রত্যয়ন",
-      "name_en": "Non Rohingya attestation",
+      "name_en": "Non Rohingya Attestation",
       "category_en": "Identity and citizenship",
       "initial_form_path_pattern": "/portal/udcUser/application/additional-information/create/{user_track_id}/{certificate_id}",
       "initial_form_family": "specialist_additional_information",
@@ -2062,7 +2062,7 @@
     {
       "service_no": 9,
       "name_bn": "ভোটার তথ্য যাচাই-বাছাই প্রত্যয়ন",
-      "name_en": "Voter information verification attestation",
+      "name_en": "Voter Information Verification Attestation",
       "category_en": "Voter and identity records",
       "initial_form_path_pattern": "/portal/udcUser/application/additional-information/create/{user_track_id}/{certificate_id}",
       "initial_form_family": "specialist_additional_information",
@@ -2235,7 +2235,7 @@
     {
       "service_no": 10,
       "name_bn": "বেকারত্ব সনদ",
-      "name_en": "Unemployment certificate",
+      "name_en": "Unemployment Certificate",
       "category_en": "Occupation and economic status",
       "initial_form_path_pattern": "/portal/udcUser/application/create/{user_track_id}/{certificate_id}",
       "initial_form_family": "common_order_payment",
@@ -2556,7 +2556,7 @@
     {
       "service_no": 11,
       "name_bn": "জাতীয়তা সনদ",
-      "name_en": "Nationality certificate",
+      "name_en": "Nationality Certificate",
       "category_en": "Identity and citizenship",
       "initial_form_path_pattern": "/portal/udcUser/application/create/{user_track_id}/{certificate_id}",
       "initial_form_family": "common_order_payment",
@@ -2877,7 +2877,7 @@
     {
       "service_no": 12,
       "name_bn": "নাগরিকত্ব সনদ",
-      "name_en": "Citizenship certificate",
+      "name_en": "Citizenship Certificate",
       "category_en": "Identity and citizenship",
       "initial_form_path_pattern": "/portal/udcUser/application/create/{user_track_id}/{certificate_id}",
       "initial_form_family": "common_order_payment",
@@ -3198,7 +3198,7 @@
     {
       "service_no": 13,
       "name_bn": "পুনঃবিবাহ সনদ",
-      "name_en": "Remarriage certificate",
+      "name_en": "Remarriage Certificate",
       "category_en": "Family and civil status",
       "initial_form_path_pattern": "/portal/udcUser/application/create/{user_track_id}/{certificate_id}",
       "initial_form_family": "common_order_payment",
@@ -3541,7 +3541,7 @@
     {
       "service_no": 14,
       "name_bn": "ভূমিহীন সনদ",
-      "name_en": "Landless certificate",
+      "name_en": "Landless Certificate",
       "category_en": "Property and local taxation",
       "initial_form_path_pattern": "/portal/udcUser/application/create/{user_track_id}/{certificate_id}",
       "initial_form_family": "common_order_payment",
@@ -3862,7 +3862,7 @@
     {
       "service_no": 15,
       "name_bn": "নতুন ভোটার প্রত্যয়ন",
-      "name_en": "New voter attestation",
+      "name_en": "New Voter Attestation",
       "category_en": "Voter and identity records",
       "initial_form_path_pattern": "/portal/udcUser/application/create/{user_track_id}/{certificate_id}",
       "initial_form_family": "common_order_payment",
@@ -4183,7 +4183,7 @@
     {
       "service_no": 16,
       "name_bn": "বিধবা প্রত্যয়ন",
-      "name_en": "Widow attestation",
+      "name_en": "Widow Attestation",
       "category_en": "Family and civil status",
       "initial_form_path_pattern": "/portal/udcUser/application/create/{user_track_id}/{certificate_id}",
       "initial_form_family": "common_order_payment",
@@ -4504,7 +4504,7 @@
     {
       "service_no": 17,
       "name_bn": "পেশাগত সনদ",
-      "name_en": "Occupation certificate",
+      "name_en": "Occupation Certificate",
       "category_en": "Occupation and economic status",
       "initial_form_path_pattern": "/portal/udcUser/application/additional-information/create/{user_track_id}/{certificate_id}",
       "initial_form_family": "specialist_additional_information",
@@ -4585,7 +4585,7 @@
     {
       "service_no": 18,
       "name_bn": "সম্প্রদায় সনদ",
-      "name_en": "Community certificate",
+      "name_en": "Community Certificate",
       "category_en": "Community and social status",
       "initial_form_path_pattern": "/portal/udcUser/application/create/{user_track_id}/{certificate_id}",
       "initial_form_family": "common_order_payment",
@@ -4918,7 +4918,7 @@
     {
       "service_no": 19,
       "name_bn": "অভিভাবক সম্মতি সনদ",
-      "name_en": "Guardian consent certificate",
+      "name_en": "Guardian Consent Certificate",
       "category_en": "Consent and authorization",
       "initial_form_path_pattern": "/portal/udcUser/application/additional-information/create/{user_track_id}/{certificate_id}",
       "initial_form_family": "specialist_additional_information",
@@ -5010,7 +5010,7 @@
     {
       "service_no": 20,
       "name_bn": "মুক্তিযোদ্ধা প্রত্যয়ন",
-      "name_en": "Freedom fighter attestation",
+      "name_en": "Freedom Fighter Attestation",
       "category_en": "Community and social status",
       "initial_form_path_pattern": "/portal/udcUser/application/additional-information/create/{user_track_id}/{certificate_id}",
       "initial_form_family": "specialist_additional_information",
@@ -5191,7 +5191,7 @@
     {
       "service_no": 21,
       "name_bn": "কৃষি প্রত্যয়ন",
-      "name_en": "Agriculture attestation",
+      "name_en": "Agriculture Certificate",
       "category_en": "Occupation and economic status",
       "initial_form_path_pattern": "/portal/udcUser/application/create/{user_track_id}/{certificate_id}",
       "initial_form_family": "common_order_payment",
@@ -5512,7 +5512,7 @@
     {
       "service_no": 22,
       "name_bn": "অবিবাহিত সনদ",
-      "name_en": "Unmarried certificate",
+      "name_en": "Unmarried Certificate",
       "category_en": "Family and civil status",
       "initial_form_path_pattern": "/portal/udcUser/application/create/{user_track_id}/{certificate_id}",
       "initial_form_family": "common_order_payment",
@@ -5845,7 +5845,7 @@
     {
       "service_no": 23,
       "name_bn": "বার্ষিক আয়ের সনদ",
-      "name_en": "Annual income certificate",
+      "name_en": "Annual Income Certificate",
       "category_en": "Occupation and economic status",
       "initial_form_path_pattern": "/portal/udcUser/application/additional-information/create/{user_track_id}/{certificate_id}",
       "initial_form_family": "specialist_additional_information",
@@ -6015,7 +6015,7 @@
     {
       "service_no": 24,
       "name_bn": "এতিম সনদ",
-      "name_en": "Orphan certificate",
+      "name_en": "Orphan Certificate",
       "category_en": "Family and civil status",
       "initial_form_path_pattern": "/portal/udcUser/application/create/{user_track_id}/{certificate_id}",
       "initial_form_family": "common_order_payment",
@@ -6336,7 +6336,7 @@
     {
       "service_no": 25,
       "name_bn": "বিবাহিত প্রত্যয়ন",
-      "name_en": "Married attestation",
+      "name_en": "Married Attestation",
       "category_en": "Family and civil status",
       "initial_form_path_pattern": "/portal/udcUser/application/additional-information/create/{user_track_id}/{certificate_id}",
       "initial_form_family": "specialist_additional_information",
@@ -6468,7 +6468,7 @@
     {
       "service_no": 26,
       "name_bn": "যৌতুক বিহীন বিবাহ প্রত্যয়ন",
-      "name_en": "Dowry free marriage attestation",
+      "name_en": "Dowry Free Marriage Attestation",
       "category_en": "Family and civil status",
       "initial_form_path_pattern": "/portal/udcUser/application/additional-information/create/{user_track_id}/{certificate_id}",
       "initial_form_family": "specialist_additional_information",
@@ -6600,7 +6600,7 @@
     {
       "service_no": 27,
       "name_bn": "পাসপোর্ট প্রদানের প্রত্যয়ন",
-      "name_en": "Passport issuance attestation",
+      "name_en": "Passport Issuance Attestation",
       "category_en": "Identity and citizenship",
       "initial_form_path_pattern": "/portal/udcUser/application/create/{user_track_id}/{certificate_id}",
       "initial_form_family": "common_order_payment",
@@ -6921,7 +6921,7 @@
     {
       "service_no": 28,
       "name_bn": "জীবিত ব্যক্তির প্রত্যয়ন",
-      "name_en": "Living person attestation",
+      "name_en": "Living Person Attestation",
       "category_en": "Identity and citizenship",
       "initial_form_path_pattern": "/portal/udcUser/application/create/{user_track_id}/{certificate_id}",
       "initial_form_family": "common_order_payment",
@@ -7242,7 +7242,7 @@
     {
       "service_no": 29,
       "name_bn": "মাসিক আয়ের সনদ",
-      "name_en": "Monthly income certificate",
+      "name_en": "Monthly Income Certificate",
       "category_en": "Occupation and economic status",
       "initial_form_path_pattern": "/portal/udcUser/application/additional-information/create/{user_track_id}/{certificate_id}",
       "initial_form_family": "specialist_additional_information",
@@ -7412,7 +7412,7 @@
     {
       "service_no": 30,
       "name_bn": "আর্থিক স্বচ্ছলতার সনদ",
-      "name_en": "Financial solvency certificate",
+      "name_en": "Financial Solvency Certificate",
       "category_en": "Occupation and economic status",
       "initial_form_path_pattern": "/portal/udcUser/application/create/{user_track_id}/{certificate_id}",
       "initial_form_family": "common_order_payment",
@@ -7733,7 +7733,7 @@
     {
       "service_no": 31,
       "name_bn": "অবিবাহিত অবস্থায় মৃত্যু সনদ",
-      "name_en": "Death while unmarried certificate",
+      "name_en": "Death While Unmarried Certificate",
       "category_en": "Family and civil status",
       "initial_form_path_pattern": "/portal/udcUser/application/additional-information/create/{user_track_id}/{certificate_id}",
       "initial_form_family": "specialist_additional_information",
@@ -7984,7 +7984,7 @@
     {
       "service_no": 32,
       "name_bn": "আর্থিক অস্বচ্ছলতার সনদ",
-      "name_en": "Financial hardship certificate",
+      "name_en": "Financial Hardship Certificate",
       "category_en": "Occupation and economic status",
       "initial_form_path_pattern": "/portal/udcUser/application/create/{user_track_id}/{certificate_id}",
       "initial_form_family": "common_order_payment",
@@ -8305,7 +8305,7 @@
     {
       "service_no": 33,
       "name_bn": "জাতীয় পরিচয় তথ্য সংশোধন প্রত্যয়ন",
-      "name_en": "National identity information correction attestation",
+      "name_en": "National Identity Information Correction Attestation",
       "category_en": "Voter and identity records",
       "initial_form_path_pattern": "/portal/udcUser/application/additional-information/create/{user_track_id}/{certificate_id}",
       "initial_form_family": "specialist_additional_information",
@@ -8398,7 +8398,7 @@
     {
       "service_no": 34,
       "name_bn": "নিঃসন্তান প্রত্যয়ন",
-      "name_en": "Childless attestation",
+      "name_en": "Childless Attestation",
       "category_en": "Family and civil status",
       "initial_form_path_pattern": "/portal/udcUser/application/create/{user_track_id}/{certificate_id}",
       "initial_form_family": "common_order_payment",
@@ -8719,7 +8719,7 @@
     {
       "service_no": 35,
       "name_bn": "চারিত্রিক সনদ",
-      "name_en": "Character certificate",
+      "name_en": "Character Certificate",
       "category_en": "Identity and citizenship",
       "initial_form_path_pattern": "/portal/udcUser/application/create/{user_track_id}/{certificate_id}",
       "initial_form_family": "common_order_payment",
@@ -9071,7 +9071,7 @@
     {
       "service_no": 36,
       "name_bn": "অনাপত্তি সনদ",
-      "name_en": "No objection certificate",
+      "name_en": "No Objection Certificate",
       "category_en": "Consent and authorization",
       "initial_form_path_pattern": "/portal/udcUser/application/additional-information/create/{user_track_id}/{certificate_id}",
       "initial_form_family": "specialist_additional_information",
@@ -9466,7 +9466,7 @@
     {
       "service_no": 37,
       "name_bn": "ভোটার এলাকা স্থানান্তর প্রত্যয়ন",
-      "name_en": "Voter area transfer attestation",
+      "name_en": "Voter Area Transfer Attestation",
       "category_en": "Voter and identity records",
       "initial_form_path_pattern": "/portal/udcUser/application/create/{user_track_id}/{certificate_id}",
       "initial_form_family": "common_order_payment",
@@ -9799,7 +9799,7 @@
     {
       "service_no": 38,
       "name_bn": "প্রতিবন্ধী সনদ",
-      "name_en": "Disability certificate",
+      "name_en": "Disability Certificate",
       "category_en": "Community and social status",
       "initial_form_path_pattern": "/portal/udcUser/application/create/{user_track_id}/{certificate_id}",
       "initial_form_family": "common_order_payment",
@@ -10132,7 +10132,7 @@
     {
       "service_no": 39,
       "name_bn": "একই ব্যক্তির প্রত্যয়ন",
-      "name_en": "Same person attestation",
+      "name_en": "Same Person Attestation",
       "category_en": "Identity and citizenship",
       "initial_form_path_pattern": "/portal/udcUser/application/create/{user_track_id}/{certificate_id}",
       "initial_form_family": "common_order_payment",
@@ -10544,7 +10544,7 @@
     {
       "service_no": 40,
       "name_bn": "উপজাতি সনদ",
-      "name_en": "Indigenous community certificate",
+      "name_en": "Indigenous Community Certificate",
       "category_en": "Community and social status",
       "initial_form_path_pattern": "/portal/udcUser/application/create/{user_track_id}/{certificate_id}",
       "initial_form_family": "common_order_payment",
@@ -10865,7 +10865,7 @@
     {
       "service_no": 41,
       "name_bn": "প্রিমিসেস লাইসেন্স",
-      "name_en": "Premises license",
+      "name_en": "Premises Licence",
       "category_en": "Licensing",
       "initial_form_path_pattern": "/portal/udcUser/application/additional-information/create/{user_track_id}/{certificate_id}",
       "initial_form_family": "specialist_additional_information",
@@ -11118,7 +11118,7 @@
     {
       "service_no": 42,
       "name_bn": "ট্রেড লাইসেন্স",
-      "name_en": "Trade license",
+      "name_en": "Trade Licence",
       "category_en": "Licensing",
       "initial_form_path_pattern": "/portal/udcUser/application/additional-information/create/{user_track_id}/{certificate_id}",
       "initial_form_family": "specialist_additional_information",
@@ -11559,7 +11559,7 @@
     {
       "service_no": 43,
       "name_bn": "ভোটার তালিকা বাদ পড়ায় অন্তর্ভুক্তির প্রত্যয়ন",
-      "name_en": "Omitted voter inclusion attestation",
+      "name_en": "Omitted Voter Inclusion Attestation",
       "category_en": "Voter and identity records",
       "initial_form_path_pattern": "/portal/udcUser/application/create/{user_track_id}/{certificate_id}",
       "initial_form_family": "common_order_payment",
@@ -11880,7 +11880,7 @@
     {
       "service_no": 44,
       "name_bn": "পুনঃবিবাহ না হওয়ার প্রত্যয়ন",
-      "name_en": "Non remarriage attestation",
+      "name_en": "Non Remarriage Attestation",
       "category_en": "Family and civil status",
       "initial_form_path_pattern": "/portal/udcUser/application/create/{user_track_id}/{certificate_id}",
       "initial_form_family": "common_order_payment",
@@ -12201,7 +12201,7 @@
     {
       "service_no": 45,
       "name_bn": "স্থায়ী বাসিন্দা সনদ",
-      "name_en": "Permanent resident certificate",
+      "name_en": "Permanent Resident Certificate",
       "category_en": "Identity and citizenship",
       "initial_form_path_pattern": "/portal/udcUser/application/create/{user_track_id}/{certificate_id}",
       "initial_form_family": "common_order_payment",
@@ -12522,7 +12522,7 @@
     {
       "service_no": 46,
       "name_bn": "যানবাহন লাইসেন্স",
-      "name_en": "Vehicle license",
+      "name_en": "Vehicle Licence",
       "category_en": "Licensing",
       "initial_form_path_pattern": "/portal/udcUser/application/additional-information/create/{user_track_id}/{certificate_id}",
       "initial_form_family": "specialist_additional_information",
@@ -12775,7 +12775,7 @@
     {
       "service_no": 47,
       "name_bn": "বিবিধ সনদ",
-      "name_en": "Miscellaneous certificate",
+      "name_en": "Miscellaneous Certificate",
       "category_en": "Miscellaneous",
       "initial_form_path_pattern": "/portal/udcUser/application/create/{user_track_id}/{certificate_id}",
       "initial_form_family": "common_order_payment",

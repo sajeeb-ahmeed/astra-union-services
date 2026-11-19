@@ -78,18 +78,13 @@ function dhakaParts(when: Date) {
   const get = (type: string) => Number(parts.find((p) => p.type === type)?.value ?? 0);
   return { year: get("year"), month: get("month"), day: get("day"), hour: get("hour") % 24, minute: get("minute") };
 }
-/** Bangla ordinal day as printed on the samples: ১লা, ২রা, ৩রা, ৪ঠা, ৫ই…১৮ই, ১৯শে…৩১শে. */
-function bnOrdinal(day: number): string {
-  if (day === 1) return "১লা";
-  if (day === 2) return "২রা";
-  if (day === 3) return "৩রা";
-  if (day === 4) return "৪ঠা";
-  if (day <= 18) return `${bnDigits(day)}ই`;
-  return `${bnDigits(day)}শে`;
-}
+/**
+ * CERT-REFINE-01 (A5): long dates print WITHOUT the ordinal suffix — modern
+ * official usage is "১৮ নভেম্বর ২০২৬", not "১৮ই নভেম্বর ২০২৬".
+ */
 export function bnDate(when: Date): string {
   const p = dhakaParts(when);
-  return `${bnOrdinal(p.day)} ${BN_MONTHS[p.month - 1]} ${bnDigits(p.year)}`;
+  return `${bnDigits(p.day)} ${BN_MONTHS[p.month - 1]} ${bnDigits(p.year)}`;
 }
 export function bnDateIso(iso: unknown): string {
   const raw = text(iso);
@@ -111,6 +106,77 @@ export function enDateIso(iso: unknown): string {
   const parsed = new Date(`${raw.slice(0, 10)}T00:00:00+06:00`);
   return Number.isNaN(parsed.getTime()) ? raw : enDateLong(parsed);
 }
+/** CERT-REFINE-01 (A5): table dates print DD/MM/YYYY in both languages. */
+export function bnDateSlash(iso: unknown): string {
+  const raw = text(iso);
+  const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(raw);
+  return match ? bnDigits(`${match[3]}/${match[2]}/${match[1]}`) : bnDigits(raw);
+}
+export function enDateSlash(iso: unknown): string {
+  const raw = text(iso);
+  const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(raw);
+  return match ? `${match[3]}/${match[2]}/${match[1]}` : raw;
+}
+/**
+ * CERT-REFINE-01 (A9): a free-text value is inserted into a sentence that
+ * appends its own punctuation — strip any trailing danda/full stop the
+ * applicant typed so the document never prints "।।" or "..".
+ */
+export const cleanText = (value: unknown) =>
+  text(value).replace(/[\s।.]+$/u, "");
+/** CERT-REFINE-01: the A1 government header line, printed above the office name. */
+export const GOVT_LINE_BN = "গণপ্রজাতন্ত্রী বাংলাদেশ সরকার";
+export const GOVT_LINE_EN = "Government of the People's Republic of Bangladesh";
+/** Relationship option labels (the shared relationship select's stable value set). */
+export const RELATIONSHIP_LABELS: Record<string, { bn: string; en: string }> = {
+  self: { bn: "নিজ", en: "Self" },
+  spouse: { bn: "স্বামী/স্ত্রী", en: "Spouse" },
+  child: { bn: "সন্তান", en: "Child" },
+  parent: { bn: "পিতা/মাতা", en: "Parent" },
+  sibling: { bn: "ভাই/বোন", en: "Sibling" },
+  other: { bn: "অন্যান্য", en: "Other" },
+};
+export const relationshipLabel = (value: unknown, bn: boolean) => {
+  const entry = RELATIONSHIP_LABELS[text(value)];
+  return entry ? (bn ? entry.bn : entry.en) : cleanText(value);
+};
+/** Delegation subject labels (service 5's subject select value set). */
+export const DELEGATION_SUBJECT_LABELS: Record<string, { bn: string; en: string }> = {
+  document_collection: { bn: "নথি সংগ্রহ", en: "document collection" },
+  representation: { bn: "প্রতিনিধিত্ব", en: "representation" },
+  other: { bn: "অন্যান্য", en: "other" },
+};
+/** Marital-status labels (the shared marital status select value set). */
+export const MARITAL_LABELS: Record<string, { bn: string; en: string }> = {
+  unmarried: { bn: "অবিবাহিত", en: "Unmarried" },
+  married: { bn: "বিবাহিত", en: "Married" },
+  widowed: { bn: "বিধবা/বিপত্নীক", en: "Widowed" },
+  divorced: { bn: "তালাকপ্রাপ্ত", en: "Divorced" },
+};
+/** Service 33 correction field keys → printed labels (CERT-REFINE-01 §B svc33 fixed map). */
+export const CORRECTION_FIELD_LABELS: Record<string, { bn: string; en: string }> = {
+  name: { bn: "নাম", en: "Name" },
+  father_name: { bn: "পিতার নাম", en: "Father name" },
+  mother_name: { bn: "মাতার নাম", en: "Mother name" },
+  parent_name: { bn: "পিতা/মাতার নাম", en: "Parent name" },
+  date_of_birth: { bn: "জন্ম তারিখ", en: "Date of birth" },
+  address: { bn: "ঠিকানা", en: "Address" },
+  spouse_name: { bn: "স্বামী/স্ত্রীর নাম", en: "Spouse name" },
+  other: { bn: "অন্যান্য", en: "Other" },
+};
+/**
+ * CERT-REFINE-01 (A3): the residence/citizenship/personally-known status
+ * sentence, inserted immediately after the identity block for the services
+ * whose real format carries it (QA list: 2, 8, 10, 11, 12, 14, 17, 22, 35,
+ * 40, 45). Services 8 and 12 already carry the substance in their captured
+ * clauses, and service 2 has its own family structure — the chassis inserts
+ * the sentence for the remaining listed services.
+ */
+export const STATUS_SENTENCE_SERVICES = new Set([8, 10, 11, 14, 17, 22, 35, 40, 45]);
+export const STATUS_SENTENCE_BN =
+  "তিনি অত্র ইউনিয়নের স্থায়ী বাসিন্দা এবং জন্মসূত্রে বাংলাদেশের নাগরিক। তিনি আমার ব্যক্তিগতভাবে পরিচিত।";
+export const STATUS_SENTENCE_EN =
+  "The person is a permanent resident of this union and a citizen of Bangladesh by birth, and is personally known to me.";
 export function issueTime(when: Date): string {
   const p = dhakaParts(when);
   const hh = String(p.hour).padStart(2, "0");
@@ -126,10 +192,44 @@ export function fiscalYear(when: Date): { start: number; end: number } {
 export const money = (minor: unknown) =>
   present(minor) ? (Number(minor) / 100).toFixed(2) : "";
 
+/** CERT-REFINE-02 (R2-15): the EN death sentences take the plan's forms.
+ * "The person died on … at Own residence, …" becomes "The death occurred
+ * on … at the deceased's own residence, …" — only the known place value
+ * is rewritten; any other place prints as stored. The cause "Old-age
+ * illness" reads "old-age-related illness". */
+export function deathPlaceEn(place: unknown): string {
+  return text(place).replace(/^Own residence\b/, "the deceased's own residence");
+}
+export function deathCauseEn(reason: unknown): string {
+  const v = text(reason);
+  return v === "Old-age illness" ? "old-age-related illness" : v;
+}
+
+/** CERT-REFINE-02 (R2-16): the passport purpose is a free-text field, so
+ * localisation is by value: the standard purposes map to fixed BN/EN
+ * labels (normalised match); any other value prints exactly as stored —
+ * arbitrary free text cannot be translated safely. */
+const PASSPORT_PURPOSES: Record<string, { bn: string; en: string }> = {
+  "new passport issuance": { bn: "নতুন পাসপোর্ট প্রদান", en: "new passport issuance" },
+  "passport issuance": { bn: "পাসপোর্ট প্রদান", en: "passport issuance" },
+  "passport renewal": { bn: "পাসপোর্ট নবায়ন", en: "passport renewal" },
+  "passport reissue": { bn: "পাসপোর্ট পুনঃপ্রদান", en: "passport reissue" },
+  "reissue of passport": { bn: "পাসপোর্ট পুনঃপ্রদান", en: "passport reissue" },
+  "lost passport replacement": {
+    bn: "হারানো পাসপোর্টের বদলি প্রদান",
+    en: "replacement of a lost passport",
+  },
+};
+export function passportPurposeLabel(raw: unknown, bn: boolean): string {
+  const v = text(raw);
+  const hit = PASSPORT_PURPOSES[v.trim().toLowerCase()];
+  return hit ? (bn ? hit.bn : hit.en) : v;
+}
+
 /* ---------- amount in words (CERTNO-01: figures AND words on money documents) ----------
- * South-Asian grouping (thousand / lakh / crore) in both languages. Used when
- * the applicant did not supply their own words; an applicant-supplied
- * income_info_amount_word always wins. */
+ * South-Asian grouping (thousand / lakh / crore) in both languages. Words are
+ * always generated per render in the document's own language (CERT-REFINE-01
+ * A10); an applicant-supplied word string is never printed. */
 const EN_ONES = [
   "Zero", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine",
   "Ten", "Eleven", "Twelve", "Thirteen", "Fourteen", "Fifteen", "Sixteen",
@@ -203,11 +303,12 @@ export interface CertificatePageFormat {
   orientation: "portrait" | "landscape";
 }
 export const CERTIFICATE_PAGE_FORMATS: Record<number, CertificatePageFormat> = {
-  // Sampled: citizenship prints on A4 landscape; voter area transfer on US Letter portrait.
-  12: { size: "A4", orientation: "landscape" },
-  37: { size: "Letter", orientation: "portrait" },
-  // CERTNO-01 catalog: service 46 (transport permit) is a small QR card.
-  46: { size: "86mm 54mm", orientation: "landscape" },
+  // CERT-REFINE-01 (A8): ONE shell — A4 portrait for every certificate and
+  // attestation. Service 12 (was A4 landscape) and service 37 (was US
+  // Letter) move to the shared shell.
+  // CERT-REFINE-02 (R2-05): service 46's landscape card is retired too —
+  // the vehicle licence is a standard A4 portrait certificate, so no
+  // per-service format remains.
 };
 export const DEFAULT_PAGE_FORMAT: CertificatePageFormat = {
   size: "A4",
@@ -232,189 +333,264 @@ export { chairmanTitle } from "./template-assets.js";
  * CAPTURED (from the samples, verbatim pattern): #12 by-birth, #37 marriage.
  * Everything else is AUTHORED standard UP phrasing — OWNER-APPROVAL-PENDING.
  * Functions receive the payload so basis/reason/amount slots come from data. */
-type AttestFn = (payload: Record<string, unknown>) => string;
+/** CERT-REFINE-01: attestations may read citizen context (gender) for gendered wording (svc10). */
+export interface AttestContext {
+  gender?: string | null;
+}
+type AttestFn = (
+  payload: Record<string, unknown>,
+  ctx?: AttestContext,
+) => string;
 type Attestation = string | AttestFn;
-const run = (a: Attestation | undefined, payload: Record<string, unknown>) =>
-  typeof a === "function" ? a(payload) : (a ?? "");
+const run = (
+  a: Attestation | undefined,
+  payload: Record<string, unknown>,
+  ctx?: AttestContext,
+) => (typeof a === "function" ? a(payload, ctx) : (a ?? ""));
 const joinSentences = (...parts: string[]) => parts.filter((p) => p.trim()).join(" ");
 
+/* Disability type labels — mirrors the DSS-based select options on service 38. */
+export const DISABILITY_LABELS: Record<string, { bn: string; en: string }> = {
+  physical: { bn: "শারীরিক", en: "Physical" },
+  intellectual: { bn: "বুদ্ধিবৃত্তিক", en: "Intellectual" },
+  hearing: { bn: "শ্রবণ", en: "Hearing" },
+  visual: { bn: "দৃষ্টি", en: "Visual" },
+  speech: { bn: "বাক", en: "Speech" },
+  autism: { bn: "অটিজম", en: "Autism" },
+  down_syndrome: { bn: "ডাউন সিনড্রোম", en: "Down Syndrome" },
+  cerebral_palsy: { bn: "সেরিব্রাল পালসি", en: "Cerebral Palsy" },
+  multiple: { bn: "বহুমাত্রিক", en: "Multiple" },
+  other: { bn: "অন্যান্য", en: "Other" },
+};
+/* CERT-REFINE-01 §38: the operational schema's type field carries the legacy
+ * id application_autistic_type; payloads never populate a disability_type key.
+ * Read the operational key first so the type — the document's core fact —
+ * actually prints. */
+export const disabilityTypeOf = (p: Record<string, unknown>): string =>
+  text(p.application_autistic_type) || text(p.disability_type);
+
+/**
+ * CERT-REFINE-01 corpus. Register: cholito throughout (A4); free-text
+ * insertions pass through cleanText so a typed trailing danda never doubles
+ * (A9); every value slot reads the certificate language's own field (A9).
+ * Services 2, 19, 25, 26 and 39 are built structurally by the chassis and
+ * have no generic attestation entry.
+ */
 export const ATTESTATIONS_BN: Record<number, Attestation> = {
-  2: "এই সনদে উল্লিখিত ব্যক্তিগণ একই পরিবারের সদস্য বলিয়া প্রত্যয়ন করা যাইতেছে।",
-  5: (p) =>
-    present(p.authority_delegation_letter_name_bn)
-      ? `তাহার দাখিলকৃত ক্ষমতা অর্পণ পত্র অনুযায়ী ${text(p.authority_delegation_letter_name_bn)} তাহার প্রতিনিধি হিসেবে স্বীকৃত।`
-      : "তাহার দাখিলকৃত ক্ষমতা অর্পণ পত্র অনুযায়ী মনোনীত ব্যক্তি তাহার প্রতিনিধি হিসেবে স্বীকৃত।",
-  6: (p) => {
-    // The form schema produces electricity_connection_* keys; the clause must
-    // read those (bare mouza/khatiyan/daag are never produced — LIVEQA2 finding 1).
-    const mouza =
-      text(p.electricity_connection_mouza_name_bn) ||
-      text(p.electricity_connection_mouza_name);
-    return joinSentences(
-      "তাহার নামে নতুন বিদ্যুৎ সংযোগ প্রদানের বিষয়ে এই কার্যালয়ের কোনো আপত্তি নাই।",
-      present(mouza)
-        ? `জমির বিবরণঃ মৌজাঃ ${mouza}${present(p.electricity_connection_khatiyan_no) ? `, খতিয়ান নংঃ ${bnDigits(p.electricity_connection_khatiyan_no)}` : ""}${present(p.electricity_connection_daag_no) ? `, দাগ নংঃ ${bnDigits(p.electricity_connection_daag_no)}` : ""}।`
-        : "",
-    );
+  5: (p) => {
+    const name = cleanText(p.authority_delegation_letter_name_bn);
+    const subject =
+      DELEGATION_SUBJECT_LABELS[text(p.authority_delegation_letter_subject)]?.bn;
+    if (!name)
+      return "তাঁহার দাখিলকৃত ক্ষমতা অর্পণ পত্র অনুযায়ী মনোনীত ব্যক্তি তাঁহার প্রতিনিধি হিসেবে স্বীকৃত।";
+    return `তাঁহার দাখিলকৃত ক্ষমতা অর্পণ পত্র অনুযায়ী ${name}${present(p.authority_delegation_relationship) ? ` (আবেদনকারীর ${relationshipLabel(p.authority_delegation_relationship, true)})` : ""} কে${subject ? ` ${subject} সংক্রান্ত কাজে` : ""} তাঁহার প্রতিনিধি হিসেবে স্বীকৃতি দেওয়া যাচ্ছে।`;
   },
+  6: (p) =>
+    joinSentences(
+      "তাঁহার নামে নতুন বিদ্যুৎ সংযোগ প্রদানের বিষয়ে এই কার্যালয়ের কোনো আপত্তি নাই।",
+      present(p.electricity_connection_mouza_name_bn)
+        ? `জমির বিবরণঃ মৌজাঃ ${cleanText(p.electricity_connection_mouza_name_bn)}${present(p.electricity_connection_khatiyan_no) ? `, খতিয়ান নংঃ ${bnDigits(p.electricity_connection_khatiyan_no)}` : ""}${present(p.electricity_connection_daag_no) ? `, দাগ নংঃ ${bnDigits(p.electricity_connection_daag_no)}` : ""}।`
+        : "",
+      present(p.electricity_connection_holding_no)
+        ? `হোল্ডিং নম্বরঃ ${bnDigits(p.electricity_connection_holding_no)}।`
+        : "",
+    ),
   8: "তিনি রোহিঙ্গা নাগরিক নন; তিনি বাংলাদেশের নাগরিক এবং অত্র এলাকার স্থায়ী বাসিন্দা।",
   9: (p) =>
     joinSentences(
-      "তাহার ভোটার তথ্য যাচাই করিয়া সঠিক পাওয়া গিয়াছে।",
+      "তাঁহার ভোটার তথ্য যাচাই করে সঠিক পাওয়া গেছে।",
       present(p.voter_application_no)
         ? `ভোটার আবেদন নংঃ ${bnDigits(p.voter_application_no)}।`
         : "",
     ),
-  10: (p) =>
-    joinSentences(
-      present(p.unemployed_since)
-        ? `তিনি ${bnDateIso(p.unemployed_since)} হইতে বেকার আছেন।`
-        : "তিনি বর্তমানে বেকার আছেন।",
-      present(p.last_occupation) ? `তাহার সর্বশেষ পেশা ছিল ${text(p.last_occupation)}।` : "",
-    ),
+  10: (p, c) => {
+    const youth =
+      c?.gender === "female" ? "যুবতী" : c?.gender === "male" ? "যুবক" : "যুবক/যুবতী";
+    const since = present(p.unemployed_since)
+      ? `তিনি ${bnDateIso(p.unemployed_since)} হতে বেকার আছেন`
+      : "তিনি বর্তমানে বেকার আছেন";
+    const occupation = present(p.last_occupation)
+      ? `তাঁহার সর্বশেষ পেশা ছিল ${cleanText(p.last_occupation)}`
+      : "";
+    return joinSentences(
+      `তিনি একজন শিক্ষিত বেকার ${youth}।`,
+      occupation ? `${since}; ${occupation}।` : `${since}।`,
+      "তাঁহার স্বভাব-চরিত্র ভালো; তিনি রাষ্ট্রবিরোধী কোনো কার্যকলাপের সহিত জড়িত নন।",
+    );
+  },
   11: (p) =>
-    present(p.claimed_nationality)
-      ? `তিনি জাতীয়তায় ${text(p.claimed_nationality)} বলিয়া প্রত্যয়ন করা যাইতেছে।`
-      : "তিনি বাংলাদেশী জাতীয়তার অধিকারী বলিয়া প্রত্যয়ন করা যাইতেছে।",
-  // CAPTURED (by-birth variant). Other bases fall back to the authored generic line.
+    joinSentences(
+      present(p.claimed_nationality)
+        ? `তিনি জাতীয়তায় ${cleanText(p.claimed_nationality)}।`
+        : "তিনি জাতীয়তায় বাংলাদেশি।",
+      MARITAL_LABELS[text(p.marital_status)]
+        ? `বৈবাহিক অবস্থাঃ ${MARITAL_LABELS[text(p.marital_status)].bn}।`
+        : "",
+    ),
+  // CERT-REFINE-01 §12: the captured basis-based wording is kept (A3-aligned).
   12: (p) => {
     const basis = `${text(p.citizenship_basis)} ${text(p.citizenship_basis_bn)}`;
     return /জন্ম|birth/i.test(basis) || !basis.trim()
       ? "তিনি অত্র এলাকার একজন স্থায়ী বাসিন্দা এবং জন্মসূত্রে বাংলাদেশী নাগরিক।"
       : "তিনি অত্র এলাকার একজন স্থায়ী বাসিন্দা এবং বাংলাদেশের নাগরিক।";
   },
-  13: (p) =>
-    present(p.application_husband_name_bn)
-      ? `তিনি ${text(p.application_husband_name_bn)} এর সহিত পুনরায় বিবাহ বন্ধনে আবদ্ধ হইয়াছেন।`
-      : "তিনি পুনরায় বিবাহ বন্ধনে আবদ্ধ হইয়াছেন।",
-  14: "তিনি ভূমিহীন; তাহার নিজের নামে কোনো জমি নাই বলিয়া প্রত্যয়ন করা যাইতেছে।",
-  15: "তিনি অত্র এলাকার ভোটার তালিকায় নতুন ভোটার হিসেবে নিবন্ধনের যোগ্য বলিয়া প্রত্যয়ন করা যাইতেছে।",
+  13: (p) => {
+    const name = cleanText(p.application_husband_name_bn);
+    const date = present(p.remarriage_date)
+      ? ` ${bnDateIso(p.remarriage_date)} তারিখে`
+      : "";
+    return name
+      ? `তিনি ${name} এর সহিত${date} পুনরায় বিবাহ বন্ধনে আবদ্ধ হয়েছেন (কাবিননামা/বিবাহ নিবন্ধন অনুযায়ী)।`
+      : "তিনি পুনরায় বিবাহ বন্ধনে আবদ্ধ হয়েছেন।";
+  },
+  14: "তিনি ভূমিহীন; তাঁহার নিজের বা তাঁহার পরিবারের কোনো সদস্যের নামে কোনো জমি নাই।",
+  15: "তিনি অত্র এলাকার স্থায়ী বাসিন্দা এবং জন্মসূত্রে বাংলাদেশের নাগরিক। তিনি পূর্বে কখনো কোনো এলাকার ভোটার হন নি।",
   16: (p) =>
     joinSentences(
       present(p.deceased_spouse_name)
-        ? `তাহার স্বামী ${text(p.deceased_spouse_name)} মৃত্যুবরণ করিয়াছেন।`
+        ? `তাঁহার স্বামী ${cleanText(p.deceased_spouse_name)} মৃত্যুবরণ করেছেন।`
         : "",
-      present(p.spouse_death_date) ? `মৃত্যুর তারিখঃ ${bnDateIso(p.spouse_death_date)}।` : "",
+      present(p.spouse_death_date)
+        ? `মৃত্যুর তারিখঃ ${bnDateIso(p.spouse_death_date)}।`
+        : "",
       "তিনি বিধবা।",
+      "স্বামীর মৃত্যুর পর তিনি সন্তানদের সহিত বসবাস করিতেছেন।",
     ),
   17: (p) =>
     present(p.profession_bn)
-      ? `তিনি পেশায় একজন ${text(p.profession_bn)}।`
-      : "তাহার পেশা আবেদনে উল্লিখিত অনুযায়ী প্রত্যয়ন করা যাইতেছে।",
-  18: (p) =>
-    present(p.community_name)
-      ? `তিনি ${text(p.community_name)} সম্প্রদায়ের সদস্য।`
-      : "তিনি আবেদনে উল্লিখিত সম্প্রদায়ের সদস্য।",
-  19: (p) =>
-    present(p.consent_applicant_name_bn)
-      ? `${text(p.consent_applicant_name_bn)} অভিভাবক হিসেবে উক্ত বিষয়ে সম্মতি প্রদান করিয়াছেন বলিয়া প্রত্যয়ন করা যাইতেছে।`
-      : "অভিভাবক হিসেবে তিনি উক্ত বিষয়ে সম্মতি প্রদান করিয়াছেন বলিয়া প্রত্যয়ন করা যাইতেছে।",
+      ? `তিনি পেশায় একজন ${cleanText(p.profession_bn)}।`
+      : "তাঁহার পেশা আবেদনে উল্লিখিত অনুযায়ী প্রত্যয়ন করা যাচ্ছে।",
+  18: (p) => {
+    const name = cleanText(p.community_name).replace(/\s*সম্প্রদায়$/u, "");
+    return name
+      ? `তিনি ${name} সম্প্রদায়ের সদস্য।`
+      : "তিনি আবেদনে উল্লিখিত সম্প্রদায়ের সদস্য।";
+  },
   20: (p) =>
     joinSentences(
       "তিনি একজন বীর মুক্তিযোদ্ধা।",
-      present(p.freedom_fighter_id_number) ? `মুক্তিযোদ্ধা পরিচিতি নংঃ ${bnDigits(p.freedom_fighter_id_number)}।` : "",
-      present(p.freedom_fighter_batch) ? `ব্যাচঃ ${bnDigits(p.freedom_fighter_batch)}।` : "",
-      present(p.freedom_fighter_certificate_number) ? `মুক্তিযোদ্ধা সনদ নংঃ ${bnDigits(p.freedom_fighter_certificate_number)}।` : "",
-      present(p.freedom_fighter_certificate_given_date) ? `সনদ প্রদানের তারিখঃ ${bnDateIso(p.freedom_fighter_certificate_given_date)}।` : "",
-      present(p.freedom_fighter_muktibarta_number) ? `মুক্তিবার্তা নংঃ ${bnDigits(p.freedom_fighter_muktibarta_number)}।` : "",
-      present(p.freedom_fighter_indian_gazette) ? `ভারতীয় গেজেটঃ ${text(p.freedom_fighter_indian_gazette)}।` : "",
-      present(p.freedom_fighter_gazette_number) ? `গেজেট নংঃ ${bnDigits(p.freedom_fighter_gazette_number)}।` : "",
+      // CERT-REFINE-02 (R2-16): external registration numbers print
+      // EXACTLY as issued — no digit-script conversion inside identifier
+      // strings ("FF-778899", never "FF-৭৭৮৮৯৯"). The batch number is a
+      // plain serial count, not an identifier string, and keeps Bengali
+      // digits like the NID.
+      present(p.freedom_fighter_id_number)
+        ? `মুক্তিযোদ্ধা পরিচিতি নংঃ ${text(p.freedom_fighter_id_number)}।`
+        : "",
+      present(p.freedom_fighter_batch_number)
+        ? `ব্যাচ নংঃ ${bnDigits(p.freedom_fighter_batch_number)}।`
+        : "",
+      present(p.freedom_fighter_certificate_number)
+        ? `সনদ নংঃ ${text(p.freedom_fighter_certificate_number)}।`
+        : "",
+      present(p.freedom_fighter_certificate_given_date)
+        ? `সনদের তারিখঃ ${bnDateIso(p.freedom_fighter_certificate_given_date)}।`
+        : "",
+      present(p.freedom_fighter_muktibarta_number) ? `মুক্তিবার্তা নংঃ ${text(p.freedom_fighter_muktibarta_number)}।` : "",
+      present(p.freedom_fighter_gazette_number) ? `গেজেট নংঃ ${text(p.freedom_fighter_gazette_number)}।` : "",
       present(p.other_freedom_fighter_name_bn)
-        ? `তিনি অপর মুক্তিযোদ্ধা ${text(p.other_freedom_fighter_name_bn)}${present(p.other_freedom_fighter_relation) ? ` (${text(p.other_freedom_fighter_relation)})` : ""} এর সহিত সম্পর্কিত।`
+        ? `${cleanText(p.other_freedom_fighter_name_bn)} এর সহিত সম্পর্কঃ ${relationshipLabel(p.other_freedom_fighter_relation, true)}।`
         : "",
     ),
   21: (p) =>
     present(p.farming_activity)
-      ? `তিনি পেশায় একজন কৃষক এবং ${text(p.farming_activity)} এর সহিত জড়িত।`
+      ? `তিনি পেশায় একজন কৃষক। তিনি ${cleanText(p.farming_activity)} চাষের সহিত জড়িত।`
       : "তিনি পেশায় একজন কৃষক।",
-  22: "তিনি অবিবাহিত; তিনি কখনো বিবাহ বন্ধনে আবদ্ধ হন নাই।",
+  22: "আমার জানামতে এবং স্থানীয় তদন্ত অনুযায়ী তিনি অবিবাহিত; তিনি কখনো বিবাহ বন্ধনে আবদ্ধ হন নাই।",
   23: (p) => {
-    // CERTNO-01 catalog: the amount prints in figures AND words — the
-    // applicant's own words win, otherwise the words are generated. The
-    // guardian variant (other_person) certifies the guardian's income.
-    const words = present(p.income_info_amount_word)
-      ? text(p.income_info_amount_word)
-      : present(p.income_info_amount)
-        ? amountInWordsBn(Number(p.income_info_amount))
-        : "";
     const subject =
       p.other_person === true
         ? present(p.other_person_name_bn)
-          ? `তাহার অভিভাবক ${text(p.other_person_name_bn)} এর`
-          : "তাহার অভিভাবকের"
-        : "তাহার";
+          ? `তাঁহার অভিভাবক ${cleanText(p.other_person_name_bn)} এর`
+          : "তাঁহার অভিভাবকের"
+        : "আবেদনকারীর নিজের";
     return joinSentences(
       present(p.income_info_amount)
-        ? `${subject} বার্ষিক আয় ${bnDigits(Number(p.income_info_amount).toLocaleString("en-IN"))} টাকা (কথায়ঃ ${words})।`
-        : "তাহার বার্ষিক আয় আবেদনে উল্লিখিত অনুযায়ী।",
-      present(p.profession_bn) ? `তাহার পেশাঃ ${text(p.profession_bn)}।` : "",
+        ? `${subject} বার্ষিক আয় ${bnDigits(Number(p.income_info_amount).toLocaleString("en-IN"))} টাকা (${amountInWordsBn(Number(p.income_info_amount))} টাকা মাত্র)।`
+        : `${subject} বার্ষিক আয় আবেদনে উল্লিখিত অনুযায়ী।`,
+      present(p.profession_bn) ? `তাঁহার পেশাঃ ${cleanText(p.profession_bn)}।` : "",
     );
   },
-  24: "তিনি এতিম বলিয়া প্রত্যয়ন করা যাইতেছে।",
-  25: (p) =>
-    joinSentences(
-      present(p.marriage_info_spouse_name_bn)
-        ? `তিনি ${text(p.marriage_info_spouse_name_bn)} এর সহিত বিবাহ বন্ধনে আবদ্ধ আছেন।`
-        : "তিনি বিবাহিত।",
-      present(p.marriage_info_spouse_dob) ? `স্বামী/স্ত্রীর জন্ম তারিখঃ ${bnDateIso(p.marriage_info_spouse_dob)}।` : "",
-      present(p.marriage_info_spouse_nid) ? `স্বামী/স্ত্রীর জাতীয় পরিচয়পত্র নংঃ ${bnDigits(p.marriage_info_spouse_nid)}।` : "",
-      present(p.marriage_info_spouse_place_bn) ? `বিবাহের স্থানঃ ${text(p.marriage_info_spouse_place_bn)}।` : "",
-      present(p.marriage_info_date) ? `বিবাহের তারিখঃ ${bnDateIso(p.marriage_info_date)}।` : "",
-    ),
-  26: (p) =>
-    joinSentences(
-      run(ATTESTATIONS_BN[25]!, p),
-      "উক্ত বিবাহ যৌতুক বিহীনভাবে সম্পন্ন হইয়াছে।",
-    ),
-  27: "পাসপোর্ট প্রদানের উদ্দেশ্যে তাহার তথ্য যাচাই করিয়া সঠিক পাওয়া গিয়াছে।",
+  24: (p) => {
+    const father = cleanText(p.orphan_father_name_bn);
+    const mother = cleanText(p.orphan_mother_name_bn);
+    const fDate = present(p.orphan_father_death_date)
+      ? ` গত ${bnDateIso(p.orphan_father_death_date)} তারিখে`
+      : "";
+    const mDate = present(p.orphan_mother_death_date)
+      ? ` গত ${bnDateIso(p.orphan_mother_death_date)} তারিখে`
+      : "";
+    const parts: string[] = [];
+    if (father && mother)
+      parts.push(`তাঁহার পিতা মৃত ${father}${fDate} এবং মাতা মৃত ${mother}${mDate} মৃত্যুবরণ করেছেন।`);
+    else if (father)
+      parts.push(`তাঁহার পিতা মৃত ${father}${fDate} মৃত্যুবরণ করেছেন।`);
+    else if (mother)
+      parts.push(`তাঁহার মাতা মৃত ${mother}${mDate} মৃত্যুবরণ করেছেন।`);
+    const guardian = cleanText(p.orphan_guardian_name_bn);
+    if (guardian)
+      parts.push(
+        `বর্তমানে তিনি তাঁহার অভিভাবক ${guardian}${present(p.orphan_guardian_relation) ? ` (${relationshipLabel(p.orphan_guardian_relation, true)})` : ""} এর তত্ত্বাবধানে আছেন।`,
+      );
+    parts.push("তিনি এতিম।");
+    return parts.join(" ");
+  },
   28: (p) =>
     joinSentences(
-      "তিনি জীবিত আছেন।",
       present(p.appearance_date)
-        ? `তিনি ${bnDateIso(p.appearance_date)} তারিখে এই কার্যালয়ে সশরীরে উপস্থিত হইয়াছিলেন।`
-        : "",
+        ? `তিনি সুস্থ শরীরে জীবিত আছেন এবং ${bnDateIso(p.appearance_date)} তারিখে এই কার্যালয়ে সশরীরে উপস্থিত হয়েছিলেন।`
+        : "তিনি সুস্থ শরীরে জীবিত আছেন।",
+      "তিনি আমার ব্যক্তিগতভাবে পরিচিত।",
     ),
   29: (p) => {
-    const words = present(p.income_info_amount_word)
-      ? text(p.income_info_amount_word)
-      : present(p.income_info_amount)
-        ? amountInWordsBn(Number(p.income_info_amount))
-        : "";
     const subject =
       p.other_person === true
         ? present(p.other_person_name_bn)
-          ? `তাহার অভিভাবক ${text(p.other_person_name_bn)} এর`
-          : "তাহার অভিভাবকের"
-        : "তাহার";
-    return present(p.income_info_amount)
-      ? `${subject} মাসিক আয় ${bnDigits(Number(p.income_info_amount).toLocaleString("en-IN"))} টাকা (কথায়ঃ ${words})।`
-      : "তাহার মাসিক আয় আবেদনে উল্লিখিত অনুযায়ী।";
+          ? `তাঁহার অভিভাবক ${cleanText(p.other_person_name_bn)} এর`
+          : "তাঁহার অভিভাবকের"
+        : "আবেদনকারীর নিজের";
+    return joinSentences(
+      present(p.income_info_amount)
+        ? `${subject} মাসিক আয় ${bnDigits(Number(p.income_info_amount).toLocaleString("en-IN"))} টাকা (${amountInWordsBn(Number(p.income_info_amount))} টাকা মাত্র)।`
+        : `${subject} মাসিক আয় আবেদনে উল্লিখিত অনুযায়ী।`,
+      present(p.profession_bn) ? `তাঁহার পেশাঃ ${cleanText(p.profession_bn)}।` : "",
+    );
   },
   30: (p) =>
     joinSentences(
       present(p.declared_assets_bdt)
-        ? `তাহার ঘোষিত সম্পদ ${bnDigits(Number(p.declared_assets_bdt).toLocaleString("en-IN"))} টাকা (কথায়ঃ ${amountInWordsBn(Number(p.declared_assets_bdt))})।`
+        ? `তাঁহার ঘোষিত সম্পদ ${bnDigits(Number(p.declared_assets_bdt).toLocaleString("en-IN"))} টাকা (কথায়ঃ ${amountInWordsBn(Number(p.declared_assets_bdt))} টাকা মাত্র)।`
         : "",
       present(p.declared_liabilities_bdt)
-        ? `ঘোষিত দায় ${bnDigits(Number(p.declared_liabilities_bdt).toLocaleString("en-IN"))} টাকা (কথায়ঃ ${amountInWordsBn(Number(p.declared_liabilities_bdt))})।`
+        ? `ঘোষিত দায় ${bnDigits(Number(p.declared_liabilities_bdt).toLocaleString("en-IN"))} টাকা (কথায়ঃ ${amountInWordsBn(Number(p.declared_liabilities_bdt))} টাকা মাত্র)।`
         : "",
-      present(p.financial_basis) ? `আর্থিক ভিত্তিঃ ${text(p.financial_basis)}।` : "",
-      "তিনি আর্থিকভাবে স্বচ্ছল বলিয়া প্রত্যয়ন করা যাইতেছে।",
+      present(p.financial_basis)
+        ? `আর্থিক ভিত্তিঃ ${cleanText(p.financial_basis)}।`
+        : "",
+      "তিনি আর্থিকভাবে স্বচ্ছল বলে প্রত্যয়ন করা যাচ্ছে।",
     ),
   32: (p) =>
     joinSentences(
       present(p.monthly_household_income_bdt)
-        ? `তাহার পরিবারের মাসিক আয় ${bnDigits(Number(p.monthly_household_income_bdt).toLocaleString("en-IN"))} টাকা (কথায়ঃ ${amountInWordsBn(Number(p.monthly_household_income_bdt))})।`
+        ? `তাঁহার পরিবারের মাসিক আয় ${bnDigits(Number(p.monthly_household_income_bdt).toLocaleString("en-IN"))} টাকা (কথায়ঃ ${amountInWordsBn(Number(p.monthly_household_income_bdt))} টাকা মাত্র)।`
         : "",
-      "তিনি আর্থিকভাবে অস্বচ্ছল বলিয়া প্রত্যয়ন করা যাইতেছে।",
+      present(p.earner_occupation_bn)
+        ? `তাঁহার পরিবারের উপার্জনক্ষম ব্যক্তির পেশাঃ ${cleanText(p.earner_occupation_bn)}।`
+        : "",
+      "তিনি আর্থিকভাবে অস্বচ্ছল; তিনি যেকোনো সমাজকল্যাণমূলক সংস্থা বা সরকারি তহবিল হতে সাহায্য পাওয়ার যোগ্য দাবিদার।",
     ),
-  34: "তাহার কোনো সন্তান নাই; তিনি নিঃসন্তান বলিয়া প্রত্যয়ন করা যাইতেছে।",
-  35: "তিনি সচ্চরিত্রের অধিকারী; তাহার আচরণ সম্পর্কে কোনো অভিযোগ জানা নাই।",
-  36: (p) =>
-    present(p.noc_org_name_bn ?? p.noc_org_name)
-      ? `${text(p.noc_org_name_bn ?? p.noc_org_name)} এর কার্যক্রমে এই কার্যালয়ের কোনো আপত্তি নাই।`
-      : "আবেদনে উল্লিখিত প্রতিষ্ঠানের কার্যক্রমে এই কার্যালয়ের কোনো আপত্তি নাই।",
-  // CAPTURED pattern; only the marriage reason phrase is sampled — the rest are authored.
+  34: "তাঁহাদের কোনো সন্তান নাই।",
+  35: "তিনি সচ্চরিত্রের অধিকারী; তাঁহার স্বভাব-চরিত্র ভালো। তিনি রাষ্ট্রবিরোধী কোনো কার্যকলাপের সহিত জড়িত নন এবং তাঁহার আচরণ সম্পর্কে কোনো অভিযোগ জানা নাই।",
+  36: (p) => {
+    const org = cleanText(p.noc_org_name_bn ?? p.noc_org_name);
+    const role = cleanText(p.noc_role_bn);
+    const activity = cleanText(p.noc_activity_bn);
+    if (!org)
+      return "আবেদনে উল্লিখিত প্রতিষ্ঠানের কার্যক্রমে এই কার্যালয়ের কোনো আপত্তি নাই।";
+    return `${org} এর${role ? ` ${role} হিসেবে` : ""}${activity ? ` ${activity}` : ""} কার্যক্রমে এই কার্যালয়ের কোনো আপত্তি নাই।`;
+  },
+  // CERT-REFINE-01 §37: the captured reason-based clause is kept (A4 register);
+  // the fields line is added by the chassis.
   37: (p) => {
     const reason = text(p.application_voter_area_transfer_reason);
     const phrase =
@@ -426,195 +602,267 @@ export const ATTESTATIONS_BN: Record<number, Attestation> = {
             ? "বসবাসের স্থান পরিবর্তনের কারণে"
             : "";
     return joinSentences(
-      `${phrase} তিনি অত্র এলাকায় স্থায়ীভাবে বসবাস করছেন এবং বাংলাদেশের নাগরিক।`,
-      "তাহার পূর্বের ভোটার এলাকা পরিবর্তন করে অত্র এলাকার ভোটার হিসেবে নিবন্ধন করা যায়।",
+      `${phrase ? `${phrase} ` : ""}তিনি অত্র এলাকায় স্থায়ীভাবে বসবাস করছেন এবং বাংলাদেশের নাগরিক।`,
+      "তাঁহার পূর্বের ভোটার এলাকা পরিবর্তন করে অত্র এলাকার ভোটার হিসেবে নিবন্ধন করা যায়।",
     );
   },
   38: (p) =>
     joinSentences(
       "তিনি একজন প্রতিবন্ধী ব্যক্তি।",
-      present(p.support_needs) ? `তাহার প্রয়োজনীয় সহায়তাঃ ${text(p.support_needs)}।` : "",
+      DISABILITY_LABELS[disabilityTypeOf(p)]
+        ? `প্রতিবন্ধিতার ধরণঃ ${DISABILITY_LABELS[disabilityTypeOf(p)]!.bn}।`
+        : "",
+      present(p.support_needs)
+        ? `তাঁহার প্রয়োজনীয় সহায়তাঃ ${cleanText(p.support_needs)}।`
+        : "",
     ),
-  39: (p) =>
-    present(p.spi_name_bn)
-      ? `আবেদনে উল্লিখিত ${text(p.spi_name_bn)} এবং তিনি একই ব্যক্তি বলিয়া প্রত্যয়ন করা যাইতেছে।`
-      : "আবেদনে উল্লিখিত নামসমূহ একই ব্যক্তির বলিয়া প্রত্যয়ন করা যাইতেছে।",
-  40: (p) =>
-    present(p.community_name)
-      ? `তিনি ${text(p.community_name)} উপজাতি সম্প্রদায়ের সদস্য।`
-      : "তিনি আবেদনে উল্লিখিত উপজাতি সম্প্রদায়ের সদস্য।",
-  43: "তাহার নাম ভোটার তালিকা হইতে বাদ পড়িয়াছে; তাহাকে পুনরায় ভোটার তালিকায় অন্তর্ভুক্ত করা যায় বলিয়া প্রত্যয়ন করা যাইতেছে।",
-  44: "তিনি পুনরায় বিবাহ বন্ধনে আবদ্ধ হন নাই বলিয়া প্রত্যয়ন করা যাইতেছে।",
+  40: (p) => {
+    const name = cleanText(p.community_name);
+    return name
+      ? `তিনি ${name} ক্ষুদ্র নৃ-গোষ্ঠী সম্প্রদায়ের সদস্য।`
+      : "তিনি আবেদনে উল্লিখিত ক্ষুদ্র নৃ-গোষ্ঠী সম্প্রদায়ের সদস্য।";
+  },
+  43: (p) =>
+    joinSentences(
+      present(p.omission_details)
+        ? `বাদ পড়ার কারণ: ${cleanText(p.omission_details)}।`
+        : "",
+      present(p.omission_details)
+        ? `তাঁহার নাম ${cleanText(p.omission_details)} কারণে ভোটার তালিকা হইতে বাদ পড়িয়াছে।`
+        : "তাঁহার নাম ভোটার তালিকা হইতে বাদ পড়িয়াছে।",
+      "তিনি অত্র এলাকার স্থায়ী বাসিন্দা এবং বাংলাদেশের নাগরিক; তাঁহাকে পুনরায় ভোটার তালিকায় অন্তর্ভুক্ত করা যায়।",
+    ),
+  44: (p) => {
+    const name = cleanText(p.previous_spouse_name);
+    if (!name) return "তিনি পুনরায় বিবাহ বন্ধনে আবদ্ধ হন নাই বলে প্রত্যয়ন করা যাচ্ছে।";
+    return joinSentences(
+      `তাঁহার স্বামী মৃত ${name}${present(p.spouse_death_date) ? ` গত ${bnDateIso(p.spouse_death_date)} তারিখে` : ""} মৃত্যুবরণ করেন।`,
+      "স্বামীর মৃত্যুর পর তিনি অদ্যাবধি পুনরায় বিবাহ বন্ধনে আবদ্ধ হন নাই এবং সন্তানদের সহিত বসবাস করিতেছেন।",
+    );
+  },
   45: (p) =>
     present(p.residence_since)
-      ? `তিনি ${bnDateIso(p.residence_since)} হইতে অত্র এলাকায় স্থায়ীভাবে বসবাস করিতেছেন।`
+      ? `তিনি ${bnDateIso(p.residence_since)} হতে অত্র এলাকায় স্থায়ীভাবে বসবাস করছেন।`
       : "তিনি অত্র এলাকার একজন স্থায়ী বাসিন্দা।",
 };
 
 export const ATTESTATIONS_EN: Record<number, Attestation> = {
-  2: "The persons listed in this certificate are members of the same family.",
-  5: (p) =>
-    present(p.authority_delegation_letter_name_en ?? p.authority_delegation_letter_name)
-      ? `Under the submitted letter of authority, ${text(p.authority_delegation_letter_name_en ?? p.authority_delegation_letter_name)} is recognised as the representative.`
-      : "Under the submitted letter of authority, the nominated person is recognised as the representative.",
-  6: (p) => {
-    const mouza =
-      text(p.electricity_connection_mouza_name) ||
-      text(p.electricity_connection_mouza_name_bn);
-    return joinSentences(
-      "This office has no objection to a new electricity connection being provided in this name.",
-      present(mouza)
-        ? `Land details: Mouza: ${mouza}${present(p.electricity_connection_khatiyan_no) ? `, Khatiyan No: ${text(p.electricity_connection_khatiyan_no)}` : ""}${present(p.electricity_connection_daag_no) ? `, Daag No: ${text(p.electricity_connection_daag_no)}` : ""}.`
-        : "",
-    );
+  5: (p) => {
+    const name = cleanText(p.authority_delegation_letter_name_en ?? p.authority_delegation_letter_name);
+    const subject =
+      DELEGATION_SUBJECT_LABELS[text(p.authority_delegation_letter_subject)]?.en;
+    const relation = present(p.authority_delegation_relationship)
+      ? relationshipLabel(p.authority_delegation_relationship, false).toLowerCase()
+      : "";
+    if (!name)
+      return "Under the submitted letter of authority, the nominated person is recognised as the applicant's representative.";
+    return `Under the submitted letter of authority, ${name}${relation ? ` (the applicant's ${relation})` : ""} is recognised as the applicant's representative${subject ? ` for ${subject} matters` : ""}.`;
   },
+  6: (p) =>
+    joinSentences(
+      "This office has no objection to providing a new electricity connection in the person's name.",
+      present(p.electricity_connection_mouza_name)
+        ? `Land details: Mouza: ${cleanText(p.electricity_connection_mouza_name)}${present(p.electricity_connection_khatiyan_no) ? `, Khatian No: ${p.electricity_connection_khatiyan_no}` : ""}${present(p.electricity_connection_daag_no) ? `, Dag No: ${p.electricity_connection_daag_no}` : ""}.`
+        : "",
+      present(p.electricity_connection_holding_no)
+        ? `Holding No: ${p.electricity_connection_holding_no}.`
+        : "",
+    ),
   8: "The person is not a Rohingya citizen; the person is a citizen of Bangladesh and a permanent resident of this area.",
   9: (p) =>
     joinSentences(
       "The voter information has been verified and found correct.",
-      present(p.voter_application_no) ? `Voter application no: ${text(p.voter_application_no)}.` : "",
+      present(p.voter_application_no)
+        ? `Voter Application No: ${p.voter_application_no}.`
+        : "",
     ),
-  10: (p) =>
-    joinSentences(
-      present(p.unemployed_since)
-        ? `The person has been unemployed since ${enDateIso(p.unemployed_since)}.`
-        : "The person is currently unemployed.",
-      present(p.last_occupation) ? `Last occupation: ${text(p.last_occupation)}.` : "",
-    ),
+  10: (p, c) => {
+    const youth =
+      c?.gender === "female"
+        ? "young woman"
+        : c?.gender === "male"
+          ? "young man"
+          : "young person";
+    const since = present(p.unemployed_since)
+      ? `has been unemployed since ${enDateIso(p.unemployed_since)}`
+      : "is currently unemployed";
+    const occupation = present(p.last_occupation_en)
+      ? `the person's last occupation was ${cleanText(p.last_occupation_en)}`
+      : "";
+    return joinSentences(
+      `The person is an educated unemployed ${youth}.`,
+      occupation ? `The person ${since}; ${occupation}.` : `The person ${since}.`,
+      "The person's character is good; the person is not involved in any anti-state activity.",
+    );
+  },
   11: (p) =>
-    present(p.claimed_nationality)
-      ? `The person's nationality is ${text(p.claimed_nationality)}.`
-      : "The person holds Bangladeshi nationality.",
+    joinSentences(
+      present(p.claimed_nationality_en)
+        ? `The person's nationality is ${cleanText(p.claimed_nationality_en)}.`
+        : "The person's nationality is Bangladeshi.",
+      MARITAL_LABELS[text(p.marital_status)]
+        ? `Marital status: ${MARITAL_LABELS[text(p.marital_status)].en}.`
+        : "",
+    ),
+  // CERT-REFINE-01 §12: the captured basis-based wording is kept (A3-aligned).
   12: (p) => {
     const basis = `${text(p.citizenship_basis)} ${text(p.citizenship_basis_bn)}`;
     return /জন্ম|birth/i.test(basis) || !basis.trim()
       ? "The person is a permanent resident of this area and a citizen of Bangladesh by birth."
       : "The person is a permanent resident of this area and a citizen of Bangladesh.";
   },
-  13: (p) =>
-    present(p.application_husband_name_en ?? p.application_husband_name)
-      ? `The person has remarried to ${text(p.application_husband_name_en ?? p.application_husband_name)}.`
-      : "The person has remarried.",
-  14: "The person is landless and owns no land.",
-  15: "The person is eligible to be registered as a new voter in the voter list of this area.",
+  13: (p) => {
+    const name = cleanText(p.application_husband_name_en ?? p.application_husband_name);
+    const date = present(p.remarriage_date)
+      ? ` on ${enDateIso(p.remarriage_date)}`
+      : "";
+    return name
+      ? `The person has remarried to ${name}${date} (as per the kabinnama/marriage registration).`
+      : "The person has remarried.";
+  },
+  14: "The person is landless; neither the person nor any member of the person's family owns any land.",
+  15: "The person is a permanent resident of this area and a citizen of Bangladesh by birth. The person has never been a voter in any area before.",
   16: (p) =>
     joinSentences(
-      present(p.deceased_spouse_name) ? `The person's spouse ${text(p.deceased_spouse_name)} has died.` : "",
-      present(p.spouse_death_date) ? `Date of death: ${enDateIso(p.spouse_death_date)}.` : "",
+      present(p.deceased_spouse_name_en)
+        ? `The person's spouse ${cleanText(p.deceased_spouse_name_en)} has died.`
+        : "",
+      present(p.spouse_death_date)
+        ? `Date of death: ${enDateIso(p.spouse_death_date)}.`
+        : "",
       "The person is a widow.",
+      "After the spouse's death, the person has been living with the children.",
     ),
   17: (p) =>
     present(p.profession_en ?? p.profession)
-      ? `The person's occupation is ${text(p.profession_en ?? p.profession)}.`
-      : "The person's occupation is as stated in the application.",
-  18: (p) =>
-    present(p.community_name)
-      ? `The person is a member of the ${text(p.community_name)} community.`
-      : "The person is a member of the community stated in the application.",
-  19: (p) =>
-    present(p.consent_applicant_name)
-      ? `${text(p.consent_applicant_name)}, as guardian, has given consent in this matter.`
-      : "As guardian, the person has given consent in this matter.",
+      ? `The person is a ${cleanText(p.profession_en ?? p.profession)} by profession.`
+      : "The person's profession is certified as stated in the application.",
+  18: (p) => {
+    const name = cleanText(p.community_name_en).replace(/\s+community$/i, "");
+    return name
+      ? `The person is a member of the ${name} community.`
+      : "The person is a member of the community stated in the application.";
+  },
   20: (p) =>
     joinSentences(
       "The person is a valiant freedom fighter.",
-      present(p.freedom_fighter_id_number) ? `Freedom fighter ID no: ${text(p.freedom_fighter_id_number)}.` : "",
-      present(p.freedom_fighter_batch) ? `Batch: ${text(p.freedom_fighter_batch)}.` : "",
-      present(p.freedom_fighter_certificate_number) ? `Freedom fighter certificate no: ${text(p.freedom_fighter_certificate_number)}.` : "",
-      present(p.freedom_fighter_certificate_given_date) ? `Certificate date: ${enDateIso(p.freedom_fighter_certificate_given_date)}.` : "",
-      present(p.freedom_fighter_muktibarta_number) ? `Muktibarta no: ${text(p.freedom_fighter_muktibarta_number)}.` : "",
-      present(p.freedom_fighter_indian_gazette) ? `Indian gazette: ${text(p.freedom_fighter_indian_gazette)}.` : "",
-      present(p.freedom_fighter_gazette_number) ? `Gazette no: ${text(p.freedom_fighter_gazette_number)}.` : "",
-      present(p.other_freedom_fighter_name)
-        ? `The person is related to the fellow freedom fighter ${text(p.other_freedom_fighter_name)}${present(p.other_freedom_fighter_relation) ? ` (${text(p.other_freedom_fighter_relation)})` : ""}.`
+      present(p.freedom_fighter_id_number)
+        ? `Freedom fighter ID no: ${p.freedom_fighter_id_number}.`
+        : "",
+      present(p.freedom_fighter_batch_number)
+        ? `Batch no: ${p.freedom_fighter_batch_number}.`
+        : "",
+      present(p.freedom_fighter_certificate_number)
+        ? `Certificate no: ${p.freedom_fighter_certificate_number}.`
+        : "",
+      present(p.freedom_fighter_certificate_given_date)
+        ? `Certificate date: ${enDateIso(p.freedom_fighter_certificate_given_date)}.`
+        : "",
+      present(p.freedom_fighter_muktibarta_number) ? `Muktibarta no: ${p.freedom_fighter_muktibarta_number}.` : "",
+      present(p.freedom_fighter_gazette_number) ? `Gazette no: ${p.freedom_fighter_gazette_number}.` : "",
+      present(p.other_freedom_fighter_name ?? p.other_freedom_fighter_name_bn)
+        ? `Relationship with ${cleanText(p.other_freedom_fighter_name ?? p.other_freedom_fighter_name_bn)}: ${relationshipLabel(p.other_freedom_fighter_relation, false)}.`
         : "",
     ),
   21: (p) =>
-    present(p.farming_activity)
-      ? `The person is a farmer engaged in ${text(p.farming_activity)}.`
+    present(p.farming_activity_en)
+      ? `The person is a farmer by occupation. The person is engaged in the cultivation of ${cleanText(p.farming_activity_en)}.`
       : "The person is a farmer by occupation.",
-  22: "The person is unmarried and has never been married.",
+  22: "To my knowledge and according to local enquiry, the person is unmarried and has never been married.",
   23: (p) => {
-    // CERTNO-01 catalog: figures AND words (applicant's words win, else
-    // generated); the guardian variant certifies the guardian's income.
-    const words = present(p.income_info_amount_word)
-      ? text(p.income_info_amount_word)
-      : present(p.income_info_amount)
-        ? amountInWordsEn(Number(p.income_info_amount))
-        : "";
     const subject =
       p.other_person === true
-        ? present(p.other_person_name)
-          ? `The annual income of the guardian, ${text(p.other_person_name)}, is`
+        ? present(p.other_person_name_en ?? p.other_person_name)
+          ? `The annual income of the guardian, ${cleanText(p.other_person_name_en ?? p.other_person_name)}, is`
           : "The guardian's annual income is"
-        : "Annual income is";
+        : "The applicant's own annual income is";
     return joinSentences(
       present(p.income_info_amount)
-        ? `${subject} BDT ${Number(p.income_info_amount).toLocaleString("en-IN")} (in words: ${words}).`
-        : "Annual income is as stated in the application.",
-      present(p.profession_en ?? p.profession) ? `Occupation: ${text(p.profession_en ?? p.profession)}.` : "",
+        ? `${subject} BDT ${Number(p.income_info_amount).toLocaleString("en-IN")} (in words: ${amountInWordsEn(Number(p.income_info_amount))} Taka only).`
+        : "The person's annual income is as stated in the application.",
+      present(p.profession_en ?? p.profession)
+        ? `Occupation: ${cleanText(p.profession_en ?? p.profession)}.`
+        : "",
     );
   },
-  24: "The person is an orphan.",
-  25: (p) =>
-    joinSentences(
-      present(p.marriage_info_spouse_name_en ?? p.marriage_info_spouse_name)
-        ? `The person is married to ${text(p.marriage_info_spouse_name_en ?? p.marriage_info_spouse_name)}.`
-        : "The person is married.",
-      present(p.marriage_info_spouse_dob) ? `Spouse's date of birth: ${enDateIso(p.marriage_info_spouse_dob)}.` : "",
-      present(p.marriage_info_spouse_nid) ? `Spouse's NID no: ${text(p.marriage_info_spouse_nid)}.` : "",
-      present(p.marriage_info_spouse_place) ? `Place of marriage: ${text(p.marriage_info_spouse_place)}.` : "",
-      present(p.marriage_info_date) ? `Date of marriage: ${enDateIso(p.marriage_info_date)}.` : "",
-    ),
-  26: (p) => joinSentences(run(ATTESTATIONS_EN[25]!, p), "The marriage was completed without dowry."),
-  27: "The information has been verified and found correct for the purpose of passport issuance.",
+  24: (p) => {
+    const father = cleanText(p.orphan_father_name_en);
+    const mother = cleanText(p.orphan_mother_name_en);
+    const parts: string[] = [];
+    if (father)
+      parts.push(
+        `The person's father, the late ${father}, died${present(p.orphan_father_death_date) ? ` on ${enDateIso(p.orphan_father_death_date)}` : ""}.`,
+      );
+    if (mother)
+      parts.push(
+        `The person's mother, the late ${mother}, died${present(p.orphan_mother_death_date) ? ` on ${enDateIso(p.orphan_mother_death_date)}` : ""}.`,
+      );
+    const guardian = cleanText(p.orphan_guardian_name_en);
+    if (guardian)
+      parts.push(
+        `The person is currently under the care of the guardian, ${guardian}${present(p.orphan_guardian_relation) ? ` (${relationshipLabel(p.orphan_guardian_relation, false)})` : ""}.`,
+      );
+    parts.push("The person is an orphan.");
+    return parts.join(" ");
+  },
   28: (p) =>
     joinSentences(
-      "The person is alive.",
       present(p.appearance_date)
-        ? `The person appeared in person at this office on ${enDateIso(p.appearance_date)}.`
-        : "",
+        ? `The person is alive and in good health and appeared in person at this office on ${enDateIso(p.appearance_date)}.`
+        : "The person is alive and in good health.",
+      "The person is personally known to me.",
     ),
   29: (p) => {
-    const words = present(p.income_info_amount_word)
-      ? text(p.income_info_amount_word)
-      : present(p.income_info_amount)
-        ? amountInWordsEn(Number(p.income_info_amount))
-        : "";
     const subject =
       p.other_person === true
-        ? present(p.other_person_name)
-          ? `The monthly income of the guardian, ${text(p.other_person_name)}, is`
+        ? present(p.other_person_name_en ?? p.other_person_name)
+          ? `The monthly income of the guardian, ${cleanText(p.other_person_name_en ?? p.other_person_name)}, is`
           : "The guardian's monthly income is"
-        : "Monthly income is";
-    return present(p.income_info_amount)
-      ? `${subject} BDT ${Number(p.income_info_amount).toLocaleString("en-IN")} (in words: ${words}).`
-      : "Monthly income is as stated in the application.";
+        : "The applicant's own monthly income is";
+    return joinSentences(
+      present(p.income_info_amount)
+        ? `${subject} BDT ${Number(p.income_info_amount).toLocaleString("en-IN")} (in words: ${amountInWordsEn(Number(p.income_info_amount))} Taka only).`
+        : "The person's monthly income is as stated in the application.",
+      present(p.profession_en ?? p.profession)
+        ? `Occupation: ${cleanText(p.profession_en ?? p.profession)}.`
+        : "",
+    );
   },
   30: (p) =>
     joinSentences(
       present(p.declared_assets_bdt)
-        ? `Declared assets: BDT ${Number(p.declared_assets_bdt).toLocaleString("en-IN")} (in words: ${amountInWordsEn(Number(p.declared_assets_bdt))}).`
+        ? `Declared assets: BDT ${Number(p.declared_assets_bdt).toLocaleString("en-IN")} (in words: ${amountInWordsEn(Number(p.declared_assets_bdt))} Taka only).`
         : "",
       present(p.declared_liabilities_bdt)
-        ? `Declared liabilities: BDT ${Number(p.declared_liabilities_bdt).toLocaleString("en-IN")} (in words: ${amountInWordsEn(Number(p.declared_liabilities_bdt))}).`
+        ? `Declared liabilities: BDT ${Number(p.declared_liabilities_bdt).toLocaleString("en-IN")} (in words: ${amountInWordsEn(Number(p.declared_liabilities_bdt))} Taka only).`
         : "",
-      present(p.financial_basis) ? `Financial basis: ${text(p.financial_basis)}.` : "",
+      present(p.financial_basis_en)
+        ? `Financial basis: ${cleanText(p.financial_basis_en)}.`
+        : "",
       "The person is financially solvent.",
     ),
   32: (p) =>
     joinSentences(
       present(p.monthly_household_income_bdt)
-        ? `Monthly household income is BDT ${Number(p.monthly_household_income_bdt).toLocaleString("en-IN")} (in words: ${amountInWordsEn(Number(p.monthly_household_income_bdt))}).`
+        ? `Monthly household income is BDT ${Number(p.monthly_household_income_bdt).toLocaleString("en-IN")} (in words: ${amountInWordsEn(Number(p.monthly_household_income_bdt))} Taka only).`
         : "",
-      "The person is in financial hardship.",
+      present(p.earner_occupation_en)
+        ? `Occupation of the family's earning member: ${cleanText(p.earner_occupation_en)}.`
+        : "",
+      "The person is in financial hardship and is a deserving claimant of assistance from any social-welfare organisation or government fund.",
     ),
-  34: "The person has no children.",
-  35: "The person is of good character and no complaint is known against the person's conduct.",
-  36: (p) =>
-    present(p.noc_org_name)
-      ? `This office has no objection to the activities of ${text(p.noc_org_name)}.`
-      : "This office has no objection to the activities of the organisation stated in the application.",
+  34: "The couple has no children.",
+  35: "The person is of good character; the person's character is good. The person is not involved in any anti-state activity, and no complaint is known about the person's conduct.",
+  36: (p) => {
+    const org = cleanText(p.noc_org_name);
+    const role = cleanText(p.noc_role_en);
+    const activity = cleanText(p.noc_activity_en);
+    if (!org)
+      return "This office has no objection to the activities of the organisation stated in the application.";
+    return `This office has no objection to the ${activity ? `${activity} ` : ""}activities of ${org}${role ? `, in which the person serves as ${role}` : ""}.`;
+  },
+  // CERT-REFINE-01 §37: the captured reason-based clause is kept; the
+  // fields line is added by the chassis.
   37: (p) => {
     const reason = text(p.application_voter_area_transfer_reason);
     const phrase =
@@ -626,28 +874,51 @@ export const ATTESTATIONS_EN: Record<number, Attestation> = {
             ? "Following a change of residence,"
             : "";
     return joinSentences(
-      `${phrase} the person resides permanently in this area and is a citizen of Bangladesh.`,
+      phrase
+        ? `${phrase} the person resides permanently in this area and is a citizen of Bangladesh.`
+        : "The person resides permanently in this area and is a citizen of Bangladesh.",
       "The previous voter area may be changed so that the person is registered as a voter of this area.",
     );
   },
   38: (p) =>
+    // CERT-REFINE-02 (R2-15): one sentence, the type in parentheses; the
+    // support-needs sentence is retained.
     joinSentences(
-      "The person is a person with a disability.",
-      present(p.support_needs) ? `Support needs: ${text(p.support_needs)}.` : "",
+      DISABILITY_LABELS[disabilityTypeOf(p)]
+        ? `The certificate holder is a person with a disability (disability type: ${DISABILITY_LABELS[disabilityTypeOf(p)]!.en}).`
+        : "The certificate holder is a person with a disability.",
+      present(p.support_needs_en)
+        ? `Support needs: ${cleanText(p.support_needs_en)}.`
+        : "",
     ),
-  39: (p) =>
-    present(p.spi_name_en ?? p.spi_name)
-      ? `The names stated in the application, including ${text(p.spi_name_en ?? p.spi_name)}, belong to one and the same person.`
-      : "The names stated in the application belong to one and the same person.",
-  40: (p) =>
-    present(p.community_name)
-      ? `The person is a member of the ${text(p.community_name)} indigenous community.`
-      : "The person is a member of the indigenous community stated in the application.",
-  43: "The person's name was omitted from the voter list and may be re-included in the voter list of this area.",
-  44: "The person has not remarried.",
+  40: (p) => {
+    const name = cleanText(p.community_name_en).replace(/\s+community$/i, "");
+    return name
+      ? `The person is a member of the ${name} ethnic minority community.`
+      : "The person is a member of the ethnic minority community stated in the application.";
+  },
+  43: (p) =>
+    joinSentences(
+      present(p.omission_details_en)
+        ? `Reason for omission: ${cleanText(p.omission_details_en)}.`
+        : "",
+      present(p.omission_details_en)
+        ? `The person's name was omitted from the voter list due to ${cleanText(p.omission_details_en)}.`
+        : "The person's name was omitted from the voter list.",
+      "The person is a permanent resident of this area and a citizen of Bangladesh; the person may be re-included in the voter list.",
+    ),
+  44: (p) => {
+    const name = cleanText(p.previous_spouse_name_en);
+    if (!name)
+      return "The person has not remarried since the spouse's death.";
+    return joinSentences(
+      `The person's spouse, the late ${name}, died${present(p.spouse_death_date) ? ` on ${enDateIso(p.spouse_death_date)}` : ""}.`,
+      "Since the spouse's death, the person has not remarried and has been living with the children.",
+    );
+  },
   45: (p) =>
     present(p.residence_since)
-      ? `The person has resided permanently in this area since ${enDateIso(p.residence_since)}.`
+      ? `The person has been permanently residing in this area since ${enDateIso(p.residence_since)}.`
       : "The person is a permanent resident of this area.",
 };
 
@@ -656,13 +927,12 @@ export const AUTHORED_ATTESTATION_SERVICES = Object.keys(ATTESTATIONS_BN)
   .map(Number)
   .filter((no) => no !== 12 && no !== 37);
 
-/* ---------- address composition (samples' pattern; post office/postcode omitted — no dataset) ---------- */
+/* ---------- address composition (CERT-REFINE-01 A2 order: village/house, ward, union, upazila, district; post office omitted — no dataset) ---------- */
 export function addressBn(freeText: unknown, parts?: GeoNameParts): string {
   const seg: string[] = [];
   if (present(freeText)) seg.push(`গ্রাম/বাড়ীঃ ${text(freeText)}`);
   if (parts?.wardNo) seg.push(`ওয়ার্ড নম্বরঃ ${bnDigits(parts.wardNo)}`);
   if (parts?.union?.bn) seg.push(`${parts.union.bn} ইউনিয়ন`);
-  if (parts?.upazila?.bn) seg.push(`থানাঃ ${parts.upazila.bn}`);
   if (parts?.upazila?.bn) seg.push(`উপজেলাঃ ${parts.upazila.bn}`);
   if (parts?.district?.bn) seg.push(`জেলাঃ ${parts.district.bn}`);
   return seg.join(", ");
@@ -672,7 +942,6 @@ export function addressEn(freeText: unknown, parts?: GeoNameParts): string {
   if (present(freeText)) seg.push(`Village/House: ${text(freeText)}`);
   if (parts?.wardNo) seg.push(`Ward No: ${parts.wardNo}`);
   if (parts?.union?.en) seg.push(`${parts.union.en} Union`);
-  if (parts?.upazila?.en) seg.push(`Thana: ${parts.upazila.en}`);
   if (parts?.upazila?.en) seg.push(`Upazila: ${parts.upazila.en}`);
   if (parts?.district?.en) seg.push(`District: ${parts.district.en}`);
   return seg.join(", ");
@@ -701,7 +970,12 @@ export function officeLine(input: PdfInput, bn: boolean): string {
   return "";
 }
 
-/** Identity segments in the samples' order; each appears only when its data exists. */
+/**
+ * CERT-REFINE-01 (A2): the standard identity block — name, father, mother,
+ * then জাতীয় পরিচয়পত্র নম্বর (জন্ম নিবন্ধন নম্বর only when no NID exists).
+ * The spouse segment left the block (QA: it appears only on services whose
+ * format calls for it — 15, 25, 26, 34 — handled by the chassis there).
+ */
 function identitySegments(ctx: DocContext): string {
   const { input, bn } = ctx;
   const c = input.citizen;
@@ -711,20 +985,15 @@ function identitySegments(ctx: DocContext): string {
   const nid = input.identity?.nid;
   const birthReg = input.identity?.birthReg;
   if (bn) {
-    if (present(nid)) parts.push(`জাতীয় পরিচয়পত্র নম্বরঃ <strong>${bnDigits(nid)}</strong>`);
-    else if (present(birthReg)) parts.push(`জন্ম নিবন্ধন নম্বরঃ <strong>${bnDigits(birthReg)}</strong>`);
-    const spouse = c.spouse_name_bn;
-    if (present(spouse))
-      parts.push(`${c.gender === "male" ? "স্ত্রীঃ" : "স্বামীঃ"} <strong>${escape(spouse)}</strong>`);
     if (present(c.father_name_bn)) parts.push(`পিতাঃ <strong>${escape(c.father_name_bn)}</strong>`);
     if (present(c.mother_name_bn)) parts.push(`মাতাঃ <strong>${escape(c.mother_name_bn)}</strong>`);
+    if (present(nid)) parts.push(`জাতীয় পরিচয়পত্র নম্বরঃ <strong>${bnDigits(nid)}</strong>`);
+    else if (present(birthReg)) parts.push(`জন্ম নিবন্ধন নম্বরঃ <strong>${bnDigits(birthReg)}</strong>`);
   } else {
-    if (present(nid)) parts.push(`National ID No: <strong>${escape(nid)}</strong>`);
-    else if (present(birthReg)) parts.push(`Birth Registration No: <strong>${escape(birthReg)}</strong>`);
-    const spouse = c.spouse_name_en;
-    if (present(spouse)) parts.push(`Spouse: <strong>${escape(spouse)}</strong>`);
     if (present(c.father_name_en)) parts.push(`Father: <strong>${escape(c.father_name_en)}</strong>`);
     if (present(c.mother_name_en)) parts.push(`Mother: <strong>${escape(c.mother_name_en)}</strong>`);
+    if (present(nid)) parts.push(`National ID No: <strong>${escape(nid)}</strong>`);
+    else if (present(birthReg)) parts.push(`Birth Registration No: <strong>${escape(birthReg)}</strong>`);
   }
   return parts.join(", ");
 }
@@ -775,7 +1044,14 @@ export function selectLabel(
   return option ? option.label[bn ? "bn" : "en"] : text(value);
 }
 
-/** Deceased-subject chassis for services 3, 4, 7, 31 — the paragraph is about the deceased. */
+/**
+ * Deceased-subject chassis for services 3, 4, 7, 31 — the paragraph is about
+ * the deceased. CERT-REFINE-01: cholito register; the deceased's NID (svc3/4)
+ * and the registration number print inside the deceased block, before the
+ * heirs table; the table carries the spec column set with DD/MM/YYYY dates;
+ * a মোট ওয়ারিশ total line, the closing line and the modernised falsity
+ * caveat follow the table.
+ */
 function deceasedParagraph(ctx: DocContext, serviceNo: number): string {
   const { input, bn } = ctx;
   const p = input.payload;
@@ -789,9 +1065,13 @@ function deceasedParagraph(ctx: DocContext, serviceNo: number): string {
   if (bn) {
     if (present(father)) identity.push(`পিতাঃ <strong>${escape(father)}</strong>`);
     if (present(mother)) identity.push(`মাতাঃ <strong>${escape(mother)}</strong>`);
+    if ((serviceNo === 3 || serviceNo === 4) && present(get("nid")))
+      identity.push(`জাতীয় পরিচয়পত্র নম্বরঃ <strong>${bnDigits(get("nid"))}</strong>`);
   } else {
     if (present(father)) identity.push(`Father: <strong>${escape(father)}</strong>`);
     if (present(mother)) identity.push(`Mother: <strong>${escape(mother)}</strong>`);
+    if ((serviceNo === 3 || serviceNo === 4) && present(get("nid")))
+      identity.push(`National ID No: <strong>${escape(get("nid"))}</strong>`);
   }
   const dod = get("dod");
   const registerNo = get("register_no");
@@ -801,23 +1081,25 @@ function deceasedParagraph(ctx: DocContext, serviceNo: number): string {
     const reason = bn ? get("reason_bn") : get("reason");
     if (bn) {
       sentences.push(
-        `তিনি ${present(dod) ? `${bnDateIso(dod)} তারিখে ` : ""}${present(place) ? `${text(place)} এ ` : ""}মৃত্যুবরণ করিয়াছেন।`,
+        `তিনি ${present(dod) ? `${bnDateIso(dod)} তারিখে ` : ""}${present(place) ? `${text(place)} এ ` : ""}মৃত্যুবরণ করেছেন।`,
       );
       if (present(reason)) sentences.push(`মৃত্যুর কারণঃ ${text(reason)}।`);
-      if (serviceNo === 31) sentences.push("তিনি অবিবাহিত অবস্থায় মৃত্যুবরণ করিয়াছেন।");
+      if (serviceNo === 31) sentences.push("তিনি অবিবাহিত অবস্থায় মৃত্যুবরণ করেছেন।");
       if (present(registerNo)) sentences.push(`মৃত্যু নিবন্ধন নংঃ ${bnDigits(registerNo)}।`);
     } else {
+      // CERT-REFINE-02 (R2-15): "The death occurred on … at the
+      // deceased's own residence, …" + the mapped cause wording.
       sentences.push(
-        `The person died${present(dod) ? ` on ${enDateIso(dod)}` : ""}${present(place) ? ` at ${text(place)}` : ""}.`,
+        `The death occurred${present(dod) ? ` on ${enDateIso(dod)}` : ""}${present(place) ? ` at ${deathPlaceEn(place)}` : ""}.`,
       );
-      if (present(reason)) sentences.push(`Cause of death: ${text(reason)}.`);
+      if (present(reason)) sentences.push(`Cause of death: ${deathCauseEn(reason)}.`);
       if (serviceNo === 31) sentences.push("The person died unmarried.");
       if (present(registerNo)) sentences.push(`Death registration no: ${text(registerNo)}.`);
     }
   } else {
     if (bn) {
       sentences.push(
-        `তিনি মৃত্যুবরণ করিয়াছেন${present(dod) ? ` (মৃত্যুর তারিখঃ ${bnDateIso(dod)})` : ""}। তাহার ওয়ারিশগণ নিম্নরূপ:`,
+        `তিনি মৃত্যুবরণ করেছেন${present(dod) ? ` (মৃত্যুর তারিখঃ ${bnDateIso(dod)})` : ""}। তাঁহার ওয়ারিশগণ নিম্নরূপ:`,
       );
       if (present(registerNo)) sentences.push(`নিবন্ধন নংঃ ${bnDigits(registerNo)}।`);
     } else {
@@ -828,8 +1110,9 @@ function deceasedParagraph(ctx: DocContext, serviceNo: number): string {
     }
   }
   const intro = bn
-    ? `এই মর্মে প্রত্যয়ন করা যাইতেছে যে, ${identity.join(", ")}, ঠিকানাঃ- ${address}।`
-    : `This is to certify that ${identity.join(", ")}, of address: ${address}.`;
+    ? `এই মর্মে প্রত্যয়ন করা যাচ্ছে যে, ${identity.join(", ")}, ঠিকানাঃ ${address}।`
+    : // CERT-REFINE-02 (R2-15): "of address: Village/House:" → "of Village/House:".
+      `This is to certify that ${identity.join(", ")}, of ${address}.`;
   if (serviceNo === 31) {
     // CERTNO-01 catalog §31: the applicant (the citizen) is identified with
     // their relation to the deceased.
@@ -848,42 +1131,244 @@ function deceasedParagraph(ctx: DocContext, serviceNo: number): string {
     );
   }
   let table = "";
+  let after = "";
   if (serviceNo === 3 || serviceNo === 4) {
     const heirs = Array.isArray(p.heirs) ? (p.heirs as Record<string, unknown>[]) : [];
     const schema = input.schema ?? getServiceSchema(serviceNo);
-    // CERTNO-01 catalog §§3–4: relation prints as its label; the NID and
-    // mobile columns appear only when at least one heir carries them.
-    const withNid = heirs.some((h) => present(h.warish_heir_nid));
+    // CERT-REFINE-01 §§3–4: column order ক্রমিক | নাম | পিতা/স্বামীর নাম | জন্ম
+    // তারিখ | জাতীয় পরিচয়পত্র নম্বর | সম্পর্ক; the NID column always shows
+    // (an empty cell for an heir without one is data, not decoration), the
+    // father's name renders in the certificate's own language, dates print
+    // DD/MM/YYYY, and the mobile column stays conditional on data.
     const withMobile = heirs.some((h) => present(h.warish_heir_mobile_no));
     const rows = heirs.map((h, i) => {
       const row = [
         bn ? bnDigits(i + 1) : String(i + 1),
         text(bn ? h.warish_heir_name_bn : h.warish_heir_name),
+        text(bn ? h.warish_heir_father_name_bn : h.warish_heir_father_name),
+        bn ? bnDateSlash(h.warish_heir_dob) : enDateSlash(h.warish_heir_dob),
+        bn ? bnDigits(h.warish_heir_nid) : text(h.warish_heir_nid),
         selectLabel(schema, "heirs", "warish_heir_relation", h.warish_heir_relation, bn),
-        bn ? bnDigits(h.warish_heir_dob) : text(h.warish_heir_dob),
-        text(h.warish_heir_father_name),
       ];
-      if (withNid) row.push(bn ? bnDigits(h.warish_heir_nid) : text(h.warish_heir_nid));
       if (withMobile) row.push(bn ? bnDigits(h.warish_heir_mobile_no) : text(h.warish_heir_mobile_no));
       return row;
     });
     const headers = bn
-      ? ["ক্রমিক", "ওয়ারিশের নাম", "সম্পর্ক", "জন্ম তারিখ", "পিতার নাম"]
-      : ["Sl", "Heir's name", "Relation", "Date of birth", "Father's name"];
-    if (withNid) headers.push(bn ? "জাতীয় পরিচয়পত্র নম্বর" : "NID No");
+      ? ["ক্রমিক", "ওয়ারিশের নাম", "পিতা/স্বামীর নাম", "জন্ম তারিখ", "জাতীয় পরিচয়পত্র নম্বর", "সম্পর্ক"]
+      : ["Sl", "Heir's name", "Father/Husband name", "Date of birth", "NID No", "Relation"];
     if (withMobile) headers.push(bn ? "মোবাইল নম্বর" : "Mobile No");
     table = dataTable(headers, rows);
-    sentences.push(
-      bn
-        ? serviceNo === 4
-          ? "উল্লিখিত ব্যক্তিগণই তাহার আইনগত উত্তরাধিকারী; তাহাদের ছাড়া আর কোনো ওয়ারিশ আছে বলিয়া জানা যায় না।"
-          : "উল্লিখিত ব্যক্তিগণ ছাড়া তাহার আর কোনো ওয়ারিশ আছে বলিয়া জানা যায় না।"
-        : serviceNo === 4
-          ? "The persons listed are the legal successors; no other heir is known."
-          : "No other heir is known besides the persons listed.",
-    );
+    const totalLine = bn
+      ? `মোট ওয়ারিশ: ${bnDigits(heirs.length)} জন।`
+      : `Total heirs: ${heirs.length}.`;
+    const closingLine = bn
+      ? serviceNo === 4
+        ? "উল্লিখিত ব্যক্তিগণই তাঁহার আইনগত উত্তরাধিকারী; তাঁহাদের ছাড়া আর কোনো ওয়ারিশ আছে বলে জানা যায় না।"
+        : "উল্লিখিত ব্যক্তিগণ ছাড়া তাঁহার আর কোনো ওয়ারিশ আছে বলে জানা যায় না।"
+      : serviceNo === 4
+        ? "The persons listed are the legal successors; no other heir is known."
+        : "No other heir is known besides the persons listed.";
+    const caveat = bn
+      ? "উল্লেখ্য যে, উপরোক্ত তথ্য পরবর্তীতে ভুল প্রমাণিত হলে এই সনদ বাতিল বলে গণ্য হবে এবং এ ব্যাপারে কর্তৃপক্ষ দায়ী থাকবে না।"
+      : "If the above information is later proved incorrect, this certificate shall be deemed cancelled and the authority shall bear no responsibility.";
+    after = `<p class="body-para">${escape(totalLine)}</p><p class="body-para">${escape(closingLine)}</p><p class="body-para">${escape(caveat)}</p>`;
   }
-  return `<p class="body-para">${intro} ${sentences.join(" ")}</p>${table}`;
+  return `<p class="body-para">${intro} ${sentences.join(" ")}</p>${table}${after}`;
+}
+
+/** Spouse sentence for the services whose format carries it (15, 34) — resolved from the citizen record. */
+function spouseSentence(ctx: DocContext): string {
+  const { input, bn } = ctx;
+  const c = input.citizen;
+  if (bn) {
+    if (!present(c.spouse_name_bn)) return "";
+    return c.gender === "male"
+      ? `তাঁহার স্ত্রীর নাম ${text(c.spouse_name_bn)}।`
+      : `তাঁহার স্বামীর নাম ${text(c.spouse_name_bn)}।`;
+  }
+  if (!present(c.spouse_name_en)) return "";
+  return `The person's spouse is ${text(c.spouse_name_en)}.`;
+}
+
+/** CERT-REFINE-01 §2: family certificate — children counts, spec table, family closing. */
+function familyBody(ctx: DocContext): string {
+  const { input, bn } = ctx;
+  const p = input.payload;
+  const members = Array.isArray(p.members)
+    ? (p.members as Record<string, unknown>[])
+    : [];
+  const schema = input.schema ?? getServiceSchema(2);
+  const children = members.filter((m) => text(m.relationship) === "child");
+  const sons = children.filter((m) => text(m.gender) === "male").length;
+  const daughters = children.filter((m) => text(m.gender) === "female").length;
+  const genderKnown = children.length > 0 && sons + daughters === children.length;
+  const counts = !children.length
+    ? ""
+    : bn
+      ? genderKnown
+        ? `তাঁহার ${bnDigits(sons)} জন পুত্র ও ${bnDigits(daughters)} জন কন্যা রয়েছে।`
+        : `তাঁহার ${bnDigits(children.length)} জন সন্তান রয়েছে।`
+      : genderKnown
+        ? `The person has ${sons} son(s) and ${daughters} daughter(s).`
+        : `The person has ${children.length} children.`;
+  // CERT-REFINE-01 (A3): service 2 is on the status-sentence list.
+  const status = bn ? STATUS_SENTENCE_BN : STATUS_SENTENCE_EN;
+  const intro = bn
+    ? `এই মর্মে প্রত্যয়ন করা যাচ্ছে যে, ${identitySegments(ctx)}, তাঁহার <strong>স্থায়ী ঠিকানাঃ</strong> ${escape(permanentAddress(ctx))}। ${escape(status)}`
+    : `This is to certify that ${identitySegments(ctx)}, <strong>permanent address:</strong> ${escape(permanentAddress(ctx))}. ${escape(status)}`;
+  const rows = members.map((m, i) => [
+    bn ? bnDigits(i + 1) : String(i + 1),
+    text(bn ? m.name_bn : m.name_en),
+    bn ? bnDigits(m.warish_heir_nid) : text(m.warish_heir_nid),
+    bn ? bnDateSlash(m.dob) : enDateSlash(m.dob),
+    selectLabel(schema, "members", "relationship", m.relationship, bn),
+  ]);
+  const headers = bn
+    ? ["ক্রমিক", "নাম", "আইডি/জন্মনিবন্ধন নং", "জন্ম তারিখ", "সম্পর্ক"]
+    : ["Sl", "Name", "ID/Birth Reg No", "Date of birth", "Relationship"];
+  const closing = bn
+    ? "আমি উক্ত পরিবারের সর্বাঙ্গীণ মঙ্গল কামনা করছি।"
+    : "I wish the family every prosperity.";
+  // The base same-family attestation is retained (cholito register).
+  const familyLine = bn
+    ? "এই সনদে উল্লিখিত ব্যক্তিগণ একই পরিবারের সদস্য বলে প্রত্যয়ন করা যাচ্ছে।"
+    : "The persons listed in this certificate are members of the same family.";
+  return `<p class="body-para">${counts ? `${intro} ${escape(counts)}` : intro}</p>${dataTable(headers, rows)}<p class="body-para">${escape(familyLine)}</p><p class="closing">${escape(closing)}</p>`;
+}
+
+/** CERT-REFINE-01 §19: consent certificate — guardian block, child block, consent clause, guardian signature block. */
+function consentBody(ctx: DocContext): string {
+  const { input, bn } = ctx;
+  const p = input.payload;
+  const schema = input.schema ?? getServiceSchema(19);
+  const guardian = bn
+    ? `অভিভাবকঃ ${identitySegments(ctx)}, তাঁহার <strong>স্থায়ী ঠিকানাঃ</strong> ${escape(permanentAddress(ctx))}।`
+    : `Guardian: ${identitySegments(ctx)}, <strong>permanent address:</strong> ${escape(permanentAddress(ctx))}.`;
+  const childName = text(bn ? p.consent_child_name_bn : p.consent_child_name_en);
+  const relation = selectLabel(schema, "consent_child_relation", undefined, p.consent_child_relation, bn);
+  const subject = selectLabel(schema, "consent_subject", undefined, p.consent_subject, bn);
+  // CERT-REFINE-02 (R2-18): the child block takes the standard
+  // label-value grid (label 132 pt regular, value bold, 4 pt row
+  // padding) instead of loose <br> lines.
+  const childRows: [string, string][] = bn
+    ? [
+        ["সন্তানের নাম:", childName],
+        ["জন্ম তারিখ:", present(p.consent_child_dob) ? bnDateIso(p.consent_child_dob) : ""],
+        ["জন্ম নিবন্ধন নম্বর:", present(p.consent_child_birth_reg) ? bnDigits(p.consent_child_birth_reg) : ""],
+        ["সম্পর্ক:", relation],
+      ]
+    : [
+        ["Child's name:", childName],
+        ["Date of birth:", present(p.consent_child_dob) ? enDateIso(p.consent_child_dob) : ""],
+        ["Birth registration no:", present(p.consent_child_birth_reg) ? text(p.consent_child_birth_reg) : ""],
+        ["Relationship:", relation],
+      ];
+  const childBlock = `<div class="consent-grid">${childRows
+    .filter(([, v]) => present(v))
+    .map(
+      ([l, v]) =>
+        `<div class="consent-row"><span>${escape(l)}</span><strong>${escape(v)}</strong></div>`,
+    )
+    .join("")}</div>`;
+  const guardianName = text(bn ? input.citizen.full_name_bn : input.citizen.full_name_en);
+  const clause = bn
+    ? `আমি ${escape(guardianName)}, আমার ${relation ? `${escape(relation)} ` : ""}<strong>${escape(childName)}</strong> এর ${escape(subject)} বিষয়ে সম্মতি প্রদান করিলাম।`
+    : `I, ${escape(guardianName)}, give my consent for my ${relation ? `${escape(relation)} ` : ""}<strong>${escape(childName)}</strong> in respect of ${escape(subject)}.`;
+  const sign = bn
+    ? `<div class="guardian-sign"><div class="sign-line"></div><div>অভিভাবকের স্বাক্ষর</div><div>নামঃ ${escape(guardianName)}</div></div>`
+    : `<div class="guardian-sign"><div class="sign-line"></div><div>Guardian's signature</div><div>Name: ${escape(guardianName)}</div></div>`;
+  return `<p class="body-para">${guardian}</p>${childBlock}<p class="body-para">${clause}</p>${sign}`;
+}
+
+/** CERT-REFINE-01 §§25–26: marriage certificate — groom and bride blocks, joint line, (26) dowry line. */
+function marriageBody(ctx: DocContext, serviceNo: number): string {
+  const { input, bn } = ctx;
+  const p = input.payload;
+  const c = input.citizen;
+  // CERT-REFINE-02 (R2-17): each party box gets a #F2F2F2 heading band;
+  // inside, a fixed 118 pt label column with bold 11.5 pt values; the
+  // closing lines form one standalone paragraph with the date bold.
+  const block = (title: string, lines: [string, string][]) =>
+    `<div class="person-block"><div class="person-title">${escape(title)}</div><div class="person-rows">${lines
+      .filter(([, v]) => present(v))
+      .map(([l, v]) => `<div class="person-row"><span>${escape(l)}</span><strong>${escape(v)}</strong></div>`)
+      .join("")}</div></div>`;
+  const citizenLines: [string, string][] = bn
+    ? [
+        ["নামঃ", text(c.full_name_bn)],
+        ["পিতাঃ", text(c.father_name_bn)],
+        ["মাতাঃ", text(c.mother_name_bn)],
+        ["ঠিকানাঃ", permanentAddress(ctx)],
+        ["জন্ম তারিখঃ", present(c.date_of_birth) ? bnDateIso(c.date_of_birth) : ""],
+        ["জাতীয় পরিচয়পত্র নম্বরঃ", bnDigits(input.identity?.nid ?? "")],
+      ]
+    : [
+        ["Name:", text(c.full_name_en)],
+        ["Father:", text(c.father_name_en)],
+        ["Mother:", text(c.mother_name_en)],
+        ["Address:", permanentAddress(ctx)],
+        ["Date of birth:", present(c.date_of_birth) ? enDateIso(c.date_of_birth) : ""],
+        ["National ID No:", text(input.identity?.nid ?? "")],
+      ];
+  const spouseLines: [string, string][] = bn
+    ? [
+        ["নামঃ", text(p.marriage_info_spouse_name_bn)],
+        ["পিতাঃ", text(p.marriage_info_spouse_father_name_bn)],
+        ["মাতাঃ", text(p.marriage_info_spouse_mother_name_bn)],
+        ["ঠিকানাঃ", text(p.marriage_info_spouse_address_bn)],
+        ["জন্ম তারিখঃ", present(p.marriage_info_spouse_dob) ? bnDateIso(p.marriage_info_spouse_dob) : ""],
+        ["জাতীয় পরিচয়পত্র নম্বরঃ", bnDigits(p.marriage_info_spouse_nid ?? "")],
+      ]
+    : [
+        ["Name:", text(p.marriage_info_spouse_name)],
+        ["Father:", text(p.marriage_info_spouse_father_name_en)],
+        ["Mother:", text(p.marriage_info_spouse_mother_name_en)],
+        ["Address:", text(p.marriage_info_spouse_address_en)],
+        ["Date of birth:", present(p.marriage_info_spouse_dob) ? enDateIso(p.marriage_info_spouse_dob) : ""],
+        ["National ID No:", text(p.marriage_info_spouse_nid ?? "")],
+      ];
+  const citizenIsGroom = c.gender !== "female";
+  const groom = citizenIsGroom ? citizenLines : spouseLines;
+  const bride = citizenIsGroom ? spouseLines : citizenLines;
+  const jointDate = present(p.marriage_info_date)
+    ? bn
+      ? bnDateIso(p.marriage_info_date)
+      : enDateIso(p.marriage_info_date)
+    : "";
+  const joint = bn
+    ? `বিবাহের তারিখঃ <strong>${escape(jointDate)}</strong>${present(p.marriage_info_spouse_place_bn) ? `, বিবাহের স্থানঃ ${escape(text(p.marriage_info_spouse_place_bn))}` : ""}।`
+    : `Date of marriage: <strong>${escape(jointDate)}</strong>${present(p.marriage_info_spouse_place) ? `, Place of marriage: ${escape(text(p.marriage_info_spouse_place))}` : ""}.`;
+  const intro = bn ? "এই মর্মে প্রত্যয়ন করা যাচ্ছে যে," : "This is to certify that";
+  const dowry =
+    serviceNo === 26
+      ? bn
+        ? " উক্ত বিবাহ যৌতুক বিহীনভাবে সম্পন্ন হয়েছে।"
+        : " The said marriage was completed without dowry."
+      : "";
+  return `<p class="body-para">${escape(intro)}</p>${block(bn ? "বর" : "Groom", groom)}${block(bn ? "কনে" : "Bride", bride)}<p class="marriage-closing">${joint}${dowry}</p>`;
+}
+
+/** CERT-REFINE-01 §39: same-person declaration — the variant names print in the clause. */
+function samePersonBody(ctx: DocContext): string {
+  const { input, bn } = ctx;
+  const p = input.payload;
+  const name = text(bn ? input.citizen.full_name_bn : input.citizen.full_name_en);
+  const v1 = text(bn ? p.spi_name_bn : p.spi_name_en);
+  const v2 = text(bn ? p.spi_name_2_bn : p.spi_name_2_en);
+  const intro = bn
+    ? `এই মর্মে প্রত্যয়ন করা যাচ্ছে যে, ${identitySegments(ctx)}, তাঁহার <strong>স্থায়ী ঠিকানাঃ</strong> ${escape(permanentAddress(ctx))}।`
+    : `This is to certify that ${identitySegments(ctx)}, <strong>permanent address:</strong> ${escape(permanentAddress(ctx))}.`;
+  // CERT-REFINE-01 §39: the spec's declaration — correct name, the variants
+  // as they appear in documents, and the same-person statement.
+  const clause =
+    present(v2) && v2 !== name
+      ? bn
+        ? `আবেদনকারীর সঠিক নাম: <strong>${escape(name)}</strong>। বিভিন্ন নথিতে তাঁহার নাম ${escape(v1)} এবং ${escape(v2)} হিসেবে উল্লেখিত হয়েছে। উল্লিখিত সকল নাম একই ব্যক্তির।`
+        : `The applicant's correct name is <strong>${escape(name)}</strong>. The names ${escape(v1)} and ${escape(v2)} appearing in various documents all belong to one and the same person.`
+      : bn
+        ? `আবেদনকারীর সঠিক নাম: <strong>${escape(name)}</strong>। বিভিন্ন নথিতে তাঁহার নাম ${escape(v1)} হিসেবে উল্লেখিত হয়েছে। উল্লিখিত সকল নাম একই ব্যক্তির।`
+        : `The applicant's correct name is <strong>${escape(name)}</strong>. The name ${escape(v1)} appearing in various documents belongs to one and the same person.`;
+  return `<p class="body-para">${intro}</p><p class="body-para">${clause}</p>`;
 }
 
 /** The paragraph chassis — the default for attestation-type services. */
@@ -892,81 +1377,125 @@ function paragraphBody(ctx: DocContext, serviceNo: number): string {
   const p = input.payload;
   if (serviceNo === 3 || serviceNo === 4 || serviceNo === 7 || serviceNo === 31)
     return deceasedParagraph(ctx, serviceNo);
+  if (serviceNo === 2) return familyBody(ctx);
+  if (serviceNo === 19) return consentBody(ctx);
+  if (serviceNo === 25 || serviceNo === 26) return marriageBody(ctx, serviceNo);
+  if (serviceNo === 39) return samePersonBody(ctx);
   if (serviceNo === 47) {
     const body = text(bn ? p.certificate_details_bn : p.certificate_details_en);
     const footer = text(bn ? p.certificate_footer_bn : p.certificate_footer_en);
-    return `<p class="body-para">${escape(body).replace(/\n/g, "<br>")}</p>${footer ? `<p class="free-footer">${escape(footer)}</p>` : ""}`;
+    // CERT-REFINE-01 §47: the A2 identity paragraph prints above the narrative.
+    const intro = bn
+      ? `<p class="body-para">এই মর্মে প্রত্যয়ন করা যাচ্ছে যে, ${identitySegments(ctx)}, তাঁহার <strong>স্থায়ী ঠিকানাঃ</strong> ${escape(permanentAddress(ctx))}।</p>`
+      : `<p class="body-para">This is to certify that ${identitySegments(ctx)}, <strong>permanent address:</strong> ${escape(permanentAddress(ctx))}.</p>`;
+    return `${intro}<p class="body-para">${escape(body).replace(/\n/g, "<br>")}</p>${footer ? `<p class="free-footer">${escape(footer)}</p>` : ""}`;
   }
   if (serviceNo === 27) {
     // CERTNO-01 (owner decision D5): service 27 is a recommendation LETTER
-    // addressed to the passport office, not a certificate paragraph.
-    const purpose = text(p.passport_purpose);
+    // addressed to the passport office, not a certificate paragraph — it
+    // keeps BOTH addresses per the owner-approved letter format; the
+    // register fixes of CERT-REFINE-01 (A4) still apply.
+    // CERT-REFINE-02 (R2-16): the purpose localises by value (the field
+    // is free text; standard purposes map, others print as stored).
+    // (R2-18): the addressee lines take the letter-addr style (12 pt,
+    // 4 pt spacing); the subject line stays bold.
+    const purpose = passportPurposeLabel(p.passport_purpose, bn);
     const closing = bn
-      ? "আমি তাহার উজ্জ্বল ভবিষ্যৎ ও সর্বাঙ্গীণ মঙ্গল কামনা করছি।"
-      : "I wish the person every success and prosperity.";
+      ? "আমি তাঁহার উজ্জ্বল ভবিষ্যৎ ও সর্বাঙ্গীণ মঙ্গল কামনা করছি।"
+      : "I wish the certificate holder every success and prosperity.";
     const letter = bn
-      ? `<p class="body-para">বরাবর,<br>সহকারী পরিচালক,<br>আঞ্চলিক পাসপোর্ট অফিস।</p><p class="body-para"><strong>বিষয়ঃ পাসপোর্ট প্রদানের সুপারিশ।</strong></p><p class="body-para">এই মর্মে সুপারিশ করা যাইতেছে যে, ${identitySegments(ctx)}, তাহার <strong>স্থায়ী ঠিকানাঃ-</strong> ${escape(permanentAddress(ctx))}। <strong>বর্তমান ঠিকানাঃ-</strong> ${escape(presentAddress(ctx))}। তিনি পাসপোর্টের জন্য আবেদন করিয়াছেন${purpose ? ` (উদ্দেশ্যঃ ${escape(purpose)})` : ""}। তাহার বিরুদ্ধে কোনো ফৌজদারি অভিযোগ জানা নাই। তাহাকে পাসপোর্ট প্রদানে এই কার্যালয়ের কোনো আপত্তি নাই।</p>`
-      : `<p class="body-para">To,<br>The Assistant Director,<br>Regional Passport Office.</p><p class="body-para"><strong>Subject: Recommendation for passport issuance.</strong></p><p class="body-para">This is to recommend that ${identitySegments(ctx)}, whose <strong>permanent address is:</strong> ${escape(permanentAddress(ctx))}. <strong>Present address:</strong> ${escape(presentAddress(ctx))}. The person has applied for a passport${purpose ? ` (purpose: ${escape(purpose)})` : ""}. No criminal complaint is known against the person. This office has no objection to a passport being issued to the person.</p>`;
+      ? `<p class="letter-addr">বরাবর,<br>সহকারী পরিচালক,<br>আঞ্চলিক পাসপোর্ট অফিস।</p><p class="body-para"><strong>বিষয়ঃ পাসপোর্ট প্রদানের সুপারিশ।</strong></p><p class="body-para">এই মর্মে সুপারিশ করা যাচ্ছে যে, ${identitySegments(ctx)}, তাঁহার <strong>স্থায়ী ঠিকানাঃ</strong> ${escape(permanentAddress(ctx))}। <strong>বর্তমান ঠিকানাঃ</strong> ${escape(presentAddress(ctx))}। তিনি পাসপোর্টের জন্য আবেদন করেছেন${purpose ? ` (উদ্দেশ্যঃ ${escape(purpose)})` : ""}। তাঁহার বিরুদ্ধে কোনো ফৌজদারি অভিযোগ জানা নাই। তাঁহাকে পাসপোর্ট প্রদানে এই কার্যালয়ের কোনো আপত্তি নাই।</p>`
+      : `<p class="letter-addr">To,<br>The Assistant Director,<br>Regional Passport Office.</p><p class="body-para"><strong>Subject: Recommendation for passport issuance.</strong></p><p class="body-para">This is to recommend that ${identitySegments(ctx)}, <strong>permanent address:</strong> ${escape(permanentAddress(ctx))}. <strong>Present address:</strong> ${escape(presentAddress(ctx))}. The person has applied for a passport${purpose ? ` (purpose: ${escape(purpose)})` : ""}. No criminal complaint is known against the person. This office has no objection to a passport being issued to the person.</p>`;
     return `${letter}<p class="closing">${escape(closing)}</p>`;
   }
-  const attestation = run(bn ? ATTESTATIONS_BN[serviceNo] : ATTESTATIONS_EN[serviceNo], p);
+  const attestation = run(
+    bn ? ATTESTATIONS_BN[serviceNo] : ATTESTATIONS_EN[serviceNo],
+    p,
+    { gender: input.citizen.gender },
+  );
+  // CERT-REFINE-01 (A3): the residence/citizenship/personally-known sentence
+  // follows the identity block for the listed services.
+  const status = STATUS_SENTENCE_SERVICES.has(serviceNo)
+    ? bn
+      ? STATUS_SENTENCE_BN
+      : STATUS_SENTENCE_EN
+    : "";
+  const spouse = serviceNo === 15 || serviceNo === 34 ? spouseSentence(ctx) : "";
+  // CERT-REFINE-01 §9: the subject's NID prints as its own sentence.
+  const nidLine =
+    serviceNo === 9 && present(input.identity?.nid)
+      ? bn
+        ? `জাতীয় পরিচয়পত্র/ভোটার নম্বর: ${bnDigits(input.identity?.nid)}।`
+        : `National ID/Voter No: ${text(input.identity?.nid)}.`
+      : "";
+  const extras = [status, spouse, nidLine].filter(Boolean).join(" ");
   const para = bn
-    ? `এই মর্মে প্রত্যয়ন করা যাইতেছে যে, ${identitySegments(ctx)}, তাহার <strong>স্থায়ী ঠিকানাঃ-</strong> ${escape(permanentAddress(ctx))}। <strong>বর্তমান ঠিকানাঃ-</strong> ${escape(presentAddress(ctx))}।${attestation ? ` ${escape(attestation)}` : ""}`
-    : `This is to certify that ${identitySegments(ctx)}, whose <strong>permanent address is:</strong> ${escape(permanentAddress(ctx))}. <strong>Present address:</strong> ${escape(presentAddress(ctx))}.${attestation ? ` ${escape(attestation)}` : ""}`;
-  let table = "";
-  if (serviceNo === 2) {
-    const members = Array.isArray(p.members) ? (p.members as Record<string, unknown>[]) : [];
-    const schema = input.schema ?? getServiceSchema(2);
-    // CERTNO-01 catalog §2 (SONOD variant): the ID column appears only when a
-    // member record carries an identity number.
-    const withId = members.some((m) => present(m.warish_heir_nid));
-    const rows = members.map((m, i) => {
-      const row = [
-        bn ? bnDigits(i + 1) : String(i + 1),
-        text(bn ? m.name_bn : m.name_en),
-        selectLabel(schema, "members", "relationship", m.relationship, bn),
-        bn ? bnDigits(m.dob) : text(m.dob),
-      ];
-      if (withId) row.push(bn ? bnDigits(m.warish_heir_nid) : text(m.warish_heir_nid));
-      return row;
-    });
-    const headers = bn
-      ? ["ক্রমিক", "সদস্যের নাম", "সম্পর্ক", "জন্ম তারিখ"]
-      : ["Sl", "Member name", "Relationship", "Date of birth"];
-    if (withId) headers.push(bn ? "জাতীয় পরিচয়পত্র নম্বর" : "NID No");
-    table = dataTable(headers, rows);
-  }
+    ? `এই মর্মে প্রত্যয়ন করা যাচ্ছে যে, ${identitySegments(ctx)}, তাঁহার <strong>স্থায়ী ঠিকানাঃ</strong> ${escape(permanentAddress(ctx))}।${extras ? ` ${escape(extras)}` : ""}${attestation ? ` ${escape(attestation)}` : ""}`
+    : `This is to certify that ${identitySegments(ctx)}, <strong>permanent address:</strong> ${escape(permanentAddress(ctx))}.${extras ? ` ${escape(extras)}` : ""}${attestation ? ` ${escape(attestation)}` : ""}`;
+  // CERT-REFINE-01 §20: the service narrative prints as its own paragraph,
+  // under the spec's label.
+  const narrative =
+    serviceNo === 20 &&
+    present(bn ? p.freedom_fighter_service_narrative_bn : p.freedom_fighter_service_narrative_en)
+      ? `<p class="body-para">${bn ? "মুক্তিযুদ্ধে অংশগ্রহণের বিবরণ:" : "Details of participation in the Liberation War:"} ${escape(text(bn ? p.freedom_fighter_service_narrative_bn : p.freedom_fighter_service_narrative_en))}</p>`
+      : "";
   if (serviceNo === 33) {
     const corrections = Array.isArray(p.corrections)
       ? (p.corrections as Record<string, unknown>[])
       : [];
-    const rows = corrections.map((c, i) => [
-      bn ? bnDigits(i + 1) : String(i + 1),
-      text(c.correction_category_id),
-      text(c.incorrect_info),
-      text(c.correct_info),
-    ]);
+    const schema = input.schema ?? getServiceSchema(33);
+    // CERT-REFINE-01 §33: the field column prints the correction field's
+    // label (schema label first, the fixed label map as fallback).
+    const rows = corrections.map((c, i) => {
+      const fromSchema = selectLabel(schema, "corrections", "correction_category_id", c.correction_category_id, bn);
+      const fieldLabel =
+        fromSchema !== text(c.correction_category_id)
+          ? fromSchema
+          : (CORRECTION_FIELD_LABELS[text(c.correction_category_id)]?.[bn ? "bn" : "en"] ?? fromSchema);
+      return [
+        bn ? bnDigits(i + 1) : String(i + 1),
+        fieldLabel,
+        text(c.incorrect_info),
+        text(c.correct_info),
+      ];
+    });
     const intro = bn
-      ? "তাহার জাতীয় পরিচয় তথ্যে নিম্নোক্ত সংশোধন প্রয়োজন বলিয়া প্রত্যয়ন করা যাইতেছে:"
+      ? "তাঁহার জাতীয় পরিচয় তথ্যে নিম্নোক্ত সংশোধন প্রয়োজন বলে প্রত্যয়ন করা যাচ্ছে:"
       : "The following corrections to the national identity information are required:";
-    table = `<p class="body-para">${escape(intro)}</p>${dataTable(
+    const table = `<p class="body-para">${escape(intro)}</p>${dataTable(
       bn ? ["ক্রমিক", "তথ্যের ধরণ", "ভুল তথ্য", "সঠিক তথ্য"] : ["Sl", "Field", "Incorrect information", "Correct information"],
       rows,
     )}`;
     return `<p class="body-para">${para}</p>${table}`;
   }
-  const closing = bn
-    ? "আমি তাহার উজ্জ্বল ভবিষ্যৎ ও সর্বাঙ্গীণ মঙ্গল কামনা করছি।"
-    : "I wish the person every success and prosperity.";
-  return `<p class="body-para">${para}</p>${table}<p class="closing">${escape(closing)}</p>`;
+  // CERT-REFINE-02 (R2-12): the well-wish prints ONLY on the retained
+  // services (12, 15, 21, 22, 27, 45) — mirror of the react-pdf chassis.
+  const closing = [12, 15, 21, 22, 27, 45].includes(serviceNo)
+    ? bn
+      ? "আমি তাঁহার উজ্জ্বল ভবিষ্যৎ ও সর্বাঙ্গীণ মঙ্গল কামনা করছি।"
+      : "I wish the certificate holder every success and prosperity."
+    : "";
+  const closingHtml = closing ? `<p class="closing">${escape(closing)}</p>` : "";
+  if (serviceNo === 37) {
+    // CERT-REFINE-01 §37: the previous voter area, the residing-since date
+    // and the NID print as a fields line under the recommendation clause.
+    const fields = bn
+      ? `পূর্বের ভোটার এলাকাঃ ${escape(text(p.previous_voter_area))}${present(p.voter_transfer_residing_since) ? `, অত্র এলাকায় বসবাসের শুরু: ${escape(bnDateIso(p.voter_transfer_residing_since))}` : ""}${present(input.identity?.nid) ? `, জাতীয় পরিচয়পত্র নম্বরঃ ${bnDigits(input.identity?.nid)}` : ""}।`
+      : `Previous voter area: ${escape(text(p.previous_voter_area_en ?? p.previous_voter_area))}${present(p.voter_transfer_residing_since) ? `, residing at the present address since: ${escape(enDateIso(p.voter_transfer_residing_since))}` : ""}${present(input.identity?.nid) ? `, National ID No: ${escape(text(input.identity?.nid))}` : ""}.`;
+    return `<p class="body-para">${para}</p><p class="body-para">${fields}</p>${closingHtml}`;
+  }
+  return `<p class="body-para">${para}</p>${narrative}${closingHtml}`;
 }
 
-/* ---------- trade licence (service 42) — the sampled 14-field form ----------
- * Owner steers: fee component rows stay BLANK (the itemised split exists
- * nowhere in the order data — only the real total prints); the validity line
- * is omitted (no validity data is carried); the signature follows the
- * chairman-only model even though the samples print two blocks. */
-function tradeLicenceBody(ctx: DocContext, qrDataUrl: string, emblem: string, logo = ""): string {
+/* ---------- trade licence (service 42) — the sampled form ----------
+ * CERT-REFINE-01 §42: the owner's address blocks STACK vertically (the
+ * side-by-side columns collided); empty address rows are omitted; the
+ * always-empty serial row is gone; section headings are unnumbered; the fee
+ * rows print the itemised components captured on the application (absent
+ * components are omitted; the total is the component sum, falling back to
+ * the order total); the validity and grant lines print; the QR moves to the
+ * bottom-left footer (assembly) so it can never overlap the office name. */
+function tradeLicenceBody(ctx: DocContext, emblem: string, logo = ""): string {
   const { input, bn, issued } = ctx;
   const p = input.payload;
   const fy = fiscalYear(issued);
@@ -992,37 +1521,31 @@ function tradeLicenceBody(ctx: DocContext, qrDataUrl: string, emblem: string, lo
         : (bn ? input.citizen.address_bn : input.citizen.address_en);
     const rows: [string, string][] = bn
       ? [
-          ["হোল্ডিং নম্বরঃ", ""],
-          ["রোড নং", ""],
           ["গ্রাম/মহল্লা", text(free)],
-          ["ডাকঘর", ""],
-          ["পোস্ট কোড", ""],
-          ["থানা", parts?.upazila?.bn ?? ""],
           ["উপজেলা", parts?.upazila?.bn ?? ""],
           ["জেলা", parts?.district?.bn ?? ""],
           ["বিভাগ", parts?.division?.bn ?? ""],
           ["দেশ", "বাংলাদেশ"],
         ]
       : [
-          ["Holding No", ""],
-          ["Road No", ""],
           ["Village/Area", text(free)],
-          ["Post Office", ""],
-          ["Post Code", ""],
-          ["Police Station", parts?.upazila?.en ?? ""],
-          ["Upazilla", parts?.upazila?.en ?? ""],
+          ["Upazila", parts?.upazila?.en ?? ""],
           ["District", parts?.district?.en ?? ""],
           ["Division", parts?.division?.en ?? ""],
           ["Country", "Bangladesh"],
         ];
-    return rows.map(([label, value]) => `<div class="addr-row"><span>${escape(label)}</span><span>: ${escape(value)}</span></div>`).join("");
+    // CERT-REFINE-01: rows with no value are omitted — no blank labelled rows.
+    return rows
+      .filter(([, value]) => present(value))
+      .map(([label, value]) => `<div class="addr-row"><span>${escape(label)}</span><span>: ${escape(value)}</span></div>`)
+      .join("");
   };
   const field = (no: string, label: string, value: unknown, digits = false) =>
     `<tr><td class="fl">${escape(no)}. ${escape(label)}</td><td class="fv">: ${escape(digits ? bnDigits(value) : value)}</td></tr>`;
   const sub = (label: string, value: unknown, digits = false) =>
     `<tr><td class="fl sub">${escape(label)}</td><td class="fv">: ${escape(digits ? bnDigits(value) : value)}</td></tr>`;
-  const total = input.order ? money(input.order.totalMinor) : "";
-  const totalDisplay = bn ? bnDigits(total) : total;
+  const groupHead = (label: string) =>
+    `<tr><td colspan="2" class="group-head">${escape(label)}</td></tr>`;
   const labels = bn
     ? {
         issueTitle: "লাইসেন্স ইস্যুর বিবরণ",
@@ -1039,12 +1562,12 @@ function tradeLicenceBody(ctx: DocContext, qrDataUrl: string, emblem: string, lo
         idA: "(ক) জন্ম নিবন্ধন/এনআইডি/পাসপোর্ট নং", idB: "(খ) টিআইএন", idC: "(গ) বিআইএন",
         idD: "(ঘ) টেলিফোন/মোবাইল নম্বর", idE: "(ঙ) ই-মেইল",
         fyA: "(ক) অর্থ বছর", fyB: "(খ) ব্যবসা শুরুর তারিখ",
-        presentHead: "মালিক/স্বত্বাধিকারীর বর্তমান ঠিকানা", permanentHead: "মালিক/স্বত্বাধিকারীর স্থায়ী ঠিকানা",
-        serial: "আদর্শ কর তফসিল, ২০১৩ এর ক্রমিক নং",
+        presentHead: "বর্তমান ঠিকানা", permanentHead: "স্থায়ী ঠিকানা",
+        groups: ["ব্যবসা সংক্রান্ত তথ্য", "জাতীয়তা ও যোগাযোগ", "অর্থ বছর ও ব্যবসা শুরুর তারিখ", "মালিকের ঠিকানা"],
         feeHead: "ট্রেড লাইসেন্স ফি (নতুন/নবায়ন)",
-        feesL: ["নতুন", "নবায়ন", "বকেয়া", "সারচার্জ", "সংশোধন ফি"],
-        feesR: ["সাইনবোর্ড (পরিচিতিমূলক)", "পেশা ব্যবসা ও বৃত্তির উপর কর", "ভ্যাট", "সর্বমোট"],
-        nums: ["১", "২", "৩", "৪", "৫", "৬", "৭", "৮", "৯", "১০", "১১", "১২", "১৩", "১৪"],
+        fees: ["নতুন", "নবায়ন", "বকেয়া", "সারচার্জ", "সংশোধন ফি", "সাইনবোর্ড (পরিচিতিমূলক)", "পেশা ব্যবসা ও বৃত্তির উপর কর", "ভ্যাট"],
+        total: "সর্বমোট",
+        nums: ["১", "২", "৩", "৪", "৫", "৬", "৭", "৮", "৯", "১০", "১১"],
       }
     : {
         issueTitle: "License Issue Details",
@@ -1061,19 +1584,48 @@ function tradeLicenceBody(ctx: DocContext, qrDataUrl: string, emblem: string, lo
         idA: "(a) Birth Registration/NID/Passport", idB: "(b) TIN", idC: "(c) BIN",
         idD: "(d) Telephone/Mobile Number", idE: "(e) E-mail",
         fyA: "(a) Fiscal Year", fyB: "(b) Business Starting Date",
-        presentHead: "Present Address of Owner/Proprietor", permanentHead: "Permanent Address of Owner/Proprietor",
-        serial: "Serial No. of Model Taxation Schedule, 2013",
+        presentHead: "Present Address", permanentHead: "Permanent Address",
+        groups: ["Business Information", "Nationality and Contact", "Fiscal Year and Business Start Date", "Owner's Address"],
         feeHead: "Trade License Fee (New/Renewal)",
-        feesL: ["New", "Renewal", "Arrear", "Surcharge", "Amendment Fee"],
-        feesR: ["Signboard Fee", "Taxes on Profession & Trades", "VAT", "Total"],
-        nums: ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14"],
+        fees: ["New", "Renewal", "Arrear", "Surcharge", "Amendment Fee", "Signboard Fee", "Taxes on Profession & Trades", "VAT"],
+        total: "Total",
+        nums: ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11"],
       };
   const n = labels.nums;
   const businessType = selectLabel(input.schema ?? getServiceSchema(42), "business_type", undefined, p.business_type, bn);
+  // CERT-REFINE-01: fee components from the application payload; the total
+  // is their sum, falling back to the order total when none were captured.
+  const feeKeys = [
+    "trade_fee_new", "trade_fee_renewal", "trade_fee_arrear", "trade_fee_surcharge",
+    "trade_fee_amendment", "trade_fee_signboard", "trade_fee_profession_tax", "trade_fee_vat",
+  ];
+  const feeRows = feeKeys
+    .map((key, i) => ({ label: labels.fees[i]!, value: present(p[key]) ? Number(p[key]) : null }))
+    .filter((r) => r.value !== null && r.value > 0);
+  const componentSum = feeRows.reduce((acc, r) => acc + (r.value ?? 0), 0);
+  const totalTaka = feeRows.length
+    ? componentSum
+    : input.order
+      ? Number(input.order.totalMinor) / 100
+      : null;
+  const feeFmt = (v: number) => {
+    const s = v.toLocaleString("en-IN", { minimumFractionDigits: 2 });
+    return bn ? bnDigits(s) : s;
+  };
+  const feeTable = `<table class="fees">${feeRows
+    .map((r) => `<tr><td>${escape(r.label)}</td><td class="fee-val">${escape(feeFmt(r.value ?? 0))}</td></tr>`)
+    .join("")}${totalTaka !== null ? `<tr class="total"><td>${escape(labels.total)}</td><td class="fee-val">${escape(feeFmt(totalTaka))}</td></tr>` : ""}</table>`;
+  // CERT-REFINE-01 §42: validity + grant, the spec's verbatim wording.
+  const validity = bn
+    ? `মেয়াদ: ১ জুলাই ${bnDigits(fy.start)} থেকে ৩০ জুন ${bnDigits(fy.end)} পর্যন্ত।`
+    : `Validity: 1 July ${fy.start} to 30 June ${fy.end}.`;
+  const grant = bn
+    ? "উল্লিখিত ব্যবসা প্রতিষ্ঠানকে ব্যবসা পরিচালনার জন্য এই লাইসেন্স প্রদান করা হলো।"
+    : "The licence is hereby granted to the above business to carry on its trade.";
   return `
   <div class="tl-top">
-    <img class="qr-tl" alt="" src="${escape(qrDataUrl)}">
     <div class="tl-head">
+      <div class="govt-line sm">${escape(bn ? GOVT_LINE_BN : GOVT_LINE_EN)}</div>
       ${logo ? `<div class="head-name">${logo}<h1>${escape(ctx.officeName)}</h1></div>` : `<h1>${escape(ctx.officeName)}</h1>`}
       <div class="office-address">${escape(ctx.officeAddressLine)}</div>
       ${emblem}
@@ -1085,6 +1637,7 @@ function tradeLicenceBody(ctx: DocContext, qrDataUrl: string, emblem: string, lo
   <div class="tl-issue"><strong>${escape(labels.issueTitle)}</strong><br>${escape(labels.issueDate)}: ${escape(bn ? bnDate(issued) : enDate(issued))}<br>${escape(labels.issueTime)}: ${escape(bn ? bnDigits(issueTime(issued)) : issueTime(issued))}</div>
   <div class="statute">${escape(labels.statute)}</div>
   <table class="fields">
+    ${groupHead(labels.groups[0]!)}
     ${field(n[0]!, labels.fields[0]!, bn ? p.business_name_bn : p.business_name_en)}
     ${field(n[1]!, labels.fields[1]!, bn ? p.proprietor_name_bn : p.proprietor_name_en)}
     ${field(n[2]!, labels.fields[2]!, bn ? p.proprietor_mother_name_bn : p.proprietor_mother_name)}
@@ -1094,19 +1647,19 @@ function tradeLicenceBody(ctx: DocContext, qrDataUrl: string, emblem: string, lo
     ${field(n[6]!, labels.fields[6]!, businessType)}
     ${field(n[7]!, labels.fields[7]!, businessAddress)}
     <tr><td class="fl">${n[8]}.</td><td class="fv subpair"><div><span>${escape(labels.zone)}</span><span>: ${escape(bn ? bnDigits(text(p.trade_license_org_zone_bn) || text(p.trade_license_org_zone)) : text(p.trade_license_org_zone))}</span></div><div><span>${escape(labels.ward)}</span><span>: ${escape(bn ? bnDigits(wardNo) : wardNo)}</span></div></td></tr>
+    ${groupHead(labels.groups[1]!)}
     <tr><td class="fl">${n[9]}.</td><td class="fv subpair"><div><span>${escape(labels.idA)}</span><span>: ${escape(bn ? bnDigits(identityNo) : identityNo)}</span></div><div><span>${escape(labels.idB)}</span><span>: ${escape(bn ? bnDigits(text(p.trade_license_tin_no)) : text(p.trade_license_tin_no))}</span></div></td></tr>
     <tr><td class="fl"></td><td class="fv subpair"><div><span>${escape(labels.idC)}</span><span>: ${escape(bn ? bnDigits(text(p.trade_license_bin_no)) : text(p.trade_license_bin_no))}</span></div><div><span>${escape(labels.idD)}</span><span>: ${escape(bn ? bnDigits(text(p.mobile)) : text(p.mobile))}</span></div></td></tr>
     ${sub(labels.idE, p.trade_license_email)}
+    ${groupHead(labels.groups[2]!)}
     <tr><td class="fl">${n[10]}.</td><td class="fv subpair"><div><span>${escape(labels.fyA)}</span><span>: ${escape(bn ? bnDigits(`${fy.start} - ${fy.end}`) : `${fy.start} - ${fy.end}`)}</span></div><div><span>${escape(labels.fyB)}</span><span>: ${escape(bn ? bnDateIso(p.start_date) : enDateIso(p.start_date))}</span></div></td></tr>
-    <tr><td class="fl">${n[11]}.</td><td class="fv addr-heads"><span>${escape(labels.presentHead)}</span><span>${escape(labels.permanentHead)}</span></td></tr>
-    <tr><td class="fl"></td><td class="fv addr-cols"><div>${citizenParts("present")}</div><div>${citizenParts("permanent")}</div></td></tr>
-    ${field(n[12]!, labels.serial, "")}
-    <tr><td class="fl">${n[13]}. ${escape(labels.feeHead)}</td><td class="fv"></td></tr>
-    <tr><td colspan="2"><table class="fees"><tr>
-      <td>${labels.feesL.map((label) => `<div class="fee-row"><span>${escape(label)}</span><span></span></div>`).join("")}</td>
-      <td>${labels.feesR.map((label, i) => `<div class="fee-row${i === 3 ? " total" : ""}"><span>${escape(label)}</span><span>${i === 3 ? escape(totalDisplay) : ""}</span></div>`).join("")}</td>
-    </tr></table></td></tr>
-  </table>`;
+    ${groupHead(labels.groups[3]!)}
+    <tr><td colspan="2"><div class="addr-block"><div class="addr-head">${escape(labels.presentHead)}</div>${citizenParts("present")}</div><div class="addr-block"><div class="addr-head">${escape(labels.permanentHead)}</div>${citizenParts("permanent")}</div></td></tr>
+    <tr><td colspan="2" class="group-head">${escape(labels.feeHead)}</td></tr>
+    <tr><td colspan="2">${feeTable}</td></tr>
+  </table>
+  <p class="validity">${escape(validity)}</p>
+  <p class="grant">${escape(grant)}</p>`;
 }
 
 /* ---------- generic numbered-form layout for the unsampled FORM services (1, 41, 46) ---------- */
@@ -1181,82 +1734,138 @@ export function citizenPhotoHtml(input: PdfInput, extraClass = ""): string {
 /** Number + issue-date line for the FORM layouts (the paragraph chassis has its own). */
 function formMetaLine(ctx: DocContext): string {
   const { bn, issued } = ctx;
-  return `<div class="numline"><span class="numline-no">${bn ? "নং:-" : "No:"} ${numberStripHtml(ctx.input.number, bn)}</span><span>${bn ? "তারিখ:-" : "Date:"} ${escape(bn ? bnDate(issued) : enDate(issued))}</span></div>`;
+  return `<div class="numline"><span class="numline-no">${bn ? "রসিদ নং:" : "Receipt No:"} ${numberStripHtml(ctx.input.number, bn)}</span><span>${bn ? "তারিখ:" : "Date:"} ${escape(bn ? bnDate(issued) : enDate(issued))}</span></div>`;
 }
 
 /* ---------- service 1: holding-tax receipt (আদায় রশিদ) — CERTNO-01 catalog §1 ----------
- * The application data carries one holding, one tax year and the property
- * description; the amount is the order total. The year-wise table therefore
- * has the single assessed year — no year is ever invented. */
+ * CERT-REFINE-01 §1: the receipt carries the receipt fields (রসিদ নং — the
+ * certificate number, no distinct receipt sequence exists in the data model
+ * — তারিখ, taxpayer identity incl. father/husband and mother, village, ward,
+ * holding), the property description from the language pair, the year table
+ * (অর্থবছর | ধার্যকৃত | আদায়কৃত | বকেয়া) with the total row, the amount in
+ * words, the collection date and the collector's signature line. */
 function taxReceiptBody(ctx: DocContext): string {
-  const { input, bn } = ctx;
+  const { input, bn, issued } = ctx;
   const p = input.payload;
+  const c = input.citizen;
   const totalTaka = input.order ? Number(input.order.totalMinor) / 100 : null;
   const totalFig = totalTaka !== null ? totalTaka.toLocaleString("en-IN") : "";
   const totalWords =
     totalTaka !== null ? (bn ? amountInWordsBn(totalTaka) : amountInWordsEn(totalTaka)) : "";
   const row = (label: string, value: string) =>
-    `<div class="gf-field"><span>${escape(label)}</span><span>: ${escape(value)}</span></div>`;
-  const yearRow =
-    present(p.tax_year) || totalTaka !== null
-      ? `<tr><td>${escape(bn ? bnDigits(p.tax_year) : text(p.tax_year))}</td><td>${totalTaka !== null ? escape(bn ? bnDigits(totalFig) : totalFig) : ""}</td><td>${totalTaka !== null ? escape(bn ? bnDigits(totalFig) : totalFig) : ""}</td></tr>`
+    present(value)
+      ? `<div class="gf-field"><span>${escape(label)}</span><span>: ${escape(value)}</span></div>`
       : "";
+  const taxYearRaw = text(p.tax_year);
+  const yearLabel = /^\d{4}$/.test(taxYearRaw)
+    ? `${taxYearRaw}-${Number(taxYearRaw) + 1}`
+    : taxYearRaw;
+  const ward = input.citizenGeography?.permanent?.wardNo ?? "";
+  const village = text(bn ? c.address_bn : c.address_en);
+  const property = bn
+    ? text(p.property_description_bn ?? p.property_description)
+    : text(p.property_description_en ?? p.property_description);
+  const fatherOrHusband = bn ? c.father_name_bn : c.father_name_en;
   return `<div class="generic-form">
     ${citizenPhotoHtml(input)}
-    ${formMetaLine(ctx)}
-    ${row(bn ? "করদাতার নাম" : "Taxpayer", bn ? input.citizen.full_name_bn : input.citizen.full_name_en)}
+    ${row(bn ? "রসিদ নং" : "Receipt No", bn ? bnDigits(input.number) : latinDigits(input.number))}
+    ${row(bn ? "তারিখ" : "Date", bn ? bnDate(issued) : enDate(issued))}
+    ${row(bn ? "করদাতার নাম" : "Taxpayer", text(bn ? c.full_name_bn : c.full_name_en))}
+    ${row(bn ? "পিতা/স্বামীর নাম" : "Father/Husband name", text(fatherOrHusband))}
+    ${row(bn ? "মাতা" : "Mother", text(bn ? c.mother_name_bn : c.mother_name_en))}
+    ${row(bn ? "গ্রাম" : "Village", village)}
+    ${row(bn ? "ওয়ার্ড নং" : "Ward No", bn ? bnDigits(ward) : text(ward))}
     ${row(bn ? "হোল্ডিং নম্বর" : "Holding No", bn ? bnDigits(p.holding_reference) : text(p.holding_reference))}
-    ${row(bn ? "সম্পত্তির বিবরণ" : "Property description", text(p.property_description))}
-    <table class="data"><thead><tr><th>${bn ? "করের বছর" : "Tax year"}</th><th>${bn ? "ধার্যকৃত কর (টাকা)" : "Assessed tax (BDT)"}</th><th>${bn ? "আদায়কৃত (টাকা)" : "Collected (BDT)"}</th></tr></thead><tbody>${yearRow}<tr><td><strong>${bn ? "সর্বমোট" : "Total"}</strong></td><td></td><td><strong>${escape(bn ? bnDigits(totalFig) : totalFig)}</strong></td></tr></tbody></table>
+    ${row(bn ? "অর্থবছর" : "Fiscal year", bn ? bnDigits(yearLabel) : yearLabel)}
+    ${row(bn ? "সম্পত্তির বিবরণ" : "Property description", property)}
+    <table class="data"><thead><tr><th>${bn ? "অর্থবছর" : "Fiscal year"}</th><th>${bn ? "ধার্যকৃত কর (টাকা)" : "Assessed (BDT)"}</th><th>${bn ? "আদায়কৃত (টাকা)" : "Collected (BDT)"}</th><th>${bn ? "বকেয়া (টাকা)" : "Arrear (BDT)"}</th></tr></thead><tbody><tr><td>${escape(bn ? bnDigits(yearLabel) : yearLabel)}</td><td>${escape(bn ? bnDigits(totalFig) : totalFig)}</td><td>${escape(bn ? bnDigits(totalFig) : totalFig)}</td><td>${escape(bn ? "০" : "0")}</td></tr><tr><td><strong>${bn ? "সর্বমোট" : "Total"}</strong></td><td><strong>${escape(bn ? bnDigits(totalFig) : totalFig)}</strong></td><td><strong>${escape(bn ? bnDigits(totalFig) : totalFig)}</strong></td><td><strong>${escape(bn ? "০" : "0")}</strong></td></tr></tbody></table>
     ${totalTaka !== null ? `<p class="body-para">${bn ? `কথায়ঃ ${escape(totalWords)} টাকা মাত্র।` : `In words: ${escape(totalWords)} Taka only.`}</p>` : ""}
+    <div class="guardian-sign"><div class="sign-line"></div><div>${bn ? "আদায়কারীর স্বাক্ষর" : "Collector's signature"}</div></div>
   </div>`;
 }
 
-/* ---------- service 41: premises licence on the trade-licence layout (owner decision D4) ---------- */
+/* ---------- service 41: premises licence on the trade-licence layout (owner decision D4) ----------
+ * CERT-REFINE-01 §41: the TIN row prints only when a TIN exists; the capital
+ * carries thousand separators; the fee block prints লাইসেন্স ফি / ভ্যাট /
+ * সর্বমোট from the captured components (falling back to the order total);
+ * the validity line is cholito and suffix-free; the grant line closes it. */
 function premisesLicenceBody(ctx: DocContext): string {
   const { input, bn, issued } = ctx;
   const p = input.payload;
   const fy = fiscalYear(issued);
   const orgGeo = input.geographyNames?.["org_location"];
+  // CERT-REFINE-02 (R2-21): the premises grid — label column 150 pt,
+  // the colon at a fixed x (its own 18 pt cell), values from 168 pt.
   const field = (label: string, value: unknown, digits = false) =>
-    `<tr><td class="fl">${escape(label)}</td><td class="fv">: ${escape(digits ? bnDigits(value) : value)}</td></tr>`;
-  const total = input.order ? money(input.order.totalMinor) : "";
+    `<tr><td class="fl">${escape(label)}</td><td class="fc">:</td><td class="fv">${escape(digits ? bnDigits(value) : value)}</td></tr>`;
+  const capital = present(p.primises_license_capital)
+    ? Number(p.primises_license_capital).toLocaleString("en-IN")
+    : "";
+  const feeLicence = present(p.premises_fee_licence) ? Number(p.premises_fee_licence) : null;
+  const feeVat = present(p.premises_fee_vat) ? Number(p.premises_fee_vat) : null;
+  const feeTotal =
+    feeLicence !== null || feeVat !== null
+      ? (feeLicence ?? 0) + (feeVat ?? 0)
+      : input.order
+        ? Number(input.order.totalMinor) / 100
+        : null;
+  const feeFmt = (v: number) => {
+    const s = v.toLocaleString("en-IN", { minimumFractionDigits: 2 });
+    return bn ? bnDigits(s) : s;
+  };
   return `<div class="tl-doc">
     ${citizenPhotoHtml(input)}
     ${formMetaLine(ctx)}
-    <table class="fields">
+    <table class="fields premises">
       ${field(bn ? "লাইসেন্সধারী" : "Licensee", bn ? p.primises_license_proprietor_bn : p.primises_license_proprietor)}
       ${field(bn ? "প্রতিষ্ঠানের নাম" : "Establishment", bn ? p.primises_license_org_name_bn : p.primises_license_org_name)}
       ${field(bn ? "প্রতিষ্ঠানের ধরণ" : "Business type", bn ? p.primises_license_org_type_bn : p.primises_license_org_type)}
       ${field(bn ? "প্রাঙ্গণের ঠিকানা" : "Premises address", bn ? p.primises_license_org_area_holding_bn : p.primises_license_org_area_holding)}
       ${orgGeo ? field(bn ? "এলাকা" : "Area", orgGeo[bn ? "bn" : "en"]) : ""}
-      ${field(bn ? "মূলধন (টাকা)" : "Capital (BDT)", bn ? bnDigits(p.primises_license_capital) : p.primises_license_capital)}
-      ${field(bn ? "টিআইএন" : "TIN", p.primises_license_tin_no, true)}
+      ${field(bn ? "মূলধন (টাকা)" : "Capital (BDT)", bn ? bnDigits(capital) : capital)}
+      ${present(p.primises_license_tin_no) ? field(bn ? "টিআইএন" : "TIN", p.primises_license_tin_no, true) : ""}
       ${field(bn ? "ওয়ার্ড নং" : "Ward No", p.primises_license_org_ward_no, true)}
-      ${total ? field(bn ? "সর্বমোট ফি (টাকা)" : "Total fee (BDT)", bn ? bnDigits(total) : total) : ""}
+      ${feeLicence !== null ? field(bn ? "লাইসেন্স ফি (টাকা)" : "Licence fee (BDT)", feeFmt(feeLicence)) : ""}
+      ${feeVat !== null ? field(bn ? "ভ্যাট (টাকা)" : "VAT (BDT)", feeFmt(feeVat)) : ""}
+      ${feeTotal !== null ? field(bn ? "সর্বমোট ফি (টাকা)" : "Total fee (BDT)", feeFmt(feeTotal)) : ""}
     </table>
-    <p class="body-para">${bn ? `মেয়াদঃ ${bnDigits(fy.start)} সালের ১লা জুলাই হইতে ${bnDigits(fy.end)} সালের ৩০শে জুন পর্যন্ত।` : `Validity: 1 July ${fy.start} to 30 June ${fy.end}.`}</p>
+    <p class="premises-closing"><strong>${bn ? `মেয়াদ: ১ জুলাই ${bnDigits(fy.start)} থেকে ৩০ জুন ${bnDigits(fy.end)} পর্যন্ত।` : `Validity: 1 July ${fy.start} to 30 June ${fy.end}.`}</strong> ${bn ? "উল্লিখিত প্রাঙ্গণে ব্যবসা পরিচালনার জন্য এই লাইসেন্স প্রদান করা হলো।" : "This licence is granted for carrying on business at the premises stated above."}</p>
   </div>`;
 }
 
-/* ---------- service 46: transport permit QR card — CERTNO-01 catalog §46 ---------- */
+/* ---------- service 46: transport permit QR card — CERTNO-01 catalog §46 ----------
+ * CERT-REFINE-01 §46: two zones — the text zone (left) carries the small
+ * government line and office name clear of everything; the right column
+ * stacks the citizen photo with the QR BELOW it; the vehicle class and the
+ * engine number (from the schema's transport_license_engine_no) print; the
+ * fiscal-year validity line closes the text zone. */
 function transportCardBody(ctx: DocContext, qrDataUrl: string): string {
-  const { input, bn } = ctx;
+  const { input, bn, issued } = ctx;
   const p = input.payload;
+  const fy = fiscalYear(issued);
+  const schema = input.schema ?? getServiceSchema(46);
   const line = (label: string, value: string) =>
     value ? `<div class="tcard-line"><span>${escape(label)}</span><span>: ${escape(value)}</span></div>` : "";
+  const vehicleClass = selectLabel(schema, "transport_vehicle_class", undefined, p.transport_vehicle_class, bn);
+  const vehicleName = text(bn ? p.transport_license_transport_name_bn : p.transport_license_transport_name);
   return `<div class="tcard">
-    <img class="qr-tcard" alt="" src="${escape(qrDataUrl)}">
     <div class="tcard-main">
+      <div class="tcard-govt">${escape(bn ? GOVT_LINE_BN : GOVT_LINE_EN)}</div>
       <div class="tcard-office">${escape(ctx.officeName)}</div>
       <div class="tcard-title">${escape(bn ? input.service.name_bn : input.service.name_en)}</div>
-      ${line(bn ? "লাইসেন্স নং" : "Licence No", bn ? bnDigits(p.transport_license_no) : text(p.transport_license_no))}
-      ${line(bn ? "যানবাহন" : "Vehicle", text(bn ? p.transport_license_transport_name_bn : p.transport_license_transport_name))}
-      ${line(bn ? "ইঞ্জিন নং" : "Engine No", bn ? bnDigits(p.engine_no) : text(p.engine_no))}
+      ${line(bn ? "লাইসেন্স নং" : "Licence No", text(p.transport_license_no))}
+      ${vehicleName && vehicleName !== vehicleClass ? line(bn ? "যানবাহন" : "Vehicle", vehicleName) : ""}
+      ${line(bn ? "যানবাহনের ধরণ" : "Vehicle type", vehicleClass !== text(p.transport_vehicle_class) || present(p.transport_vehicle_class) ? vehicleClass : "")}
+      ${line(bn ? "ইঞ্জিন নং" : "Engine No", text(p.transport_license_engine_no))}
       ${line(bn ? "মালিক" : "Proprietor", text(bn ? input.citizen.full_name_bn : input.citizen.full_name_en))}
+      ${line(bn ? "ইস্যুর তারিখ" : "Issue date", bn ? bnDate(issued) : enDate(issued))}
+      <div class="tcard-line"><span>${bn ? "মেয়াদ" : "Validity"}</span><span>: ${escape(bn ? bnDigits(`${fy.start}-${fy.end} অর্থবছর`) : `FY ${fy.start}-${fy.end}`)}</span></div>
       <div class="tcard-no">${numberStripHtml(input.number, bn)}</div>
     </div>
-    ${citizenPhotoHtml(input, "tcard-photo")}
+    <div class="tcard-side">
+      ${citizenPhotoHtml(input, "tcard-photo")}
+      <img class="qr-tcard" alt="" src="${escape(qrDataUrl)}">
+    </div>
   </div>`;
 }
 
@@ -1284,7 +1893,9 @@ export function renderCertificateHtmlV7(input: PdfInput, qrDataUrl: string): str
     officeName: bn ? input.tenant.name_bn : input.tenant.name_en,
     officeAddressLine: officeLine(input, bn),
   };
-  const verifyUrl = `${origin}/verify?searchText=${ctx.numberDisplay}`;
+  // CERT-REFINE-01 (A6): the printed URL carries Latin digits in BOTH
+  // languages, and the QR payload is this same URL (pdf.ts encodes it).
+  const verifyUrl = `${origin}/verify?searchText=${latinDigits(input.number)}`;
   // CERTASSETS-01: artwork and chairman identity for the document come from
   // the one engine-agnostic bundle (template-assets.ts) — office-profile
   // uploads outrank the legacy filesystem drop-ins. CERTNO-01: the bundle's
@@ -1314,14 +1925,30 @@ export function renderCertificateHtmlV7(input: PdfInput, qrDataUrl: string): str
           bn
           ? "নাগরিকত্ব ও চারিত্রিক সনদপত্র"
           : "Citizenship and Character Certificate"
-        : bn
-          ? input.service.name_bn
-          : input.service.name_en;
+        : serviceNo === 1
+          ? // CERT-REFINE-01 §1: the receipt's own title.
+            bn
+            ? "আদায় রশিদ (হোল্ডিং ট্যাক্স)"
+            : "Collection Receipt (Holding Tax)"
+          : serviceNo === 27
+            ? // CERT-REFINE-01 §27: the letter's own title.
+              bn
+              ? "পাসপোর্ট সুপারিশ পত্র"
+              : "Passport Recommendation Letter"
+            : serviceNo === 40
+              ? // CERT-REFINE-01 §40: the ethnic-minority certificate title.
+                bn
+                ? "ক্ষুদ্র নৃ-গোষ্ঠী সনদ"
+                : "Ethnic Minority Community Certificate"
+              : bn
+                ? input.service.name_bn
+                : input.service.name_en;
   const isTrade = serviceNo === 42;
-  const formHeader = `<header class="up-head">${emblem}${headName}<div class="office-address">${escape(ctx.officeAddressLine)}</div><h2 class="doc-title">${escape(title)}</h2></header>`;
+  // CERT-REFINE-01 (A1): emblem → government line → office name → address.
+  const formHeader = `<header class="up-head">${emblem}<div class="govt-line">${escape(bn ? GOVT_LINE_BN : GOVT_LINE_EN)}</div>${headName}<div class="office-address">${escape(ctx.officeAddressLine)}</div><h2 class="doc-title">${escape(title)}</h2></header>`;
   const body = FORM_SERVICES.has(serviceNo)
     ? isTrade
-      ? tradeLicenceBody(ctx, qrDataUrl, emblem, logo)
+      ? tradeLicenceBody(ctx, emblem, logo)
       : serviceNo === 1
         ? `${formHeader}${taxReceiptBody(ctx)}`
         : serviceNo === 41
@@ -1330,7 +1957,7 @@ export function renderCertificateHtmlV7(input: PdfInput, qrDataUrl: string): str
             ? transportCardBody(ctx, qrDataUrl)
             : `${formHeader}${genericFormBody(ctx)}`
     : `${formHeader}
-       <div class="numline"><span class="numline-no">${bn ? "সনদ নং:-" : "Certificate No:"} ${numberStripHtml(input.number, bn)}</span><span>${bn ? "ইস্যুর তারিখ:-" : "Date of Issue:"} ${escape(bn ? bnDate(issued) : enDate(issued))}</span></div>
+       <div class="numline"><span class="numline-no">${bn ? "সনদ নং:" : "Certificate No:"} ${numberStripHtml(input.number, bn)}</span><span>${bn ? "ইস্যুর তারিখ:" : "Date of Issue:"} ${escape(bn ? bnDate(issued) : enDate(issued))}</span></div>
        ${citizenPhotoHtml(input)}
        ${paragraphBody(ctx, serviceNo)}`;
   const issuerName = bn
@@ -1346,26 +1973,26 @@ export function renderCertificateHtmlV7(input: PdfInput, qrDataUrl: string): str
     <div class="sign-title">${escape(bn ? bundle.chairmanDesignationBn : bundle.chairmanDesignationEn)}</div>
     <div class="sign-office">${escape(ctx.officeName)}</div>
     ${ctx.officeAddressLine ? `<div class="sign-address">${escape(ctx.officeAddressLine)}</div>` : ""}
+    <div class="sign-date">${bn ? "তারিখ:" : "Date:"} ${escape(bn ? bnDate(issued) : enDate(issued))}</div>
   </aside>`;
-  const verifyLine = isTrade && !bn
-    ? `Issued from: ${verifyUrl}`
-    : bn
-      ? `যাচাইকরণ: ${verifyUrl}`
-      : `Verification: ${verifyUrl}`;
+  // CERT-REFINE-01 (A6): one verify label in both languages and both layouts.
+  const verifyLine = bn ? `যাচাইকরণ: ${verifyUrl}` : `Verification: ${verifyUrl}`;
   const foot =
     serviceNo === 46
       ? // The transport card is self-contained (QR + number on the card).
         ""
       : isTrade
-        ? `${signature}<footer class="doc-foot tl-foot"><div class="verify-line">${escape(verifyLine)}</div></footer>`
+        ? // CERT-REFINE-01 §42: the QR sits at the bottom-left, clear of the header.
+          `${signature}<footer class="doc-foot tl-foot"><img class="qr" alt="" src="${escape(qrDataUrl)}"><div class="verify-line">${escape(verifyLine)}</div></footer>`
         : `${signature}<footer class="doc-foot"><img class="qr" alt="" src="${escape(qrDataUrl)}"><div class="verify-line">${escape(verifyLine)}</div></footer>`;
   const bannerBits = "";
   const honesty = "";
   // CERTNO-01: the centre watermark is the Government of Bangladesh emblem —
   // large and faint, the same for every office. The office seal is not
   // printed anywhere on the document.
+  // CERT-REFINE-01 §42: the trade licence watermark sits at the lighter 0.05.
   const sealImg = official && bundle.emblem
-    ? `<img class="emblem-wm" alt="" src="${bundle.emblem}">`
+    ? `<img class="emblem-wm" alt="" src="${bundle.emblem}"${isTrade ? ` style="opacity:.05"` : ""}>`
     : "";
   const pageSize = format.size.includes("mm")
     ? format.size
@@ -1394,6 +2021,35 @@ body{font-family:'Nirmala UI','Noto Sans Bengali',sans-serif;color:#101418;margi
 .tcard-no{margin-top:1mm}
 .tcard .numstrip i{width:3.6mm;height:4.6mm;font-size:9px;border-width:.5px}
 .citizen-photo.tcard-photo{float:none;width:16mm;height:20mm;margin:0}
+.govt-line{text-align:center;font-weight:700;font-size:13.5px}
+.govt-line.sm{font-size:11.5px}
+.tcard-govt{font-size:8.5px;font-weight:700}
+.tcard-side{display:flex;flex-direction:column;gap:1.5mm;align-items:center;flex:none}
+.group-head{font-weight:700;background:#f0f0f0;padding:1mm 2mm}
+.addr-block{margin:1mm 0}
+.addr-head{font-weight:700;margin-bottom:.5mm}
+.validity{font-weight:600;margin:3mm 0 0}
+.grant{margin:1mm 0 0}
+.person-block{border:.7px solid #555;margin:10pt 0;padding:0}
+.person-title{font-weight:700;background:#F2F2F2;padding:4pt 8pt;font-size:11pt}
+.person-rows{padding:6pt}
+.person-row{display:flex;padding:2.5pt 0}
+.person-row span{width:118pt;flex:none;font-size:10.5pt}
+.person-row strong{font-size:11.5pt}
+.consent-grid{margin:1mm 0}
+.consent-row{display:flex;padding:4pt 0}
+.consent-row span{width:132pt;flex:none}
+.marriage-closing{font-size:12pt;margin:10pt 0 0;text-align:justify}
+.letter-addr{font-size:12pt;line-height:1.33;text-align:justify;margin:0}
+.premises-closing{font-size:11.5pt;margin:10pt 0 0;text-align:justify}
+table.fields.premises{table-layout:fixed}
+table.fields.premises td.fl{width:150pt}
+table.fields.premises td.fc{width:18pt}
+.guardian-sign{width:64mm;margin:10mm 0 0 auto;text-align:center;font-size:13px;line-height:1.55}
+table.fees{width:100%;border-collapse:collapse}
+table.fees td{padding:.5mm 1mm;border-bottom:.6px dotted #888}
+table.fees td.fee-val{text-align:right;width:34mm}
+table.fees tr.total td{font-weight:700;border-bottom:none}
 .head-name{display:flex;align-items:center;justify-content:center;gap:4mm}
 .office-logo{height:13mm;max-width:20mm;object-fit:contain}
 .sign-img{display:block;height:11mm;max-width:42mm;object-fit:contain;margin:0 auto .5mm}
@@ -1405,7 +2061,8 @@ main{position:relative;z-index:1;padding:5mm 6mm}
 h1{font-size:21px;margin:0;line-height:1.4}
 .office-address{font-size:13.5px}
 .doc-title{font-size:19px;margin:3.5mm 0 0;line-height:1.4}
-.numline{display:flex;justify-content:space-between;font-weight:600;margin:4.5mm 0 2.5mm}
+.numline{display:flex;flex-wrap:wrap;column-gap:9mm;row-gap:1.5mm;justify-content:space-between;font-weight:600;margin:4.5mm 0 2.5mm}
+.numline>span:last-child{margin-left:auto}
 .body-para{text-align:justify;margin:0}
 .closing{margin:5mm 0 0}
 .free-footer{font-size:12px;margin-top:4mm}

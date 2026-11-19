@@ -71,36 +71,42 @@ const render = (over: Partial<PdfInput>) =>
 
 test("template 7 is the current version; page formats are per-service data", () => {
   assert.equal(DEMO_TEMPLATE_VERSION, 7);
-  assert.deepEqual(certificatePageFormat(12), { size: "A4", orientation: "landscape" });
-  assert.deepEqual(certificatePageFormat(37), { size: "Letter", orientation: "portrait" });
+  // CERT-REFINE-01 (A5): svc12/svc37 join the single A4-portrait shell.
+  assert.deepEqual(certificatePageFormat(12), { size: "A4", orientation: "portrait" });
+  assert.deepEqual(certificatePageFormat(37), { size: "A4", orientation: "portrait" });
   assert.deepEqual(certificatePageFormat(45), { size: "A4", orientation: "portrait" });
 });
 
-test("v7 citizenship: sampled paragraph pattern, Bangla digits and date, A4 landscape", () => {
+test("v7 citizenship: sampled paragraph pattern, Bangla digits and date, A4 portrait (CERT-REFINE-01)", () => {
   const html = render({
     number: "DEMO-2026-ABC123",
     service: { service_no: 12, name_bn: "নাগরিকত্ব সনদ", name_en: "Citizenship certificate" },
     payload: { delivery_language: "bn", citizenship_basis: "জন্মসূত্রে" },
     schema: getServiceSchema(12),
   });
-  assert.ok(html.includes("@page{size:A4 landscape"));
-  assert.ok(html.includes("সনদ নং:- DEMO-২০২৬-ABC১২৩"));
-  assert.ok(html.includes("ইস্যুর তারিখ:- ১২ই অক্টোবর ২০২৬"));
-  assert.ok(html.includes("এই মর্মে প্রত্যয়ন করা যাইতেছে যে, <strong>আফসানা আক্তার মীম</strong>"));
+  assert.ok(html.includes("@page{size:A4;"));
+  // CERT-REFINE-02 (R2-08/R2-16): the hyphen in "নং:-" is deleted.
+  assert.ok(html.includes("সনদ নং: DEMO-২০২৬-ABC১২৩"));
+  // CERT-REFINE-01 (A4): suffix-free cholito date.
+  assert.ok(html.includes("ইস্যুর তারিখ: ১২ অক্টোবর ২০২৬"));
+  assert.ok(html.includes("এই মর্মে প্রত্যয়ন করা যাচ্ছে যে, <strong>আফসানা আক্তার মীম</strong>"));
   assert.ok(html.includes("জাতীয় পরিচয়পত্র নম্বরঃ <strong>২৪০৫১৩৪০৩৮</strong>"));
   assert.ok(html.includes("পিতাঃ <strong>মোঃ আসাদুজ্জামান</strong>"));
   assert.ok(html.includes("মাতাঃ <strong>মুক্তি বেগম</strong>"));
-  assert.ok(html.includes("গ্রাম/বাড়ীঃ বেলাব গাংকুল পাড়া, ওয়ার্ড নম্বরঃ ৩, বেলাবো ইউনিয়ন, থানাঃ বেলাবো, উপজেলাঃ বেলাবো, জেলাঃ নরসিংদী"));
+  // CERT-REFINE-01 (A2): no থানাঃ segment in the standard address block.
+  assert.ok(html.includes("গ্রাম/বাড়ীঃ বেলাব গাংকুল পাড়া, ওয়ার্ড নম্বরঃ ৩, বেলাবো ইউনিয়ন, উপজেলাঃ বেলাবো, জেলাঃ নরসিংদী"));
   assert.ok(!html.includes("ডাকঘর"), "post office segment omitted — no dataset (steer 7)");
   assert.ok(html.includes("তিনি অত্র এলাকার একজন স্থায়ী বাসিন্দা এবং জন্মসূত্রে বাংলাদেশী নাগরিক।"));
-  assert.ok(html.includes("আমি তাহার উজ্জ্বল ভবিষ্যৎ ও সর্বাঙ্গীণ মঙ্গল কামনা করছি।"));
+  assert.ok(html.includes("আমি তাঁহার উজ্জ্বল ভবিষ্যৎ ও সর্বাঙ্গীণ মঙ্গল কামনা করছি।"));
+  assert.ok(html.includes("গণপ্রজাতন্ত্রী বাংলাদেশ সরকার"), "A1 government header line");
   assert.ok(html.includes("মোঃ হাবিবুর রহমান"));
   assert.ok(html.includes("প্যানেল চেয়ারম্যান"));
-  assert.ok(html.includes("যাচাইকরণ: https://belabo.astra.test/verify?searchText=DEMO-২০২৬-ABC১২৩"));
+  // CERT-REFINE-01 (A6): the printed URL carries Latin digits.
+  assert.ok(html.includes("যাচাইকরণ: https://belabo.astra.test/verify?searchText=DEMO-2026-ABC123"));
   assert.ok(!/prottoyon/i.test(html), "no Prottoyon branding anywhere");
 });
 
-test("v7 voter area transfer: US Letter, spouse segment, captured marriage attestation", () => {
+test("v7 voter area transfer: A4 portrait, no spouse segment, captured marriage attestation (CERT-REFINE-01)", () => {
   const html = render({
     number: "DEMO-2026-DEF456",
     citizen: {
@@ -116,15 +122,16 @@ test("v7 voter area transfer: US Letter, spouse segment, captured marriage attes
     payload: { delivery_language: "bn", application_voter_area_transfer_reason: "marriage" },
     schema: getServiceSchema(37),
   });
-  assert.ok(html.includes("@page{size:Letter"));
-  assert.ok(html.includes("স্বামীঃ <strong>তানজীনুর রহমান ভূইয়া পাভেল</strong>"));
+  assert.ok(html.includes("@page{size:A4;"));
+  // CERT-REFINE-01 (A2): the spouse segment left the standard identity block.
+  assert.ok(!html.includes("স্বামীঃ"));
   assert.ok(!html.includes("জাতীয় পরিচয়পত্র"), "no NID segment when no NID is recorded");
   assert.ok(html.includes("বৈবাহিক সূত্রে তিনি অত্র এলাকায় স্থায়ীভাবে বসবাস করছেন এবং বাংলাদেশের নাগরিক।"));
-  assert.ok(html.includes("তাহার পূর্বের ভোটার এলাকা পরিবর্তন করে অত্র এলাকার ভোটার হিসেবে নিবন্ধন করা যায়।"));
+  assert.ok(html.includes("তাঁহার পূর্বের ভোটার এলাকা পরিবর্তন করে অত্র এলাকার ভোটার হিসেবে নিবন্ধন করা যায়।"));
   assert.ok(!/prottoyon/i.test(html));
 });
 
-test("v7 trade licence (EN): 14 fields, real total only, chairman-only signature, no validity line", () => {
+test("v7 trade licence (EN): grouped fields, real total, chairman-only signature, validity + grant lines (CERT-REFINE-01)", () => {
   const html = render({
     number: "DEMO-2026-TL789",
     order: { totalMinor: 53000 },
@@ -148,20 +155,27 @@ test("v7 trade licence (EN): 14 fields, real total only, chairman-only signature
     "Spouse&#39;s Name (If applicable)", "Nature of Business (Individual/Joint/Others)", "Business Type",
     "Address of Business Organization", "Birth Registration/NID/Passport", "TIN", "BIN",
     "Telephone/Mobile Number", "E-mail", "Fiscal Year", "Business Starting Date",
-    "Present Address of Owner/Proprietor", "Permanent Address of Owner/Proprietor",
-    "Serial No. of Model Taxation Schedule, 2013", "Trade License Fee (New/Renewal)",
+    // CERT-REFINE-01 §42: stacked address blocks under short heads; the
+    // colliding serial label is gone.
+    "Present Address", "Permanent Address",
+    "Trade License Fee (New/Renewal)",
   ])
     assert.ok(html.includes(label), `field label present: ${label}`);
   assert.ok(html.includes("According to Union Parishad Model Tax Schedule 2013"));
   assert.ok(html.includes("2026 - 2027"));
   assert.ok(html.includes("14 March 2024"));
-  assert.ok(html.includes(">Total</span><span>530.00</span>"), "the order's real total prints");
-  assert.ok(html.includes(">New</span><span></span>"), "fee components stay blank — no fabricated split");
+  // CERT-REFINE-01 §42: components print only from real fee fields; with none
+  // recorded the table carries the order's real total alone.
+  assert.ok(html.includes(">Total</td>"), "the order's real total prints");
+  assert.ok(html.includes("530.00"));
+  assert.ok(!html.includes("Signboard Fee"), "no fee-component rows without fee data");
   assert.ok(!html.includes("Administrative Officer"), "chairman-only signature model (steer 5)");
-  assert.ok(!html.includes("Validity of this trade license"), "no validity line without validity data (steer 2)");
+  // CERT-REFINE-01 §42: validity + grant lines now print (spec-verbatim).
+  assert.ok(html.includes("Validity: 1 July 2026 to 30 June 2027."));
+  assert.ok(html.includes("The licence is hereby granted to the above business to carry on its trade."));
   assert.ok(html.includes("MD HABIBUR RAHMAN"));
   assert.ok(html.includes("Panel Chairman"));
-  assert.ok(html.includes("Issued from: https://belabo.astra.test/verify?searchText=DEMO-2026-TL789"));
+  assert.ok(html.includes("Verification: https://belabo.astra.test/verify?searchText=DEMO-2026-TL789"));
   assert.ok(!/prottoyon/i.test(html));
 });
 
@@ -183,8 +197,10 @@ test("v7 trade licence (BN): Bangla labels, digits and total", () => {
   assert.ok(html.includes("ট্রেড লাইসেন্স নং: DEMO-২০২৬-TL৭৮৯"));
   assert.ok(html.includes("ইউনিয়ন পরিষদ আদর্শ কর তফসিল ২০১৩ মোতাবেক"));
   assert.ok(html.includes("২০২৬ - ২০২৭"));
-  assert.ok(html.includes(">সর্বমোট</span><span>৫৩০.০০</span>"));
-  assert.ok(html.includes("যাচাইকরণ: https://belabo.astra.test/verify?searchText=DEMO-২০২৬-TL৭৮৯"));
+  assert.ok(html.includes(">সর্বমোট</td>"));
+  assert.ok(html.includes("৫৩০.০০"));
+  // CERT-REFINE-01 (A6): Latin digits in the printed URL.
+  assert.ok(html.includes("যাচাইকরণ: https://belabo.astra.test/verify?searchText=DEMO-2026-TL789"));
   assert.ok(!/prottoyon/i.test(html));
 });
 
@@ -219,7 +235,7 @@ test("v7 modes: demo shows no emblem; official shows the emblem header + emblem 
     assert.ok(!/demo/i.test(productionText), "no demo wording anywhere in official mode");
     assert.ok(!production.includes("আইনগত পরিচয় বা সরকারি অনুমোদনের প্রমাণ নয়"), "no disclaimer lines in official mode");
     assert.ok(!production.includes("not proof of legal identity"), "no disclaimer lines in official mode");
-    assert.ok(production.includes("সনদ নং:- ২০২৬-ABC১২৩"));
+    assert.ok(production.includes("সনদ নং: ২০২৬-ABC১২৩"));
   } finally {
     delete process.env.ISSUANCE_MODE;
   }
@@ -239,7 +255,8 @@ test("v7 deceased-subject, members table and authored attestation spot checks", 
     schema: getServiceSchema(7),
   });
   assert.ok(death.includes("<strong>মৃত ব্যক্তি</strong>"));
-  assert.ok(death.includes("মৃত্যুবরণ করিয়াছেন"));
+  // CERT-REFINE-01 (A4): cholito register.
+  assert.ok(death.includes("মৃত্যুবরণ করেছেন"));
   assert.ok(death.includes("মৃত্যু নিবন্ধন নংঃ ১২৩৪৫।"));
   const family = render({
     number: "DEMO-2026-F2",
@@ -269,14 +286,14 @@ test("v7 attestation fixes (owner review 17 Nov): income fallbacks, remarriage w
     payload: { delivery_language: "bn" },
     schema: getServiceSchema(23),
   });
-  assert.ok(annualBn.includes("তাহার বার্ষিক আয় আবেদনে উল্লিখিত অনুযায়ী।"));
+  assert.ok(annualBn.includes("আবেদনকারীর নিজের বার্ষিক আয় আবেদনে উল্লিখিত অনুযায়ী।"));
   const annualEn = render({
     number: "DEMO-2026-A23E",
     service: { service_no: 23, name_bn: "বাৎসরিক আয় সনদ", name_en: "Annual income certificate" },
     payload: { delivery_language: "en" },
     schema: getServiceSchema(23),
   });
-  assert.ok(annualEn.includes("Annual income is as stated in the application."));
+  assert.ok(annualEn.includes("The person&#39;s annual income is as stated in the application."));
   // With an amount, the real sentence still wins and the fallback stays out.
   const annualWithAmount = render({
     number: "DEMO-2026-A23A",
@@ -286,7 +303,7 @@ test("v7 attestation fixes (owner review 17 Nov): income fallbacks, remarriage w
   });
   // CERTNO-01: with an amount and no applicant-supplied words, the words are
   // generated — figures AND words always print together.
-  assert.ok(annualWithAmount.includes("Annual income is BDT 2,40,000 (in words: Two Lakh Forty Thousand)."));
+  assert.ok(annualWithAmount.includes("The applicant&#39;s own annual income is BDT 2,40,000 (in words: Two Lakh Forty Thousand Taka only)."));
   assert.ok(!annualWithAmount.includes("as stated in the application"));
 
   // Service 29 (monthly income) without an amount: fallback sentence, never empty.
@@ -296,14 +313,14 @@ test("v7 attestation fixes (owner review 17 Nov): income fallbacks, remarriage w
     payload: { delivery_language: "bn" },
     schema: getServiceSchema(29),
   });
-  assert.ok(monthlyBn.includes("তাহার মাসিক আয় আবেদনে উল্লিখিত অনুযায়ী।"));
+  assert.ok(monthlyBn.includes("আবেদনকারীর নিজের মাসিক আয় আবেদনে উল্লিখিত অনুযায়ী।"));
   const monthlyEn = render({
     number: "DEMO-2026-M29E",
     service: { service_no: 29, name_bn: "মাসিক আয় সনদ", name_en: "Monthly income certificate" },
     payload: { delivery_language: "en" },
     schema: getServiceSchema(29),
   });
-  assert.ok(monthlyEn.includes("Monthly income is as stated in the application."));
+  assert.ok(monthlyEn.includes("The person&#39;s monthly income is as stated in the application."));
 
   // Service 13 (remarriage, EN): "remarried to <name>". The payload carries
   // the schema-produced key (application_husband_name), as the live flow does.
@@ -313,7 +330,7 @@ test("v7 attestation fixes (owner review 17 Nov): income fallbacks, remarriage w
     payload: { delivery_language: "en", application_husband_name: "Karim Uddin" },
     schema: getServiceSchema(13),
   });
-  assert.ok(remarriage.includes("The person has remarried to Karim Uddin."));
+  assert.ok(remarriage.includes("The person has remarried to Karim Uddin (as per the kabinnama/marriage registration)."));
   assert.ok(!remarriage.includes("has remarried Karim"));
 
   // Service 6 (electricity): the clause reads the schema-produced
@@ -365,8 +382,12 @@ test("v7 attestation fixes (owner review 17 Nov): income fallbacks, remarriage w
     },
     schema: getServiceSchema(20),
   });
-  assert.ok(ffBn.includes("মুক্তিযোদ্ধা পরিচিতি নংঃ ৭৭৮৮৯৯"));
-  assert.ok(ffBn.includes("গেজেট নংঃ ৪৪৫৫"));
+  // CERT-REFINE-02 (R2-16): identifier fields render EXACTLY as stored —
+  // no digit-script conversion inside identifier strings (the plan's
+  // example: "FF-778899" as issued, not "FF-৭৭৮৮৯৯"). The two BN
+  // assertions below were updated from the retired bnDigits behaviour.
+  assert.ok(ffBn.includes("মুক্তিযোদ্ধা পরিচিতি নংঃ 778899"));
+  assert.ok(ffBn.includes("গেজেট নংঃ 4455"));
   const ffEn = render({
     number: "DEMO-2026-F20E",
     service: { service_no: 20, name_bn: "মুক্তিযোদ্ধা সনদ", name_en: "Freedom fighter certificate" },
@@ -534,6 +555,22 @@ test("service 6 issued via the API prints the land clause from the schema keys (
 test("official mode issues production numbers with no DEMO- prefix", async () => {
   process.env.ISSUANCE_MODE = "official";
   try {
+    // CERT-REFINE-01 (A7): official issuance is gated on a configured
+    // chairman signature — upload one through the real endpoint first.
+    const sigPng =
+      "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==";
+    const upload = await req(
+      "PUT",
+      "/office/certificate-assets/signature",
+      {
+        mimeType: "image/png",
+        base64: sigPng,
+        reason: "CERT-REFINE-01 official-issuance gate test setup",
+      },
+      "approver",
+    );
+    // 201 on first upload, 200 when replacing an existing asset.
+    assert.ok([200, 201].includes(upload.status), JSON.stringify(upload.body));
     const citizenId = (await req("GET", "/citizens", undefined, "citizen")).body.items[0].id;
     const created = await req("POST", "/applications", { citizenId, serviceNo: 45, payload: demoPayloads[45] }, "staff");
     assert.equal(created.status, 201, JSON.stringify(created.body));
@@ -560,4 +597,45 @@ test("official mode issues production numbers with no DEMO- prefix", async () =>
   } finally {
     delete process.env.ISSUANCE_MODE;
   }
+});
+
+test("CERT-REFINE-01 svc38: disability type prints from the operational field application_autistic_type", () => {  // The operational schema's type field is application_autistic_type (legacy
+  // id); the renderer must read it — reading a never-populated key leaves the
+  // certificate's core fact blank.
+  const base = {
+    number: "2026111900000038",
+    service: { service_no: 38, name_bn: "প্রতিবন্ধী সনদ", name_en: "Disability certificate" },
+    payload: {
+      delivery_language: "bn",
+      application_autistic_type: "physical",
+      support_needs: "হুইলচেয়ার ও যাতায়াত সহায়তা",
+      support_needs_en: "Wheelchair and transport assistance",
+    },
+  } as Partial<PdfInput>;
+  const bn = render(base);
+  assert.ok(bn.includes("প্রতিবন্ধিতার ধরণঃ শারীরিক"), "BN render names the disability type");
+  const en = render({
+    ...base,
+    payload: { ...(base.payload as object), delivery_language: "en" },
+  } as Partial<PdfInput>);
+  assert.ok(
+    en.includes(
+      "The certificate holder is a person with a disability (disability type: Physical).",
+    ),
+    "EN render names the disability type (CERT-REFINE-02 R2-15 sentence)",
+  );
+});
+
+test("CERT-REFINE-01 svc18: EN community name is not doubled when the value already ends in 'community'", () => {
+  const html = render({
+    number: "2026111900000018",
+    service: { service_no: 18, name_bn: "সম্প্রদায় সনদ", name_en: "Community certificate" },
+    payload: {
+      delivery_language: "en",
+      community_name: "মুসলিম সম্প্রদায়",
+      community_name_en: "Muslim community",
+    },
+  } as Partial<PdfInput>);
+  assert.ok(html.includes("member of the Muslim community."), "single 'community' in the EN sentence");
+  assert.ok(!html.includes("community community"), "no doubled 'community'");
 });

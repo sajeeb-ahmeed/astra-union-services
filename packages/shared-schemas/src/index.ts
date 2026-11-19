@@ -13,6 +13,7 @@ import {
   familyV1,
   geographySupersededSchemas,
   conditionalSupersededSchemas,
+  certRefineSupersededSchemas,
 } from "./schemas.js";
 
 export * from "./types.js";
@@ -46,6 +47,7 @@ export const allServiceSchemaVersions: readonly FormSchema[] = deepFreeze([
   familyV1,
   ...geographySupersededSchemas,
   ...conditionalSupersededSchemas,
+  ...certRefineSupersededSchemas,
   ...operationalSchemas,
 ]);
 

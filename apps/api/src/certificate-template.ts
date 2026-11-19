@@ -51,6 +51,8 @@ export interface PdfInput {
     spouse_name_bn?: string | null;
     spouse_name_en?: string | null;
     gender?: string | null;
+    /** CERT-REFINE-01: the citizen record's date of birth (marriage blocks). */
+    date_of_birth?: string | null;
     /** PAR-06: present address; absent or true means the registered address is also the present one. */
     present_same_as_permanent?: boolean;
     present_address_bn?: string | null;

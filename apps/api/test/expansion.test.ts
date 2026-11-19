@@ -513,7 +513,9 @@ test("ALL47-01: every service validates, persists, submits and is issued by the 
 });
 test("GEO-FORM: v3 location selectors reject cross-parent codes server-side and documents print dataset names", async () => {
   for (const no of [36, 41, 42]) {
-    assert.equal(getServiceSchema(no).version, 3);
+    // CERT-REFINE-01 published v4 of these services on top of the
+    // geography v3; the selector behaviour asserted below is unchanged.
+    assert.equal(getServiceSchema(no).version, 4);
     // Trade v3 leaves the address type optional; a union applies only to a union address.
     const payload =
       no === 42

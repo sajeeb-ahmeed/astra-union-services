@@ -238,7 +238,7 @@ test("certno: service 1 renders the tax receipt with the year table and amount i
     schema: getServiceSchema(1),
   });
   assert.ok(html.includes("হোল্ডিং নম্বর"));
-  assert.ok(html.includes("করের বছর"), "year-wise table header");
+  assert.ok(html.includes("অর্থবছর"), "year-wise table header (CERT-REFINE-01 spec column)");
   assert.ok(html.includes("কথায়ঃ পাঁচ শত ত্রিশ টাকা মাত্র।"), "amount in words on the receipt");
 });
 
@@ -255,12 +255,13 @@ test("certno: service 41 renders on the licence layout with the fiscal validity 
     schema: getServiceSchema(41),
   });
   assert.ok(html.includes("লাইসেন্সধারী"));
-  assert.ok(html.includes("মেয়াদঃ"), "validity line prints");
-  assert.ok(html.includes("৩০শে জুন"), "validity ends 30 June");
+  assert.ok(html.includes("মেয়াদ"), "validity line prints");
+  assert.ok(html.includes("৩০ জুন"), "validity ends 30 June (suffix-free, CERT-REFINE-01 A4)");
 });
 
-test("certno: service 46 is a small QR card page", () => {
-  assert.deepEqual(certificatePageFormat(46), { size: "86mm 54mm", orientation: "landscape" });
+test("certno: service 46 is a standard A4 portrait page (CERT-REFINE-02 R2-05)", () => {
+  // The landscape QR card is retired: service 46 uses the family shell.
+  assert.deepEqual(certificatePageFormat(46), { size: "A4", orientation: "portrait" });
   const html = render({
     number: "2026111812345678",
     service: { service_no: 46, name_bn: "পরিবহন অনুমতিপত্র", name_en: "Transport permit" },
@@ -268,12 +269,11 @@ test("certno: service 46 is a small QR card page", () => {
       delivery_language: "bn",
       transport_license_no: "T-9",
       transport_license_transport_name_bn: "মিশুক",
-      engine_no: "E123",
+      transport_license_engine_no: "E123",
     },
     schema: getServiceSchema(46),
   });
-  assert.ok(html.includes("@page{size:86mm 54mm"));
-  assert.ok(html.includes('class="tcard"'));
+  assert.ok(html.includes("@page{size:A4"));
   assert.ok(html.includes("ইঞ্জিন নং"));
 });
 
@@ -289,7 +289,7 @@ test("certno: service 23 guardian variant certifies the guardian's income with w
     },
     schema: getServiceSchema(23),
   });
-  assert.ok(en.includes("The annual income of the guardian, Md Asaduzzaman, is BDT 1,20,000 (in words: One Lakh Twenty Thousand)."));
+  assert.ok(en.includes("The annual income of the guardian, Md Asaduzzaman, is BDT 1,20,000 (in words: One Lakh Twenty Thousand Taka only)."));
 });
 
 /* ---------- API level: photo endpoints + bilingual issuance ---------- */
