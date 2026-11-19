@@ -128,15 +128,17 @@ test("the original three version-one contracts retain their exact published cano
 test("published historical versions remain pinned while new applications select current versions", () => {
   assert.equal(legacyOperationalSchemas.length, 44);
   // 44 legacy v1 + trade/family v1 + 3 superseded v2 (geography release)
-  // + 5 superseded v2 (Phase 4 conditional-group release) + 47 current.
-  assert.equal(allServiceSchemaVersions.length, 101);
+  // + 5 superseded v2 (Phase 4 conditional-group release) + 47 current
+  // + 29 CERT-REFINE-01 versions (new published version per refined
+  // service; every pre-refine version stays pinned and unchanged).
+  assert.equal(allServiceSchemaVersions.length, 130);
   assert.equal(
     new Set(
       allServiceSchemaVersions.map(
         (schema) => `${schema.serviceNo}:${schema.version}`,
       ),
     ).size,
-    101,
+    130,
   );
   for (const historical of legacyOperationalSchemas) {
     assert.equal(historical.version, 1);
@@ -144,14 +146,23 @@ test("published historical versions remain pinned while new applications select 
       stableSchemaJson(getServiceSchema(historical.serviceNo, 1)),
       stableSchemaJson(historical),
     );
+    // CERT-REFINE-01 published one new version for each refined service;
+    // the pre-refine latest below was 3 for the Phase-4/geography set and
+    // 2 for the rest, and refined services sit one version above that.
+    const wasV3 = [36, 41, 4, 7, 23, 29, 31];
+    const refined = [
+      1, 3, 4, 5, 6, 10, 11, 13, 16, 18, 19, 20, 21, 24, 25, 26, 30, 32, 36,
+      37, 38, 39, 40, 41, 43, 44, 46,
+    ];
     assert.equal(
       getServiceSchema(historical.serviceNo).version,
-      [36, 41, 4, 7, 23, 29, 31].includes(historical.serviceNo) ? 3 : 2,
+      (wasV3.includes(historical.serviceNo) ? 3 : 2) +
+        (refined.includes(historical.serviceNo) ? 1 : 0),
     );
     assert.throws(() => getServiceSchema(historical.serviceNo, 99), RangeError);
   }
-  assert.equal(getServiceSchema(42).version, 3);
-  assert.equal(getServiceSchema(2).version, 2);
+  assert.equal(getServiceSchema(42).version, 4);
+  assert.equal(getServiceSchema(2).version, 3);
   assert.equal(getServiceSchema(45).version, 1);
 });
 
@@ -507,7 +518,9 @@ test("license address branches reject stale union values and require the selecte
 test("PAR-05 geography selector versions replace free-text locations without changing v2", () => {
   for (const no of [36, 41, 42]) {
     const current = getServiceSchema(no);
-    assert.equal(current.version, 3);
+    // CERT-REFINE-01 published v4 for these services on top of the
+    // geography v3; the geography structure assertions below are unchanged.
+    assert.equal(current.version, 4);
     assert.equal(getServiceSchema(no, 2).version, 2);
     const ids = current.sections.flatMap((section) =>
       section.fields.map((field) => field.id),

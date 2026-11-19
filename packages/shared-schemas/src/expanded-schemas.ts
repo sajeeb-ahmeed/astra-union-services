@@ -1343,6 +1343,304 @@ export function buildGeographySelectorVersion(previous: FormSchema): FormSchema 
   });
 }
 
+/* ---------- CERT-REFINE-01: certificate QA refinement release ----------
+ * Publishes a NEW schema version for the services whose certificates the
+ * CERT-QA-01 audit found structurally incomplete (blank licence fees, the
+ * five functionally-empty certificates, EN-language value pairs, the DSS
+ * disability-type list). Published versions stay immutable: the previous
+ * latest version of each touched service is retained in
+ * certRefineSupersededSchemas and keeps validating its pinned applications.
+ * Every added field is a data slot the refined templates print; optional
+ * additions never invalidate an older payload. */
+
+/** DSS disability categories, per CERT-QA-01 §B svc38 (replaces the shorter product list). */
+const disabilityTypeOptions: FieldDefinition["options"] = [
+  option("physical", "শারীরিক", "Physical"),
+  option("intellectual", "বুদ্ধিবৃত্তিক", "Intellectual"),
+  option("hearing", "শ্রবণ", "Hearing"),
+  option("visual", "দৃষ্টি", "Visual"),
+  option("speech", "বাক", "Speech"),
+  option("autism", "অটিজম", "Autism"),
+  option("down_syndrome", "ডাউন সিনড্রোম", "Down syndrome"),
+  option("cerebral_palsy", "সেরিব্রাল পালসি", "Cerebral palsy"),
+  option("multiple", "বহুমাত্রিক", "Multiple"),
+  option("other", "অন্যান্য", "Other"),
+];
+
+const optionalText = (
+  id: string,
+  bn: string,
+  en: string,
+  maxLength = 500,
+): FieldDefinition => proposedText(id, bn, en, false, maxLength);
+const optionalNumber = (
+  id: string,
+  bn: string,
+  en: string,
+): FieldDefinition => ({
+  id,
+  type: "number",
+  label: t(bn, en),
+  constraints: { required: false, min: 0, max: 1_000_000_000 },
+  evidence: { status: "proposed" },
+});
+const optionalDate = (id: string, bn: string, en: string): FieldDefinition => ({
+  id,
+  type: "date",
+  label: t(bn, en),
+  constraints: { required: false },
+  evidence: { status: "proposed" },
+});
+const requiredDate = (id: string, bn: string, en: string): FieldDefinition => ({
+  id,
+  type: "date",
+  label: t(bn, en),
+  constraints: { required: true },
+  evidence: { status: "proposed" },
+});
+
+const certRefineAdditions: Record<number, readonly FieldDefinition[]> = {
+  1: [
+    optionalText("property_description_bn", "সম্পত্তির বিবরণ (বাংলা)", "Property description (Bangla)", 1000),
+    optionalText("property_description_en", "সম্পত্তির বিবরণ (ইংরেজি)", "Property description (English)", 1000),
+  ],
+  3: [optionalText("warish_info_nid", "মৃত ব্যক্তির জাতীয় পরিচয়পত্র নম্বর", "Deceased NID number", 30)],
+  4: [optionalText("warish_info_nid", "মৃত ব্যক্তির জাতীয় পরিচয়পত্র নম্বর", "Deceased NID number", 30)],
+  5: [
+    proposedSelect(
+      "authority_delegation_relationship",
+      "প্রতিনিধির সহিত সম্পর্ক",
+      "Relationship with the delegate",
+      options.relationship,
+    ),
+  ],
+  6: [optionalText("electricity_connection_holding_no", "হোল্ডিং নম্বর", "Holding number", 40)],
+  13: [optionalDate("remarriage_date", "পুনঃবিবাহের তারিখ", "Remarriage date")],
+  32: [
+    optionalText("earner_occupation_bn", "উপার্জনক্ষম ব্যক্তির পেশা (বাংলা)", "Earner occupation (Bangla)"),
+    optionalText("earner_occupation_en", "উপার্জনক্ষম ব্যক্তির পেশা (ইংরেজি)", "Earner occupation (English)"),
+  ],
+  37: [
+    requiredDate("voter_transfer_residing_since", "অত্র এলাকায় বসবাসের শুরু", "Residing in this area since"),
+    optionalText("previous_voter_area_en", "পূর্বের ভোটার এলাকা (ইংরেজি)", "Previous voter area (English)", 1000),
+  ],
+  43: [optionalText("omission_details_en", "তালিকা থেকে বাদ পড়ার বিবরণ (ইংরেজি)", "Omission details (English)", 1000)],
+  10: [optionalText("last_occupation_en", "পূর্বের পেশা (ইংরেজি)", "Previous occupation (English)")],
+  11: [
+    optionalText("claimed_nationality_en", "ঘোষিত জাতীয়তা (ইংরেজি)", "Declared nationality (English)"),
+    {
+      id: "marital_status",
+      type: "select",
+      label: t("বৈবাহিক অবস্থা", "Marital status"),
+      constraints: { required: false },
+      options: selectChoices.marital_status,
+      evidence: { status: "proposed" },
+    },
+  ],
+  16: [optionalText("deceased_spouse_name_en", "মৃত স্বামী/স্ত্রীর নাম (ইংরেজি)", "Deceased spouse name (English)")],
+  18: [optionalText("community_name_en", "সম্প্রদায়ের নাম (ইংরেজি)", "Community name (English)")],
+  19: [
+    proposedText("consent_child_name_bn", "সন্তানের নাম (বাংলা)", "Child name (Bangla)"),
+    proposedText("consent_child_name_en", "সন্তানের নাম (ইংরেজি)", "Child name (English)"),
+    requiredDate("consent_child_dob", "সন্তানের জন্ম তারিখ", "Child date of birth"),
+    optionalText("consent_child_birth_reg", "সন্তানের জন্ম নিবন্ধন নম্বর", "Child birth registration number", 30),
+    proposedSelect("consent_child_relation", "সন্তানের সহিত সম্পর্ক", "Relationship to the child", options.relationship),
+  ],
+  20: [
+    proposedText("freedom_fighter_service_narrative_bn", "মুক্তিযুদ্ধে অংশগ্রহণের বিবরণ (বাংলা)", "Liberation War service account (Bangla)", true, 1500),
+    proposedText("freedom_fighter_service_narrative_en", "মুক্তিযুদ্ধে অংশগ্রহণের বিবরণ (ইংরেজি)", "Liberation War service account (English)", true, 1500),
+  ],
+  21: [optionalText("farming_activity_en", "কৃষি কার্যক্রমের বিবরণ (ইংরেজি)", "Farming activity (English)", 1000)],
+  24: [
+    optionalText("orphan_father_name_bn", "মৃত পিতার নাম (বাংলা)", "Deceased father name (Bangla)"),
+    optionalText("orphan_father_name_en", "মৃত পিতার নাম (ইংরেজি)", "Deceased father name (English)"),
+    optionalDate("orphan_father_death_date", "পিতার মৃত্যুর তারিখ", "Father date of death"),
+    optionalText("orphan_mother_name_bn", "মৃত মাতার নাম (বাংলা)", "Deceased mother name (Bangla)"),
+    optionalText("orphan_mother_name_en", "মৃত মাতার নাম (ইংরেজি)", "Deceased mother name (English)"),
+    optionalDate("orphan_mother_death_date", "মাতার মৃত্যুর তারিখ", "Mother date of death"),
+    proposedText("orphan_guardian_name_bn", "অভিভাবকের নাম (বাংলা)", "Guardian name (Bangla)"),
+    proposedText("orphan_guardian_name_en", "অভিভাবকের নাম (ইংরেজি)", "Guardian name (English)"),
+    proposedSelect("orphan_guardian_relation", "এতিমের সহিত অভিভাবকের সম্পর্ক", "Guardian's relationship to the orphan", options.relationship),
+  ],
+  25: [
+    optionalText("marriage_info_spouse_father_name_bn", "স্বামী/স্ত্রীর পিতার নাম (বাংলা)", "Spouse father name (Bangla)"),
+    optionalText("marriage_info_spouse_father_name_en", "স্বামী/স্ত্রীর পিতার নাম (ইংরেজি)", "Spouse father name (English)"),
+    optionalText("marriage_info_spouse_mother_name_bn", "স্বামী/স্ত্রীর মাতার নাম (বাংলা)", "Spouse mother name (Bangla)"),
+    optionalText("marriage_info_spouse_mother_name_en", "স্বামী/স্ত্রীর মাতার নাম (ইংরেজি)", "Spouse mother name (English)"),
+    optionalText("marriage_info_spouse_address_bn", "স্বামী/স্ত্রীর ঠিকানা (বাংলা)", "Spouse address (Bangla)", 1000),
+    optionalText("marriage_info_spouse_address_en", "স্বামী/স্ত্রীর ঠিকানা (ইংরেজি)", "Spouse address (English)", 1000),
+  ],
+  26: [
+    optionalText("marriage_info_spouse_father_name_bn", "স্বামী/স্ত্রীর পিতার নাম (বাংলা)", "Spouse father name (Bangla)"),
+    optionalText("marriage_info_spouse_father_name_en", "স্বামী/স্ত্রীর পিতার নাম (ইংরেজি)", "Spouse father name (English)"),
+    optionalText("marriage_info_spouse_mother_name_bn", "স্বামী/স্ত্রীর মাতার নাম (বাংলা)", "Spouse mother name (Bangla)"),
+    optionalText("marriage_info_spouse_mother_name_en", "স্বামী/স্ত্রীর মাতার নাম (ইংরেজি)", "Spouse mother name (English)"),
+    optionalText("marriage_info_spouse_address_bn", "স্বামী/স্ত্রীর ঠিকানা (বাংলা)", "Spouse address (Bangla)", 1000),
+    optionalText("marriage_info_spouse_address_en", "স্বামী/স্ত্রীর ঠিকানা (ইংরেজি)", "Spouse address (English)", 1000),
+  ],
+  30: [optionalText("financial_basis_en", "স্বচ্ছলতার বিবরণ (ইংরেজি)", "Financial solvency basis (English)", 1000)],
+  36: [
+    optionalText("noc_role_bn", "প্রতিষ্ঠানে ভূমিকা/সম্পর্ক (বাংলা)", "Role or connection at the institution (Bangla)"),
+    optionalText("noc_role_en", "প্রতিষ্ঠানে ভূমিকা/সম্পর্ক (ইংরেজি)", "Role or connection at the institution (English)"),
+    optionalText("noc_activity_bn", "কার্যক্রমের বিবরণ (বাংলা)", "Activity description (Bangla)", 1000),
+    optionalText("noc_activity_en", "কার্যক্রমের বিবরণ (ইংরেজি)", "Activity description (English)", 1000),
+  ],
+  38: [optionalText("support_needs_en", "প্রয়োজনীয় সহায়তার বিবরণ (ইংরেজি)", "Support needs (English)", 1000)],
+  39: [
+    optionalText("spi_name_2_bn", "দ্বিতীয় নামের রূপ (বাংলা)", "Second name variant (Bangla)"),
+    optionalText("spi_name_2_en", "দ্বিতীয় নামের রূপ (ইংরেজি)", "Second name variant (English)"),
+  ],
+  40: [optionalText("community_name_en", "সম্প্রদায়ের নাম (ইংরেজি)", "Community name (English)")],
+  41: [
+    optionalNumber("premises_fee_licence", "লাইসেন্স ফি (টাকা)", "Licence fee (BDT)"),
+    optionalNumber("premises_fee_vat", "ভ্যাট (টাকা)", "VAT (BDT)"),
+  ],
+  42: [
+    optionalNumber("trade_fee_new", "নতুন লাইসেন্স ফি (টাকা)", "New licence fee (BDT)"),
+    optionalNumber("trade_fee_renewal", "নবায়ন ফি (টাকা)", "Renewal fee (BDT)"),
+    optionalNumber("trade_fee_arrear", "বকেয়া (টাকা)", "Arrear (BDT)"),
+    optionalNumber("trade_fee_surcharge", "সারচার্জ (টাকা)", "Surcharge (BDT)"),
+    optionalNumber("trade_fee_amendment", "সংশোধন ফি (টাকা)", "Amendment fee (BDT)"),
+    optionalNumber("trade_fee_signboard", "সাইনবোর্ড ফি (টাকা)", "Signboard fee (BDT)"),
+    optionalNumber("trade_fee_profession_tax", "পেশা কর (টাকা)", "Profession tax (BDT)"),
+    optionalNumber("trade_fee_vat", "ভ্যাট (টাকা)", "VAT (BDT)"),
+  ],
+  44: [
+    optionalText("previous_spouse_name_en", "পূর্বের স্বামী/স্ত্রীর নাম (ইংরেজি)", "Previous spouse name (English)"),
+    requiredDate("spouse_death_date", "স্বামী/স্ত্রীর মৃত্যুর তারিখ", "Spouse date of death"),
+  ],
+  46: [
+    proposedSelect("transport_vehicle_class", "যানবাহনের ধরণ", "Vehicle class", [
+      option("rickshaw", "রিকশা", "Rickshaw"),
+      option("van", "ভ্যান", "Van"),
+      option("mishuk", "মিশুক", "Mishuk"),
+      option("other", "অন্যান্য", "Other"),
+    ]),
+  ],
+};
+
+/** Services whose operational schema gains a CERT-REFINE-01 version. */
+export const certRefineServices: readonly number[] = deepFreeze([
+  1, 2, 3, 4, 5, 6, 10, 11, 13, 16, 18, 19, 20, 21, 24, 25, 26, 30, 32, 36,
+  37, 38, 39, 40, 41, 42, 43, 44, 46,
+]);
+
+/** CERT-REFINE-01 children added inside a repeatable group (heirs: the father's name gains a Bangla pair, §B svc03/04). */
+const certRefineChildAdditions: Record<
+  number,
+  Record<string, readonly FieldDefinition[]>
+> = {
+  3: {
+    heirs: [
+      optionalText("warish_heir_father_name_bn", "পিতার নাম (বাংলা)", "Father name (Bangla)"),
+    ],
+  },
+  4: {
+    heirs: [
+      optionalText("warish_heir_father_name_bn", "পিতার নাম (বাংলা)", "Father name (Bangla)"),
+    ],
+  },
+};
+
+/**
+ * CERT-REFINE-01: publish a new version instead of editing the current one,
+ * so applications pinned to the earlier version keep their exact schema
+ * (the same rule as the geography and Phase 4 releases). Adds the QA-driven
+ * data slots and swaps service 38's disability-type list for the DSS list.
+ */
+export function buildCertRefineVersion(previous: FormSchema): FormSchema {
+  if (!certRefineServices.includes(previous.serviceNo))
+    throw new RangeError(
+      `Service ${previous.serviceNo} has no CERT-REFINE-01 version.`,
+    );
+  const additions = certRefineAdditions[previous.serviceNo] ?? [];
+  const childAdditions = certRefineChildAdditions[previous.serviceNo] ?? {};
+  const swapDisabilityOptions = (field: FieldDefinition): FieldDefinition => {
+    let next =
+      previous.serviceNo === 38 && field.id === "application_autistic_type"
+        ? { ...field, options: disabilityTypeOptions }
+        : field;
+    // CERT-REFINE-01 §43: the omission reason becomes a mandatory field.
+    if (previous.serviceNo === 43 && field.id === "omission_details")
+      next = {
+        ...next,
+        constraints: { ...next.constraints, required: true },
+      };
+    const extra = childAdditions[field.id];
+    if (extra && field.type === "repeatable")
+      next = {
+        ...next,
+        children: [
+          ...(next.children ?? []),
+          ...extra.filter(
+            (child) =>
+              !(next.children ?? []).some((existing) => existing.id === child.id),
+          ),
+        ],
+      };
+    return next;
+  };
+  const sections = previous.sections.map((section, index) => {
+    const target =
+      previous.serviceNo === 42
+        ? index === previous.sections.length - 1
+        : index === 0;
+    return {
+      ...section,
+      fields: [
+        ...section.fields.map(swapDisabilityOptions),
+        ...(target ? additions : []),
+      ],
+    };
+  });
+  return deepFreeze({
+    ...previous,
+    version: previous.version + 1,
+    evidence: {
+      ...previous.evidence,
+      limitation: `${previous.evidence.limitation} Version ${previous.version + 1} (CERT-REFINE-01) adds the certificate QA refinement data slots.`,
+    },
+    sections,
+  });
+}
+
+/** CERT-REFINE-01 for the family certificate: members gain an optional gender slot (sons/daughters count, §B svc02). */
+export function buildFamilyCertRefine(previous: FormSchema): FormSchema {
+  if (previous.serviceNo !== 2)
+    throw new RangeError("buildFamilyCertRefine applies to service 2 only.");
+  const sections = previous.sections.map((section) => ({
+    ...section,
+    fields: section.fields.map((field) => {
+      if (field.id !== "members") return field;
+      if ((field.children ?? []).some((child) => child.id === "gender"))
+        return field;
+      return {
+        ...field,
+        children: [
+          ...(field.children ?? []),
+          {
+            id: "gender",
+            type: "select",
+            label: t("লিঙ্গ", "Gender"),
+            constraints: { required: false },
+            options: options.gender,
+            evidence: { status: "proposed" },
+          } as FieldDefinition,
+        ],
+      };
+    }),
+  }));
+  return deepFreeze({
+    ...previous,
+    version: previous.version + 1,
+    evidence: {
+      ...previous.evidence,
+      limitation: `${previous.evidence.limitation} Version ${previous.version + 1} (CERT-REFINE-01) adds the optional member gender slot.`,
+    },
+    sections,
+  });
+}
+
 /** An example fixture builder. Optional uploads are omitted because only the API can create authorized handles. */
 export function createSyntheticPayload(
   schema: FormSchema,

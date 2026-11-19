@@ -148,7 +148,19 @@ export async function generatePdf(
   input: PdfInput,
   version: number = DEMO_TEMPLATE_VERSION,
 ): Promise<Buffer> {
-  const qr = await QRCode.toDataURL(input.verificationUrl, {
+  // CERT-REFINE-01 (A6): the QR encodes the SAME URL the documents print —
+  // `${origin}/verify?searchText=<certificate number, Latin digits>` — so
+  // the printed text and the code can never diverge (previously the QR
+  // carried the token URL while the page printed the searchText URL).
+  const { latinDigits } = await import("./certificate-template-v7.js");
+  const qrUrl = (() => {
+    try {
+      return `${new URL(input.verificationUrl).origin}/verify?searchText=${latinDigits(input.number)}`;
+    } catch {
+      return input.verificationUrl;
+    }
+  })();
+  const qr = await QRCode.toDataURL(qrUrl, {
     width: 180,
     errorCorrectionLevel: "M",
     margin: 2,

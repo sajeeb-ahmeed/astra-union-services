@@ -150,8 +150,92 @@ test("splitScriptRuns: Bengali, Latin and neutral runs split by script", () => {
   assert.ok(en.every((r) => r.family === CERT_LATIN_FAMILY));
 });
 
-test("react-pdf engine renders a Bangla certificate: number, attestation, bundled fonts only", async () => {
-  const pdf = await withEngine("react-pdf", () => generatePdf(fixture(12)));
+test("react-pdf layout: the digit strip and the issue date can never collide (CERT-REFINE-01 A8)", async () => {
+  // A 16-digit production number plus a citizen photo (which narrows the
+  // text column) is the tightest case for the shared header strip.
+  const photo =
+    "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==";
+  const pdf = await withEngine("react-pdf", () =>
+    generatePdf(
+      fixture(45, {
+        number: "2026111812345678",
+        citizenPhoto: photo,
+        payload: { delivery_language: "bn" },
+      } as Partial<PdfInput>),
+    ),
+  );
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "reactpdf-bbox-"));
+  const file = path.join(dir, "certificate.pdf");
+  fs.writeFileSync(file, pdf);
+  const { stdout } = await execFileAsync("pdftotext", ["-bbox", file, "-"]);
+  const words = [...stdout.matchAll(/<word xMin="([\d.]+)" yMin="([\d.]+)" xMax="([\d.]+)" yMax="([\d.]+)">([^<]*)<\/word>/g)].map(
+    (m) => ({ xMin: +m[1]!, yMin: +m[2]!, xMax: +m[3]!, yMax: +m[4]!, text: m[5]! }),
+  );
+  const digitWords = words.filter((w) => /^[০-৯]$/.test(w.text));
+  const clusters: (typeof digitWords)[] = [];
+  for (const w of digitWords) {
+    const c = clusters.find((c) => Math.abs(c[0]!.yMin - w.yMin) < 4);
+    if (c) c.push(w);
+    else clusters.push([w]);
+  }
+  const digits = clusters.sort((a, b) => b.length - a.length)[0]!;
+  assert.ok(digits.length >= 16, `the 16-digit strip prints (saw ${digits.length} cells)`);
+  const band = {
+    top: Math.min(...digits.map((w) => w.yMin)) - 3,
+    bottom: Math.max(...digits.map((w) => w.yMax)) + 3,
+  };
+  const stripRight = Math.max(...digits.map((w) => w.xMax));
+  const year = words.find((w) => w.text === "২০২৬" && w.yMin < 300);
+  assert.ok(year, "the issue-date year prints");
+  // CERT-REFINE-02: the number/date row wraps (flexWrap) — the date group
+  // drops to its own right-aligned line when the strip + date cannot share
+  // the row (the EN svc45 case), which the old centre-within-band test
+  // misread as a same-line collision. A8's invariant is NON-COLLISION:
+  // no date-row word may overlap the strip's rectangle, and any word that
+  // does share the strip's line to its right keeps the 24 pt gap.
+  const stripLeft = Math.min(...digits.map((w) => w.xMin));
+  const rowWords = words.filter(
+    (w) => !/^[০-৯]$/.test(w.text) && w.yMin > band.top - 30 && w.yMin < band.bottom + 30,
+  );
+  for (const w of rowWords) {
+    const overlaps =
+      w.xMin < stripRight && w.xMax > stripLeft && w.yMin < band.bottom && w.yMax > band.top;
+    assert.ok(!overlaps, `date-row word "${w.text}" overlaps the digit strip`);
+  }
+  const sameLineNeighbours = rowWords.filter(
+    (w) => w.xMin > stripRight && w.yMin >= band.top && w.yMax <= band.bottom,
+  );
+  if (sameLineNeighbours.length > 0) {
+    const gap = Math.min(...sameLineNeighbours.map((w) => w.xMin)) - stripRight;
+    assert.ok(gap >= 24, `strip-to-date gap is ${gap.toFixed(1)}pt (A8 minimum 24pt)`);
+  }
+  // Otherwise the date sits on its own line — the other A8 remedy.
+});
+
+test("react-pdf layout: service 46 renders as a standard A4 family certificate (CERT-REFINE-02 R2-05)", async () => {
+  const pdf = await withEngine("react-pdf", () =>
+    generatePdf(fixture(46, { number: "2026111812345678" } as Partial<PdfInput>)),
+  );
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "reactpdf-veh-"));
+  const file = path.join(dir, "vehicle.pdf");
+  fs.writeFileSync(file, pdf);
+  const { stdout: info } = await execFileAsync("pdfinfo", [file]);
+  // A4 portrait, one page — the landscape card (243.78 × 153.07 pt) is gone.
+  assert.ok(info.includes("595.28 x 841.89 pts"), `A4 portrait page (saw: ${info.match(/Page size:.*/)?.[0]})`);
+  assert.ok(/Pages:\s+1/.test(info), "one page");
+  const text = await pdfText(pdf);
+  // The licence number prints EXACTLY as stored in the demo payload
+  // (R2-16: no digit conversion inside identifier strings).
+  const demo46 = demoPayloads[46] as Record<string, unknown>;
+  const licenceNo = String(demo46.transport_license_no ?? "");
+  if (licenceNo) assert.ok(text.includes(licenceNo), `licence no ${licenceNo} prints as stored`);
+  // The family shell is present: the chairman signature block prints.
+  // (Extraction is visual order — the title's pre-base sign extracts first,
+  // exactly as the Bangla-engine test below documents for "চেয়ারম্যান".)
+  assert.ok(text.includes("েচয়ারম্যান"), "signature block title prints");
+});
+
+test("react-pdf engine renders a Bangla certificate: number, attestation, bundled fonts only", async () => {  const pdf = await withEngine("react-pdf", () => generatePdf(fixture(12)));
   assert.equal(pdf.subarray(0, 5).toString(), "%PDF-");
   const text = await pdfText(pdf);
   assert.ok(
@@ -168,7 +252,8 @@ test("react-pdf engine renders a Bangla certificate: number, attestation, bundle
   // "চেয়ারম্যান" itself extracts with its pre-base sign first
   // ("েচয়ারম্যান"); the issuer surname extracts verbatim.
   assert.ok(text.includes("রহমান"), "signature block prints");
-  assert.ok(text.includes("যাচাইকরণ"), "verify line prints");
+  // CERT-REFINE-02 (R2-19): the footer verify label is "যাচাই করুন:".
+  assert.ok(text.includes("যাচাই করুন"), "verify line prints");
   const fonts = await pdfFonts(pdf);
   assert.ok(fonts.includes("NotoSansBengali"), "Bengali family embedded");
   assert.ok(fonts.includes("LiberationSans"), "Latin family embedded");
@@ -231,6 +316,22 @@ before(async () => {
   await new Promise<void>((resolve) => server.once("listening", resolve));
   base = `http://127.0.0.1:${(server.address() as any).port}`;
   for (const name of ["staff", "approver", "citizen"]) await login(name);
+  // CERT-REFINE-01 (A7): this file runs in official mode — issuance is
+  // gated on a configured chairman signature, uploaded through the real
+  // endpoint before any approval below.
+  const sigPng =
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==";
+  const upload = await req(
+    "PUT",
+    "/office/certificate-assets/signature",
+    {
+      mimeType: "image/png",
+      base64: sigPng,
+      reason: "CERT-REFINE-01 official-issuance gate test setup",
+    },
+    "approver",
+  );
+  assert.ok([200, 201].includes(upload.status), JSON.stringify(upload.body));
 });
 after(async () => {
   await closePdfBrowser();
@@ -265,8 +366,12 @@ test("end-to-end: chairman approval under PDF_ENGINE=react-pdf issues a stored, 
   const pdf = Buffer.from(await response.arrayBuffer());
   assert.equal(pdf.subarray(0, 5).toString(), "%PDF-");
   const text = await pdfText(pdf);
+  // CERT-REFINE-01 (A6): the printed verification URL now carries the
+  // number in Latin digits (previously it printed Bengali digits, which is
+  // what made the old bnDigits assertion pass); the number also prints in
+  // the boxed digit strip, whose cells extract space-separated.
   assert.ok(
-    text.includes(bnDigits(issued.number)),
+    text.includes(issued.number),
     "stored PDF carries the certificate number",
   );
   assert.ok(

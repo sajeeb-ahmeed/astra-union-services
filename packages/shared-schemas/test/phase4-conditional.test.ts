@@ -95,7 +95,9 @@ test("Phase 4: optradio groups are conditioned only in v3; v2 stays pinned", () 
     [31, "dead_info_dod"],
   ];
   for (const [no, dependent] of groups) {
-    assert.equal(getServiceSchema(no).version, 3, `service ${no} latest`);
+    // CERT-REFINE-01 published v4 of service 4 (heirs' father-name field);
+    // the conditioning structure it asserts here is carried over unchanged.
+    assert.equal(getServiceSchema(no).version, no === 4 ? 4 : 3, `service ${no} latest`);
     const current = flattenFields(getServiceSchema(no)).find(
       (field) => field.id === dependent,
     );

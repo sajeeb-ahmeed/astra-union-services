@@ -906,7 +906,13 @@ test("WAL-05 / BILL-01 / BILL-02: verified sandbox settlements are replay-safe a
 });
 test("FOR-02: repeatable family and conditional trade forms persist through the same engine", async () => {
   for (const no of [2, 42]) {
-    const issued = await createIssued(no);
+    // CERT-REFINE-01 (A11): a trade licence cannot issue with a blank fee
+    // block, so the trade application carries real fee components.
+    const payload =
+      no === 42
+        ? { ...demoPayloads[42], trade_fee_new: 300, trade_fee_vat: 45 }
+        : demoPayloads[no as keyof typeof demoPayloads];
+    const issued = await createIssued(no, payload);
     const detail = (
       await request(
         "GET",
@@ -915,10 +921,7 @@ test("FOR-02: repeatable family and conditional trade forms persist through the 
         sessions["alpha:staff"],
       )
     ).body;
-    assert.deepEqual(
-      detail.payload,
-      demoPayloads[no as keyof typeof demoPayloads],
-    );
+    assert.deepEqual(detail.payload, payload);
     // Phase W: approval issued the certificate in the same action.
     assert.equal(detail.application.state, "ISSUED");
     assert.equal(detail.certificate.id, issued.certificate.id);

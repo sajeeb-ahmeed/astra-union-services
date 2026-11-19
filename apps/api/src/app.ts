@@ -71,6 +71,7 @@ import {
   certificateAssetsRouter,
   resolveCertificateAssets,
 } from "./certificate-assets.js";
+import { assertCertificateGates } from "./cert-gates.js";
 import { applySubscriptionAction } from "./subscriptions.js";
 import { rechargeRouter } from "./recharge.js";
 import { merchantRouter } from "./gateways.js";
@@ -1750,6 +1751,11 @@ const ISSUANCE_GATE_CODES = new Set([
   "PROFILE_INCOMPLETE",
   "RENEWAL_SOURCE_INVALID",
   "SERVICE_DISABLED",
+  // CERT-REFINE-01 gates (cert-gates.ts): the approval is recorded and the
+  // issuance completes later via /issue once the blocker is resolved.
+  "SIGNATURE_MISSING",
+  "AMOUNTS_REQUIRED",
+  "LANGUAGE_VALUE_MISSING",
 ]);
 async function prepareIssuance(
   a: Auth,
@@ -1807,6 +1813,19 @@ async function prepareIssuance(
         [a.userId, a.tenantId],
       )
     ).rows[0];
+    // CERT-REFINE-02 (R2-03): Bangla certificates print the approver's
+    // Bangla name; when it is missing the document falls back to the Latin
+    // name. In official mode that is a data defect — warn loudly at
+    // issuance/render time so the office completes the profile.
+    if (
+      process.env.ISSUANCE_MODE === "official" &&
+      issuerRow &&
+      !String(issuerRow.name_bn ?? "").trim()
+    ) {
+      console.warn(
+        `[CERT-REFINE-02 R2-03] approver ${a.userId} (tenant ${a.tenantId}) has no Bangla name (name_bn) — Bangla certificates will fall back to the Latin name "${issuerRow.display_name}".`,
+      );
+    }
     const orderRow = (
       await db.query(
         "SELECT total_minor,certificate_language FROM application_order_snapshots WHERE application_id=$1",
@@ -2145,6 +2164,7 @@ async function approveAndIssue(req: Req, a: Auth, id: string) {
       return { ...application, certificate: certificateRow(prepared.existing) };
     }
     assertProfileComplete(prepared);
+    assertCertificateGates(prepared);
     const { certificate, number } = await issueWithFreshNumber(a, id, prepared, {
       states: APPROVE_STATES,
       stateMessage: "Approval requires a submitted application.",
@@ -2350,6 +2370,7 @@ app.post(
       return;
     }
     assertProfileComplete(prepared);
+    assertCertificateGates(prepared);
     const { certificate: result, number } = await issueWithFreshNumber(
       a,
       id,

@@ -457,10 +457,17 @@ test("certassets: preview renders a real sample PDF with the office assets and s
 async function issueCertificate(who: string, citizenWho: string, serviceNo: number) {
   const citizens = await req("GET", "/citizens", undefined, citizenWho);
   const citizenId = citizens.body.items[0].id;
+  // CERT-REFINE-01 (A11): a trade licence cannot issue with a blank fee
+  // block — the application carries real fee components, as the live form
+  // now collects them.
+  const payload =
+    serviceNo === 42
+      ? { ...demoPayloads[serviceNo], trade_fee_new: 300, trade_fee_vat: 45 }
+      : demoPayloads[serviceNo];
   const created = await req(
     "POST",
     "/applications",
-    { citizenId, serviceNo, payload: demoPayloads[serviceNo] },
+    { citizenId, serviceNo, payload },
     who,
   );
   assert.equal(created.status, 201, JSON.stringify(created.body));
@@ -481,7 +488,7 @@ async function approveAndFetch(id: string, approverWho: string) {
   return { cert, pdf: pdf.bytes };
 }
 
-test("certassets: end-to-end — alpha issues with logo, seal watermark and signature; beta issues with the plain fallback", async () => {
+test("certassets: end-to-end — alpha issues with logo, seal watermark and signature; beta is blocked by the A7 signature gate", async () => {
   process.env.ISSUANCE_MODE = "official";
   const proofDir = process.env.CERTASSETS_PROOF_DIR;
   try {
@@ -498,13 +505,18 @@ test("certassets: end-to-end — alpha issues with logo, seal watermark and sign
       }
     }
     const betaApp = await issueCertificate("betaStaff", "betaCitizen", 45);
-    const { pdf: betaPdf } = await approveAndFetch(betaApp, "betaApprover");
-    assert.ok(betaPdf.length > 10000);
-    if (proofDir) {
-      const file = path.join(proofDir, "beta-service-45-no-assets.pdf");
-      fs.writeFileSync(file, betaPdf);
-      saved.push(file);
-    }
+    // CERT-REFINE-01 (A7): beta has NO signature asset, so official-mode
+    // issuance is now blocked at approval with SIGNATURE_MISSING instead of
+    // silently issuing an unsigned-looking certificate. (The plain-fallback
+    // render without artwork remains covered at render level.)
+    const betaApprove = await req(
+      "POST",
+      `/applications/${betaApp}/transition`,
+      { action: "approve" },
+      "betaApprover",
+    );
+    assert.equal(betaApprove.status, 422, JSON.stringify(betaApprove.body));
+    assert.equal(betaApprove.body.error.code, "SIGNATURE_MISSING");
     if (saved.length) console.log(`certassets proof pack: ${saved.join(" · ")}`);
   } finally {
     delete process.env.ISSUANCE_MODE;

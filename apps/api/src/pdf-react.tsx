@@ -6,6 +6,7 @@ import {
   View,
   Image,
   StyleSheet,
+  Font,
   renderToBuffer,
 } from "@react-pdf/renderer";
 import type { Style } from "@react-pdf/stylesheet";
@@ -20,17 +21,27 @@ import {
   ATTESTATIONS_BN,
   ATTESTATIONS_EN,
   FORM_SERVICES,
+  GOVT_LINE_BN,
+  GOVT_LINE_EN,
+  STATUS_SENTENCE_BN,
+  STATUS_SENTENCE_EN,
+  STATUS_SENTENCE_SERVICES,
+  CORRECTION_FIELD_LABELS,
   amountInWordsBn,
   amountInWordsEn,
   bnDigits,
   bnDate,
   bnDateIso,
+  bnDateSlash,
+  deathCauseEn,
+  deathPlaceEn,
   enDate,
   enDateIso,
-  issueTime,
+  enDateSlash,
   fiscalYear,
   money,
   latinDigits,
+  passportPurposeLabel,
   present,
   text,
   chairmanTitle,
@@ -39,9 +50,13 @@ import {
   permanentAddress,
   presentAddress,
   selectLabel,
+  type AttestContext,
   type DocContext,
 } from "./certificate-template-v7.js";
-import { governmentEmblemDataUrl } from "./template-assets.js";
+import {
+  certificateAssetsBundle,
+  governmentEmblemDataUrl,
+} from "./template-assets.js";
 import {
   CERT_BENGALI_FAMILY,
   CERT_LATIN_FAMILY,
@@ -82,6 +97,12 @@ import {
 const MM = 2.83465;
 const px = (n: number) => n * 0.75;
 
+// CERT-REFINE-02 (R2-10): never hyphenate certificate text. The layout
+// engine's default hyphenation split a bold name run mid-word and left a
+// dangling "-," fragment at a line start; whole-word wrapping plus the
+// comma glued to its preceding fragment (joinSegs) removes the artefact.
+Font.registerHyphenationCallback((word) => [word]);
+
 /* ---------- text segments (the structured twin of the HTML <strong> runs) ---------- */
 interface Seg {
   t: string;
@@ -91,7 +112,14 @@ const seg = (t: string, b = false): Seg => ({ t, b });
 const joinSegs = (parts: Seg[][]): Seg[] => {
   const out: Seg[] = [];
   parts.forEach((part, i) => {
-    if (i > 0) out.push(seg(", "));
+    if (i > 0) {
+      // CERT-REFINE-02 (R2-10): the comma is glued to the preceding
+      // fragment so a name and its comma form one unbreakable unit — a
+      // line break can never strand "-," or "," at a line start.
+      const prev = out[out.length - 1];
+      if (prev) out[out.length - 1] = { ...prev, t: `${prev.t},` };
+      out.push(seg(" "));
+    }
     out.push(...part);
   });
   return out;
@@ -150,32 +178,47 @@ function Para({
 
 /* ---------- styles (converted from the v7 stylesheet) ---------- */
 const styles = StyleSheet.create({
-  page: { color: "#101418" },
+  // CERT-REFINE-02 (R2-22): all certificate text is true black.
+  page: { color: "#000" },
   content: {},
   header: { alignItems: "center" },
-  emblem: { width: 15 * MM, height: 15 * MM, objectFit: "contain", marginBottom: 1.5 * MM },
-  officeName: { fontSize: px(21), lineHeight: 1.4, textAlign: "center", fontWeight: 700 },
-  officeAddress: { fontSize: px(13.5), textAlign: "center" },
-  docTitle: { fontSize: px(19), lineHeight: 1.4, textAlign: "center", fontWeight: 700, marginTop: 3.5 * MM },
+  // CERT-REFINE-02 (R2-07): one header lockup — emblem 40 pt, office name
+  // 21 pt bold, address 10.5 pt, hairline under the header (HeaderBlock).
+  emblem: { width: 40, height: 40, objectFit: "contain", marginBottom: 3 },
+  officeName: { fontSize: 21, lineHeight: 1.35, textAlign: "center", fontWeight: 700 },
+  officeAddress: { fontSize: 10.5, textAlign: "center", lineHeight: 1.35 },
+  docTitle: { fontSize: 17, lineHeight: 1.4, textAlign: "center", fontWeight: 700, marginTop: 9 },
   numline: {
     flexDirection: "row",
+    flexWrap: "wrap",
     justifyContent: "space-between",
+    columnGap: 9 * MM,
+    rowGap: 1.5 * MM,
     fontWeight: 700,
     marginTop: 4.5 * MM,
     marginBottom: 2.5 * MM,
   },
-  bodyPara: { textAlign: "justify" },
-  closing: { marginTop: 5 * MM, textAlign: "justify" },
+  // CERT-REFINE-02 (R2-06): body 12.5 pt on 21 pt leading.
+  bodyPara: { textAlign: "justify", fontSize: 12.5, lineHeight: 1.68 },
+  closing: { marginTop: 10, textAlign: "justify", fontSize: 12.5, lineHeight: 1.68 },
   freeFooter: { fontSize: px(12), marginTop: 4 * MM },
+  // CERT-REFINE-02 (R2-13): the signature block is a fixed 200 pt column;
+  // its position comes from the anchored wrapper in CertificateDocument.
   signBlock: {
-    marginTop: 11 * MM,
-    marginLeft: "auto",
-    width: 64 * MM,
-    fontSize: px(13),
-    lineHeight: 1.55,
+    width: 200,
+    fontSize: 10.5,
+    lineHeight: 1.5,
   },
-  signName: { fontWeight: 700, fontSize: px(14.5), textAlign: "center" },
+  signName: { fontWeight: 700, fontSize: 12, textAlign: "center" },
   signLine: {
+    borderTopWidth: 0.75,
+    borderTopColor: "#000",
+    borderTopStyle: "solid",
+    marginTop: 4,
+    marginBottom: 4,
+  },
+  // Secondary signatures (collector, guardian) keep the dotted rule.
+  signLineDotted: {
     borderTopWidth: px(1.6),
     borderTopColor: "#333",
     borderTopStyle: "dotted",
@@ -184,24 +227,33 @@ const styles = StyleSheet.create({
     marginLeft: 5 * MM,
     marginRight: 5 * MM,
   },
-  signTitle: { textAlign: "center" },
-  signOffice: { fontWeight: 700, textAlign: "center" },
-  signAddress: { textAlign: "center" },
+  signTitle: { textAlign: "center", fontSize: 10.5 },
+  signOffice: { fontWeight: 700, textAlign: "center", fontSize: 12 },
+  signAddress: { textAlign: "center", fontSize: 10 },
   docFoot: { flexDirection: "row", alignItems: "flex-end", marginTop: 7 * MM },
-  qr: { width: 21 * MM, height: 21 * MM },
+  // CERT-REFINE-02 (R2-19): QR 46×46 in the anchored footer group.
+  qr: { width: 46, height: 46 },
   verifyLine: { flex: 1, textAlign: "center", fontSize: px(11.5), marginLeft: 6 * MM },
   tableWrap: { marginTop: 4 * MM },
   tableRow: { flexDirection: "row" },
+  // CERT-REFINE-02 (R2-11): one table style — 0.5 pt #666 rules, body
+  // 10.5 pt with 4.5/7 padding, header #E8E8E8 10.5 pt bold with 5/7.
   tableCell: {
-    borderRightWidth: 0.75,
-    borderBottomWidth: 0.75,
-    borderColor: "#5b6b60",
-    paddingVertical: 1.1 * MM,
-    paddingHorizontal: 2 * MM,
-    fontSize: px(12.5),
+    borderRightWidth: 0.5,
+    borderBottomWidth: 0.5,
+    borderColor: "#666",
+    paddingVertical: 4.5,
+    paddingHorizontal: 7,
+    fontSize: 10.5,
     lineHeight: 1.5,
   },
-  tableHeadCell: { fontWeight: 700 },
+  tableHeadCell: {
+    fontWeight: 700,
+    backgroundColor: "#E8E8E8",
+    fontSize: 10.5,
+    paddingVertical: 5,
+    paddingHorizontal: 7,
+  },
 });
 
 /* ---------- shared blocks ---------- */
@@ -229,9 +281,10 @@ function NumberDisplay({
         <Runs segs={[seg(bn ? bnDigits(number) : latinDigits(number))]} base={base} bold />
       </Text>
     );
-  const boxW = (small ? 3.6 : 5) * MM;
-  const boxH = (small ? 4.6 : 6.2) * MM;
-  const fontSize = px(small ? 9 : 12.5);
+  // CERT-REFINE-02 (R2-08): boxes 15×19 pt, gaps 2.5 pt, digits 11 pt.
+  const boxW = small ? 3.6 * MM : 15;
+  const boxH = small ? 4.6 * MM : 19;
+  const fontSize = small ? px(9) : 11;
   return (
     <View style={{ flexDirection: "row", alignItems: "center" }}>
       {match[1] ? (
@@ -250,7 +303,7 @@ function NumberDisplay({
               borderColor: "#333",
               alignItems: "center",
               justifyContent: "center",
-              marginLeft: i === 0 ? 0 : 1 * MM,
+              marginLeft: i === 0 ? 0 : small ? 1 * MM : 2.5,
             }}
           >
             <Text style={{ fontSize, fontWeight: 700, lineHeight: 1 }}>
@@ -263,7 +316,10 @@ function NumberDisplay({
   );
 }
 
-/** CERTNO-01: the citizen photo — rendered only when one is on file. */
+/** CERTNO-01: the citizen photo — rendered only when one is on file.
+ * CERT-REFINE-02 (R2-09): the photo sits in a fixed frame — 80×100 pt
+ * image, 3 pt white padding, 0.75 pt #8A8A8A border. Absent photo →
+ * nothing renders (no placeholder, no reserved space). */
 function CitizenPhoto({
   ctx,
   style,
@@ -273,10 +329,24 @@ function CitizenPhoto({
 }) {
   if (!ctx.input.citizenPhoto) return null;
   return (
-    <Image
-      src={ctx.input.citizenPhoto}
-      style={[{ width: 26 * MM, height: 32 * MM, objectFit: "cover" }, style ?? {}]}
-    />
+    <View
+      style={[
+        {
+          width: 86,
+          height: 106,
+          borderWidth: 0.75,
+          borderColor: "#8A8A8A",
+          backgroundColor: "#fff",
+          padding: 3,
+        },
+        style ?? {},
+      ]}
+    >
+      <Image
+        src={ctx.input.citizenPhoto}
+        style={{ width: 80, height: 100, objectFit: "cover" }}
+      />
+    </View>
   );
 }
 
@@ -285,24 +355,60 @@ function HeaderBlock({
   title,
   emblemUrl,
   base,
+  hideEmblem = false,
 }: {
   ctx: DocContext;
   title: string;
   emblemUrl: string | null;
   base: CertFamily;
+  /** Trade licence only: the emblem sits in the header row's left column
+   * (as in the Prottoyon reference — beside the name, not above it). */
+  hideEmblem?: boolean;
 }) {
+  const { input, bn, official } = ctx;
+  // CERT-REFINE-01: the office logo prints beside the office name when the
+  // office has one configured (the asset bundle, as in the HTML twin).
+  const bundle = certificateAssetsBundle(input.tenant.id, input.assets, input.issuer);
+  const logo = official && bundle.logo ? bundle.logo : null;
   return (
     <View style={styles.header}>
-      {emblemUrl ? <Image style={styles.emblem} src={emblemUrl} /> : null}
-      <Text style={styles.officeName}>
-        <Runs segs={[seg(ctx.officeName)]} base={base} bold />
+      {emblemUrl && !hideEmblem ? <Image style={styles.emblem} src={emblemUrl} /> : null}
+      {/* CERT-REFINE-01 (A1): emblem → government line → office name.
+          CERT-REFINE-02 (R2-07): government line 11 pt bold; logo 34 pt
+          tall with an 8 pt gap to the 21 pt office name. */}
+      <Text style={{ fontWeight: 700, fontSize: 11, textAlign: "center", lineHeight: 1.3 }}>
+        <Runs segs={[seg(bn ? GOVT_LINE_BN : GOVT_LINE_EN)]} base={base} bold />
       </Text>
+      <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "center" }}>
+        {logo ? (
+          <Image
+            src={logo}
+            style={{ height: 34, width: 56, objectFit: "contain", marginRight: 8 }}
+          />
+        ) : null}
+        <Text style={styles.officeName}>
+          <Runs segs={[seg(ctx.officeName)]} base={base} bold />
+        </Text>
+      </View>
       <Text style={styles.officeAddress}>
         <Runs segs={[seg(ctx.officeAddressLine)]} base={base} />
       </Text>
+      {/* CERT-REFINE-02 (R2-07): a 0.75 pt hairline closes the header. */}
+      <View
+        style={{
+          borderBottomWidth: 0.75,
+          borderBottomColor: "#1a1a1a",
+          width: "100%",
+          marginTop: 5,
+        }}
+      />
       <Text style={styles.docTitle}>
         <Runs segs={[seg(title)]} base={base} bold />
       </Text>
+      {/* CERT-REFINE-02 (R2-20): the centred title accent rule. */}
+      <View
+        style={{ width: 64, height: 1.4, backgroundColor: "#000", marginTop: 5 }}
+      />
     </View>
   );
 }
@@ -310,31 +416,47 @@ function HeaderBlock({
 function SignBlock({
   ctx,
   base,
-  compact = false,
 }: {
   ctx: DocContext;
   base: CertFamily;
-  /** Trade licence: v7 shrinks the sign block (margin-top 2mm, 12px/1.5). */
-  compact?: boolean;
 }) {
-  const { input, bn } = ctx;
+  const { input, bn, official, issued } = ctx;
+  // CERT-REFINE-02 (R2-03): the approver's name prints in the certificate's
+  // language — name_bn on Bangla documents, the Latin name on English ones
+  // (fallback to the other form only when the matching one is absent; the
+  // issuance path warns when name_bn is missing in official mode).
   const issuerName = input.issuer
     ? bn
       ? text(input.issuer.nameBn) || text(input.issuer.nameEn)
       : text(input.issuer.nameEn) || text(input.issuer.nameBn)
     : "";
+  // CERT-REFINE-01 (A11/G5): the chairman's signature IMAGE prints above the
+  // line when one is configured (it never rendered in this engine before);
+  // the issuance gate now blocks official issuance without one.
+  const bundle = certificateAssetsBundle(input.tenant.id, input.assets, input.issuer);
+  const signature = official && bundle.signature ? bundle.signature : null;
+  // CERT-REFINE-02 (R2-13): one composition everywhere — name 12 pt bold →
+  // signature image (max-height 30 pt) → SOLID 0.75 pt rule → chairman
+  // title 10.5 pt → office name 12 pt bold → address 10 pt → date 10 pt,
+  // 4 pt gaps, in the anchored 200 pt block.
   return (
-    <View
-      style={
-        compact
-          ? [styles.signBlock, { marginTop: 2 * MM, fontSize: px(12), lineHeight: 1.5 }]
-          : styles.signBlock
-      }
-    >
+    <View style={styles.signBlock}>
       {issuerName ? (
         <Text style={styles.signName}>
           <Runs segs={[seg(issuerName)]} base={base} bold />
         </Text>
+      ) : null}
+      {signature ? (
+        <Image
+          src={signature}
+          style={{
+            height: 30,
+            width: 150,
+            objectFit: "contain",
+            alignSelf: "center",
+            marginTop: 4,
+          }}
+        />
       ) : null}
       <View style={styles.signLine} />
       <Text style={styles.signTitle}>
@@ -348,6 +470,12 @@ function SignBlock({
           <Runs segs={[seg(ctx.officeAddressLine)]} base={base} />
         </Text>
       ) : null}
+      <Text style={{ textAlign: "center", fontSize: 10 }}>
+        <Runs
+          segs={[seg(`${bn ? "তারিখ:" : "Date:"} ${bn ? bnDate(issued) : enDate(issued)}`)]}
+          base={base}
+        />
+      </Text>
     </View>
   );
 }
@@ -356,27 +484,44 @@ function DocFooter({
   ctx,
   qrDataUrl,
   base,
-  trade,
 }: {
   ctx: DocContext;
   qrDataUrl: string;
   base: CertFamily;
-  trade: boolean;
 }) {
-  const { bn, origin } = ctx;
-  const verifyUrl = `${origin}/verify?searchText=${ctx.numberDisplay}`;
-  const verifyLine =
-    trade && !bn
-      ? `Issued from: ${verifyUrl}`
-      : bn
-        ? `যাচাইকরণ: ${verifyUrl}`
-        : `Verification: ${verifyUrl}`;
+  const { input, bn, origin } = ctx;
+  // CERT-REFINE-01 (A6): Latin digits in both languages; the QR payload is
+  // this same URL (pdf.ts).
+  const verifyUrl = `${origin}/verify?searchText=${latinDigits(input.number)}`;
+  // CERT-REFINE-02 (R2-19): the footer verify group — QR 46×46 bottom-left,
+  // then "যাচাই করুন:"/"Verify:" bold + the URL at 8 pt on one line, and
+  // the certificate number in Latin digits at 8 pt under it.
   return (
-    <View style={[styles.docFoot, trade ? { marginTop: 5 * MM } : {}]}>
-      {trade ? null : <Image style={styles.qr} src={qrDataUrl} />}
-      <Text style={styles.verifyLine}>
-        <Runs segs={[seg(verifyLine)]} base={base} />
-      </Text>
+    <View style={{ flexDirection: "row", alignItems: "flex-start" }}>
+      <Image style={styles.qr} src={qrDataUrl} />
+      <View style={{ marginLeft: 8, paddingTop: 3 }}>
+        <Text style={{ fontSize: 8.5 }}>
+          <Runs
+            segs={[
+              seg(bn ? "যাচাই করুন: " : "Verify: ", true),
+              seg(verifyUrl),
+            ]}
+            base={base}
+          />
+        </Text>
+        <Text style={{ fontSize: 8, marginTop: 3 }}>
+          <Runs
+            segs={[
+              seg(
+                bn
+                  ? `সনদ নং (সংখ্যায়): ${latinDigits(input.number)}`
+                  : `Certificate No: ${latinDigits(input.number)}`,
+              ),
+            ]}
+            base={base}
+          />
+        </Text>
+      </View>
     </View>
   );
 }
@@ -397,12 +542,12 @@ function DataTable({
     ...styles.tableCell,
     ...(isHead ? styles.tableHeadCell : {}),
     flex,
-    borderTopWidth: isHead ? 0.75 : 0,
+    borderTopWidth: isHead ? 0.5 : 0,
     borderLeftWidth: 0,
   });
   return (
     <View style={styles.tableWrap}>
-      <View style={[styles.tableRow, { borderLeftWidth: 0.75, borderColor: "#5b6b60" }]}>
+      <View style={[styles.tableRow, { borderLeftWidth: 0.5, borderColor: "#666" }]}>
         {headers.map((h, i) => (
           <Text key={i} style={cell(true, flexes[i] ?? 1)}>
             <Runs segs={[seg(h)]} base={base} bold />
@@ -410,10 +555,11 @@ function DataTable({
         ))}
       </View>
       {rows.map((row, r) => (
-        <View key={r} style={[styles.tableRow, { borderLeftWidth: 0.75, borderColor: "#5b6b60" }]}>
+        <View key={r} style={[styles.tableRow, { borderLeftWidth: 0.5, borderColor: "#666" }]}>
           {row.map((c, i) => (
             <Text key={i} style={cell(false, flexes[i] ?? 1)}>
-              <Runs segs={[seg(c)]} base={base} />
+              {/* CERT-REFINE-02 (R2-11): an empty cell prints "—". */}
+              <Runs segs={[seg(c === "" ? "—" : c)]} base={base} />
             </Text>
           ))}
         </View>
@@ -424,6 +570,10 @@ function DataTable({
 
 /* ---------- identity + paragraph chassis (structured mirrors of v7) ---------- */
 
+/**
+ * CERT-REFINE-01 (A2): the standard identity block — name, father, mother,
+ * then NID (birth registration only when no NID). No spouse segment.
+ */
 function identitySegs(ctx: DocContext): Seg[] {
   const { input, bn } = ctx;
   const c = input.citizen;
@@ -432,26 +582,27 @@ function identitySegs(ctx: DocContext): Seg[] {
   const nid = input.identity?.nid;
   const birthReg = input.identity?.birthReg;
   if (bn) {
-    if (present(nid)) parts.push([seg("জাতীয় পরিচয়পত্র নম্বরঃ "), seg(bnDigits(nid), true)]);
-    else if (present(birthReg)) parts.push([seg("জন্ম নিবন্ধন নম্বরঃ "), seg(bnDigits(birthReg), true)]);
-    if (present(c.spouse_name_bn))
-      parts.push([seg(c.gender === "male" ? "স্ত্রীঃ " : "স্বামীঃ "), seg(text(c.spouse_name_bn), true)]);
     if (present(c.father_name_bn)) parts.push([seg("পিতাঃ "), seg(text(c.father_name_bn), true)]);
     if (present(c.mother_name_bn)) parts.push([seg("মাতাঃ "), seg(text(c.mother_name_bn), true)]);
+    if (present(nid)) parts.push([seg("জাতীয় পরিচয়পত্র নম্বরঃ "), seg(bnDigits(nid), true)]);
+    else if (present(birthReg)) parts.push([seg("জন্ম নিবন্ধন নম্বরঃ "), seg(bnDigits(birthReg), true)]);
   } else {
-    if (present(nid)) parts.push([seg("National ID No: "), seg(text(nid), true)]);
-    else if (present(birthReg)) parts.push([seg("Birth Registration No: "), seg(text(birthReg), true)]);
-    if (present(c.spouse_name_en)) parts.push([seg("Spouse: "), seg(text(c.spouse_name_en), true)]);
     if (present(c.father_name_en)) parts.push([seg("Father: "), seg(text(c.father_name_en), true)]);
     if (present(c.mother_name_en)) parts.push([seg("Mother: "), seg(text(c.mother_name_en), true)]);
+    if (present(nid)) parts.push([seg("National ID No: "), seg(text(nid), true)]);
+    else if (present(birthReg)) parts.push([seg("Birth Registration No: "), seg(text(birthReg), true)]);
   }
   return joinSegs(parts);
 }
 
 const runAttestation = (
-  a: string | ((p: Record<string, unknown>) => string) | undefined,
+  a:
+    | string
+    | ((p: Record<string, unknown>, ctx?: AttestContext) => string)
+    | undefined,
   payload: Record<string, unknown>,
-) => (typeof a === "function" ? a(payload) : (a ?? ""));
+  ctx?: AttestContext,
+) => (typeof a === "function" ? a(payload, ctx) : (a ?? ""));
 
 function deceasedBody(ctx: DocContext, serviceNo: number, base: CertFamily) {
   const { input, bn } = ctx;
@@ -466,9 +617,14 @@ function deceasedBody(ctx: DocContext, serviceNo: number, base: CertFamily) {
   if (bn) {
     if (present(father)) idParts.push([seg("পিতাঃ "), seg(text(father), true)]);
     if (present(mother)) idParts.push([seg("মাতাঃ "), seg(text(mother), true)]);
+    // CERT-REFINE-01 §§3–4: the deceased's NID prints inside the block.
+    if ((serviceNo === 3 || serviceNo === 4) && present(get("nid")))
+      idParts.push([seg("জাতীয় পরিচয়পত্র নম্বরঃ "), seg(bnDigits(get("nid")), true)]);
   } else {
     if (present(father)) idParts.push([seg("Father: "), seg(text(father), true)]);
     if (present(mother)) idParts.push([seg("Mother: "), seg(text(mother), true)]);
+    if ((serviceNo === 3 || serviceNo === 4) && present(get("nid")))
+      idParts.push([seg("National ID No: "), seg(text(get("nid")), true)]);
   }
   const identity = joinSegs(idParts);
   const dod = get("dod");
@@ -479,23 +635,25 @@ function deceasedBody(ctx: DocContext, serviceNo: number, base: CertFamily) {
     const reason = bn ? get("reason_bn") : get("reason");
     if (bn) {
       sentences.push(
-        `তিনি ${present(dod) ? `${bnDateIso(dod)} তারিখে ` : ""}${present(place) ? `${text(place)} এ ` : ""}মৃত্যুবরণ করিয়াছেন।`,
+        `তিনি ${present(dod) ? `${bnDateIso(dod)} তারিখে ` : ""}${present(place) ? `${text(place)} এ ` : ""}মৃত্যুবরণ করেছেন।`,
       );
       if (present(reason)) sentences.push(`মৃত্যুর কারণঃ ${text(reason)}।`);
-      if (serviceNo === 31) sentences.push("তিনি অবিবাহিত অবস্থায় মৃত্যুবরণ করিয়াছেন।");
+      if (serviceNo === 31) sentences.push("তিনি অবিবাহিত অবস্থায় মৃত্যুবরণ করেছেন।");
       if (present(registerNo)) sentences.push(`মৃত্যু নিবন্ধন নংঃ ${bnDigits(registerNo)}।`);
     } else {
+      // CERT-REFINE-02 (R2-15): "The death occurred on … at the
+      // deceased's own residence, …" + the mapped cause wording.
       sentences.push(
-        `The person died${present(dod) ? ` on ${enDateIso(dod)}` : ""}${present(place) ? ` at ${text(place)}` : ""}.`,
+        `The death occurred${present(dod) ? ` on ${enDateIso(dod)}` : ""}${present(place) ? ` at ${deathPlaceEn(place)}` : ""}.`,
       );
-      if (present(reason)) sentences.push(`Cause of death: ${text(reason)}.`);
+      if (present(reason)) sentences.push(`Cause of death: ${deathCauseEn(reason)}.`);
       if (serviceNo === 31) sentences.push("The person died unmarried.");
       if (present(registerNo)) sentences.push(`Death registration no: ${text(registerNo)}.`);
     }
   } else {
     if (bn) {
       sentences.push(
-        `তিনি মৃত্যুবরণ করিয়াছেন${present(dod) ? ` (মৃত্যুর তারিখঃ ${bnDateIso(dod)})` : ""}। তাহার ওয়ারিশগণ নিম্নরূপ:`,
+        `তিনি মৃত্যুবরণ করেছেন${present(dod) ? ` (মৃত্যুর তারিখঃ ${bnDateIso(dod)})` : ""}। তাঁহার ওয়ারিশগণ নিম্নরূপ:`,
       );
       if (present(registerNo)) sentences.push(`নিবন্ধন নংঃ ${bnDigits(registerNo)}।`);
     } else {
@@ -523,99 +681,481 @@ function deceasedBody(ctx: DocContext, serviceNo: number, base: CertFamily) {
     );
   }
   let table: React.ReactNode = null;
+  let after: React.ReactNode = null;
   if (serviceNo === 3 || serviceNo === 4) {
     const heirs = Array.isArray(p.heirs) ? (p.heirs as Record<string, unknown>[]) : [];
     const schema = input.schema ?? getServiceSchema(serviceNo);
-    const withNid = heirs.some((h) => present(h.warish_heir_nid));
+    // CERT-REFINE-01 §§3–4: spec column order; NID column always present;
+    // father's name in the certificate's language; DD/MM/YYYY dates.
     const withMobile = heirs.some((h) => present(h.warish_heir_mobile_no));
     const rows = heirs.map((h, i) => {
       const row = [
         bn ? bnDigits(i + 1) : String(i + 1),
         text(bn ? h.warish_heir_name_bn : h.warish_heir_name),
+        text(bn ? h.warish_heir_father_name_bn : h.warish_heir_father_name),
+        bn ? bnDateSlash(h.warish_heir_dob) : enDateSlash(h.warish_heir_dob),
+        bn ? bnDigits(h.warish_heir_nid) : text(h.warish_heir_nid),
         selectLabel(schema, "heirs", "warish_heir_relation", h.warish_heir_relation, bn),
-        bn ? bnDigits(h.warish_heir_dob) : text(h.warish_heir_dob),
-        text(h.warish_heir_father_name),
       ];
-      if (withNid) row.push(bn ? bnDigits(h.warish_heir_nid) : text(h.warish_heir_nid));
       if (withMobile) row.push(bn ? bnDigits(h.warish_heir_mobile_no) : text(h.warish_heir_mobile_no));
       return row;
     });
     const headers = bn
-      ? ["ক্রমিক", "ওয়ারিশের নাম", "সম্পর্ক", "জন্ম তারিখ", "পিতার নাম"]
-      : ["Sl", "Heir's name", "Relation", "Date of birth", "Father's name"];
-    if (withNid) headers.push(bn ? "জাতীয় পরিচয়পত্র নম্বর" : "NID No");
+      ? ["ক্রমিক", "ওয়ারিশের নাম", "পিতা/স্বামীর নাম", "জন্ম তারিখ", "জাতীয় পরিচয়পত্র নম্বর", "সম্পর্ক"]
+      : ["Sl", "Heir's name", "Father/Husband name", "Date of birth", "NID No", "Relation"];
     if (withMobile) headers.push(bn ? "মোবাইল নম্বর" : "Mobile No");
-    const flexes = [0.5, 1.6, 1, 1, 1.2];
-    if (withNid) flexes.push(1.2);
+    const flexes = [0.5, 1.6, 1.3, 0.9, 1.3, 0.9];
     if (withMobile) flexes.push(1);
     table = <DataTable headers={headers} rows={rows} flexes={flexes} base={base} />;
-    sentences.push(
-      bn
-        ? serviceNo === 4
-          ? "উল্লিখিত ব্যক্তিগণই তাহার আইনগত উত্তরাধিকারী; তাহাদের ছাড়া আর কোনো ওয়ারিশ আছে বলিয়া জানা যায় না।"
-          : "উল্লিখিত ব্যক্তিগণ ছাড়া তাহার আর কোনো ওয়ারিশ আছে বলিয়া জানা যায় না।"
-        : serviceNo === 4
-          ? "The persons listed are the legal successors; no other heir is known."
-          : "No other heir is known besides the persons listed.",
+    const totalLine = bn
+      ? `মোট ওয়ারিশ: ${bnDigits(heirs.length)} জন।`
+      : `Total heirs: ${heirs.length}.`;
+    const closingLine = bn
+      ? serviceNo === 4
+        ? "উল্লিখিত ব্যক্তিগণই তাঁহার আইনগত উত্তরাধিকারী; তাঁহাদের ছাড়া আর কোনো ওয়ারিশ আছে বলে জানা যায় না।"
+        : "উল্লিখিত ব্যক্তিগণ ছাড়া তাঁহার আর কোনো ওয়ারিশ আছে বলে জানা যায় না।"
+      : serviceNo === 4
+        ? "The persons listed are the legal successors; no other heir is known."
+        : "No other heir is known besides the persons listed.";
+    const caveat = bn
+      ? "উল্লেখ্য যে, উপরোক্ত তথ্য পরবর্তীতে ভুল প্রমাণিত হলে এই সনদ বাতিল বলে গণ্য হবে এবং এ ব্যাপারে কর্তৃপক্ষ দায়ী থাকবে না।"
+      : "If the above information is later proved incorrect, this certificate shall be deemed cancelled and the authority shall bear no responsibility.";
+    after = (
+      <>
+        <Para segs={[seg(totalLine)]} base={base} style={{ ...styles.bodyPara, marginTop: 3 * MM }} />
+        <Para segs={[seg(closingLine)]} base={base} style={styles.bodyPara} />
+        <Para segs={[seg(caveat)]} base={base} style={styles.bodyPara} />
+      </>
     );
   }
   const intro: Seg[] = bn
-    ? [seg("এই মর্মে প্রত্যয়ন করা যাইতেছে যে, "), ...identity, seg(`, ঠিকানাঃ- ${address}।`)]
-    : [seg("This is to certify that "), ...identity, seg(`, of address: ${address}.`)];
+    ? [seg("এই মর্মে প্রত্যয়ন করা যাচ্ছে যে, "), ...identity, seg(`, ঠিকানাঃ ${address}।`)]
+    : // CERT-REFINE-02 (R2-15): "of address: Village/House:" → "of Village/House:".
+      [seg("This is to certify that "), ...identity, seg(`, of ${address}.`)];
   return (
     <>
       <Para segs={[...intro, seg(` ${sentences.join(" ")}`)]} base={base} style={styles.bodyPara} />
       {table}
+      {after}
     </>
   );
 }
+
+/** CERT-REFINE-01 §2: family certificate body (mirror of the HTML chassis). */
+function familyBody(ctx: DocContext, base: CertFamily) {
+  const { input, bn } = ctx;
+  const p = input.payload;
+  const members = Array.isArray(p.members) ? (p.members as Record<string, unknown>[]) : [];
+  const schema = input.schema ?? getServiceSchema(2);
+  const children = members.filter((m) => text(m.relationship) === "child");
+  const sons = children.filter((m) => text(m.gender) === "male").length;
+  const daughters = children.filter((m) => text(m.gender) === "female").length;
+  const genderKnown = children.length > 0 && sons + daughters === children.length;
+  const counts = !children.length
+    ? ""
+    : bn
+      ? genderKnown
+        ? `তাঁহার ${bnDigits(sons)} জন পুত্র ও ${bnDigits(daughters)} জন কন্যা রয়েছে।`
+        : `তাঁহার ${bnDigits(children.length)} জন সন্তান রয়েছে।`
+      : genderKnown
+        ? `The person has ${sons} son(s) and ${daughters} daughter(s).`
+        : `The person has ${children.length} children.`;
+  // CERT-REFINE-01 (A3): service 2 is on the status-sentence list.
+  const status = bn ? STATUS_SENTENCE_BN : STATUS_SENTENCE_EN;
+  const introSegs: Seg[] = bn
+    ? [
+        seg("এই মর্মে প্রত্যয়ন করা যাচ্ছে যে, "),
+        ...identitySegs(ctx),
+        seg(", তাঁহার "),
+        seg("স্থায়ী ঠিকানাঃ"),
+        seg(` ${permanentAddress(ctx)}। ${status}`),
+        ...(counts ? [seg(` ${counts}`)] : []),
+      ]
+    : [
+        seg("This is to certify that "),
+        ...identitySegs(ctx),
+        seg(", "),
+        seg("permanent address:"),
+        seg(` ${permanentAddress(ctx)}. ${status}`),
+        ...(counts ? [seg(` ${counts}`)] : []),
+      ];
+  const rows = members.map((m, i) => [
+    bn ? bnDigits(i + 1) : String(i + 1),
+    text(bn ? m.name_bn : m.name_en),
+    bn ? bnDigits(m.warish_heir_nid) : text(m.warish_heir_nid),
+    bn ? bnDateSlash(m.dob) : enDateSlash(m.dob),
+    selectLabel(schema, "members", "relationship", m.relationship, bn),
+  ]);
+  const headers = bn
+    ? ["ক্রমিক", "নাম", "আইডি/জন্মনিবন্ধন নং", "জন্ম তারিখ", "সম্পর্ক"]
+    : ["Sl", "Name", "ID/Birth Reg No", "Date of birth", "Relationship"];
+  const closing = bn
+    ? "আমি উক্ত পরিবারের সর্বাঙ্গীণ মঙ্গল কামনা করছি।"
+    : "I wish the family every prosperity.";
+  // The base same-family attestation is retained (cholito register).
+  const familyLine = bn
+    ? "এই সনদে উল্লিখিত ব্যক্তিগণ একই পরিবারের সদস্য বলে প্রত্যয়ন করা যাচ্ছে।"
+    : "The persons listed in this certificate are members of the same family.";
+  return (
+    <>
+      <Para segs={introSegs} base={base} style={styles.bodyPara} />
+      {/* CERT-REFINE-02 (R2-11): the ID column flexes to ≈154 pt
+          (1.85 of 5.45 — the table lives in the photo-narrowed body
+          column, ≈453 pt) so the "আইডি/জন্মনিবন্ধন নং" header never
+          wraps mid-phrase. */}
+      <DataTable headers={headers} rows={rows} flexes={[0.42, 1.38, 1.85, 0.92, 0.88]} base={base} />
+      <Para segs={[seg(familyLine)]} base={base} style={styles.bodyPara} />
+      <Para segs={[seg(closing)]} base={base} style={styles.closing} />
+    </>
+  );
+}
+
+/** CERT-REFINE-01 §19: consent certificate body (mirror). */
+function consentBody(ctx: DocContext, base: CertFamily) {
+  const { input, bn } = ctx;
+  const p = input.payload;
+  const schema = input.schema ?? getServiceSchema(19);
+  const guardianSegs: Seg[] = bn
+    ? [
+        seg("অভিভাবকঃ "),
+        ...identitySegs(ctx),
+        seg(", তাঁহার "),
+        seg("স্থায়ী ঠিকানাঃ"),
+        seg(` ${permanentAddress(ctx)}।`),
+      ]
+    : [
+        seg("Guardian: "),
+        ...identitySegs(ctx),
+        seg(", "),
+        seg("permanent address:"),
+        seg(` ${permanentAddress(ctx)}.`),
+      ];
+  const childName = text(bn ? p.consent_child_name_bn : p.consent_child_name_en);
+  const relation = selectLabel(schema, "consent_child_relation", undefined, p.consent_child_relation, bn);
+  const subject = selectLabel(schema, "consent_subject", undefined, p.consent_subject, bn);
+  // CERT-REFINE-01 §19: the child block prints as labelled lines.
+  const childLines: [string, string][] = bn
+    ? [
+        ["সন্তানের নাম:", childName],
+        ["জন্ম তারিখ:", present(p.consent_child_dob) ? bnDateIso(p.consent_child_dob) : ""],
+        ["জন্ম নিবন্ধন নম্বর:", present(p.consent_child_birth_reg) ? bnDigits(p.consent_child_birth_reg) : ""],
+        ["সম্পর্ক:", relation],
+      ]
+    : [
+        ["Child's name:", childName],
+        ["Date of birth:", present(p.consent_child_dob) ? enDateIso(p.consent_child_dob) : ""],
+        ["Birth registration no:", present(p.consent_child_birth_reg) ? text(p.consent_child_birth_reg) : ""],
+        ["Relationship:", relation],
+      ];
+  const guardianName = text(bn ? input.citizen.full_name_bn : input.citizen.full_name_en);
+  const clauseSegs: Seg[] = bn
+    ? [
+        seg(`আমি ${guardianName}, আমার `),
+        ...(relation ? [seg(`${relation} `)] : []),
+        seg(childName, true),
+        seg(` এর ${subject} বিষয়ে সম্মতি প্রদান করিলাম।`),
+      ]
+    : [
+        seg(`I, ${guardianName}, give my consent for my `),
+        ...(relation ? [seg(`${relation} `)] : []),
+        seg(childName, true),
+        seg(` in respect of ${subject}.`),
+      ];
+  return (
+    <>
+      <Para segs={guardianSegs} base={base} style={styles.bodyPara} />
+      {/* CERT-REFINE-02 (R2-18): the child block takes the standard
+          label-value grid — label column 132 pt regular, value bold,
+          4 pt row padding — instead of loose lines. */}
+      <View style={{ marginVertical: 4 }}>
+        {childLines
+          .filter(([, v]) => present(v))
+          .map(([l, v], i) => (
+            <View key={i} style={{ flexDirection: "row", paddingVertical: 4 }}>
+              <Text style={{ width: 132, fontSize: 12.5, lineHeight: 1.68 }}>
+                <Runs segs={[seg(l)]} base={base} />
+              </Text>
+              <Text style={{ flex: 1, fontSize: 12.5, lineHeight: 1.68 }}>
+                <Runs segs={[seg(v)]} base={base} bold />
+              </Text>
+            </View>
+          ))}
+      </View>
+      <Para segs={clauseSegs} base={base} style={styles.bodyPara} />
+      {/* The guardian signature block renders in the anchored signature
+          zone (CertificateDocument) on the chairman's baseline (R2-02). */}
+    </>
+  );
+}
+
+/** CERT-REFINE-01 §§25–26: marriage certificate body (mirror). */
+function marriageBody(ctx: DocContext, serviceNo: number, base: CertFamily) {
+  const { input, bn } = ctx;
+  const p = input.payload;
+  const c = input.citizen;
+  // CERT-REFINE-02 (R2-17): each party box gets a heading band
+  // (11 pt bold on #F2F2F2); inside, the label column is fixed at
+  // 118 pt (10.5 pt) with 11.5 pt bold values; the boxes sit 10 pt
+  // apart. Fit deviation from the plan's padding targets (band 3,
+  // box 5, rows 1.5, leading 1.22): at the plan's 5/8/4 paddings the
+  // two boxes + closing exceed the anchored body reserve and spill
+  // onto a second page — R2-01's one-page rule outranks the padding
+  // targets. The band, 118 pt column, type sizes, 10 pt box gap and
+  // the 12 pt closing with bold date are all as specified.
+  const block = (title: string, lines: [string, string][]) => (
+    <View
+      style={{
+        borderWidth: 0.75,
+        borderColor: "#555",
+        marginVertical: 5,
+      }}
+    >
+      <View style={{ backgroundColor: "#F2F2F2", paddingVertical: 3, paddingHorizontal: 8 }}>
+        <Text style={{ fontWeight: 700, fontSize: 11, lineHeight: 1.25 }}>
+          <Runs segs={[seg(title)]} base={base} bold />
+        </Text>
+      </View>
+      <View style={{ padding: 5 }}>
+        {lines
+          .filter(([, v]) => present(v))
+          .map(([l, v], i) => (
+            <View key={i} style={{ flexDirection: "row", paddingVertical: 1.5 }}>
+              <Text style={{ width: 118, fontSize: 10.5, lineHeight: 1.22 }}>
+                <Runs segs={[seg(l)]} base={base} />
+              </Text>
+              <Text style={{ flex: 1, fontSize: 11.5, lineHeight: 1.22 }}>
+                <Runs segs={[seg(v)]} base={base} bold />
+              </Text>
+            </View>
+          ))}
+      </View>
+    </View>
+  );
+  const citizenLines: [string, string][] = bn
+    ? [
+        ["নামঃ", text(c.full_name_bn)],
+        ["পিতাঃ", text(c.father_name_bn)],
+        ["মাতাঃ", text(c.mother_name_bn)],
+        ["ঠিকানাঃ", permanentAddress(ctx)],
+        ["জন্ম তারিখঃ", present(c.date_of_birth) ? bnDateIso(c.date_of_birth) : ""],
+        ["জাতীয় পরিচয়পত্র নম্বরঃ", bnDigits(input.identity?.nid ?? "")],
+      ]
+    : [
+        ["Name:", text(c.full_name_en)],
+        ["Father:", text(c.father_name_en)],
+        ["Mother:", text(c.mother_name_en)],
+        ["Address:", permanentAddress(ctx)],
+        ["Date of birth:", present(c.date_of_birth) ? enDateIso(c.date_of_birth) : ""],
+        ["National ID No:", text(input.identity?.nid ?? "")],
+      ];
+  const spouseLines: [string, string][] = bn
+    ? [
+        ["নামঃ", text(p.marriage_info_spouse_name_bn)],
+        ["পিতাঃ", text(p.marriage_info_spouse_father_name_bn)],
+        ["মাতাঃ", text(p.marriage_info_spouse_mother_name_bn)],
+        ["ঠিকানাঃ", text(p.marriage_info_spouse_address_bn)],
+        ["জন্ম তারিখঃ", present(p.marriage_info_spouse_dob) ? bnDateIso(p.marriage_info_spouse_dob) : ""],
+        ["জাতীয় পরিচয়পত্র নম্বরঃ", bnDigits(p.marriage_info_spouse_nid ?? "")],
+      ]
+    : [
+        ["Name:", text(p.marriage_info_spouse_name)],
+        ["Father:", text(p.marriage_info_spouse_father_name_en)],
+        ["Mother:", text(p.marriage_info_spouse_mother_name_en)],
+        ["Address:", text(p.marriage_info_spouse_address_en)],
+        ["Date of birth:", present(p.marriage_info_spouse_dob) ? enDateIso(p.marriage_info_spouse_dob) : ""],
+        ["National ID No:", text(p.marriage_info_spouse_nid ?? "")],
+      ];
+  const citizenIsGroom = c.gender !== "female";
+  const groom = citizenIsGroom ? citizenLines : spouseLines;
+  const bride = citizenIsGroom ? spouseLines : citizenLines;
+  // CERT-REFINE-02 (R2-17): the closing lines form ONE standalone 12 pt
+  // paragraph 10 pt below the second box, the marriage date bold; the
+  // dowry sentence (svc26) joins the same paragraph.
+  const closingSegs: Seg[] = bn
+    ? [
+        seg("বিবাহের তারিখঃ "),
+        seg(present(p.marriage_info_date) ? bnDateIso(p.marriage_info_date) : "", true),
+        ...(present(p.marriage_info_spouse_place_bn)
+          ? [seg(`, বিবাহের স্থানঃ ${text(p.marriage_info_spouse_place_bn)}`)]
+          : []),
+        seg("।"),
+        ...(serviceNo === 26 ? [seg(" উক্ত বিবাহ যৌতুক বিহীনভাবে সম্পন্ন হয়েছে।")] : []),
+      ]
+    : [
+        seg("Date of marriage: "),
+        seg(present(p.marriage_info_date) ? enDateIso(p.marriage_info_date) : "", true),
+        ...(present(p.marriage_info_spouse_place)
+          ? [seg(`, Place of marriage: ${text(p.marriage_info_spouse_place)}`)]
+          : []),
+        seg("."),
+        ...(serviceNo === 26 ? [seg(" The said marriage was completed without dowry.")] : []),
+      ];
+  return (
+    <>
+      <Para
+        segs={[seg(bn ? "এই মর্মে প্রত্যয়ন করা যাচ্ছে যে," : "This is to certify that")]}
+        base={base}
+        style={styles.bodyPara}
+      />
+      {block(bn ? "বর" : "Groom", groom)}
+      {block(bn ? "কনে" : "Bride", bride)}
+      <Para
+        segs={closingSegs}
+        base={base}
+        style={{ marginTop: 10, fontSize: 12, lineHeight: 1.5, textAlign: "justify" }}
+      />
+    </>
+  );
+}
+
+/** CERT-REFINE-01 §39: same-person declaration body (mirror). */
+function samePersonBody(ctx: DocContext, base: CertFamily) {
+  const { input, bn } = ctx;
+  const p = input.payload;
+  const name = text(bn ? input.citizen.full_name_bn : input.citizen.full_name_en);
+  const v1 = text(bn ? p.spi_name_bn : p.spi_name_en);
+  const v2 = text(bn ? p.spi_name_2_bn : p.spi_name_2_en);
+  const introSegs: Seg[] = bn
+    ? [
+        seg("এই মর্মে প্রত্যয়ন করা যাচ্ছে যে, "),
+        ...identitySegs(ctx),
+        seg(", তাঁহার "),
+        seg("স্থায়ী ঠিকানাঃ"),
+        seg(` ${permanentAddress(ctx)}।`),
+      ]
+    : [
+        seg("This is to certify that "),
+        ...identitySegs(ctx),
+        seg(", "),
+        seg("permanent address:"),
+        seg(` ${permanentAddress(ctx)}.`),
+      ];
+  // CERT-REFINE-01 §39: the spec's declaration construction.
+  const clauseSegs: Seg[] =
+    present(v2) && v2 !== name
+      ? bn
+        ? [
+            seg("আবেদনকারীর সঠিক নাম: "),
+            seg(name, true),
+            seg(`। বিভিন্ন নথিতে তাঁহার নাম ${v1} এবং ${v2} হিসেবে উল্লেখিত হয়েছে। উল্লিখিত সকল নাম একই ব্যক্তির।`),
+          ]
+        : [
+            seg("The applicant's correct name is "),
+            seg(name, true),
+            seg(`. The names ${v1} and ${v2} appearing in various documents all belong to one and the same person.`),
+          ]
+      : bn
+        ? [
+            seg("আবেদনকারীর সঠিক নাম: "),
+            seg(name, true),
+            seg(`। বিভিন্ন নথিতে তাঁহার নাম ${v1} হিসেবে উল্লেখিত হয়েছে। উল্লিখিত সকল নাম একই ব্যক্তির।`),
+          ]
+        : [
+            seg("The applicant's correct name is "),
+            seg(name, true),
+            seg(`. The name ${v1} appearing in various documents belongs to one and the same person.`),
+          ];
+  return (
+    <>
+      <Para segs={introSegs} base={base} style={styles.bodyPara} />
+      <Para segs={clauseSegs} base={base} style={styles.bodyPara} />
+    </>
+  );
+}
+
+/** Spouse sentence for services 15 and 34 (mirror of the HTML chassis). */
+function spouseSentenceText(ctx: DocContext): string {
+  const { input, bn } = ctx;
+  const c = input.citizen;
+  if (bn) {
+    if (!present(c.spouse_name_bn)) return "";
+    return c.gender === "male"
+      ? `তাঁহার স্ত্রীর নাম ${text(c.spouse_name_bn)}।`
+      : `তাঁহার স্বামীর নাম ${text(c.spouse_name_bn)}।`;
+  }
+  if (!present(c.spouse_name_en)) return "";
+  return `The person's spouse is ${text(c.spouse_name_en)}.`;
+}
+
+// CERT-REFINE-02 (R2-12): the well-wish sentence is not boilerplate — it
+// prints ONLY on these services; everywhere else the certificate ends
+// with its attestation.
+const WELL_WISH_SERVICES = new Set([12, 15, 21, 22, 27, 45]);
 
 function paragraphBody(ctx: DocContext, serviceNo: number, base: CertFamily) {
   const { input, bn } = ctx;
   const p = input.payload;
   if (serviceNo === 3 || serviceNo === 4 || serviceNo === 7 || serviceNo === 31)
     return deceasedBody(ctx, serviceNo, base);
+  if (serviceNo === 2) return familyBody(ctx, base);
+  if (serviceNo === 19) return consentBody(ctx, base);
+  if (serviceNo === 25 || serviceNo === 26) return marriageBody(ctx, serviceNo, base);
+  if (serviceNo === 39) return samePersonBody(ctx, base);
   if (serviceNo === 47) {
     const body = text(bn ? p.certificate_details_bn : p.certificate_details_en);
     const footer = text(bn ? p.certificate_footer_bn : p.certificate_footer_en);
+    // CERT-REFINE-01 §47: the A2 identity paragraph prints above the narrative.
+    const introSegs: Seg[] = bn
+      ? [
+          seg("এই মর্মে প্রত্যয়ন করা যাচ্ছে যে, "),
+          ...identitySegs(ctx),
+          seg(", তাঁহার "),
+          seg("স্থায়ী ঠিকানাঃ"),
+          seg(` ${permanentAddress(ctx)}।`),
+        ]
+      : [
+          seg("This is to certify that "),
+          ...identitySegs(ctx),
+          seg(", "),
+          seg("permanent address:"),
+          seg(` ${permanentAddress(ctx)}.`),
+        ];
     return (
       <>
+        <Para segs={introSegs} base={base} style={styles.bodyPara} />
         <Para segs={[seg(body)]} base={base} style={styles.bodyPara} />
         {footer ? <Para segs={[seg(footer)]} base={base} style={styles.freeFooter} /> : null}
       </>
     );
   }
   if (serviceNo === 27) {
-    // CERTNO-01 (owner decision D5): the passport recommendation LETTER.
-    const purpose = text(p.passport_purpose);
+    // CERTNO-01 (owner decision D5): the passport recommendation LETTER —
+    // keeps both addresses per the owner-approved letter format;
+    // CERT-REFINE-01 register fixes apply.
+    // CERT-REFINE-02 (R2-16): the purpose localises by value (free-text
+    // field; standard purposes map, others print as stored).
+    const purpose = passportPurposeLabel(p.passport_purpose, bn);
     const closing = bn
-      ? "আমি তাহার উজ্জ্বল ভবিষ্যৎ ও সর্বাঙ্গীণ মঙ্গল কামনা করছি।"
-      : "I wish the person every success and prosperity.";
+      ? "আমি তাঁহার উজ্জ্বল ভবিষ্যৎ ও সর্বাঙ্গীণ মঙ্গল কামনা করছি।"
+      : "I wish the certificate holder every success and prosperity.";
     const letterSegs: Seg[] = bn
       ? [
-          seg("এই মর্মে সুপারিশ করা যাইতেছে যে, "),
+          seg("এই মর্মে সুপারিশ করা যাচ্ছে যে, "),
           ...identitySegs(ctx),
-          seg(", তাহার "),
-          seg("স্থায়ী ঠিকানাঃ-", true),
+          seg(", তাঁহার "),
+          seg("স্থায়ী ঠিকানাঃ"),
           seg(` ${permanentAddress(ctx)}। `),
-          seg("বর্তমান ঠিকানাঃ-", true),
-          seg(` ${presentAddress(ctx)}। তিনি পাসপোর্টের জন্য আবেদন করিয়াছেন${purpose ? ` (উদ্দেশ্যঃ ${purpose})` : ""}। তাহার বিরুদ্ধে কোনো ফৌজদারি অভিযোগ জানা নাই। তাহাকে পাসপোর্ট প্রদানে এই কার্যালয়ের কোনো আপত্তি নাই।`),
+          seg("বর্তমান ঠিকানাঃ"),
+          seg(` ${presentAddress(ctx)}। তিনি পাসপোর্টের জন্য আবেদন করেছেন${purpose ? ` (উদ্দেশ্যঃ ${purpose})` : ""}। তাঁহার বিরুদ্ধে কোনো ফৌজদারি অভিযোগ জানা নাই। তাঁহাকে পাসপোর্ট প্রদানে এই কার্যালয়ের কোনো আপত্তি নাই।`),
         ]
       : [
           seg("This is to recommend that "),
           ...identitySegs(ctx),
-          seg(", whose "),
-          seg("permanent address is:", true),
+          seg(", "),
+          seg("permanent address:"),
           seg(` ${permanentAddress(ctx)}. `),
-          seg("Present address:", true),
+          seg("Present address:"),
           seg(` ${presentAddress(ctx)}. The person has applied for a passport${purpose ? ` (purpose: ${purpose})` : ""}. No criminal complaint is known against the person. This office has no objection to a passport being issued to the person.`),
         ];
     return (
       <>
+        {/* CERT-REFINE-02 (R2-18): addressee lines at 12 pt with 4 pt
+            spacing; the subject line stays bold; the body keeps the
+            global body type. */}
         <Para
           segs={[seg(bn ? "বরাবর,\nসহকারী পরিচালক,\nআঞ্চলিক পাসপোর্ট অফিস।" : "To,\nThe Assistant Director,\nRegional Passport Office.")]}
           base={base}
-          style={styles.bodyPara}
+          style={{ fontSize: 12, lineHeight: 1.33, textAlign: "justify" }}
         />
         <Para
           segs={[seg(bn ? "বিষয়ঃ পাসপোর্ট প্রদানের সুপারিশ।" : "Subject: Recommendation for passport issuance.", true)]}
@@ -627,40 +1167,75 @@ function paragraphBody(ctx: DocContext, serviceNo: number, base: CertFamily) {
       </>
     );
   }
-  const attestation = runAttestation(bn ? ATTESTATIONS_BN[serviceNo] : ATTESTATIONS_EN[serviceNo], p);
+  const attestation = runAttestation(
+    bn ? ATTESTATIONS_BN[serviceNo] : ATTESTATIONS_EN[serviceNo],
+    p,
+    { gender: input.citizen.gender },
+  );
+  // CERT-REFINE-01 (A3 + §§9/15/34): sentences that follow the identity block.
+  const extras = [
+    STATUS_SENTENCE_SERVICES.has(serviceNo)
+      ? bn
+        ? STATUS_SENTENCE_BN
+        : STATUS_SENTENCE_EN
+      : "",
+    serviceNo === 15 || serviceNo === 34 ? spouseSentenceText(ctx) : "",
+    serviceNo === 9 && present(input.identity?.nid)
+      ? bn
+        ? `জাতীয় পরিচয়পত্র/ভোটার নম্বর: ${bnDigits(input.identity?.nid)}।`
+        : `National ID/Voter No: ${text(input.identity?.nid)}.`
+      : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
   const paraSegs: Seg[] = bn
     ? [
-        seg("এই মর্মে প্রত্যয়ন করা যাইতেছে যে, "),
+        seg("এই মর্মে প্রত্যয়ন করা যাচ্ছে যে, "),
         ...identitySegs(ctx),
-        seg(", তাহার "),
-        seg("স্থায়ী ঠিকানাঃ-", true),
-        seg(` ${permanentAddress(ctx)}। `),
-        seg("বর্তমান ঠিকানাঃ-", true),
-        seg(` ${presentAddress(ctx)}।`),
+        seg(", তাঁহার "),
+        seg("স্থায়ী ঠিকানাঃ"),
+        seg(` ${permanentAddress(ctx)}।`),
+        ...(extras ? [seg(` ${extras}`)] : []),
         ...(attestation ? [seg(` ${attestation}`)] : []),
       ]
     : [
         seg("This is to certify that "),
         ...identitySegs(ctx),
-        seg(", whose "),
-        seg("permanent address is:", true),
-        seg(` ${permanentAddress(ctx)}. `),
-        seg("Present address:", true),
-        seg(` ${presentAddress(ctx)}.`),
+        seg(", "),
+        seg("permanent address:"),
+        seg(` ${permanentAddress(ctx)}.`),
+        ...(extras ? [seg(` ${extras}`)] : []),
         ...(attestation ? [seg(` ${attestation}`)] : []),
       ];
+  // CERT-REFINE-01 §20: the service narrative prints as its own paragraph,
+  // under the spec's label.
+  const narrative =
+    serviceNo === 20
+      ? text(bn ? p.freedom_fighter_service_narrative_bn : p.freedom_fighter_service_narrative_en)
+      : "";
+  const narrativeLabel = bn
+    ? "মুক্তিযুদ্ধে অংশগ্রহণের বিবরণ:"
+    : "Details of participation in the Liberation War:";
   if (serviceNo === 33) {
     const corrections = Array.isArray(p.corrections)
       ? (p.corrections as Record<string, unknown>[])
       : [];
-    const rows = corrections.map((c, i) => [
-      bn ? bnDigits(i + 1) : String(i + 1),
-      text(c.correction_category_id),
-      text(c.incorrect_info),
-      text(c.correct_info),
-    ]);
+    const schema = input.schema ?? getServiceSchema(33);
+    const rows = corrections.map((c, i) => {
+      const fromSchema = selectLabel(schema, "corrections", "correction_category_id", c.correction_category_id, bn);
+      const fieldLabel =
+        fromSchema !== text(c.correction_category_id)
+          ? fromSchema
+          : (CORRECTION_FIELD_LABELS[text(c.correction_category_id)]?.[bn ? "bn" : "en"] ?? fromSchema);
+      return [
+        bn ? bnDigits(i + 1) : String(i + 1),
+        fieldLabel,
+        text(c.incorrect_info),
+        text(c.correct_info),
+      ];
+    });
     const intro = bn
-      ? "তাহার জাতীয় পরিচয় তথ্যে নিম্নোক্ত সংশোধন প্রয়োজন বলিয়া প্রত্যয়ন করা যাইতেছে:"
+      ? "তাঁহার জাতীয় পরিচয় তথ্যে নিম্নোক্ত সংশোধন প্রয়োজন বলে প্রত্যয়ন করা যাচ্ছে:"
       : "The following corrections to the national identity information are required:";
     return (
       <>
@@ -679,37 +1254,29 @@ function paragraphBody(ctx: DocContext, serviceNo: number, base: CertFamily) {
       </>
     );
   }
-  let table: React.ReactNode = null;
-  if (serviceNo === 2) {
-    const members = Array.isArray(p.members) ? (p.members as Record<string, unknown>[]) : [];
-    const schema = input.schema ?? getServiceSchema(2);
-    const withId = members.some((m) => present(m.warish_heir_nid));
-    const rows = members.map((m, i) => {
-      const row = [
-        bn ? bnDigits(i + 1) : String(i + 1),
-        text(bn ? m.name_bn : m.name_en),
-        selectLabel(schema, "members", "relationship", m.relationship, bn),
-        bn ? bnDigits(m.dob) : text(m.dob),
-      ];
-      if (withId) row.push(bn ? bnDigits(m.warish_heir_nid) : text(m.warish_heir_nid));
-      return row;
-    });
-    const headers = bn
-      ? ["ক্রমিক", "সদস্যের নাম", "সম্পর্ক", "জন্ম তারিখ"]
-      : ["Sl", "Member name", "Relationship", "Date of birth"];
-    if (withId) headers.push(bn ? "জাতীয় পরিচয়পত্র নম্বর" : "NID No");
-    const flexes = [0.5, 1.6, 1, 1];
-    if (withId) flexes.push(1.2);
-    table = <DataTable headers={headers} rows={rows} flexes={flexes} base={base} />;
+  const closing = WELL_WISH_SERVICES.has(serviceNo)
+    ? bn
+      ? "আমি তাঁহার উজ্জ্বল ভবিষ্যৎ ও সর্বাঙ্গীণ মঙ্গল কামনা করছি।"
+      : "I wish the certificate holder every success and prosperity."
+    : "";
+  if (serviceNo === 37) {
+    // CERT-REFINE-01 §37: the fields line under the recommendation clause.
+    const fields = bn
+      ? `পূর্বের ভোটার এলাকাঃ ${text(p.previous_voter_area)}${present(p.voter_transfer_residing_since) ? `, অত্র এলাকায় বসবাসের শুরু: ${bnDateIso(p.voter_transfer_residing_since)}` : ""}${present(input.identity?.nid) ? `, জাতীয় পরিচয়পত্র নম্বরঃ ${bnDigits(input.identity?.nid)}` : ""}।`
+      : `Previous voter area: ${text(p.previous_voter_area_en ?? p.previous_voter_area)}${present(p.voter_transfer_residing_since) ? `, residing at the present address since: ${enDateIso(p.voter_transfer_residing_since)}` : ""}${present(input.identity?.nid) ? `, National ID No: ${text(input.identity?.nid)}` : ""}.`;
+    return (
+      <>
+        <Para segs={paraSegs} base={base} style={styles.bodyPara} />
+        <Para segs={[seg(fields)]} base={base} style={styles.bodyPara} />
+        {closing ? <Para segs={[seg(closing)]} base={base} style={styles.closing} /> : null}
+      </>
+    );
   }
-  const closing = bn
-    ? "আমি তাহার উজ্জ্বল ভবিষ্যৎ ও সর্বাঙ্গীণ মঙ্গল কামনা করছি।"
-    : "I wish the person every success and prosperity.";
   return (
     <>
       <Para segs={paraSegs} base={base} style={styles.bodyPara} />
-      {table}
-      <Para segs={[seg(closing)]} base={base} style={styles.closing} />
+      {narrative ? <Para segs={[seg(`${narrativeLabel} ${narrative}`)]} base={base} style={styles.bodyPara} /> : null}
+      {closing ? <Para segs={[seg(closing)]} base={base} style={styles.closing} /> : null}
     </>
   );
 }
@@ -849,65 +1416,149 @@ function genericFormBody(ctx: DocContext, base: CertFamily) {
 
 /* ---------- CERTNO-01 form layouts: receipt (1), premises licence (41), transport card (46) ---------- */
 
-function FormMetaLine({ ctx, base }: { ctx: DocContext; base: CertFamily }) {
+/**
+ * CERT-REFINE-02 (R2-08): ONE number/date row for the whole family. The
+ * row spans the full content width ABOVE the body/photo row (it used to
+ * live inside the narrowed text column, which forced the date to wrap
+ * under the strip). Label 11 pt bold + the digit strip (15×19 pt boxes),
+ * date 11 pt bold on the same baseline at the right edge. The hyphens in
+ * the old "নং:-" labels are deleted (R2-16).
+ */
+function NumLine({
+  ctx,
+  base,
+  numberLabel,
+  dateLabel,
+  marginTop = 35,
+}: {
+  ctx: DocContext;
+  base: CertFamily;
+  numberLabel: string;
+  /** null → no date on the row (the trade licence renders its own
+   * issue-details row — TradeIssueRow — instead of this component). */
+  dateLabel: string | null;
+  marginTop?: number;
+}) {
   const { bn, issued } = ctx;
   return (
-    <View style={styles.numline}>
-      <View style={{ flexDirection: "row", alignItems: "center" }}>
-        <Text style={{ marginRight: 2 * MM }}>
-          <Runs segs={[seg(bn ? "নং:-" : "No:")]} base={base} bold />
+    <View style={{ flexDirection: "row", flexWrap: "wrap", alignItems: "center", marginTop }}>
+      <Text style={{ marginRight: 8, fontSize: 11, fontWeight: 700 }}>
+        <Runs segs={[seg(numberLabel)]} base={base} bold />
+      </Text>
+      <NumberDisplay number={ctx.input.number} bn={bn} base={base} />
+      {dateLabel ? (
+        <Text style={{ marginLeft: "auto", fontSize: 11, fontWeight: 700 }}>
+          <Runs
+            segs={[seg(`${dateLabel} ${bn ? bnDate(issued) : enDate(issued)}`)]}
+            base={base}
+            bold
+          />
         </Text>
-        <NumberDisplay number={ctx.input.number} bn={bn} base={base} />
-      </View>
-      <Text>
-        <Runs
-          segs={[seg(`${bn ? "তারিখ:-" : "Date:"} ${bn ? bnDate(issued) : enDate(issued)}`)]}
-          base={base}
-          bold
-        />
+      ) : null}
+    </View>
+  );
+}
+
+function FormMetaLine({ ctx, base }: { ctx: DocContext; base: CertFamily }) {
+  const { bn } = ctx;
+  const serviceNo = Number(ctx.input.service?.service_no ?? 0);
+  // CERT-REFINE-02 (R2-08): svc01 "রসিদ নং:", svc41 "লাইসেন্স নং:".
+  const label =
+    serviceNo === 1
+      ? bn
+        ? "রসিদ নং:"
+        : "Receipt No:"
+      : bn
+        ? "লাইসেন্স নং:"
+        : "Licence No:";
+  return (
+    <NumLine
+      ctx={ctx}
+      base={base}
+      numberLabel={label}
+      dateLabel={bn ? "তারিখ:" : "Date:"}
+    />
+  );
+}
+
+/**
+ * CERT-REFINE-02 (R2-05): service 46's strip row is replaced by a plain
+ * field line — "লাইসেন্স নং / Licence No: TL-…" — the licence number
+ * printed EXACTLY as stored (no digit conversion inside identifiers,
+ * R2-16).
+ */
+function LicenceNoLine({ ctx, base }: { ctx: DocContext; base: CertFamily }) {
+  const { input, bn } = ctx;
+  return (
+    <View style={{ flexDirection: "row", alignItems: "center", marginTop: 22 }}>
+      <Text style={{ marginRight: 8, fontSize: 11, fontWeight: 700 }}>
+        <Runs segs={[seg(bn ? "লাইসেন্স নং:" : "Licence No:")]} base={base} bold />
+      </Text>
+      <Text style={{ fontSize: 11, fontWeight: 700 }}>
+        <Runs segs={[seg(text(input.payload.transport_license_no))]} base={base} bold />
       </Text>
     </View>
   );
 }
 
 function taxReceiptBody(ctx: DocContext, base: CertFamily) {
-  const { input, bn } = ctx;
+  const { input, bn, issued } = ctx;
   const p = input.payload;
+  const c = input.citizen;
   const totalTaka = input.order ? Number(input.order.totalMinor) / 100 : null;
   const totalFig = totalTaka !== null ? totalTaka.toLocaleString("en-IN") : "";
   const totalWords =
     totalTaka !== null ? (bn ? amountInWordsBn(totalTaka) : amountInWordsEn(totalTaka)) : "";
-  const field = (label: string, value: string) => ({ label, value });
-  const fields = [
-    field(bn ? "করদাতার নাম" : "Taxpayer", bn ? input.citizen.full_name_bn : input.citizen.full_name_en),
-    field(bn ? "হোল্ডিং নম্বর" : "Holding No", bn ? bnDigits(p.holding_reference) : text(p.holding_reference)),
-    field(bn ? "সম্পত্তির বিবরণ" : "Property description", text(p.property_description)),
+  // CERT-REFINE-01 §1: the full receipt field set (mirror of the HTML twin).
+  const taxYearRaw = text(p.tax_year);
+  const yearLabel = /^\d{4}$/.test(taxYearRaw)
+    ? `${taxYearRaw}-${Number(taxYearRaw) + 1}`
+    : taxYearRaw;
+  const ward = input.citizenGeography?.permanent?.wardNo ?? "";
+  const property = bn
+    ? text(p.property_description_bn ?? p.property_description)
+    : text(p.property_description_en ?? p.property_description);
+  const fields: GField[] = [
+    { label: bn ? "রসিদ নং" : "Receipt No", value: bn ? bnDigits(input.number) : latinDigits(input.number) },
+    { label: bn ? "তারিখ" : "Date", value: bn ? bnDate(issued) : enDate(issued) },
+    { label: bn ? "করদাতার নাম" : "Taxpayer", value: text(bn ? c.full_name_bn : c.full_name_en) },
+    { label: bn ? "পিতা/স্বামীর নাম" : "Father/Husband name", value: text(bn ? c.father_name_bn : c.father_name_en) },
+    { label: bn ? "মাতা" : "Mother", value: text(bn ? c.mother_name_bn : c.mother_name_en) },
+    { label: bn ? "গ্রাম" : "Village", value: text(bn ? c.address_bn : c.address_en) },
+    { label: bn ? "ওয়ার্ড নং" : "Ward No", value: bn ? bnDigits(ward) : text(ward) },
+    { label: bn ? "হোল্ডিং নম্বর" : "Holding No", value: bn ? bnDigits(p.holding_reference) : text(p.holding_reference) },
+    { label: bn ? "অর্থবছর" : "Fiscal year", value: bn ? bnDigits(yearLabel) : yearLabel },
+    { label: bn ? "সম্পত্তির বিবরণ" : "Property description", value: property },
+  ].filter((f) => present(f.value));
+  const rows = [
+    [
+      bn ? bnDigits(yearLabel) : yearLabel,
+      bn ? bnDigits(totalFig) : totalFig,
+      bn ? bnDigits(totalFig) : totalFig,
+      bn ? "০" : "0",
+    ],
+    [
+      bn ? "সর্বমোট" : "Total",
+      bn ? bnDigits(totalFig) : totalFig,
+      bn ? bnDigits(totalFig) : totalFig,
+      bn ? "০" : "0",
+    ],
   ];
-  const rows =
-    present(p.tax_year) || totalTaka !== null
-      ? [
-          [
-            bn ? bnDigits(p.tax_year) : text(p.tax_year),
-            totalTaka !== null ? (bn ? bnDigits(totalFig) : totalFig) : "",
-            totalTaka !== null ? (bn ? bnDigits(totalFig) : totalFig) : "",
-          ],
-          [bn ? "সর্বমোট" : "Total", "", totalTaka !== null ? (bn ? bnDigits(totalFig) : totalFig) : ""],
-        ]
-      : [];
   return (
     <View style={gfStyles.wrap}>
-      <FormMetaLine ctx={ctx} base={base} />
+      {/* CERT-REFINE-02: the meta line renders full-width in
+          CertificateDocument, above the body/photo row. */}
       {fields.map((f, i) => (
         <GFieldRow key={i} field={f} base={base} />
       ))}
       <DataTable
         headers={
           bn
-            ? ["করের বছর", "ধার্যকৃত কর (টাকা)", "আদায়কৃত (টাকা)"]
-            : ["Tax year", "Assessed tax (BDT)", "Collected (BDT)"]
+            ? ["অর্থবছর", "ধার্যকৃত কর (টাকা)", "আদায়কৃত (টাকা)", "বকেয়া (টাকা)"]
+            : ["Fiscal year", "Assessed (BDT)", "Collected (BDT)", "Arrear (BDT)"]
         }
         rows={rows}
-        flexes={[1, 1, 1]}
+        flexes={[1, 1, 1, 1]}
         base={base}
       />
       {totalTaka !== null ? (
@@ -917,6 +1568,11 @@ function taxReceiptBody(ctx: DocContext, base: CertFamily) {
           style={{ marginTop: 3 * MM }}
         />
       ) : null}
+      {/* CERT-REFINE-02 (R2-16): the standalone collection-date line is
+          deleted — the date already prints on the number row and in the
+          field list (exactly two occurrences). The collector's signature
+          renders in the anchored signature zone (CertificateDocument)
+          on the chairman's baseline (R2-02). */}
     </View>
   );
 }
@@ -926,140 +1582,218 @@ function premisesLicenceBody(ctx: DocContext, base: CertFamily) {
   const p = input.payload;
   const fy = fiscalYear(issued);
   const orgGeo = input.geographyNames?.["org_location"];
-  const total = input.order ? money(input.order.totalMinor) : "";
+  // CERT-REFINE-01 §41: TIN only when present; capital with separators; the
+  // fee block from the captured components; cholito validity; grant line.
+  const capital = present(p.primises_license_capital)
+    ? Number(p.primises_license_capital).toLocaleString("en-IN")
+    : "";
+  const feeLicence = present(p.premises_fee_licence) ? Number(p.premises_fee_licence) : null;
+  const feeVat = present(p.premises_fee_vat) ? Number(p.premises_fee_vat) : null;
+  const feeTotal =
+    feeLicence !== null || feeVat !== null
+      ? (feeLicence ?? 0) + (feeVat ?? 0)
+      : input.order
+        ? Number(input.order.totalMinor) / 100
+        : null;
+  const feeFmt = (v: number) => {
+    const s = v.toLocaleString("en-IN", { minimumFractionDigits: 2 });
+    return bn ? bnDigits(s) : s;
+  };
   const fields: GField[] = [
     { label: bn ? "লাইসেন্সধারী" : "Licensee", value: text(bn ? p.primises_license_proprietor_bn : p.primises_license_proprietor) },
     { label: bn ? "প্রতিষ্ঠানের নাম" : "Establishment", value: text(bn ? p.primises_license_org_name_bn : p.primises_license_org_name) },
     { label: bn ? "প্রতিষ্ঠানের ধরণ" : "Business type", value: text(bn ? p.primises_license_org_type_bn : p.primises_license_org_type) },
     { label: bn ? "প্রাঙ্গণের ঠিকানা" : "Premises address", value: text(bn ? p.primises_license_org_area_holding_bn : p.primises_license_org_area_holding) },
     ...(orgGeo ? [{ label: bn ? "এলাকা" : "Area", value: orgGeo[bn ? "bn" : "en"] }] : []),
-    { label: bn ? "মূলধন (টাকা)" : "Capital (BDT)", value: bn ? bnDigits(p.primises_license_capital) : text(p.primises_license_capital) },
-    { label: bn ? "টিআইএন" : "TIN", value: bn ? bnDigits(p.primises_license_tin_no) : text(p.primises_license_tin_no) },
+    { label: bn ? "মূলধন (টাকা)" : "Capital (BDT)", value: bn ? bnDigits(capital) : capital },
+    ...(present(p.primises_license_tin_no)
+      ? [{ label: bn ? "টিআইএন" : "TIN", value: bn ? bnDigits(p.primises_license_tin_no) : text(p.primises_license_tin_no) }]
+      : []),
     { label: bn ? "ওয়ার্ড নং" : "Ward No", value: bn ? bnDigits(p.primises_license_org_ward_no) : text(p.primises_license_org_ward_no) },
-    ...(total ? [{ label: bn ? "সর্বমোট ফি (টাকা)" : "Total fee (BDT)", value: bn ? bnDigits(total) : total }] : []),
+    ...(feeLicence !== null
+      ? [{ label: bn ? "লাইসেন্স ফি (টাকা)" : "Licence fee (BDT)", value: feeFmt(feeLicence) }]
+      : []),
+    ...(feeVat !== null
+      ? [{ label: bn ? "ভ্যাট (টাকা)" : "VAT (BDT)", value: feeFmt(feeVat) }]
+      : []),
+    ...(feeTotal !== null
+      ? [{ label: bn ? "সর্বমোট ফি (টাকা)" : "Total fee (BDT)", value: feeFmt(feeTotal) }]
+      : []),
   ];
+  // CERT-REFINE-02 (R2-21): the standard grid — label column 150 pt,
+  // the colon at a fixed x, values left-aligned from 168 pt.
+  const PremisesRow = ({ field }: { field: GField }) => (
+    <View style={{ flexDirection: "row", paddingVertical: 2.5 }}>
+      <Text style={{ width: 150, fontSize: 10.5, lineHeight: 1.45, fontWeight: 700 }}>
+        <Runs segs={[seg(field.label)]} base={base} bold />
+      </Text>
+      <Text style={{ width: 18, fontSize: 10.5, lineHeight: 1.45 }}>
+        <Runs segs={[seg(":")]} base={base} />
+      </Text>
+      <Text style={{ flex: 1, fontSize: 11, lineHeight: 1.45 }}>
+        <Runs segs={[seg(field.value)]} base={base} />
+      </Text>
+    </View>
+  );
   return (
     <View style={gfStyles.wrap}>
-      <FormMetaLine ctx={ctx} base={base} />
+      {/* CERT-REFINE-02: the meta line renders full-width in
+          CertificateDocument, above the body/photo row. */}
       {fields.map((f, i) => (
-        <GFieldRow key={i} field={f} base={base} />
+        <PremisesRow key={i} field={f} />
       ))}
+      {/* CERT-REFINE-02 (R2-21): validity + grant form one 11.5 pt
+          closing paragraph, the validity sentence bold. */}
       <Para
         segs={[
           seg(
             bn
-              ? `মেয়াদঃ ${bnDigits(fy.start)} সালের ১লা জুলাই হইতে ${bnDigits(fy.end)} সালের ৩০শে জুন পর্যন্ত।`
+              ? // CERT-REFINE-02 (R2-16): হইতে → থেকে, years explicit.
+                `মেয়াদ: ১ জুলাই ${bnDigits(fy.start)} থেকে ৩০ জুন ${bnDigits(fy.end)} পর্যন্ত।`
               : `Validity: 1 July ${fy.start} to 30 June ${fy.end}.`,
+            true,
+          ),
+          seg(
+            bn
+              ? " উল্লিখিত প্রাঙ্গণে ব্যবসা পরিচালনার জন্য এই লাইসেন্স প্রদান করা হলো।"
+              : " This licence is granted for carrying on business at the premises stated above.",
           ),
         ]}
         base={base}
-        style={{ marginTop: 3 * MM }}
+        style={{ marginTop: 10, fontSize: 11.5, lineHeight: 1.5, textAlign: "justify" }}
       />
     </View>
   );
 }
 
-function transportCardBody(ctx: DocContext, qrDataUrl: string, base: CertFamily) {
-  const { input, bn } = ctx;
-  const p = input.payload;
-  const line = (label: string, value: string) =>
-    value ? (
-      <View style={{ flexDirection: "row" }}>
-        <Text style={{ fontWeight: 700 }}>
-          <Runs segs={[seg(label)]} base={base} bold />
-        </Text>
-        <Text>
-          <Runs segs={[seg(`: ${value}`)]} base={base} />
-        </Text>
-      </View>
-    ) : null;
+/** CERT-REFINE-02 (R2-04/R2-05): the family label-value row — label
+ * column 190 pt at 10.5 pt bold, value 11 pt, 2.4 pt row padding. An
+ * optional row is omitted when its value is empty; a core identity row
+ * prints "—" instead of a bare colon. */
+function LVRow({
+  label,
+  value,
+  base,
+  core = false,
+  labelWidth = 190,
+}: {
+  label: string;
+  value: string;
+  base: CertFamily;
+  core?: boolean;
+  labelWidth?: number;
+}) {
+  if (!present(value)) {
+    if (!core) return null;
+    value = "—";
+  }
   return (
-    <View style={{ flexDirection: "row", alignItems: "flex-start" }}>
-      <Image src={qrDataUrl} style={{ width: 17 * MM, height: 17 * MM }} />
-      <View style={{ flex: 1, marginLeft: 3 * MM, fontSize: px(9.5), lineHeight: 1.45 }}>
-        <Text style={{ fontWeight: 700, fontSize: px(10.5) }}>
-          <Runs segs={[seg(ctx.officeName)]} base={base} bold />
-        </Text>
-        <Text style={{ fontWeight: 700 }}>
-          <Runs segs={[seg(bn ? input.service.name_bn : input.service.name_en)]} base={base} bold />
-        </Text>
-        {line(bn ? "লাইসেন্স নং" : "Licence No", bn ? bnDigits(p.transport_license_no) : text(p.transport_license_no))}
-        {line(bn ? "যানবাহন" : "Vehicle", text(bn ? p.transport_license_transport_name_bn : p.transport_license_transport_name))}
-        {line(bn ? "ইঞ্জিন নং" : "Engine No", bn ? bnDigits(p.engine_no) : text(p.engine_no))}
-        {line(bn ? "মালিক" : "Proprietor", text(bn ? input.citizen.full_name_bn : input.citizen.full_name_en))}
-        <View style={{ marginTop: 1 * MM }}>
-          <NumberDisplay number={input.number} bn={bn} base={base} small />
-        </View>
-      </View>
-      {input.citizenPhoto ? (
-        <Image src={input.citizenPhoto} style={{ width: 16 * MM, height: 20 * MM, objectFit: "cover" }} />
+    <View
+      style={{ flexDirection: "row", paddingVertical: 1.8, paddingHorizontal: 7 }}
+    >
+      <Text style={{ width: labelWidth, fontSize: 10.5, fontWeight: 700, lineHeight: 1.22 }}>
+        <Runs segs={[seg(label)]} base={base} bold />
+      </Text>
+      <Text style={{ flex: 1, fontSize: 11, lineHeight: 1.25 }}>
+        <Runs segs={[seg(value)]} base={base} />
+      </Text>
+    </View>
+  );
+}
+
+/**
+ * CERT-REFINE-02 (R2-05): service 46 leaves the landscape card and joins
+ * the certificate family — the standard A4 shell (header, licence-no
+ * field line, framed photo, signature block, footer) is assembled in
+ * CertificateDocument; this body is the vehicle-details table only. The
+ * old duplicate pair ("যানবাহন: মিশুক" above "যানবাহনের ধরণ: মিশুক")
+ * collapses: the vehicle-name row prints only when it differs from the
+ * class label. Licence and engine numbers print EXACTLY as stored
+ * (R2-16 — no digit conversion inside identifier strings).
+ */
+function vehicleLicenceBody(ctx: DocContext, base: CertFamily) {
+  const { input, bn, issued } = ctx;
+  const p = input.payload;
+  const fy = fiscalYear(issued);
+  const schema = input.schema ?? getServiceSchema(46);
+  const vehicleClass = present(p.transport_vehicle_class)
+    ? selectLabel(schema, "transport_vehicle_class", undefined, p.transport_vehicle_class, bn)
+    : "";
+  const vehicleName = text(
+    bn ? p.transport_license_transport_name_bn : p.transport_license_transport_name,
+  );
+  return (
+    <View style={{ marginTop: 6 }}>
+      <LVRow
+        label={bn ? "যানবাহনের ধরণ" : "Vehicle type"}
+        value={vehicleClass}
+        base={base}
+      />
+      {vehicleName && vehicleName !== vehicleClass ? (
+        <LVRow label={bn ? "যানবাহন" : "Vehicle"} value={vehicleName} base={base} />
       ) : null}
+      <LVRow
+        label={bn ? "ইঞ্জিন নং" : "Engine No"}
+        value={text(p.transport_license_engine_no)}
+        base={base}
+      />
+      <LVRow
+        label={bn ? "মালিক" : "Proprietor"}
+        value={text(bn ? input.citizen.full_name_bn : input.citizen.full_name_en)}
+        base={base}
+      />
+      <LVRow
+        label={bn ? "ইস্যুর তারিখ" : "Issue date"}
+        value={bn ? bnDate(issued) : enDate(issued)}
+        base={base}
+      />
+      <LVRow
+        label={bn ? "মেয়াদ" : "Validity"}
+        value={bn ? bnDigits(`${fy.start}-${fy.end} অর্থবছর`) : `FY ${fy.start}-${fy.end}`}
+        base={base}
+      />
     </View>
   );
 }
 
 /* ---------- trade licence (service 42) ---------- */
 
-const tlStyles = StyleSheet.create({
-  top: { flexDirection: "row", alignItems: "flex-start" },
-  qrTl: { width: 19 * MM, height: 19 * MM },
-  head: { flex: 1, alignItems: "center" },
-  spacer: { width: 19 * MM },
-  officeName: { fontSize: px(19), lineHeight: 1.4, textAlign: "center", fontWeight: 700 },
-  officeAddress: { fontSize: px(13.5), textAlign: "center" },
-  docTitle: { fontSize: px(17), lineHeight: 1.4, textAlign: "center", fontWeight: 700, marginTop: 2 * MM },
-  tlNo: { fontWeight: 700, marginTop: 1.5 * MM, textAlign: "center" },
-  issue: { fontSize: px(12), lineHeight: 1.35, marginTop: 0.5 * MM },
-  statute: {
-    borderWidth: px(1.6),
-    borderColor: "#1a1a1a",
-    textAlign: "center",
-    fontWeight: 700,
-    padding: 1 * MM,
-    marginVertical: 1.6 * MM,
-    fontSize: px(13.5),
-  },
-  // Font size is 11.6px in the v7 CSS. 10.9px is used here as wrap
-  // headroom: react-pdf packs Bengali lines slightly looser than Chromium,
-  // and this fixed one-page form must not spill when real-world values
-  // (long business names/addresses) wrap further than the test fixture's.
-  fields: { fontSize: px(10.9), lineHeight: 1.32 },
-  row: { flexDirection: "row", paddingVertical: 0.15 * MM, paddingHorizontal: 1 * MM },
-  fl: { width: 64 * MM, fontWeight: 700 },
-  flSub: { fontWeight: 400, paddingLeft: 9 * MM },
-  fv: { flex: 1 },
-  subpair: { flexDirection: "row" },
-  pair: { flex: 1 },
-  addrHeads: { flexDirection: "row" },
-  addrHead: { width: "49%", fontWeight: 700 },
-  addrCols: { flexDirection: "row" },
-  addrCol: { flex: 1 },
-  // NOTE: no lineHeight here — in @react-pdf/renderer a lineHeight on a
-  // flex-row View (or on a Text without its own fontSize) is applied twice
-  // to the line box (bisected in REACTPDF-MIGRATION-01: row pitch 23.76pt
-  // with it, 10.83pt without). Line heights belong on column containers or
-  // on Texts that also set fontSize.
-  addrRow: { flexDirection: "row" },
-  addrLabel: { width: 30 * MM },
-  fees: { flexDirection: "row" },
-  feesCol: { flex: 1, paddingRight: 3 * MM },
-  feeRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    borderBottomWidth: 0.5,
-    borderBottomColor: "#888",
-    borderBottomStyle: "dotted",
-    paddingVertical: 0.25 * MM,
-  },
-  feeTotal: { fontWeight: 700 },
-});
-
-function tradeLicenceBody(
-  ctx: DocContext,
-  qrDataUrl: string,
-  emblemUrl: string | null,
-  base: CertFamily,
-) {
+/**
+ * CERT-REFINE-01 §42 (mirror of the HTML twin): stacked address blocks with
+ * empty rows omitted, unnumbered group headings, no serial row, the fee
+ * components from the application, validity + grant lines, and NO QR in the
+ * header (it sits in the bottom-left footer — see DocFooter).
+ */
+/**
+ * CERT-REFINE-02 (R2-04): the trade licence joins the certificate family.
+ * The standard shell (header, strip row, framed photo, anchored signature
+ * block and footer) is assembled in CertificateDocument; this function
+ * renders ONLY the body: the statute band, the fields as a two-column
+ * label-value table (label 190 pt, value 11 pt, 2.4 pt row padding) under
+ * #F2F2F2 group bands, the itemised fee table (R2-11), and the validity +
+ * grant lines. Gone from the CERT-REFINE-01 layout: the licence's own
+ * header, the issue-details block (incl. the "Issue Time" clock line),
+ * all (ক)/(খ) sub-numbering, and the in-flow footer that spilled onto a
+ * footer-only page 2 (R2-01). The issue date — which cannot share the
+ * strip row (label + strip + date measure 517 pt > 499 pt content width)
+ * — prints as a field in the fiscal-year group. Empty-field rule:
+ * optional rows are omitted; core identity rows print "—". TIN/BIN print
+ * EXACTLY as stored (R2-16); the NID keeps Bengali digits on Bangla
+ * documents (CERT-REFINE-01 §42, retained).
+ */
+/** CERT-REFINE-02 (owner order 19 Nov 09:51/09:56): the trade licence
+ * follows the Prottoyon reference design zone-by-zone — header, licence
+ * issue details, title + digit-box number, statute band, NUMBERED field
+ * list ১–১৪ in the reference's order (with its (ক)–(ঙ) sub-rows), the
+ * reference's two-column fee table, the reference's validity sentence,
+ * the two-signature block (প্রশাসনিক কর্মকর্তা + প্যানেল চেয়ারম্যান),
+ * then the verify footer. The earlier R2-04 two-column group layout,
+ * the "থেকে" validity wording and the "no sub-numbering" rule are
+ * SUPERSEDED for svc42 by that order. Owner-locked elements stay inside
+ * the reference design: 16-digit number + digit-box strip, govt emblem
+ * centre watermark, BN+EN under one number/QR, dynamic photo, signature
+ * image, no separate seal print. */
+function tradeLicenceBody(ctx: DocContext, base: CertFamily) {
   const { input, bn, issued } = ctx;
   const p = input.payload;
   const fy = fiscalYear(issued);
@@ -1073,7 +1807,20 @@ function tradeLicenceBody(
   const wardNo =
     p.trade_license_org_ward_no ?? p.trade_license_org_zone_ward ?? input.citizenGeography?.permanent?.wardNo;
   const identityNo = input.identity?.nid ?? input.identity?.birthReg ?? "";
-  const citizenParts = (which: "permanent" | "present") => {
+  // The proprietor IS the applicant citizen: parent names and the
+  // proprietor name fall back to the citizen record when the application
+  // payload does not carry them (the reference prints the applicant's
+  // mother/father/proprietor names; the payload keys alone leave them "—").
+  const proprietorName =
+    text(bn ? p.proprietor_name_bn : p.proprietor_name_en) ||
+    text(bn ? input.citizen.full_name_bn : input.citizen.full_name_en);
+  const motherName =
+    text(bn ? p.proprietor_mother_name_bn : p.proprietor_mother_name) ||
+    text(bn ? input.citizen.mother_name_bn : input.citizen.mother_name_en);
+  const fatherName =
+    text(bn ? p.proprietor_father_name_bn : p.proprietor_father_name) ||
+    text(bn ? input.citizen.father_name_bn : input.citizen.father_name_en);
+  const addrParts = (which: "permanent" | "present") => {
     const parts =
       which === "present" && input.citizen.present_same_as_permanent !== false
         ? (input.citizenGeography?.present ?? input.citizenGeography?.permanent)
@@ -1090,251 +1837,399 @@ function tradeLicenceBody(
           : bn
             ? input.citizen.address_bn
             : input.citizen.address_en;
-    const rows: [string, string][] = bn
-      ? [
-          ["হোল্ডিং নম্বরঃ", ""],
-          ["রোড নং", ""],
-          ["গ্রাম/মহল্লা", text(free)],
-          ["ডাকঘর", ""],
-          ["পোস্ট কোড", ""],
-          ["থানা", parts?.upazila?.bn ?? ""],
-          ["উপজেলা", parts?.upazila?.bn ?? ""],
-          ["জেলা", parts?.district?.bn ?? ""],
-          ["বিভাগ", parts?.division?.bn ?? ""],
-          ["দেশ", "বাংলাদেশ"],
-        ]
-      : [
-          ["Holding No", ""],
-          ["Road No", ""],
-          ["Village/Area", text(free)],
-          ["Post Office", ""],
-          ["Post Code", ""],
-          ["Police Station", parts?.upazila?.en ?? ""],
-          ["Upazilla", parts?.upazila?.en ?? ""],
-          ["District", parts?.district?.en ?? ""],
-          ["Division", parts?.division?.en ?? ""],
-          ["Country", "Bangladesh"],
-        ];
-    return rows.map(([label, value], i) => (
-      <View key={i} style={tlStyles.addrRow}>
-        <Text style={tlStyles.addrLabel}>
-          <Runs segs={[seg(label)]} base={base} />
-        </Text>
-        <Text>
-          <Runs segs={[seg(`: ${value}`)]} base={base} />
-        </Text>
-      </View>
-    ));
+    const lang = bn ? "bn" : "en";
+    // CERT-REFINE-02 (owner refinement round): per-part fallback — a
+    // present-address part left empty in the record falls back to the
+    // permanent part, so the two columns of the reference's address table
+    // do not print half-empty when the citizen's present address is only
+    // partially recorded (everything stays data-bound; nothing invented —
+    // the fallback source is the citizen's own permanent record).
+    const perm = input.citizenGeography?.permanent;
+    const pick = (part: "upazila" | "district" | "division") =>
+      parts?.[part]?.[lang] || (which === "present" ? (perm?.[part]?.[lang] ?? "") : "");
+    return {
+      free: text(free),
+      upazila: pick("upazila"),
+      district: pick("district"),
+      division: pick("division"),
+      country: bn ? "বাংলাদেশ" : "Bangladesh",
+    };
   };
-  const total = input.order ? money(input.order.totalMinor) : "";
-  const totalDisplay = bn ? bnDigits(total) : total;
-  const labels = bn
+  const L = bn
     ? {
-        issueTitle: "লাইসেন্স ইস্যুর বিবরণ",
-        issueDate: "ইস্যুর তারিখ",
-        issueTime: "ইস্যুর সময়",
         statute: "ইউনিয়ন পরিষদ আদর্শ কর তফসিল ২০১৩ মোতাবেক",
-        noLabel: "ট্রেড লাইসেন্স নং",
-        fields: [
-          "ব্যবসা প্রতিষ্ঠানের নাম", "মালিক/স্বত্বাধিকারীর নাম", "মাতার নাম", "পিতার নাম",
-          "স্পাউজের নাম (প্রযোজ্য ক্ষেত্রে)", "ব্যবসার প্রকৃতি (একক/যৌথ/অন্যান্য)", "ব্যবসার ধরণ",
-          "ব্যবসা প্রতিষ্ঠানের ঠিকানা",
-        ],
-        zone: "(ক) অঞ্চল (প্রযোজ্য ক্ষেত্রে)", ward: "(খ) ওয়ার্ড নং",
-        idA: "(ক) জন্ম নিবন্ধন/এনআইডি/পাসপোর্ট নং", idB: "(খ) টিআইএন", idC: "(গ) বিআইএন",
-        idD: "(ঘ) টেলিফোন/মোবাইল নম্বর", idE: "(ঙ) ই-মেইল",
-        fyA: "(ক) অর্থ বছর", fyB: "(খ) ব্যবসা শুরুর তারিখ",
-        presentHead: "মালিক/স্বত্বাধিকারীর বর্তমান ঠিকানা", permanentHead: "মালিক/স্বত্বাধিকারীর স্থায়ী ঠিকানা",
-        serial: "আদর্শ কর তফসিল, ২০১৩ এর ক্রমিক নং",
+        business: "ব্যবসা প্রতিষ্ঠানের নাম",
+        proprietor: "মালিক/স্বত্বাধিকারীর নাম",
+        mother: "মাতার নাম",
+        father: "পিতার নাম",
+        spouse: "স্পাউজের নাম (প্রযোজ্য ক্ষেত্রে)",
+        orgType: "ব্যবসার প্রকৃতি (একক/যৌথ/অন্যান্য)",
+        businessType: "ব্যবসার ধরণ",
+        businessAddress: "ব্যবসা প্রতিষ্ঠানের ঠিকানা",
+        zone: "(ক) অঞ্চল",
+        ward: "(খ) ওয়ার্ড নং",
+        idA: "(ক) জন্ম নিবন্ধন/এনআইডি/পাসপোর্ট নং",
+        idB: "(খ) টিআইএন",
+        idC: "(গ) বিআইএন",
+        idD: "(ঘ) টেলিফোন/মোবাইল নম্বর",
+        idE: "(ঙ) ই-মেইল",
+        fy: "(ক) অর্থ বছর",
+        startDate: "(খ) ব্যবসা শুরুর তারিখ",
+        presentHead: "মালিক/স্বত্বাধিকারীর বর্তমান ঠিকানা",
+        permanentHead: "মালিক/স্বত্বাধিকারীর স্থায়ী ঠিকানা",
+        schedule: "আদর্শ কর তফসিল, ২০১৩-এর ক্রমিক নং",
         feeHead: "ট্রেড লাইসেন্স ফি (নতুন/নবায়ন)",
-        feesL: ["নতুন", "নবায়ন", "বকেয়া", "সারচার্জ", "সংশোধন ফি"],
-        feesR: ["সাইনবোর্ড (পরিচিতিমূলক)", "পেশা ব্যবসা ও বৃত্তির উপর কর", "ভ্যাট", "সর্বমোট"],
-        nums: ["১", "২", "৩", "৪", "৫", "৬", "৭", "৮", "৯", "১০", "১১", "১২", "১৩", "১৪"],
+        fees: ["নতুন", "নবায়ন", "সারচার্জ", "সংশোধন ফি", "সাইনবোর্ড (পরিচিতিমূলক)", "পেশা ব্যবসা ও বৃত্তির উপর কর", "ভ্যাট", "বকেয়া"],
+        total: "সর্বমোট",
+        addrSub: ["হোল্ডিং নম্বর", "রোড নং", "গ্রাম/মহল্লা", "ডাকঘর", "পোস্ট কোড", "থানা", "উপজেলা", "জেলা", "বিভাগ", "দেশ"],
       }
     : {
-        issueTitle: "License Issue Details",
-        issueDate: "Date of Issue",
-        issueTime: "Issue Time",
         statute: "According to Union Parishad Model Tax Schedule 2013",
-        noLabel: "Trade License No",
-        fields: [
-          "Business Organization Name", "Owner's/Proprietor's Name", "Mother's Name", "Father's Name",
-          "Spouse's Name (If applicable)", "Nature of Business (Individual/Joint/Others)", "Business Type",
-          "Address of Business Organization",
-        ],
-        zone: "(a) Zone (If applicable)", ward: "(b) Ward No",
-        idA: "(a) Birth Registration/NID/Passport", idB: "(b) TIN", idC: "(c) BIN",
-        idD: "(d) Telephone/Mobile Number", idE: "(e) E-mail",
-        fyA: "(a) Fiscal Year", fyB: "(b) Business Starting Date",
-        presentHead: "Present Address of Owner/Proprietor", permanentHead: "Permanent Address of Owner/Proprietor",
-        serial: "Serial No. of Model Taxation Schedule, 2013",
-        feeHead: "Trade License Fee (New/Renewal)",
-        feesL: ["New", "Renewal", "Arrear", "Surcharge", "Amendment Fee"],
-        feesR: ["Signboard Fee", "Taxes on Profession & Trades", "VAT", "Total"],
-        nums: ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14"],
+        business: "Business Organization Name",
+        proprietor: "Owner's/Proprietor's Name",
+        mother: "Mother's Name",
+        father: "Father's Name",
+        spouse: "Spouse's Name (If applicable)",
+        orgType: "Nature of Business (Individual/Joint/Others)",
+        businessType: "Business Type",
+        businessAddress: "Address of Business Organization",
+        zone: "(a) Zone",
+        ward: "(b) Ward No",
+        idA: "(a) Birth Registration/NID/Passport No",
+        idB: "(b) TIN",
+        idC: "(c) BIN",
+        idD: "(d) Telephone/Mobile Number",
+        idE: "(e) E-mail",
+        fy: "(a) Fiscal Year",
+        startDate: "(b) Business Starting Date",
+        presentHead: "Owner's/Proprietor's Present Address",
+        permanentHead: "Owner's/Proprietor's Permanent Address",
+        schedule: "Model Tax Schedule 2013 Serial No",
+        feeHead: "Trade Licence Fee (New/Renewal)",
+        fees: ["New", "Renewal", "Surcharge", "Amendment Fee", "Signboard Fee", "Taxes on Profession & Trades", "VAT", "Arrear"],
+        total: "Total",
+        addrSub: ["Holding No", "Road No", "Village/Moholla", "Post Office", "Post Code", "Police Station", "Upazila", "District", "Division", "Country"],
       };
-  const n = labels.nums;
   const businessType = selectLabel(input.schema ?? getServiceSchema(42), "business_type", undefined, p.business_type, bn);
-  const field = (no: string, label: string, value: unknown, digits = false) => (
-    <View style={tlStyles.row}>
-      <Text style={tlStyles.fl}>
-        <Runs segs={[seg(`${no}. ${label}`)]} base={base} bold />
+  // One numbered row of the reference's field table: number + bold label +
+  // colon + value, thin rule below. Blank value prints blank (the
+  // reference's own convention for unfilled slots — ৯(ক), ১৩).
+  const rowStyle = {
+    flexDirection: "row" as const,
+    // CERT-REFINE-02 (owner refinement round): 0.9 → 0.65 — reclaims ~9 pt
+    // across the table so the in-flow verify footer's number line clears
+    // the inner frame border (it measured yMax 815.7 vs the border at
+    // ~810.8 before this trim).
+    paddingVertical: 0.4,
+    paddingHorizontal: 7,
+    borderBottomWidth: 0.5,
+    borderBottomColor: "#666",
+    alignItems: "flex-start" as const,
+  };
+  const numText = (n: number) => (bn ? `${bnDigits(n)}।` : `${n}.`);
+  const trow = (n: number, label: string, value: string) => (
+    <View key={`${n}-${label}`} style={rowStyle}>
+      <Text style={{ width: 22, fontSize: 10, fontWeight: 700, lineHeight: 1.08 }}>
+        <Runs segs={[seg(numText(n))]} base={base} bold />
       </Text>
-      <Text style={tlStyles.fv}>
-        <Runs segs={[seg(`: ${digits ? bnDigits(value) : text(value)}`)]} base={base} />
-      </Text>
-    </View>
-  );
-  const sub = (label: string, value: unknown, digits = false) => (
-    <View style={tlStyles.row}>
-      <Text style={[tlStyles.fl, tlStyles.flSub]}>
+      <Text style={{ width: 196, fontSize: 10, fontWeight: 700, lineHeight: 1.08 }}>
         <Runs segs={[seg(label)]} base={base} bold />
       </Text>
-      <Text style={tlStyles.fv}>
-        <Runs segs={[seg(`: ${digits ? bnDigits(value) : text(value)}`)]} base={base} />
+      <Text style={{ width: 8, fontSize: 10, fontWeight: 700, lineHeight: 1.08 }}>:</Text>
+      <Text style={{ flex: 1, fontSize: 10, lineHeight: 1.08 }}>
+        <Runs segs={[seg(value)]} base={base} />
       </Text>
     </View>
   );
-  // v7 renders each pair as inline label+value spans inside one flex cell;
-  // a single Text per pair reproduces that flow (separate label/value flex
-  // children squeezed the value onto a second line and overflowed the page).
-  const pairRow = (
-    no: string,
-    a: [string, string],
-    b: [string, string],
+  // A numbered row split into two labelled halves (৯, ১০, ১১).
+  const halfRow = (
+    n: number,
+    leftLabel: string,
+    leftValue: string,
+    rightLabel: string,
+    rightValue: string,
   ) => (
-    <View style={tlStyles.row}>
-      <Text style={tlStyles.fl}>
-        <Runs segs={[seg(no ? `${no}.` : "")]} base={base} bold />
+    <View key={`${n}-${leftLabel}`} style={rowStyle}>
+      <Text style={{ width: 22, fontSize: 10, fontWeight: 700, lineHeight: 1.08 }}>
+        <Runs segs={[seg(numText(n))]} base={base} bold />
       </Text>
-      <View style={[tlStyles.fv, tlStyles.subpair]}>
-        {[a, b].map(([label, value], i) => (
-          <Text key={i} style={tlStyles.pair}>
-            <Runs segs={[seg(`${label}: ${value}`)]} base={base} />
-          </Text>
-        ))}
+      <View style={{ flex: 1, flexDirection: "row", marginRight: 10 }}>
+        <Text style={{ width: 134, fontSize: 10, fontWeight: 700, lineHeight: 1.08 }}>
+          <Runs segs={[seg(leftLabel)]} base={base} bold />
+        </Text>
+        <Text style={{ width: 8, fontSize: 10, fontWeight: 700, lineHeight: 1.08 }}>:</Text>
+        <Text style={{ flex: 1, fontSize: 10, lineHeight: 1.08 }}>
+          <Runs segs={[seg(leftValue)]} base={base} />
+        </Text>
+      </View>
+      <View style={{ flex: 1, flexDirection: "row" }}>
+        <Text style={{ width: 134, fontSize: 10, fontWeight: 700, lineHeight: 1.08 }}>
+          <Runs segs={[seg(rightLabel)]} base={base} bold />
+        </Text>
+        <Text style={{ width: 8, fontSize: 10, fontWeight: 700, lineHeight: 1.08 }}>:</Text>
+        <Text style={{ flex: 1, fontSize: 10, lineHeight: 1.08 }}>
+          <Runs segs={[seg(rightValue)]} base={base} />
+        </Text>
       </View>
     </View>
   );
+  // ১২: the reference's two-column address sub-table — ten sub-rows,
+  // present | permanent. Only the geography parts exist in the data model
+  // (holding/road/post-office/postcode/thana have no fields — blank).
+  const presentAddr = addrParts("present");
+  const permanentAddr = addrParts("permanent");
+  const addrValues = (a: ReturnType<typeof addrParts>) => [
+    "", "", a.free, "", "", "", a.upazila, a.district, a.division, a.country,
+  ];
+  const presentVals = addrValues(presentAddr);
+  const permanentVals = addrValues(permanentAddr);
+  const feeKeys = [
+    "trade_fee_new", "trade_fee_renewal", "trade_fee_surcharge", "trade_fee_amendment",
+    "trade_fee_signboard", "trade_fee_profession_tax", "trade_fee_vat", "trade_fee_arrear",
+  ];
+  // The reference prints every fee line, ০.০০ for unused ones.
+  const feeRows = feeKeys.map((key, i) => ({
+    label: L.fees[i]!,
+    value: present(p[key]) ? Number(p[key]) : 0,
+  }));
+  const totalTaka = feeRows.reduce((acc, r) => acc + (r.value ?? 0), 0) || (input.order ? Number(input.order.totalMinor) / 100 : 0);
+  const feeFmt = (v: number) => {
+    const str = v.toLocaleString("en-IN", { minimumFractionDigits: 2 });
+    return bn ? bnDigits(str) : str;
+  };
+  const feeCell = (label: string, value: number) => (
+    <View key={label} style={{ flexDirection: "row", paddingVertical: 0.4, alignItems: "flex-start" }}>
+      <Text style={{ flex: 1, fontSize: 10, lineHeight: 1.08 }}>
+        <Runs segs={[seg(label)]} base={base} />
+      </Text>
+      <Text style={{ width: 8, fontSize: 10, lineHeight: 1.08 }}>:</Text>
+      <Text style={{ width: 72, fontSize: 10, textAlign: "right", lineHeight: 1.08 }}>
+        <Runs segs={[seg(feeFmt(value))]} base={base} />
+      </Text>
+    </View>
+  );
+  // Reference validity sentence (owner order): ordinal day + "ইং" +
+  // "হইতে", with DigitalUnion's 1-year fiscal span (the reference's
+  // 5-year span is an owner decision — see the samples report).
+  const validity = bn
+    ? `অত্র ট্রেড লাইসেন্স এর মেয়াদ ${bnOrdinal(1)} জুলাই ${bnDigits(fy.start)}ইং হইতে ${bnOrdinal(30)} জুন ${bnDigits(fy.end)}ইং তারিখ পর্যন্ত`
+    : `The validity of this trade licence is from 1 July ${fy.start} to 30 June ${fy.end}.`;
+  const grant = bn
+    ? "উল্লিখিত ব্যবসা প্রতিষ্ঠানকে ব্যবসা পরিচালনার জন্য এই লাইসেন্স প্রদান করা হলো।"
+    : "The licence is hereby granted to the above business to carry on its trade.";
   return (
     <View>
-      <View style={tlStyles.top}>
-        <Image style={tlStyles.qrTl} src={qrDataUrl} />
-        <View style={tlStyles.head}>
-          <Text style={tlStyles.officeName}>
-            <Runs segs={[seg(ctx.officeName)]} base={base} bold />
+      <Text
+        style={{
+          borderWidth: 0.75,
+          borderColor: "#1a1a1a",
+          textAlign: "center",
+          fontWeight: 700,
+          padding: 2,
+          fontSize: 11,
+          marginBottom: 1,
+        }}
+      >
+        <Runs segs={[seg(L.statute)]} base={base} bold />
+      </Text>
+      <View style={{ borderWidth: 0.75, borderColor: "#1a1a1a", borderBottomWidth: 0 }}>
+        {trow(1, L.business, text(bn ? p.business_name_bn : p.business_name_en))}
+        {trow(2, L.proprietor, proprietorName)}
+        {trow(3, L.mother, motherName)}
+        {trow(4, L.father, fatherName)}
+        {trow(5, L.spouse, text(bn ? p.proprietor_spouse_name_bn : p.proprietor_spouse_name))}
+        {trow(6, L.orgType, text(bn ? p.trade_license_org_type_bn : p.trade_license_org_type))}
+        {trow(7, L.businessType, businessType)}
+        {trow(8, L.businessAddress, businessAddress)}
+        {halfRow(
+          9,
+          L.zone,
+          text(p.trade_license_org_zone_bn) || text(p.trade_license_org_zone),
+          L.ward,
+          present(wardNo) ? (bn ? bnDigits(wardNo) : text(wardNo)) : "",
+        )}
+        {trow(10, L.idA, present(identityNo) ? (bn ? bnDigits(identityNo) : text(identityNo)) : "")}
+        {halfRow(10, L.idB, text(p.trade_license_tin_no), L.idC, text(p.trade_license_bin_no))}
+        {halfRow(
+          10,
+          L.idD,
+          present(p.mobile) ? (bn ? bnDigits(p.mobile) : text(p.mobile)) : "",
+          L.idE,
+          text(p.trade_license_email),
+        )}
+        {halfRow(
+          11,
+          L.fy,
+          bn ? bnDigits(`${fy.start} - ${fy.end}`) : `${fy.start} - ${fy.end}`,
+          L.startDate,
+          present(p.start_date) ? (bn ? bnDateIso(p.start_date) : enDateIso(p.start_date)) : "",
+        )}
+        <View style={{ ...rowStyle, borderBottomWidth: 0.5 }}>
+          <Text style={{ width: 22, fontSize: 10, fontWeight: 700, lineHeight: 1.08 }}>
+            <Runs segs={[seg(numText(12))]} base={base} bold />
           </Text>
-          <Text style={tlStyles.officeAddress}>
-            <Runs segs={[seg(ctx.officeAddressLine)]} base={base} />
+          <Text style={{ flex: 1, fontSize: 10, fontWeight: 700, lineHeight: 1.08, marginRight: 10 }}>
+            <Runs segs={[seg(L.presentHead)]} base={base} bold />
           </Text>
-          {emblemUrl ? <Image style={styles.emblem} src={emblemUrl} /> : null}
-          <Text style={tlStyles.docTitle}>
-            <Runs segs={[seg(bn ? input.service.name_bn : input.service.name_en)]} base={base} bold />
+          <Text style={{ flex: 1, fontSize: 10, fontWeight: 700, lineHeight: 1.08 }}>
+            <Runs segs={[seg(L.permanentHead)]} base={base} bold />
           </Text>
-          <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "center", marginTop: 1.5 * MM }}>
-            <Text style={{ fontWeight: 700, marginRight: 2 * MM }}>
-              <Runs segs={[seg(`${labels.noLabel}:`)]} base={base} bold />
-            </Text>
-            <NumberDisplay number={input.number} bn={bn} base={base} />
+        </View>
+        {L.addrSub.map((sub, i) => (
+          <View key={`addr-${i}`} style={{ flexDirection: "row", paddingVertical: 0.3, paddingHorizontal: 7, borderBottomWidth: 0.5, borderBottomColor: "#666" }}>
+            <View style={{ flex: 1, flexDirection: "row", marginRight: 10 }}>
+              <Text style={{ width: 84, fontSize: 9.5, lineHeight: 1.08 }}>
+                <Runs segs={[seg(sub)]} base={base} />
+              </Text>
+              <Text style={{ width: 8, fontSize: 9.5, lineHeight: 1.08 }}>:</Text>
+              <Text style={{ flex: 1, fontSize: 9.5, lineHeight: 1.08 }}>
+                <Runs segs={[seg(presentVals[i] ?? "")]} base={base} />
+              </Text>
+            </View>
+            <View style={{ flex: 1, flexDirection: "row" }}>
+              <Text style={{ width: 84, fontSize: 9.5, lineHeight: 1.08 }}>
+                <Runs segs={[seg(sub)]} base={base} />
+              </Text>
+              <Text style={{ width: 8, fontSize: 9.5, lineHeight: 1.08 }}>:</Text>
+              <Text style={{ flex: 1, fontSize: 9.5, lineHeight: 1.08 }}>
+                <Runs segs={[seg(permanentVals[i] ?? "")]} base={base} />
+              </Text>
+            </View>
+          </View>
+        ))}
+        {trow(13, L.schedule, "")}
+        <View style={{ ...rowStyle, borderBottomWidth: 0.5 }}>
+          <Text style={{ width: 22, fontSize: 10, fontWeight: 700, lineHeight: 1.08 }}>
+            <Runs segs={[seg(numText(14))]} base={base} bold />
+          </Text>
+          <Text style={{ flex: 1, fontSize: 10, fontWeight: 700, lineHeight: 1.08 }}>
+            <Runs segs={[seg(L.feeHead)]} base={base} bold />
+          </Text>
+        </View>
+        <View style={{ flexDirection: "row", paddingHorizontal: 7, borderBottomWidth: 0.5, borderBottomColor: "#666" }}>
+          <View style={{ flex: 1, marginRight: 10 }}>
+            {feeRows.slice(0, 4).map((r) => feeCell(r.label, r.value))}
+          </View>
+          <View style={{ flex: 1 }}>
+            {feeRows.slice(4).map((r) => feeCell(r.label, r.value))}
           </View>
         </View>
-        {input.citizenPhoto ? (
+        <View style={{ flexDirection: "row", paddingVertical: 2, paddingHorizontal: 7, borderTopWidth: 1, borderTopColor: "#666" }}>
+          <Text style={{ flex: 1, fontSize: 10, fontWeight: 700, textAlign: "right", lineHeight: 1.08 }}>
+            <Runs segs={[seg(L.total)]} base={base} bold />
+          </Text>
+          <Text style={{ width: 8, fontSize: 10, fontWeight: 700, lineHeight: 1.08 }}>:</Text>
+          <Text style={{ width: 72, fontSize: 10, fontWeight: 700, textAlign: "right", lineHeight: 1.08 }}>
+            <Runs segs={[seg(feeFmt(totalTaka))]} base={base} bold />
+          </Text>
+        </View>
+      </View>
+      <Text style={{ fontWeight: 700, fontSize: 11, marginTop: 2, lineHeight: 1.35 }}>
+        <Runs segs={[seg(validity)]} base={base} bold />
+      </Text>
+      <Para
+        segs={[seg(grant)]}
+        base={base}
+        style={{ fontSize: 11, lineHeight: 1.5, textAlign: "justify", marginTop: 2 }}
+      />
+    </View>
+  );
+}
+
+/** Bengali ordinal day for the reference validity sentence: ১লা, ২রা,
+ * ৩রা, ৪ঠা, ৫ই…১৮ই, ১৯শে…৩১শে. */
+function bnOrdinal(day: number): string {
+  const table: Record<number, string> = {
+    1: "১লা", 2: "২রা", 3: "৩রা", 4: "৪ঠা", 5: "৫ই", 6: "৬ই", 7: "৭ই", 8: "৮ই",
+    9: "৯ই", 10: "১০ই", 11: "১১ই", 12: "১২ই", 13: "১৩ই", 14: "১৪ই", 15: "১৫ই",
+    16: "১৬ই", 17: "১৭ই", 18: "১৮ই", 19: "১৯শে", 20: "২০শে", 21: "২১শে",
+    22: "২২শে", 23: "২৩শে", 24: "২৪শে", 25: "২৫শে", 26: "২৬শে", 27: "২৭শে",
+    28: "২৮শে", 29: "২৯শে", 30: "৩০শে", 31: "৩১শে",
+  };
+  return table[day] ?? bnDigits(day);
+}
+
+/** CERT-REFINE-02 (owner order 19 Nov): the trade licence's issue-details
+ * row — "লাইসেন্স ইস্যুর বিবরণ" (date + time) on the left, the locked
+ * digit-box strip on the right. The strip's width (label + 16 boxes ≈
+ * 362 pt) means the issue date cannot sit under the title as in the
+ * reference; it shares this row instead. */
+function TradeIssueRow({ ctx, base }: { ctx: DocContext; base: CertFamily }) {
+  const { bn, issued } = ctx;
+  const time24 = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Asia/Dhaka",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).format(issued);
+  return (
+    <View style={{ flexDirection: "row", alignItems: "flex-start", marginTop: 6 }}>
+      <View style={{ width: 130 }}>
+        <Text style={{ fontSize: 9.5, fontWeight: 700, lineHeight: 1.2 }}>
+          <Runs segs={[seg(bn ? "লাইসেন্স ইস্যুর বিবরণ" : "Licence Issue Details")]} base={base} bold />
+        </Text>
+        <Text style={{ fontSize: 9.5, lineHeight: 1.2 }}>
+          <Runs segs={[seg(bn ? `ইস্যুর তারিখ: ${bnDate(issued)}` : `Date of Issue: ${enDate(issued)}`)]} base={base} />
+        </Text>
+        <Text style={{ fontSize: 9.5, lineHeight: 1.2 }}>
+          <Runs segs={[seg(bn ? `ইস্যুর সময়: ${bnDigits(time24)}` : `Time of Issue: ${time24}`)]} base={base} />
+        </Text>
+      </View>
+      <View style={{ flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "flex-end" }}>
+        <Text style={{ marginRight: 6, fontSize: 10.5, fontWeight: 700 }}>
+          <Runs segs={[seg(bn ? "ট্রেড লাইসেন্স নং:" : "Trade Licence No:")]} base={base} bold />
+        </Text>
+        <NumberDisplay number={ctx.input.number} bn={bn} base={base} />
+      </View>
+    </View>
+  );
+}
+
+/** CERT-REFINE-02 (owner order 19 Nov): the trade licence's two-signature
+ * block, in flow after the grant — প্রশাসনিক কর্মকর্তা (title only, as in
+ * the reference; no admin-officer signatory exists in the certificate
+ * data) on the left, the named chairman (image + rule + title + office)
+ * on the right. */
+function TradeSignRow({ ctx, base }: { ctx: DocContext; base: CertFamily }) {
+  const { input, bn, official } = ctx;
+  const issuerName = input.issuer
+    ? bn
+      ? text(input.issuer.nameBn) || text(input.issuer.nameEn)
+      : text(input.issuer.nameEn) || text(input.issuer.nameBn)
+    : "";
+  const bundle = certificateAssetsBundle(input.tenant.id, input.assets, input.issuer);
+  const signature = official && bundle.signature ? bundle.signature : null;
+  return (
+    <View style={{ flexDirection: "row", marginTop: 6 }}>
+      <View style={{ width: 200 }}>
+        <View style={{ height: 22 }} />
+        <View style={styles.signLine} />
+        <Text style={{ textAlign: "center", fontSize: 10.5, fontWeight: 700, marginTop: 4 }}>
+          <Runs segs={[seg(bn ? "প্রশাসনিক কর্মকর্তা" : "Administrative Officer")]} base={base} bold />
+        </Text>
+      </View>
+      <View style={{ flex: 1 }} />
+      <View style={{ width: 200 }}>
+        {issuerName ? (
+          <Text style={styles.signName}>
+            <Runs segs={[seg(issuerName)]} base={base} bold />
+          </Text>
+        ) : null}
+        {signature ? (
           <Image
-            src={input.citizenPhoto}
-            style={{ width: 19 * MM, height: 24 * MM, objectFit: "cover" }}
+            src={signature}
+            style={{ height: 22, width: 150, objectFit: "contain", alignSelf: "center", marginTop: 4 }}
           />
         ) : (
-          <View style={tlStyles.spacer} />
+          <View style={{ height: 22 }} />
         )}
-      </View>
-      <View style={tlStyles.issue}>
-        <Text style={{ fontWeight: 700 }}>
-          <Runs segs={[seg(labels.issueTitle)]} base={base} bold />
+        <View style={styles.signLine} />
+        <Text style={styles.signTitle}>
+          <Runs segs={[seg(chairmanTitle(input.issuer?.accountType, bn))]} base={base} />
         </Text>
-        <Text>
-          <Runs segs={[seg(`${labels.issueDate}: ${bn ? bnDate(issued) : enDate(issued)}`)]} base={base} />
+        <Text style={styles.signOffice}>
+          <Runs segs={[seg(ctx.officeName)]} base={base} bold />
         </Text>
-        <Text>
-          <Runs
-            segs={[seg(`${labels.issueTime}: ${bn ? bnDigits(issueTime(issued)) : issueTime(issued)}`)]}
-            base={base}
-          />
-        </Text>
-      </View>
-      <Text style={tlStyles.statute}>
-        <Runs segs={[seg(labels.statute)]} base={base} bold />
-      </Text>
-      <View style={tlStyles.fields}>
-        {field(n[0]!, labels.fields[0]!, bn ? p.business_name_bn : p.business_name_en)}
-        {field(n[1]!, labels.fields[1]!, bn ? p.proprietor_name_bn : p.proprietor_name_en)}
-        {field(n[2]!, labels.fields[2]!, bn ? p.proprietor_mother_name_bn : p.proprietor_mother_name)}
-        {field(n[3]!, labels.fields[3]!, bn ? p.proprietor_father_name_bn : p.proprietor_father_name)}
-        {field(n[4]!, labels.fields[4]!, bn ? p.proprietor_spouse_name_bn : p.proprietor_spouse_name)}
-        {field(n[5]!, labels.fields[5]!, bn ? p.trade_license_org_type_bn : p.trade_license_org_type)}
-        {field(n[6]!, labels.fields[6]!, businessType)}
-        {field(n[7]!, labels.fields[7]!, businessAddress)}
-        {pairRow(n[8]!, [labels.zone, bn ? bnDigits(text(p.trade_license_org_zone_bn) || text(p.trade_license_org_zone)) : text(p.trade_license_org_zone)], [labels.ward, bn ? bnDigits(wardNo) : text(wardNo)])}
-        {pairRow(n[9]!, [labels.idA, bn ? bnDigits(identityNo) : text(identityNo)], [labels.idB, bn ? bnDigits(text(p.trade_license_tin_no)) : text(p.trade_license_tin_no)])}
-        {pairRow("", [labels.idC, bn ? bnDigits(text(p.trade_license_bin_no)) : text(p.trade_license_bin_no)], [labels.idD, bn ? bnDigits(text(p.mobile)) : text(p.mobile)])}
-        {sub(labels.idE, p.trade_license_email)}
-        {pairRow(n[10]!, [labels.fyA, bn ? bnDigits(`${fy.start} - ${fy.end}`) : `${fy.start} - ${fy.end}`], [labels.fyB, bn ? bnDateIso(p.start_date) : enDateIso(p.start_date)])}
-        <View style={tlStyles.row}>
-          <Text style={tlStyles.fl}>
-            <Runs segs={[seg(`${n[11]}.`)]} base={base} bold />
-          </Text>
-          <View style={[tlStyles.fv, tlStyles.addrHeads]}>
-            <Text style={tlStyles.addrHead}>
-              <Runs segs={[seg(labels.presentHead)]} base={base} bold />
-            </Text>
-            <Text style={tlStyles.addrHead}>
-              <Runs segs={[seg(labels.permanentHead)]} base={base} bold />
-            </Text>
-          </View>
-        </View>
-        <View style={tlStyles.row}>
-          <Text style={tlStyles.fl}>
-            <Runs segs={[seg("")]} base={base} />
-          </Text>
-          <View style={[tlStyles.fv, tlStyles.addrCols]}>
-            <View style={tlStyles.addrCol}>{citizenParts("present")}</View>
-            <View style={tlStyles.addrCol}>{citizenParts("permanent")}</View>
-          </View>
-        </View>
-        {field(n[12]!, labels.serial, "")}
-        <View style={tlStyles.row}>
-          <Text style={tlStyles.fl}>
-            <Runs segs={[seg(`${n[13]}. ${labels.feeHead}`)]} base={base} bold />
-          </Text>
-          <Text style={tlStyles.fv}>
-            <Runs segs={[seg("")]} base={base} />
-          </Text>
-        </View>
-        <View style={tlStyles.fees}>
-          <View style={tlStyles.feesCol}>
-            {labels.feesL.map((label) => (
-              <View key={label} style={tlStyles.feeRow}>
-                <Text>
-                  <Runs segs={[seg(label)]} base={base} />
-                </Text>
-                <Text>
-                  <Runs segs={[seg("")]} base={base} />
-                </Text>
-              </View>
-            ))}
-          </View>
-          <View style={tlStyles.feesCol}>
-            {labels.feesR.map((label, i) => (
-              <View key={label} style={[tlStyles.feeRow, i === 3 ? tlStyles.feeTotal : {}]}>
-                <Text>
-                  <Runs segs={[seg(label)]} base={base} bold={i === 3} />
-                </Text>
-                <Text>
-                  <Runs segs={[seg(i === 3 ? totalDisplay : "")]} base={base} bold={i === 3} />
-                </Text>
-              </View>
-            ))}
-          </View>
-        </View>
       </View>
     </View>
   );
@@ -1376,8 +2271,6 @@ function pngSize(dataUrl: string): { w: number; h: number } | null {
 const PAGE_POINTS: Record<string, { w: number; h: number }> = {
   A4: { w: 595.28, h: 841.89 },
   Letter: { w: 612, h: 792 },
-  // CERTNO-01: the service-46 transport card (86mm × 54mm, already landscape).
-  "86mm 54mm": { w: 86 * MM, h: 54 * MM },
 };
 
 function CertificateDocument({
@@ -1392,7 +2285,6 @@ function CertificateDocument({
   const serviceNo = input.service.service_no ?? 0;
   const format = certificatePageFormat(serviceNo);
   const isTrade = serviceNo === 42;
-  const isCard = serviceNo === 46;
   const base: CertFamily = bn ? CERT_BENGALI_FAMILY : CERT_LATIN_FAMILY;
   const emblemUrl = ctx.official ? governmentEmblemDataUrl() : null;
   const title =
@@ -1404,21 +2296,40 @@ function CertificateDocument({
           bn
           ? "নাগরিকত্ব ও চারিত্রিক সনদপত্র"
           : "Citizenship and Character Certificate"
-        : bn
-          ? input.service.name_bn
-          : input.service.name_en;
+        : serviceNo === 1
+          ? // CERT-REFINE-01 §1: the receipt's own title.
+            bn
+            ? "আদায় রশিদ (হোল্ডিং ট্যাক্স)"
+            : "Collection Receipt (Holding Tax)"
+          : serviceNo === 27
+            ? // CERT-REFINE-01 §27: the letter's own title.
+              bn
+              ? "পাসপোর্ট সুপারিশ পত্র"
+              : "Passport Recommendation Letter"
+            : serviceNo === 40
+              ? // CERT-REFINE-01 §40: the ethnic-minority certificate title.
+                bn
+                ? "ক্ষুদ্র নৃ-গোষ্ঠী সনদ"
+                : "Ethnic Minority Community Certificate"
+              : bn
+                ? input.service.name_bn
+                : input.service.name_en;
 
   const dims = PAGE_POINTS[format.size]!;
   const explicitSize = format.size.includes("mm");
   const pageW = explicitSize ? dims.w : format.orientation === "landscape" ? dims.h : dims.w;
   const pageH = explicitSize ? dims.h : format.orientation === "landscape" ? dims.w : dims.h;
-  const margin = (isCard ? 3 : isTrade ? 8 : 11) * MM;
+  // CERT-REFINE-02: one margin for the whole family (the trade licence's
+  // tighter 8mm margin and the card's 3mm margin are retired).
+  const margin = 11 * MM;
 
   // CERTNO-01: the centre watermark is the Government of Bangladesh emblem,
   // large and faint — the office seal is not printed anywhere.
+  // CERT-REFINE-02 (R2-14): 300 pt diameter, centred on (297 pt, 430 pt),
+  // ≈8% opacity, on every certificate.
   let sealNode: React.ReactNode = null;
-  if (emblemUrl && !isCard) {
-    const width = 105 * MM;
+  if (emblemUrl) {
+    const width = 300;
     const size = pngSize(emblemUrl);
     const height = size ? (width * size.h) / size.w : width;
     sealNode = (
@@ -1428,63 +2339,123 @@ function CertificateDocument({
         style={{
           position: "absolute",
           left: (pageW - width) / 2,
-          top: pageH * 0.54 - height / 2,
+          top: 430 - height / 2,
           width,
           height,
-          opacity: 0.07,
+          opacity: 0.08,
         }}
       />
     );
   }
 
-  const body = isTrade ? (
-    tradeLicenceBody(ctx, qrDataUrl, emblemUrl, base)
-  ) : isCard ? (
-    transportCardBody(ctx, qrDataUrl, base)
+  // CERT-REFINE-02: ONE shell for the whole family — header, number row,
+  // then the body beside the framed photo (R2-09: the photo's top sits
+  // 8 pt below the number row; absent photo → no reserved space).
+  const metaLine = isTrade ? (
+    <TradeIssueRow ctx={ctx} base={base} />
+  ) : serviceNo === 46 ? (
+    <LicenceNoLine ctx={ctx} base={base} />
   ) : FORM_SERVICES.has(serviceNo) ? (
+    <FormMetaLine ctx={ctx} base={base} />
+  ) : (
+    <NumLine
+      ctx={ctx}
+      base={base}
+      numberLabel={bn ? "সনদ নং:" : "Certificate No:"}
+      dateLabel={bn ? "ইস্যুর তারিখ:" : "Date of Issue:"}
+    />
+  );
+  const bodyContent = isTrade ? (
+    tradeLicenceBody(ctx, base)
+  ) : serviceNo === 46 ? (
+    vehicleLicenceBody(ctx, base)
+  ) : FORM_SERVICES.has(serviceNo) ? (
+    serviceNo === 1 ? (
+      taxReceiptBody(ctx, base)
+    ) : serviceNo === 41 ? (
+      premisesLicenceBody(ctx, base)
+    ) : (
+      genericFormBody(ctx, base)
+    )
+  ) : (
+    paragraphBody(ctx, serviceNo, base)
+  );
+  const body = isTrade ? (
     <>
-      <HeaderBlock ctx={ctx} title={title} emblemUrl={emblemUrl} base={base} />
+      {/* CERT-REFINE-02 (owner order 19 Nov): on the trade licence the
+          framed photo sits in the header row (balanced by a left spacer)
+          so the numbered field table runs the FULL content width, as in
+          the Prottoyon reference (photo top-right). The header lockup
+          itself is the standard one. */}
       <View style={{ flexDirection: "row", alignItems: "flex-start" }}>
-        <View style={{ flex: 1 }}>
-          {serviceNo === 1
-            ? taxReceiptBody(ctx, base)
-            : serviceNo === 41
-              ? premisesLicenceBody(ctx, base)
-              : genericFormBody(ctx, base)}
+        <View style={{ width: 94, alignItems: "center" }}>
+          {emblemUrl ? (
+            <Image src={emblemUrl} style={{ width: 44, height: 44, marginTop: 26 }} />
+          ) : null}
         </View>
-        <CitizenPhoto ctx={ctx} style={{ marginLeft: 4 * MM, marginTop: 3 * MM }} />
+        <View style={{ flex: 1 }}>
+          <HeaderBlock ctx={ctx} title={title} emblemUrl={emblemUrl} base={base} hideEmblem />
+        </View>
+        {input.citizenPhoto ? (
+          <CitizenPhoto ctx={ctx} style={{ marginLeft: 8 }} />
+        ) : (
+          <View style={{ width: 94 }} />
+        )}
       </View>
+      {metaLine}
+      <View style={{ marginTop: 4 }}>{bodyContent}</View>
     </>
   ) : (
     <>
       <HeaderBlock ctx={ctx} title={title} emblemUrl={emblemUrl} base={base} />
-      <View style={{ flexDirection: "row", alignItems: "flex-start" }}>
-        <View style={{ flex: 1 }}>
-          <View style={styles.numline}>
-            <View style={{ flexDirection: "row", alignItems: "center" }}>
-              <Text style={{ marginRight: 2 * MM }}>
-                <Runs segs={[seg(bn ? "সনদ নং:-" : "Certificate No:")]} base={base} bold />
-              </Text>
-              <NumberDisplay number={input.number} bn={bn} base={base} />
-            </View>
-            <Text>
-              <Runs
-                segs={[
-                  seg(
-                    `${bn ? "ইস্যুর তারিখ:-" : "Date of Issue:"} ${bn ? bnDate(ctx.issued) : enDate(ctx.issued)}`,
-                  ),
-                ]}
-                base={base}
-                bold
-              />
-            </Text>
-          </View>
-          {paragraphBody(ctx, serviceNo, base)}
-        </View>
-        <CitizenPhoto ctx={ctx} style={{ marginLeft: 4 * MM, marginTop: 4.5 * MM }} />
+      {metaLine}
+      <View style={{ flexDirection: "row", alignItems: "flex-start", marginTop: 8 }}>
+        <View style={{ flex: 1 }}>{bodyContent}</View>
+        <CitizenPhoto ctx={ctx} style={{ marginLeft: 8 }} />
       </View>
     </>
   );
+
+  // CERT-REFINE-02 (R2-01/R2-02): the signature block and the footer group
+  // are ANCHORED to fixed page positions on every certificate — the
+  // signature block's bottom edge at Y=762 pt (bottom offset 80 pt), the
+  // footer group's bottom edge 22 pt above the inner frame's bottom edge
+  // (bottom offset 53 pt) — so a short body can no longer leave them
+  // floating mid-page and a long one can no longer push the footer onto
+  // its own page. Exempt: the family and warish documents (2/3/4 — their
+  // tables set the length; signature + footer follow the body in flow)
+  // and the trade licence (42 — the Prottoyon reference design has the
+  // two-signature block and the verify footer in flow after the grant).
+  const anchored = ![2, 3, 4, 42].includes(serviceNo);
+  // CERT-REFINE-02 (R2-17 fit): the two marriage formats carry the
+  // tallest anchored body (intro + two banded party boxes + closing);
+  // at the family reserve of 218 their content height alone pushes a
+  // furniture-only second page. Their reserve is 170 — the anchored
+  // furniture itself (signature row, footer) does not move; only the
+  // body budget grows, and the closing paragraph sits in the left
+  // column, clear of the signature block.
+  const bodyReserve = serviceNo === 25 || serviceNo === 26 ? 170 : 218;
+
+  // CERT-REFINE-02 (R2-02/R2-13): the secondary signatures (svc01
+  // collector, svc19 guardian) anchor to the SAME baseline as the
+  // chairman block, on the left side of the anchored row. They keep the
+  // dotted rule (170 pt wide) so the chairman's solid rule keeps
+  // precedence. The paddingBottom compensates the different below-rule
+  // heights so the two RULES share one Y (chairman below-rule ≈ 68 pt:
+  // rule margin 4 + title 15.75 + office 18 + address 15 + date 15;
+  // collector below-rule ≈ 20 pt, guardian ≈ 35 pt) — verified by
+  // measurement on the proof renders.
+  const guardianName = text(bn ? input.citizen.full_name_bn : input.citizen.full_name_en);
+  const secondarySign =
+    serviceNo === 1
+      ? { label: bn ? "আদায়কারীর স্বাক্ষর" : "Collector's signature", name: "", pad: 48 }
+      : serviceNo === 19
+        ? {
+            label: bn ? "অভিভাবকের স্বাক্ষর" : "Guardian's signature",
+            name: bn ? `নামঃ ${guardianName}` : `Name: ${guardianName}`,
+            pad: 34,
+          }
+        : null;
 
   return (
     <Document>
@@ -1531,26 +2502,73 @@ function CertificateDocument({
         {sealNode}
         <View
           style={{
-            paddingTop: isCard ? 2 * MM : margin + 5 * MM,
-            // Bottom reserve is the frame margin alone: Chromium's per-page
-            // break geometry is the @page margin (the CSS main padding-bottom
-            // applies only at the document end); a larger reserve here makes
-            // react-pdf emit a blank trailing page when content ends near
-            // the frame. The extra −3pt absorbs layout rounding so a full
-            // page does not spawn an empty continuation page.
-            paddingBottom: isCard ? 2 * MM : margin - 3,
-            paddingLeft: isCard ? 3 * MM : margin + 6 * MM,
-            paddingRight: isCard ? 3 * MM : margin + 6 * MM,
+            paddingTop: margin + 5 * MM,
+            // CERT-REFINE-02: with the bottom zone anchored, the content
+            // reserve keeps body content above Y≈606 pt — at least 28 pt
+            // clear of the signature block's top edge (≈634 pt).
+            paddingBottom: anchored ? bodyReserve : isTrade ? 4 : margin - 3,
+            paddingLeft: margin + 6 * MM,
+            paddingRight: margin + 6 * MM,
           }}
         >
           {body}
-          {isCard ? null : (
+          {anchored ? null : (
             <>
-              <SignBlock ctx={ctx} base={base} compact={isTrade} />
-              <DocFooter ctx={ctx} qrDataUrl={qrDataUrl} base={base} trade={isTrade} />
+              {isTrade ? (
+                <TradeSignRow ctx={ctx} base={base} />
+              ) : (
+                <View style={{ marginTop: 24, marginLeft: "auto", width: 200 }}>
+                  <SignBlock ctx={ctx} base={base} />
+                </View>
+              )}
+              <View style={{ marginTop: 4 }}>
+                <DocFooter ctx={ctx} qrDataUrl={qrDataUrl} base={base} />
+              </View>
             </>
           )}
         </View>
+        {anchored ? (
+          <>
+            <View
+              style={{
+                position: "absolute",
+                left: margin + 6 * MM,
+                right: margin + 6 * MM,
+                bottom: 80,
+                flexDirection: "row",
+                alignItems: "flex-end",
+                justifyContent: "space-between",
+              }}
+            >
+              {secondarySign ? (
+                <View style={{ width: 170, paddingBottom: secondarySign.pad }}>
+                  <View style={styles.signLineDotted} />
+                  <Text style={{ textAlign: "center", fontSize: px(13), lineHeight: 1.5 }}>
+                    <Runs segs={[seg(secondarySign.label)]} base={base} />
+                  </Text>
+                  {secondarySign.name ? (
+                    <Text style={{ textAlign: "center", fontSize: px(13), lineHeight: 1.5 }}>
+                      <Runs segs={[seg(secondarySign.name)]} base={base} />
+                    </Text>
+                  ) : null}
+                </View>
+              ) : (
+                <View />
+              )}
+              <SignBlock ctx={ctx} base={base} />
+            </View>
+            <View
+              style={{
+                position: "absolute",
+                left: margin + 6 * MM,
+                bottom: 53,
+              }}
+            >
+              <DocFooter ctx={ctx} qrDataUrl={qrDataUrl} base={base} />
+            </View>
+          </>
+        ) : null}
+
       </Page>
     </Document>
   );

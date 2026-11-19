@@ -12,6 +12,9 @@ import {
   buildFamilyV2,
   buildGeographySelectorVersion,
   buildConditionalGroupVersion,
+  buildCertRefineVersion,
+  buildFamilyCertRefine,
+  certRefineServices,
   conditionalGroupServices,
   geographySelectorServices,
 } from "./expanded-schemas.js";
@@ -377,10 +380,26 @@ export const conditionalSupersededSchemas: readonly FormSchema[] = deepFreeze(
 export const conditionalSchemas: readonly FormSchema[] = deepFreeze(
   conditionalSupersededSchemas.map(buildConditionalGroupVersion),
 );
-const latest = (schema: FormSchema) =>
+const preRefineLatest = (schema: FormSchema) =>
   geographySelectorSchemas.find((item) => item.serviceNo === schema.serviceNo) ??
   conditionalSchemas.find((item) => item.serviceNo === schema.serviceNo) ??
   schema;
+/** Versions superseded by the CERT-REFINE-01 release; retained for applications pinned to them. */
+export const certRefineSupersededSchemas: readonly FormSchema[] = deepFreeze(
+  [familyV2, tradeLicenseV2, ...expandedOperationalSchemas]
+    .map(preRefineLatest)
+    .filter((schema) => certRefineServices.includes(schema.serviceNo)),
+);
+export const certRefineSchemas: readonly FormSchema[] = deepFreeze(
+  certRefineSupersededSchemas.map((schema) =>
+    schema.serviceNo === 2
+      ? buildFamilyCertRefine(schema)
+      : buildCertRefineVersion(schema),
+  ),
+);
+const latest = (schema: FormSchema) =>
+  certRefineSchemas.find((item) => item.serviceNo === schema.serviceNo) ??
+  preRefineLatest(schema);
 
 export const operationalSchemas: readonly FormSchema[] = deepFreeze(
   [permanentResidentV1, familyV2, tradeLicenseV2, ...expandedOperationalSchemas].map(
