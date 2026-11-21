@@ -361,6 +361,12 @@ export function WorkspaceApp({
 }) {
   const [language] = useLanguage();
   const branding = useBranding();
+  // QA-19: the workspace is served under /login, so the tab kept the sign-in
+  // page's title ("লগইন | DigitalUnion") after signing in.
+  useEffect(() => {
+    document.title =
+      language === "bn" ? "কর্মক্ষেত্র | DigitalUnion" : "Workspace | DigitalUnion";
+  }, [language]);
   // Phone layout (<=767px): card lists replace the wide tables; rendered conditionally so the
   // table data is never duplicated in the DOM on larger screens.
   const phoneLayout = useSyncExternalStore(
@@ -695,7 +701,8 @@ export function WorkspaceApp({
     value
       .replace(/[০-৯]/g, (digit) => String(digit.charCodeAt(0) - 0x09e6))
       .trim()
-      .toLowerCase();
+      .toLowerCase()
+      .normalize("NFC"); // HOME-REDESIGN-02: one form for Bangla য়/ড়/ঢ়
   const matchingServices = catalog.filter((service) =>
     normalizeSearch(
       `${service.service_no} ${service.name_bn} ${service.name_en}`,
@@ -804,6 +811,19 @@ export function WorkspaceApp({
     writeRoute(applicationsHash());
   }
   async function transition(action: string) {
+    // QA-13: decisions that cannot be undone ask once before they run.
+    const confirmText: Record<string, { bn: string; en: string }> = {
+      approve: {
+        bn: "অনুমোদন করলে সঙ্গে সঙ্গে সনদ ইস্যু হবে এবং তা ফেরানো যাবে না। চালিয়ে যাবেন?",
+        en: "Approving issues the certificate immediately and cannot be undone. Continue?",
+      },
+      reject: {
+        bn: "আবেদনটি প্রত্যাখ্যান করবেন? এটি ফেরানো যাবে না।",
+        en: "Reject this application? This cannot be undone.",
+      },
+    };
+    if (confirmText[action] && !window.confirm(choose(confirmText[action])))
+      return;
     await api(`/applications/${application.id}/transition`, "POST", {
       action,
       ...(reason.trim() ? { reason: reason.trim() } : {}),
@@ -1132,6 +1152,16 @@ export function WorkspaceApp({
                           en: "Enter a revocation reason.",
                         }),
                       );
+                    // QA-13: revocation is permanent; confirm with the number.
+                    if (
+                      !window.confirm(
+                        choose({
+                          bn: `সনদ ${cert.number} প্রত্যাহার করবেন? এটি ফেরানো যাবে না।`,
+                          en: `Revoke certificate ${cert.number}? This cannot be undone.`,
+                        }),
+                      )
+                    )
+                      return;
                     await api(`/certificates/${cert.id}/revoke`, "POST", {
                       reason,
                     });
@@ -1179,9 +1209,11 @@ export function WorkspaceApp({
         <p className="office">
           {tx(recordName(session.tenant) || "Platform owner")}
           <small>
-            {tx(
-              session.tenant ? "Office workspace" : "Union services platform",
-            )}
+            {/* HOME-REDESIGN-01: a citizen is not in the office's workspace;
+                they are using that office's services. */}
+            {role === "citizen"
+              ? choose({ bn: "আপনার ইউনিয়ন অফিস", en: "Your union office" })
+              : tx(session.tenant ? "Office workspace" : "Union services platform")}
           </small>
         </p>
         {udcPreview ? (
@@ -1470,6 +1502,11 @@ export function WorkspaceApp({
         )}
         {page === "home" && !dashboardHome && (
           <>
+            {/* HOME-REDESIGN-01: a new citizen (no applications yet) sees
+            {/* what to do first; returning citizens keep their status on top. */}
+            {role === "citizen" && applications.length === 0 && (
+              <WorkspaceWelcome role={role} navigate={openTask} />
+            )}
             {role === "citizen" && (
               <section
                 className="citizen-status-home"
@@ -1614,7 +1651,9 @@ export function WorkspaceApp({
                 )}
               </section>
             )}
-            <WorkspaceWelcome role={role} navigate={openTask} />
+            {!(role === "citizen" && applications.length === 0) && (
+              <WorkspaceWelcome role={role} navigate={openTask} />
+            )}
             <section className="panel">
               <h2>
                 {choose({
@@ -3014,6 +3053,17 @@ export function WorkspaceApp({
                       application.state,
                     ) && (
                       <div className="detail-rail-actions">
+                        {/* QA-14: without an authorization for this service the
+                            decision buttons are replaced by a plain note. */}
+                        {detail.canApprove === false && (
+                          <p className="hint" role="note">
+                            {choose({
+                              bn: "এই সেবার আবেদন অনুমোদনের ক্ষমতা আপনাকে দেওয়া হয়নি। অফিস প্রশাসককে ‘অনুমোদনের ক্ষমতা’ থেকে এই সেবা যুক্ত করতে বলুন। আপনি সংশোধন চাইতে বা প্রত্যাখ্যান করতে পারবেন।",
+                              en: "You are not authorized to approve this service. Ask the office admin to add it under ‘Approval authority’. You can still request a correction or reject.",
+                            })}
+                          </p>
+                        )}
+                        {detail.canApprove !== false && (
                         <button
                           disabled={busy}
                           onClick={() => run(() => transition("approve"))}
@@ -3023,6 +3073,7 @@ export function WorkspaceApp({
                             en: "Approve and issue certificate",
                           })}
                         </button>
+                        )}
                         <button
                           disabled={busy}
                           className="secondary"
@@ -3035,16 +3086,20 @@ export function WorkspaceApp({
                             en: "Request correction",
                           })}
                         </button>
-                        <button
-                          disabled={busy}
-                          className="secondary"
-                          onClick={() => run(() => transition("summon"))}
-                        >
-                          {choose({
-                            bn: "আবেদনকারীকে আসতে বলুন",
-                            en: "Ask the applicant to come",
-                          })}
-                        </button>
+                        {/* QA-14: summon needs the service authorization;
+                            reject does not (server rule), so it stays. */}
+                        {detail.canApprove !== false && (
+                          <button
+                            disabled={busy}
+                            className="secondary"
+                            onClick={() => run(() => transition("summon"))}
+                          >
+                            {choose({
+                              bn: "আবেদনকারীকে আসতে বলুন",
+                              en: "Ask the applicant to come",
+                            })}
+                          </button>
+                        )}
                         {/* P0-4: the destructive action is separated from
                             the decision stack by a divider. */}
                         <div

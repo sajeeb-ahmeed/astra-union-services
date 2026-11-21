@@ -66,7 +66,7 @@ function releaseRenderer() {
   if (next) next();
   else activeRenders--;
 }
-async function launchBrowser(): Promise<Browser> {
+async function launchBrowser(light: boolean = lightMode): Promise<Browser> {
   const local = process.env.LOCALAPPDATA
     ? path.join(process.env.LOCALAPPDATA, "ms-playwright")
     : "";
@@ -91,7 +91,7 @@ async function launchBrowser(): Promise<Browser> {
     // of 5+, no zygote/GPU children, small footprint. --no-sandbox is part
     // of that profile only while the F3 opt-in is off: passing it alongside
     // chromiumSandbox:true would defeat the sandbox again.
-    ...(lightMode
+    ...(light
       ? {
           args: [
             "--single-process",
@@ -176,8 +176,27 @@ export async function generatePdf(
   }
   return renderHtmlPdf(renderCertificateHtml(input, qr, version));
 }
-/** Render only escaped, application-owned HTML; remote network resources are blocked. */
+/** Render only escaped, application-owned HTML; remote network resources are blocked.
+ * QA-03: if Chromium dies mid-render ("Target page, context or browser has been
+ * closed"), retry once in a fresh, dedicated browser with the full (non-light)
+ * profile instead of failing the chairman's issuance with a 500. */
 export async function renderHtmlPdf(html: string): Promise<Buffer> {
+  try {
+    return await renderHtmlPdfOnce(html, lightMode, lightMode);
+  } catch (error) {
+    if (!/closed|crash|disconnected|Target/i.test(String((error as Error)?.message)))
+      throw error;
+    console.warn(
+      "[pdf] Chromium closed during render; retrying once with a fresh full-profile browser.",
+    );
+    return renderHtmlPdfOnce(html, false, true);
+  }
+}
+async function renderHtmlPdfOnce(
+  html: string,
+  light: boolean,
+  dedicated: boolean,
+): Promise<Buffer> {
   await acquireRenderer();
   let page: import("playwright").Page | undefined;
   // Light mode never shares a browser: a single-process Chromium kept
@@ -189,8 +208,8 @@ export async function renderHtmlPdf(html: string): Promise<Buffer> {
   // to 1 in light mode, so per-render browsers never multiply.
   let ownBrowser: Browser | undefined;
   try {
-    const instance = lightMode
-      ? (ownBrowser = await launchBrowser())
+    const instance = dedicated
+      ? (ownBrowser = await launchBrowser(light))
       : await browser();
     page = await instance.newPage();
     await page.route("**/*", (route) =>

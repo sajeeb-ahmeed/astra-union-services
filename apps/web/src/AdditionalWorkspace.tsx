@@ -693,7 +693,12 @@ export function AdditionalWorkspace({
                         ? choose({ bn: "আবেদন পুনরায় জমা পড়েছে", en: "Application resubmitted" })
                         : n.kind === "APPLICATION_REJECTED"
                           ? choose({ bn: "আবেদন প্রত্যাখ্যান করা হয়েছে", en: "Application rejected" })
-                          : choose({ bn: "সনদ ইস্যু হয়েছে", en: "Certificate issued" });
+                          : /* QA-08: the two new citizen notifications. */
+                            n.kind === "APPLICATION_CORRECTION_REQUIRED"
+                            ? choose({ bn: "আবেদনে সংশোধন প্রয়োজন", en: "Correction requested" })
+                            : n.kind === "CERTIFICATE_REVOKED"
+                              ? choose({ bn: "সনদ প্রত্যাহার করা হয়েছে", en: "Certificate revoked" })
+                              : choose({ bn: "সনদ ইস্যু হয়েছে", en: "Certificate issued" });
                   const officeName = session.tenant
                     ? uiLanguage === "bn"
                       ? (session.tenant.nameBn ?? session.tenant.name_bn ?? "")
@@ -730,7 +735,11 @@ export function AdditionalWorkspace({
                         : ""}
                     </strong>
                     {tx(
-                      n.kind === "APPLICATION_REJECTED" && n.detail ? (
+                      [
+                        "APPLICATION_REJECTED",
+                        "APPLICATION_CORRECTION_REQUIRED",
+                        "CERTIFICATE_REVOKED",
+                      ].includes(n.kind) && n.detail ? (
                         <p>
                           {choose({ bn: "কারণ", en: "Reason" })}: {n.detail}
                         </p>

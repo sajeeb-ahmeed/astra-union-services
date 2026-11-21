@@ -1,4 +1,6 @@
 import React, { useEffect, useState, useSyncExternalStore } from "react";
+import { HelpWidget, UtilityBar } from "./PublicHelp.js";
+import { SUPPORT_CONTACT } from "./support-contact.js";
 import { choose, LanguageSwitcher, useLanguage } from "./i18n.js";
 import { useBranding } from "./branding.js";
 import { hasPageHead } from "./seo/head.js";
@@ -30,6 +32,9 @@ export const PUBLIC_NAV = [
 ] as const;
 
 const DRAWER_EXTRA = [
+  // HOME-REDESIGN-01: the phone header hides its Register button, so the
+  // drawer carries it.
+  { href: "/register", bn: "নতুন অ্যাকাউন্ট খুলুন", en: "Create an account" },
   { href: "/guide", bn: "ব্যবহার নির্দেশিকা", en: "User guide" },
   { href: "/policies", bn: "নীতি", en: "Policies" },
   { href: "/register-office", bn: "অফিস অ্যাকাউন্ট খুলুন", en: "Open an office account" },
@@ -323,6 +328,20 @@ export function SiteFooter({
             {link("/guide", "ব্যবহার নির্দেশিকা", "User guide")}
             {link("/policies", "নীতি", "Policies")}
           </ul>
+          {(SUPPORT_CONTACT.phone || SUPPORT_CONTACT.email) && (
+            <ul className="du-footer-contact">
+              {SUPPORT_CONTACT.phone && (
+                <li>
+                  <a href={`tel:${SUPPORT_CONTACT.phone.replace(/s+/g, "")}`}>{SUPPORT_CONTACT.phone}</a>
+                </li>
+              )}
+              {SUPPORT_CONTACT.email && (
+                <li>
+                  <a href={`mailto:${SUPPORT_CONTACT.email}`}>{SUPPORT_CONTACT.email}</a>
+                </li>
+              )}
+            </ul>
+          )}
           <div className="du-footer-subscribe">
             {subscribeSlot ?? <SubscriptionForm />}
           </div>
@@ -355,12 +374,14 @@ export function PublicShell({
       <a className="skip" href="#ax-content">
         {choose({ bn: "মূল অংশে যান", en: "Skip to main content" })}
       </a>
+      <UtilityBar />
       <SiteHeader current={current} />
       <main id="ax-content" className="ax-main">
         <GlobalNoticeBanner />
         {children}
       </main>
       <SiteFooter />
+      <HelpWidget />
     </div>
   );
 }

@@ -55,9 +55,10 @@ export function WorkspaceDashboard({
   const normalized = query
     .trim()
     .replace(/[০-৯]/g, (d) => String("০১২৩৪৫৬৭৮৯".indexOf(d)))
-    .toLowerCase();
+    .toLowerCase()
+    .normalize("NFC");
   const shown = services.filter((s) =>
-    `${s.service_no} ${s.name_bn} ${s.name_en}`.toLowerCase().includes(normalized),
+    `${s.service_no} ${s.name_bn} ${s.name_en}`.toLowerCase().normalize("NFC").includes(normalized),
   );
   /* P1-8: without a search the catalogue collapses to the frequent row;
      the full grid is one expander away (and lives in full on the

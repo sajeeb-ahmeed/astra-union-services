@@ -1,0 +1,54 @@
+/* HOME-REDESIGN-03: premium service icons. Each category gets an
+   app-icon tile — a two-stop gradient in its own hue, a white glyph, a
+   soft top highlight and a tinted drop shadow — used by the homepage
+   directory and every ServiceCard medallion. */
+.hsd-icon,
+.svc-medallion {
+  --ic-a: #3fb36b;
+  --ic-b: #04592c;
+  background: linear-gradient(150deg, var(--ic-a), var(--ic-b)) !important;
+  color: #fff !important;
+  border-radius: 14px;
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 35%),
+    inset 0 -2px 0 rgb(0 0 0 / 10%),
+    0 8px 16px -6px color-mix(in srgb, var(--ic-b) 55%, transparent);
+}
+.hsd-icon svg,
+.svc-medallion svg {
+  stroke-width: 1.8;
+  filter: drop-shadow(0 1px 0 rgb(0 0 0 / 12%));
+}
+.cat-tint-0.hsd-icon, .cat-tint-0.svc-medallion { --ic-a: #3fb36b; --ic-b: #04592c; }
+.cat-tint-1.hsd-icon, .cat-tint-1.svc-medallion { --ic-a: #e0668c; --ic-b: #8c2d4a; }
+.cat-tint-2.hsd-icon, .cat-tint-2.svc-medallion { --ic-a: #4f86c6; --ic-b: #00356e; }
+.cat-tint-3.hsd-icon, .cat-tint-3.svc-medallion { --ic-a: #33a383; --ic-b: #0b5c46; }
+.cat-tint-4.hsd-icon, .cat-tint-4.svc-medallion { --ic-a: #f0b445; --ic-b: #a86400; }
+.cat-tint-5.hsd-icon, .cat-tint-5.svc-medallion { --ic-a: #a56cc1; --ic-b: #5b2a72; }
+.cat-tint-6.hsd-icon, .cat-tint-6.svc-medallion { --ic-a: #2fb1a3; --ic-b: #00594f; }
+.cat-tint-7.hsd-icon, .cat-tint-7.svc-medallion { --ic-a: #e46a5a; --ic-b: #9b2c1f; }
+.cat-tint-8.hsd-icon, .cat-tint-8.svc-medallion { --ic-a: #4a9be0; --ic-b: #144a7a; }
+.cat-tint-9.hsd-icon, .cat-tint-9.svc-medallion { --ic-a: #8aa094; --ic-b: #43584a; }
+.hsd-icon {
+  width: 54px;
+  height: 54px;
+}
+.hsd-icon svg {
+  width: 27px;
+  height: 27px;
+}
+.hsd-tile:hover .hsd-icon,
+.hsd-tile:focus-visible .hsd-icon {
+  transform: translateY(-1px) scale(1.04);
+}
+.hsd-icon {
+  transition: transform var(--du-motion-fast, 140ms ease);
+}
+@media (prefers-reduced-motion: reduce) {
+  .hsd-icon {
+    transition: none;
+  }
+  .hsd-tile:hover .hsd-icon {
+    transform: none;
+  }
+}

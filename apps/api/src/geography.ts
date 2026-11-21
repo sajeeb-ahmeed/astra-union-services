@@ -221,9 +221,13 @@ export async function citizenAddressParts(
 ): Promise<{ permanent?: GeoNameParts; present?: GeoNameParts }> {
   const permanent = await resolveGeoParts(db, geographyRow(citizen));
   if (permanent?.union && tenant && citizen.union_code && citizen.union_code === tenant.union_code) {
-    const bnStem = String(tenant.name_bn ?? "").replace(/\s*ইউনিয়ন পরিষদ\s*$/u, "").trim();
-    const enStem = String(tenant.name_en ?? "").replace(/\s+Union Parishad\s*$/i, "").trim();
-    if (bnStem && enStem) permanent.union = { bn: bnStem, en: enStem };
+    const bnStem = String(tenant.name_bn ?? "").replace(/\s*ইউনিয়ন(\s*পরিষদ)?\s*$/u, "").trim();
+    const enStem = String(tenant.name_en ?? "").replace(/\s+Union(\s+Parishad)?\s*$/i, "").trim();
+    // QA-07: only trust the office name when it reduces to a plain stem. A name
+    // such as "কিউএ ইউনিয়ন এ" still contains the word after stripping, and the
+    // template would print "… ইউনিয়ন এ ইউনিয়ন"; keep the dataset name then.
+    if (bnStem && enStem && !/ইউনিয়ন/u.test(bnStem) && !/\bUnion\b/i.test(enStem))
+      permanent.union = { bn: bnStem, en: enStem };
   }
   let present: GeoNameParts | undefined;
   if (citizen.present_same_as_permanent === false) {

@@ -94,6 +94,8 @@ import { publicEmailRouter, emailRouter } from "./email-verification.js";
 import {
   notifyCertificateIssued,
   notifyApplicationRejected,
+  notifyCertificateRevoked,
+  notifyCorrectionRequired,
 } from "./status-notifications.js";
 import {
   ownerOfficeRegistrationRouter,
@@ -620,16 +622,47 @@ app.get(
       candidates.push(digitsOnly, `DEMO-${digitsOnly}`);
     }
     let record: any;
+    let matched = "";
     for (const candidate of candidates) {
       record = (
         await pool.query("SELECT * FROM public_verify_by_number($1)", [candidate])
       ).rows[0];
-      if (record) break;
+      if (record) {
+        matched = candidate;
+        break;
+      }
     }
     if (!record) fail(404, "NOT_FOUND", "Verification record not found.");
-    res.json(camelRow(record));
+    // QA-06: a demo-mode number must never verify as a real document, and the
+    // verifier gets a masked holder name to compare against the paper.
+    const holder = (
+      await pool.query("SELECT * FROM public_verify_holder_by_number($1)", [
+        matched,
+      ])
+    ).rows[0];
+    res.json({
+      ...camelRow(record),
+      demo: Boolean(record.demo) || matched.startsWith("DEMO-"),
+      holderMaskedBn: holder ? maskName(holder.name_bn) : null,
+      holderMaskedEn: holder ? maskName(holder.name_en) : null,
+    });
   }),
 );
+/** QA-06: "রহিম উদ্দিন" -> "র**ম উ***ন": first and last grapheme of each word,
+ * so a verifier can match the paper without the full name being published. */
+function maskName(name: unknown): string | null {
+  if (typeof name !== "string" || !name.trim()) return null;
+  const seg = new Intl.Segmenter(undefined, { granularity: "grapheme" });
+  return name
+    .trim()
+    .split(/\s+/)
+    .map((word) => {
+      const g = [...seg.segment(word)].map((s) => s.segment);
+      if (g.length <= 2) return g[0] + "*".repeat(g.length - 1);
+      return g[0] + "*".repeat(g.length - 2) + g[g.length - 1];
+    })
+    .join(" ");
+}
 const loginAttempts = new Map<string, { count: number; expires: number }>();
 const identifierAttempts = new Map<string, { count: number; expires: number }>();
 app.post(
@@ -1076,6 +1109,13 @@ app.post(
               Number.isFinite(Date.parse(value)) &&
               new Date(value).toISOString().slice(0, 10) === value,
             "A valid ISO calendar date is required.",
+          )
+          // QA-16: no future or implausible birth dates.
+          .refine(
+            (value) =>
+              value <= new Date().toISOString().slice(0, 10) &&
+              value >= "1900-01-01",
+            "জন্ম তারিখ আজকের বা তার আগের হতে হবে। / Date of birth must be today or earlier.",
           ),
         addressBn: z.string().min(4).max(500),
         addressEn: z.string().min(4).max(500),
@@ -1475,6 +1515,17 @@ app.get(
             )
           ).rows[0],
         ),
+        // QA-14: tell the approver UI whether this user may decide this
+        // service, so it can hide decision buttons instead of letting the
+        // click fail with APPROVAL_AUTHORITY_REQUIRED.
+        canApprove:
+          a.role === "approver" &&
+          (
+            await db.query(
+              "SELECT 1 FROM approval_authorizations WHERE tenant_id=$1 AND user_id=$2 AND service_no=$3 AND active",
+              [a.tenantId, a.userId, r.service_no],
+            )
+          ).rowCount! > 0,
       };
     });
     res.json(result);
@@ -2318,12 +2369,24 @@ app.post(
           "INSERT INTO outbox_events(tenant_id,kind,resource_id,detail) VALUES($1,'APPLICATION_REJECTED',$2,$3)",
           [a.tenantId, r.id, data.reason],
         );
+      // QA-08: the citizen also hears about a correction request, with the reason.
+      else if (data.action === "request_correction")
+        await db.query(
+          "INSERT INTO outbox_events(tenant_id,kind,resource_id,detail) VALUES($1,'APPLICATION_CORRECTION_REQUIRED',$2,$3)",
+          [a.tenantId, r.id, data.reason],
+        );
       return camelRow(updated);
     });
     // Phase X: a rejection also reaches the citizen by email and status SMS (the in-app
     // notification with the reason was written inside the transaction above).
     if (data.action === "reject")
       await notifyApplicationRejected({
+        tenantId: a.tenantId!,
+        applicationId: String(req.params.id),
+        reason: data.reason!,
+      });
+    else if (data.action === "request_correction")
+      await notifyCorrectionRequired({
         tenantId: a.tenantId!,
         applicationId: String(req.params.id),
         reason: data.reason!,
@@ -2387,6 +2450,14 @@ app.get(
       ).rows[0];
       if (!c) fail(404, "NOT_FOUND", "Certificate not found.");
       await loadApplication(db, c.application_id, a);
+      // QA-12: a revoked certificate must not keep circulating as a clean PDF.
+      // The holder can no longer download it; office staff keep access for records.
+      if (c.status === "REVOKED" && a.role === "citizen")
+        fail(
+          410,
+          "CERTIFICATE_REVOKED",
+          "এই সনদটি প্রত্যাহার করা হয়েছে এবং আর ডাউনলোড করা যাবে না। / This certificate has been revoked and can no longer be downloaded.",
+        );
       // CERTNO-01: the default download keeps the established behaviour —
       // the language the citizen ordered (the order snapshot's
       // certificate_language), Bangla when there is no snapshot.
@@ -2431,6 +2502,7 @@ app.post(
       .object({ reason: z.string().trim().min(3).max(500) })
       .strict()
       .parse(req.body);
+    let revokedNow: { applicationId: string; number: string } | undefined;
     const result = await transaction(tenant(req), async (db) => {
       const c = (
         await db.query(
@@ -2453,8 +2525,21 @@ app.post(
         [r.id],
       );
       await event(db, r, a, "revoke", "REVOKED", data.reason);
+      // QA-08: the holder sees the revocation (with the reason) in the in-app feed.
+      await db.query(
+        "INSERT INTO outbox_events(tenant_id,kind,resource_id,detail) VALUES($1,'CERTIFICATE_REVOKED',$2,$3)",
+        [a.tenantId, c.id, data.reason],
+      );
+      revokedNow = { applicationId: r.id, number: c.number };
       return certificateRow(revised);
     });
+    if (revokedNow)
+      await notifyCertificateRevoked({
+        tenantId: a.tenantId!,
+        applicationId: revokedNow.applicationId,
+        certificateNumber: revokedNow.number,
+        reason: data.reason,
+      });
     res.json(result);
   }),
 );
@@ -2898,26 +2983,49 @@ app.use(
               : status === 400
                 ? "INPUT_INVALID"
                 : "INTERNAL_ERROR";
+    // QA-03: every server failure gets a short reference that is logged with the
+    // full error and returned to the user, so a report can be traced. Only the
+    // method and path are logged (never the query string or body, which can
+    // carry personal data).
+    const errorId =
+      status >= 500 ? randomUUID().replace(/-/g, "").slice(0, 10) : undefined;
+    if (errorId)
+      console.error(
+        `[api-error ${errorId}] ${req.method} ${req.path} ->`,
+        error,
+      );
+    // QA-17: generic messages are bilingual so the Bangla UI never shows a
+    // bare English sentence.
     const message =
       error instanceof ApiError
         ? error.message
         : error instanceof z.ZodError
-          ? "Input validation failed."
+          ? "তথ্য সঠিক নয় — চিহ্নিত ঘরগুলো দেখুন। / Input validation failed."
           : status === 409
-            ? "A duplicate record already exists."
+            ? "একই তথ্য আগে থেকেই আছে। / A duplicate record already exists."
             : status === 413
-              ? "Request body exceeds the allowed size."
+              ? "ফাইল বা তথ্য অনুমোদিত আকারের চেয়ে বড়। / Request body exceeds the allowed size."
               : status === 400
-                ? "Input validation failed."
-                : "The operation could not be completed.";
+                ? "তথ্য সঠিক নয় — চিহ্নিত ঘরগুলো দেখুন। / Input validation failed."
+                : `কাজটি সম্পন্ন করা যায়নি। সহায়তার জন্য এই রেফারেন্স দিন: ${errorId} / The operation could not be completed (ref ${errorId}).`;
+    // QA-17: a ZodError now also returns its field issues, so the UI can point
+    // at the exact field instead of only "Input validation failed."
+    const issues =
+      error instanceof ApiError && error.issues
+        ? error.issues
+        : error instanceof z.ZodError
+          ? error.issues.map((i) => ({
+              path: i.path.join("."),
+              message: i.message,
+            }))
+          : undefined;
     const send = () =>
       res.status(status).json({
         error: {
           code,
           message,
-          ...(error instanceof ApiError && error.issues
-            ? { issues: error.issues }
-            : {}),
+          ...(issues ? { issues } : {}),
+          ...(errorId ? { errorId } : {}),
         },
       });
     if (req.auth?.tenantId && [403, 404].includes(status)) {

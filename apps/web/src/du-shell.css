@@ -396,3 +396,77 @@
     animation: none;
   }
 }
+
+/* HOME-REDESIGN-01: one compact header row on phones. The actions used to
+   wrap into three stacked rows (~350px of chrome before any content).
+   Register stays one tap away in the hero, the menu drawer and the
+   bottom nav; the language switch shrinks to two short buttons. */
+@media (max-width: 600px) {
+  .du-header-row {
+    gap: 8px;
+    padding-block: 8px;
+  }
+  .du-header-actions {
+    flex-wrap: nowrap;
+    gap: 6px;
+  }
+  .du-header-actions .du-btn-ghost {
+    display: none;
+  }
+  .du-header .du-btn {
+    min-height: 40px;
+    padding: 7px 12px;
+    font-size: 14.5px;
+  }
+  .du-header .du-brand-mini strong {
+    font-size: 16.5px;
+  }
+  .du-header .du-brand-mini small {
+    display: none;
+  }
+  .du-header .du-brand-mini img {
+    width: 36px;
+    height: 36px;
+  }
+  .du-header-actions .language-switch {
+    padding: 2px;
+  }
+  .du-header-actions .language-switch button {
+    min-height: 36px;
+    padding: 4px 8px;
+    font-size: 13.5px;
+  }
+}
+/* HOME-REDESIGN-01: fit brand + language + sign-in in one 375px row. */
+@media (max-width: 600px) {
+  .du-header .brand-mark {
+    width: 36px;
+    height: 36px;
+  }
+  .du-header .brand-lockup {
+    gap: 7px;
+  }
+  .du-header .brand-lockup[data-lockup] .brand-lockup-bn {
+    font-size: 16.5px;
+  }
+  .du-header .brand-lockup-en {
+    display: none;
+  }
+}
+@media (max-width: 360px) {
+  .du-header .brand-lockup-words {
+    display: none;
+  }
+}
+@media (max-width: 600px) {
+  .du-header .du-header-actions .language-switch button {
+    min-width: 0;
+    padding: 4px 7px;
+  }
+  .du-header .du-header-actions .du-btn-primary {
+    padding-inline: 11px;
+  }
+  .du-header .brand-lockup[data-lockup] .brand-lockup-bn {
+    font-size: 15.5px;
+  }
+}

@@ -4,14 +4,11 @@ import { choose, useLanguage } from "./i18n.js";
 import serviceCatalog from "./public-service-catalog.json" with { type: "json" };
 import { PublicShell } from "./PublicShell.js";
 import { PublicOffers } from "./GlobalNotices.js";
-import { ServiceCard, serviceCardMetaRich } from "./ui/kit.js";
-import {
-  loadServiceOfficeSummaries,
-  type ServiceOfficeSummary,
-} from "./service-office-summary.js";
 import { categoryLabel } from "./service-categories.js";
 import { servicePath } from "./service-slugs.js";
-import { SampleCertificate, TrustStrip } from "./TrustVisual.js";
+import { TrustStrip } from "./TrustVisual.js";
+import { HomeServiceDirectory, NoticeTicker } from "./HomeServiceDirectory.js";
+import { HeroCarousel } from "./HeroCarousel.js";
 import { useFormatters } from "./ui/fmt.js";
 import "./public-home.css";
 
@@ -53,7 +50,6 @@ function OfficePhotoBand() {
   );
 }
 
-const POPULAR = [12, 2, 42, 1, 3, 8, 45, 35];
 const FAQS: { q: { bn: string; en: string }; a: { bn: string; en: string } }[] = [
   {
     q: { bn: "নাগরিক নিবন্ধনে কি কোনো ফি লাগে?", en: "Is there a fee to register as a citizen?" },
@@ -113,13 +109,107 @@ const FAQS: { q: { bn: string; en: string }; a: { bn: string; en: string } }[] =
   },
 ];
 
+/** Small stroke icons for the task tiles and trust pillars (decorative). */
+function Icon({ name }: { name: "apply" | "track" | "verify" | "chair" | "lock" | "info" | "seal" | "fee" | "inbox" }) {
+  const paths: Record<string, React.ReactNode> = {
+    apply: (<><path d="M7 3h7l5 5v13H7z" /><path d="M14 3v5h5" /><path d="M10 13h6M10 17h4" /></>),
+    track: (<><circle cx="12" cy="12" r="8.5" /><path d="M12 7.5V12l3 2" /></>),
+    verify: (<><path d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4z" /><path d="M14 14h2v2h-2zM18 18h2v2h-2zM14 18h2M18 14h2" /></>),
+    chair: (<><circle cx="12" cy="7.5" r="3.5" /><path d="M5 20c.8-3.6 3.6-6 7-6s6.2 2.4 7 6" /><path d="m15.5 17 1.7 1.7 3.3-3.4" /></>),
+    lock: (<><rect x="5" y="10.5" width="14" height="10" rx="2" /><path d="M8.5 10.5V7.5a3.5 3.5 0 0 1 7 0v3" /></>),
+    info: (<><circle cx="12" cy="12" r="8.5" /><path d="M12 11v5.5M12 7.8v.2" /></>),
+    seal: (<><circle cx="12" cy="10" r="6" /><path d="m9.5 10 1.7 1.7L14.7 8.5" /><path d="M9 15.3 8 21l4-2 4 2-1-5.7" /></>),
+    fee: (<><path d="M6 4h11M6 9h11M6 4c5 0 5 5 0 5l8 11" /></>),
+    inbox: (<><path d="M4 13.5 6.5 5h11l2.5 8.5V19H4z" /><path d="M4 13.5h4.5l1.5 2.5h4l1.5-2.5H20" /></>),
+  };
+  return (
+    <svg className="hx-icon" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      {paths[name]}
+    </svg>
+  );
+}
+
 /**
- * FULL-UIUX-01: the homepage is a composed landing (BD-LANDING-PLAN-01's
- * 10-section blueprint), not the catalog. Hero → trust strip → notices →
- * service discovery → how it works (+ account) → verification spotlight →
- * for offices → onboarding CTA → FAQ → footer (shell). The full 47-service
- * grid lives only on /services. Every claim stays inside the BD verified
- * proof list; no invented statistics, no price table, no testimonials.
+ * HOME-REDESIGN-01: what anyone sees after scanning a certificate's QR —
+ * the product's core trust promise, shown on the hero certificate. Static
+ * sample (marked as such); mirrors the real /verify result rows, including
+ * the partly masked holder name.
+ */
+function VerifyResultSample() {
+  return (
+    <div className="hx-verify-card" aria-hidden="true">
+      <div className="hx-verify-card-head">
+        <span className="hx-verify-tick">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="m5 12.5 4.5 4.5L19 7.5" /></svg>
+        </span>
+        <div>
+          <strong>{choose({ bn: "সনদ বৈধ — ইস্যু হয়েছে", en: "Valid — certificate issued" })}</strong>
+          <small>{choose({ bn: "QR স্ক্যান করলে যা দেখবেন (নমুনা)", en: "What a QR scan shows (sample)" })}</small>
+        </div>
+      </div>
+      <dl>
+        <dt>{choose({ bn: "অফিস", en: "Office" })}</dt>
+        <dd>{choose({ bn: "বেলাবো ইউনিয়ন পরিষদ", en: "Belabo Union Parishad" })}</dd>
+        <dt>{choose({ bn: "সেবা", en: "Service" })}</dt>
+        <dd>{choose({ bn: "নাগরিকত্ব সনদ", en: "Citizenship certificate" })}</dd>
+        <dt>{choose({ bn: "সনদধারী", en: "Holder" })}</dt>
+        <dd>{choose({ bn: "আ**ল ক***ম", en: "A***l K***m" })}</dd>
+      </dl>
+    </div>
+  );
+}
+
+/**
+ * HOME-REDESIGN-01: a static, clearly-marked sample of the chairman's queue
+ * for the offices section — shows the buyer the daily workflow instead of
+ * describing it. No real names or numbers.
+ */
+function ChairmanQueueSample() {
+  const rows = [
+    { bn: "নাগরিকত্ব সনদ", en: "Citizenship certificate", sBn: "নতুন জমা", sEn: "New", tone: "new" },
+    { bn: "ওয়ারিশ সনদ", en: "Heirship certificate", sBn: "সংশোধনের পর জমা", sEn: "Resubmitted", tone: "re" },
+    { bn: "ট্রেড লাইসেন্স", en: "Trade licence", sBn: "নতুন জমা", sEn: "New", tone: "new" },
+  ];
+  return (
+    <figure className="hx-queue" aria-label={choose({ bn: "চেয়ারম্যানের অপেক্ষমাণ তালিকা — নমুনা", en: "Chairman's pending queue — sample" })}>
+      <div className="hx-queue-bar">
+        <strong>{choose({ bn: "অপেক্ষমাণ আবেদন", en: "Pending applications" })}</strong>
+        <span className="hx-queue-sample">{choose({ bn: "নমুনা", en: "Sample" })}</span>
+      </div>
+      <ul>
+        {rows.map((r) => (
+          <li key={r.en}>
+            <div>
+              <strong>{choose({ bn: r.bn, en: r.en })}</strong>
+              <span className={`hx-queue-state is-${r.tone}`}>{choose({ bn: r.sBn, en: r.sEn })}</span>
+            </div>
+            <div className="hx-queue-actions">
+              <span className="hx-queue-btn is-primary">{choose({ bn: "অনুমোদন", en: "Approve" })}</span>
+              <span className="hx-queue-btn">{choose({ bn: "সংশোধন", en: "Correction" })}</span>
+            </div>
+          </li>
+        ))}
+      </ul>
+      <figcaption>
+        {choose({
+          bn: "নথি খুলে দেখুন, এক ক্লিকে অনুমোদন দিন — সনদ সঙ্গে সঙ্গে তৈরি হয়।",
+          en: "Open the documents, approve in one click — the certificate is generated at once.",
+        })}
+      </figcaption>
+    </figure>
+  );
+}
+
+/**
+ * HOME-REDESIGN-01 (supersedes the FULL-UIUX-01 composition): one job per
+ * section and one primary action per audience.
+ *   Hero (citizen: find + apply; the certificate with its verify result)
+ *   → three task tiles (apply · track · verify) → notices → popular services
+ *   → how it works (a real sequence) → why trust it (honest pillars + the
+ *   verified-proof list) → verify box → for offices (the B2B pitch with a
+ *   sample of the chairman's queue, onboarding steps and one CTA) → FAQ.
+ * Every claim stays inside the BD verified proof list; no invented
+ * statistics, no price table, no testimonials.
  */
 export function PublicHome({ login }: { login?: React.ReactNode } = {}) {
   const [lang] = useLanguage();
@@ -132,18 +222,6 @@ export function PublicHome({ login }: { login?: React.ReactNode } = {}) {
     });
   }, [lang]);
   const fmt = useFormatters();
-  // BUNDLE06-R5 C2: published fee/time summaries for the service cards.
-  const [officeSummaries, setOfficeSummaries] =
-    useState<Map<number, ServiceOfficeSummary> | null>(null);
-  useEffect(() => {
-    let active = true;
-    void loadServiceOfficeSummaries().then((map) => {
-      if (active) setOfficeSummaries(map);
-    });
-    return () => {
-      active = false;
-    };
-  }, []);
   const [query, setQuery] = useState("");
   const [searchFocus, setSearchFocus] = useState(false);
   const [notices, setNotices] = useState<any[] | null>(null);
@@ -162,18 +240,15 @@ export function PublicHome({ login }: { login?: React.ReactNode } = {}) {
   const normalized = query
     .trim()
     .replace(/[০-৯]/g, (d) => String("০১২৩৪৫৬৭৮৯".indexOf(d)))
-    .toLowerCase();
+    .toLowerCase()
+    .normalize("NFC");
   const matches = normalized
     ? serviceCatalog
         .filter((s) =>
-          `${s.service_no} ${s.name_bn} ${s.name_en}`.toLowerCase().includes(normalized),
+          `${s.service_no} ${s.name_bn} ${s.name_en}`.toLowerCase().normalize("NFC").includes(normalized),
         )
         .slice(0, 6)
     : [];
-  const popular = POPULAR.map((no) =>
-    serviceCatalog.find((s) => s.service_no === no),
-  ).filter(Boolean) as typeof serviceCatalog;
-  const categories = [...new Set(serviceCatalog.map((s) => s.category_en))];
   function submitVerify(e: React.FormEvent) {
     e.preventDefault();
     const number = certificateNumberInput(verifyInput);
@@ -195,28 +270,29 @@ export function PublicHome({ login }: { login?: React.ReactNode } = {}) {
   }
   return (
     <PublicShell current="/">
-      {/* §2 Hero — the Civic Stage: deep-green stage, one dominant search,
-          the certificate itself as the visual (marked sample). */}
-      <section className="home-hero">
-        <div className="ax-container home-hero-grid">
-          <div className="home-hero-copy">
-            <span className="home-hero-eyebrow">
+      {notices && notices.length > 0 && <NoticeTicker notices={notices} />}
+      {/* Hero — citizens first: one search, one primary action, and the
+          product's proof (a certificate with what its QR scan shows). */}
+      <section className="hx-hero">
+        <div className="ax-container hx-hero-grid">
+          <div className="hx-hero-copy">
+            <p className="hx-hero-kicker">
               {choose({ bn: "ইউনিয়ন পরিষদের নাগরিক সেবা", en: "Union Parishad citizen services" })}
-            </span>
+            </p>
             <h1>
               {choose({
                 bn: "আপনার ইউনিয়নের সনদ, এখন অনলাইনে",
                 en: "Your union's certificates, now online",
               })}
             </h1>
-            <p className="home-hero-sub">
+            <p className="hx-hero-sub">
               {choose({
-                bn: "ঘরে বসে আবেদন করুন — চেয়ারম্যানের অনুমোদনে QR-যাচাইযোগ্য সনদ, বাংলা ও ইংরেজি দুই ভাষাতেই।",
-                en: "Apply from home — a QR-verifiable certificate with your chairman's approval, in Bangla and English.",
+                bn: "ঘরে বসে আবেদন করুন। চেয়ারম্যান নিজে যাচাই করে সনদ দেন — বাংলা ও ইংরেজিতে, QR দিয়ে যে কেউ যাচাই করতে পারে।",
+                en: "Apply from home. Your chairman checks and issues the certificate — in Bangla and English, verifiable by anyone with its QR code.",
               })}
             </p>
             <form
-              className="home-hero-search"
+              className="hx-search"
               role="search"
               onSubmit={(e) => {
                 e.preventDefault();
@@ -225,9 +301,13 @@ export function PublicHome({ login }: { login?: React.ReactNode } = {}) {
               }}
             >
               <label htmlFor="home-service-search">
-                {choose({ bn: "কোন সনদ লাগবে? খুঁজুন…", en: "Which certificate do you need? Search…" })}
+                {choose({ bn: "কোন সনদ লাগবে?", en: "Which certificate do you need?" })}
               </label>
-              <div className="home-hero-search-row">
+              <div className="hx-search-row">
+                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden="true">
+                  <circle cx="11" cy="11" r="6.5" />
+                  <path d="m16 16 4 4" />
+                </svg>
                 <input
                   id="home-service-search"
                   ref={searchRef}
@@ -237,17 +317,15 @@ export function PublicHome({ login }: { login?: React.ReactNode } = {}) {
                   onFocus={() => setSearchFocus(true)}
                   onBlur={() => window.setTimeout(() => setSearchFocus(false), 150)}
                   placeholder={choose({
-                    bn: "সেবার নাম বা নম্বর লিখুন",
-                    en: "Type a service name or number",
+                    bn: "যেমন: নাগরিকত্ব, ওয়ারিশ, ট্রেড লাইসেন্স",
+                    en: "e.g. citizenship, heirship, trade licence",
                   })}
                   autoComplete="off"
                 />
-                <button type="submit">
-                  {choose({ bn: "খুঁজুন", en: "Search" })}
-                </button>
+                <button type="submit">{choose({ bn: "খুঁজুন", en: "Search" })}</button>
               </div>
               {searchFocus && normalized && (
-                <div className="home-hero-results">
+                <div className="hx-search-results">
                   {matches.length ? (
                     matches.map((s) => (
                       <a key={s.service_no} href={servicePath(s.service_no)}>
@@ -256,320 +334,346 @@ export function PublicHome({ login }: { login?: React.ReactNode } = {}) {
                       </a>
                     ))
                   ) : (
-                    <p>
-                      {choose({
-                        bn: "এই নামে কোনো সেবা পাওয়া যায়নি। সব সেবা দেখুন →",
-                        en: "No service by that name. See all services →",
-                      })}
-                    </p>
+                    <a href="/services">
+                      <strong>
+                        {choose({
+                          bn: "এই নামে কোনো সেবা পাওয়া যায়নি",
+                          en: "No service by that name",
+                        })}
+                      </strong>
+                      <small>{choose({ bn: "সব ৪৭টি সেবা দেখুন", en: "See all 47 services" })}</small>
+                    </a>
                   )}
                 </div>
               )}
             </form>
-            <div className="home-hero-ctas">
-              <a className="button home-cta-primary" href="/register">
-                {choose({ bn: "সনদের জন্য আবেদন করুন", en: "Apply for a certificate" })}
+            <div className="hx-hero-ctas">
+              <a className="button hx-cta-light" href="/register">
+                {choose({ bn: "বিনামূল্যে অ্যাকাউন্ট খুলুন", en: "Create a free account" })}
               </a>
-              <a className="button home-cta-secondary" href="#for-offices">
-                {choose({ bn: "আপনার ইউনিয়ন যুক্ত করুন", en: "Bring your union online" })}
-              </a>
-              <a className="home-hero-verify-link" href="/verify">
-                {choose({ bn: "সনদ যাচাই করুন →", en: "Verify a certificate →" })}
-              </a>
+              <p>
+                {choose({ bn: "অ্যাকাউন্ট আছে?", en: "Have an account?" })}{" "}
+                <a href="/login">{choose({ bn: "লগইন করুন", en: "Sign in" })}</a>
+              </p>
             </div>
           </div>
-          <div className="home-hero-visual">
-            <SampleCertificate />
-            <p className="home-hero-visual-note">
-              {choose({
-                bn: "প্রতিটি সনদে থাকে ১৬ ডিজিটের নম্বর ও QR কোড — নমুনা চিত্র।",
-                en: "Every certificate carries a 16-digit number and a QR code — sample shown.",
-              })}
-            </p>
+          <div className="hx-hero-visual">
+            <HeroCarousel />
           </div>
         </div>
       </section>
+
+      {/* The three things people come to do. */}
+      <nav className="hx-tasks" aria-label={choose({ bn: "আপনি কী করতে চান", en: "What do you want to do" })}>
+        <div className="ax-container hx-tasks-grid">
+          {[
+            {
+              icon: "apply" as const,
+              href: "/services",
+              bn: "নতুন আবেদন",
+              en: "Apply for a certificate",
+              dBn: "সেবা বেছে নিন, নির্দেশিত ফরম পূরণ করে জমা দিন।",
+              dEn: "Choose the service, fill the guided form and submit.",
+            },
+            {
+              icon: "track" as const,
+              href: "/tracking",
+              bn: "আবেদনের অবস্থা",
+              en: "Track an application",
+              dBn: "জমার রেফারেন্স নম্বর দিয়ে দেখুন কোন ধাপে আছে।",
+              dEn: "Use your reference number to see where it stands.",
+            },
+            {
+              icon: "verify" as const,
+              href: "/verify",
+              bn: "সনদ যাচাই",
+              en: "Verify a certificate",
+              dBn: "QR স্ক্যান বা ১৬ সংখ্যার নম্বর — অ্যাকাউন্ট লাগে না।",
+              dEn: "Scan the QR or type the 16-digit number — no account needed.",
+            },
+          ].map((t) => (
+            <a key={t.href} className="hx-task" href={t.href}>
+              <Icon name={t.icon} />
+              <span>
+                <strong>{choose({ bn: t.bn, en: t.en })}</strong>
+                <small>{choose({ bn: t.dBn, en: t.dEn })}</small>
+              </span>
+            </a>
+          ))}
+        </div>
+      </nav>
+
       <PublicOffers />
-      {/* §3 Trust strip — verified proof only. */}
-      <section className="home-band home-trust" aria-label={choose({ bn: "ইতিমধ্যে লাইভ", en: "Already live" })}>
+
+      {/* Popular services; the full 47 live on /services. */}
+      <section className="hx-band" aria-labelledby="home-services-heading">
         <div className="ax-container">
-          <h2 className="home-band-title">
-            {choose({ bn: "ইতিমধ্যে লাইভ", en: "Already live" })}
-          </h2>
-          <TrustStrip />
+          <div className="hx-band-head">
+            <div>
+              <h2 id="home-services-heading">
+                {choose({ bn: "আমাদের সেবাসমূহ", en: "Our services" })}
+              </h2>
+              <p className="hx-lede">
+                {choose({
+                  bn: "সেবা বেছে নিন — কী কী লাগবে দেখে অনলাইনে আবেদন করুন।",
+                  en: "Pick a service, see what you need, and apply online.",
+                })}
+              </p>
+            </div>
+            <a href="/services">{choose({ bn: "সব ৪৭টি সেবা", en: "All 47 services" })}</a>
+          </div>
+          <HomeServiceDirectory />
         </div>
       </section>
-      {/* Notices band — every notice attributed to its office (checklist A15). */}
-      {notices && notices.length > 0 && (
-        <section
-          className={`home-band home-notices${notices.length < 3 ? " is-ticker" : ""}`}
-          aria-label={choose({ bn: "অফিসের বিজ্ঞপ্তি", en: "Office notices" })}
-        >
-          <div className="ax-container">
-            <div className="home-band-head">
-              <h2 className="home-band-title">
-                {choose({ bn: "অফিসের বিজ্ঞপ্তি", en: "Office notices" })}
-              </h2>
-              <a href="/notices">{choose({ bn: "সব বিজ্ঞপ্তি →", en: "All notices →" })}</a>
-            </div>
-            <ul className="home-notice-list">
-              {notices.map((n: any) => (
-                <li key={n.id}>
-                  <a href="/notices">{choose({ bn: n.titleBn, en: n.titleEn })}</a>
-                  {/* REFINEMENT-02 P2-1: every notice carries its date +
-                      office attribution chip. */}
-                  <small>
-                    <span className="home-notice-office">
-                      {choose({ bn: n.officeBn, en: n.officeEn }) ||
-                        choose({ bn: "প্ল্যাটফর্ম", en: "Platform" })}
-                    </span>
-                    {(n.createdAt ?? n.startsAt ?? n.created_at) && (
-                      <span className="home-notice-date">
-                        {fmt.date(n.createdAt ?? n.startsAt ?? n.created_at)}
-                      </span>
-                    )}
-                  </small>
-                </li>
-              ))}
-            </ul>
-          </div>
-        </section>
-      )}
-      {/* §4 Service discovery — popular services + categories; the full
-          grid lives only on /services. */}
-      <section className="home-band" aria-labelledby="home-services-heading">
+
+      {/* How it works — a real sequence, so it is numbered. */}
+      <section className="hx-band hx-how" aria-labelledby="home-how-heading">
         <div className="ax-container">
-          <h2 id="home-services-heading" className="home-band-title">
-            {choose({ bn: "সব সেবা — ৪৭টি ইউনিয়ন সেবা", en: "All 47 union services" })}
+          <h2 id="home-how-heading">
+            {choose({ bn: "চার ধাপে সনদ", en: "Your certificate in four steps" })}
           </h2>
-          <p className="home-band-lede">
-            {choose({
-              bn: "যে সনদ বা লাইসেন্স লাগবে, খুঁজে নিন — তারপর আপনার ইউনিয়ন বেছে আবেদন করুন।",
-              en: "Find the certificate or licence you need — then choose your union and apply.",
-            })}
-          </p>
-          <div className="home-service-grid">
-            {popular.map((s) => (
-              <ServiceCard
-                key={s.service_no}
-                serviceNo={s.service_no}
-                name={choose({ bn: s.name_bn, en: s.name_en })}
-                category={s.category_en}
-                href={servicePath(s.service_no)}
-                feeHint={choose(
-                  serviceCardMetaRich(
-                    s.document_count,
-                    officeSummaries?.get(s.service_no),
-                  ),
-                )}
-              />
+          <ol className="hx-steps">
+            {[
+              {
+                bn: "অ্যাকাউন্ট খুলুন",
+                en: "Create an account",
+                dBn: "আপনার ইউনিয়ন বেছে নিন। নিবন্ধন সম্পূর্ণ ফ্রি।",
+                dEn: "Choose your union. Registration is free.",
+              },
+              {
+                bn: "আবেদন জমা দিন",
+                en: "Submit the application",
+                dBn: "নির্দেশিত ফরম পূরণ করুন, প্রয়োজনীয় নথি যুক্ত করুন।",
+                dEn: "Fill the guided form and attach the documents asked for.",
+              },
+              {
+                bn: "চেয়ারম্যানের যাচাই",
+                en: "Chairman's review",
+                dBn: "কিছু ঠিক করতে হলে কারণসহ জানানো হবে — নতুন করে শুরু করতে হয় না।",
+                dEn: "If anything needs fixing you are told why — no need to start over.",
+              },
+              {
+                bn: "সনদ ডাউনলোড",
+                en: "Download the certificate",
+                dBn: "বাংলা ও ইংরেজি PDF, QR কোডসহ।",
+                dEn: "Bangla and English PDFs with a QR code.",
+              },
+            ].map((step, i) => (
+              <li key={step.en}>
+                <span className="hx-step-no" aria-hidden="true">
+                  {choose({ bn: "০১২৩৪৫৬৭৮৯"[i + 1], en: String(i + 1) })}
+                </span>
+                <strong>{choose({ bn: step.bn, en: step.en })}</strong>
+                <p>{choose({ bn: step.dBn, en: step.dEn })}</p>
+              </li>
             ))}
-          </div>
-          <div className="home-category-row">
-            {categories.map((c) => (
-              <a key={c} className="home-category-chip" href="/services">
-                {choose(categoryLabel(c))}
-              </a>
-            ))}
-          </div>
-          <a className="button secondary" href="/services">
-            {choose({ bn: "সব ৪৭টি সেবা দেখুন", en: "See all 47 services" })}
+          </ol>
+          <a className="button" href="/register">
+            {choose({ bn: "আবেদন শুরু করুন", en: "Start an application" })}
           </a>
         </div>
       </section>
-      {/* §5 How it works + the account card (the home sign-in lives here,
-          at full usable width — checklist A10). */}
-      <section className="home-band home-how" aria-labelledby="home-how-heading">
-        <div className="ax-container home-how-grid">
-          <div>
-            <h2 id="home-how-heading" className="home-band-title">
-              {choose({ bn: "কীভাবে সনদ পাবেন", en: "How to get your certificate" })}
-            </h2>
-            <ol className="home-steps">
-              {[
-                {
-                  bn: "নিবন্ধন করুন — সম্পূর্ণ ফ্রি",
-                  en: "Register — completely free",
-                  dBn: "আপনার ইউনিয়ন বেছে নাগরিক অ্যাকাউন্ট খুলুন।",
-                  dEn: "Choose your union and open a citizen account.",
-                },
-                {
-                  bn: "আবেদন করুন",
-                  en: "Apply",
-                  dBn: "সেবা বেছে নির্দেশিত ফরম পূরণ করে জমা দিন।",
-                  dEn: "Pick the service, fill the guided form and submit.",
-                },
-                {
-                  bn: "চেয়ারম্যান যাচাই ও ইস্যু",
-                  en: "Chairman verifies and issues",
-                  dBn: "অনুমোদন চেয়ারম্যানের সিদ্ধান্ত; প্রয়োজনে তিনি সংশোধনের অনুরোধ পাঠাতে পারেন।",
-                  dEn: "Approval is the chairman's decision; he may ask for a correction where needed.",
-                },
-                {
-                  bn: "সনদ ডাউনলোড করুন",
-                  en: "Download your certificate",
-                  dBn: "বাংলা ও ইংরেজি PDF — QR দিয়ে যে কেউ যাচাই করতে পারবে।",
-                  dEn: "Bangla and English PDFs — anyone can verify by QR.",
-                },
-              ].map((step, i) => (
-                <li key={step.en}>
-                  <span className="home-step-number">{choose({ bn: "০১২৩৪৫৬৭৮৯"[i + 1], en: String(i + 1) })}</span>
-                  <div>
-                    <strong>{choose({ bn: step.bn, en: step.en })}</strong>
-                    <p>{choose({ bn: step.dBn, en: step.dEn })}</p>
-                  </div>
-                </li>
-              ))}
-            </ol>
-          </div>
-          <div className="home-account-card">
-            <h2 className="home-band-title">
-              {choose({ bn: "আপনার অ্যাকাউন্ট", en: "Your account" })}
-            </h2>
-            {/* REFINEMENT-02 P2-1: the full sign-in form no longer embeds
-                mid-page (it duplicated /login and unbalanced the band);
-                this is a compact CTA card to the split-screen login. The
-                `login` prop is accepted for compatibility but not embedded. */}
-            <p>
-              {choose({
-                bn: "আবেদন করতে লগইন করুন; নতুন হলে নিবন্ধন করুন — সম্পূর্ণ ফ্রি।",
-                en: "Sign in to apply; register if you are new — completely free.",
-              })}
-            </p>
-            <div className="home-account-actions">
-              <a className="button" href="/login">
-                {choose({ bn: "লগইন", en: "Sign in" })}
-              </a>
-              <a className="button secondary" href="/register">
-                {choose({ bn: "নিবন্ধন", en: "Register" })}
-              </a>
-            </div>
-            <a className="home-account-more" href="/register-office">
-              {choose({
-                bn: "অফিস কর্মকর্তা? অ্যাকাউন্টের আবেদন →",
-                en: "Office staff? Request an account →",
-              })}
-            </a>
+
+      {/* Why trust it — the honest pillars, then the verified proof list. */}
+      <section className="hx-band hx-trust" aria-labelledby="home-trust-heading">
+        <div className="ax-container">
+          <h2 id="home-trust-heading">
+            {choose({ bn: "কেন নিশ্চিন্তে ব্যবহার করবেন", en: "Why you can rely on it" })}
+          </h2>
+          <ul className="hx-pillars">
+            {[
+              {
+                icon: "chair" as const,
+                bn: "চেয়ারম্যানই অনুমোদন দেন",
+                en: "Your chairman approves",
+                dBn: "প্রতিটি সনদ আপনার ইউনিয়নের চেয়ারম্যান নিজে যাচাই করে ইস্যু করেন — মাঝে কোনো দালাল নেই।",
+                dEn: "Every certificate is checked and issued by your own union's chairman — no middleman.",
+              },
+              {
+                icon: "verify" as const,
+                bn: "যে কেউ যাচাই করতে পারে",
+                en: "Anyone can verify it",
+                dBn: "QR বা নম্বর দিয়ে ব্যাংক, অফিস বা স্কুল সঙ্গে সঙ্গে দেখতে পারে সনদটি আসল কিনা। সনদধারীর নাম আংশিক দেখায়, তাই নকল ধরা সহজ।",
+                dEn: "Banks, employers and schools can check a certificate instantly by QR or number. The holder's name shows partly masked, so forgeries are easy to spot.",
+              },
+              {
+                icon: "lock" as const,
+                bn: "আপনার তথ্য আপনার অফিসেই থাকে",
+                en: "Your data stays with your office",
+                dBn: "আপনার আবেদন ও নথি শুধু আপনার ইউনিয়ন অফিস দেখতে পায়; অন্য কোনো অফিস নয়।",
+                dEn: "Only your own union office can see your applications and documents.",
+              },
+              {
+                icon: "info" as const,
+                bn: "আমরা কারা, স্পষ্টভাবে",
+                en: "Who we are, plainly",
+                dBn: "DigitalUnion একটি বেসরকারি প্ল্যাটফর্ম, যা ইউনিয়ন পরিষদ অফিসগুলো ব্যবহার করে। সরকারি সিস্টেমটি unionservices.gov.bd।",
+                dEn: "DigitalUnion is a private platform used by Union Parishad offices. The government system is unionservices.gov.bd.",
+              },
+            ].map((p) => (
+              <li key={p.en}>
+                <Icon name={p.icon} />
+                <strong>{choose({ bn: p.bn, en: p.en })}</strong>
+                <p>{choose({ bn: p.dBn, en: p.dEn })}</p>
+              </li>
+            ))}
+          </ul>
+          <div className="hx-proof">
+            <span className="hx-proof-label">{choose({ bn: "ইতিমধ্যে চালু", en: "Already live" })}</span>
+            <TrustStrip />
           </div>
         </div>
       </section>
-      {/* §6 Verification spotlight — the verify box, framed (checklist A8). */}
-      <section className="home-band home-verify" aria-labelledby="home-verify-heading">
-        <div className="ax-container home-verify-grid">
+
+      {/* Verify box. */}
+      <section className="hx-band hx-verify" aria-labelledby="home-verify-heading">
+        <div className="ax-container hx-verify-grid">
           <div>
-            <h2 id="home-verify-heading" className="home-band-title">
-              {choose({
-                bn: "সনদ যাচাই — যে কেউ, যেকোনো সময়",
-                en: "Verify a certificate — anyone, anytime",
-              })}
+            <h2 id="home-verify-heading">
+              {choose({ bn: "একটি সনদ যাচাই করুন", en: "Check a certificate" })}
             </h2>
-            <p className="home-band-lede">
+            <p className="hx-lede">
               {choose({
-                bn: "সনদের QR কোড স্ক্যান করুন বা ১৬ ডিজিটের নম্বরটি লিখুন — অ্যাকাউন্ট ছাড়াই, ফ্রি।",
-                en: "Scan the certificate's QR code or type its 16-digit number — no account, no fee.",
+                bn: "সনদের ১৬ সংখ্যার নম্বর, QR লিংক বা যাচাই কোড লিখুন। ফ্রি, অ্যাকাউন্ট লাগে না।",
+                en: "Enter the certificate's 16-digit number, QR link or verification code. Free, no account needed.",
               })}
             </p>
-            <form className="home-verify-form" onSubmit={submitVerify}>
+            <form className="hx-verify-form" onSubmit={submitVerify}>
               <label htmlFor="home-verify-input">
-                {choose({ bn: "সনদ নম্বর, QR লিংক বা যাচাই কোড", en: "Certificate number, QR link or verification code" })}
+                {choose({ bn: "সনদ নম্বর বা QR লিংক", en: "Certificate number or QR link" })}
               </label>
-              <div className="home-verify-row">
+              <div className="hx-verify-row">
                 <input
                   id="home-verify-input"
+                  inputMode="text"
                   value={verifyInput}
+                  placeholder={choose({ bn: "যেমন: ২০২৬১১১৮১২৩৪৫৬৭৮", en: "e.g. 2026111812345678" })}
                   onChange={(e) => {
                     setVerifyInput(e.target.value);
                     setVerifyError("");
                   }}
+                  aria-invalid={verifyError ? true : undefined}
+                  aria-describedby={verifyError ? "home-verify-error" : undefined}
                 />
                 <button type="submit">{choose({ bn: "যাচাই করুন", en: "Verify" })}</button>
               </div>
               {verifyError && (
-                <p role="alert" className="home-verify-error">
+                <p id="home-verify-error" role="alert" className="hx-verify-error">
                   {verifyError}
                 </p>
               )}
             </form>
-            <p className="home-verify-alt">
-              <a href="/tracking">
-                {choose({ bn: "আবেদনের অবস্থা দেখতে চান? →", en: "Checking an application instead? →" })}
-              </a>
+            <p className="hx-verify-alt">
+              {choose({ bn: "আবেদনের অবস্থা দেখতে চান?", en: "Checking an application instead?" })}{" "}
+              <a href="/tracking">{choose({ bn: "আবেদন ট্র্যাক করুন", en: "Track it here" })}</a>
             </p>
           </div>
-          <SampleCertificate compact />
+          <VerifyResultSample />
         </div>
       </section>
-      {/* §7 For offices. */}
-      <section className="home-band home-offices" id="for-offices" aria-labelledby="home-offices-heading">
+
+      {/* For offices — the business pitch: outcome, workflow sample,
+          onboarding steps, one action. */}
+      <section className="hx-offices" id="for-offices" aria-labelledby="home-offices-heading">
         <div className="ax-container">
-          <h2 id="home-offices-heading" className="home-band-title">
-            {choose({ bn: "ইউনিয়ন অফিসের জন্য", en: "For Union Parishad offices" })}
-          </h2>
-          <p className="home-band-lede">
-            {choose({
-              bn: "আবেদন অনলাইনে আসবে, চেয়ারম্যান যাচাই করে ইস্যু করবেন, নাগরিক যাচাইযোগ্য সনদ পাবেন — খাতা-কলমের ঝামেলা ছাড়া।",
-              en: "Applications arrive online, the chairman verifies and issues, citizens receive a verifiable certificate — without the paper register.",
-            })}
-          </p>
-          <ul className="home-office-points">
-            {[
-              { bn: "সব ৪৭টি সেবার অনলাইন আবেদন", en: "Online applications for all 47 services" },
-              { bn: "চেয়ারম্যান সরাসরি যাচাই ও ইস্যু — মাঝখানে অতিরিক্ত ধাপ নেই", en: "Chairman-direct verification and issuance — no middleman step" },
-              { bn: "অফিসের নিজের লোগো ও চেয়ারম্যানের স্বাক্ষরসহ সনদ", en: "Certificates with the office's own logo and the chairman's signature" },
-              { bn: "প্রতিটি অফিসের ডেটা সম্পূর্ণ আলাদা ও নিরাপদ", en: "Each office's data fully separate" },
-              { bn: "অফিস নিজেই সেবা ফি নির্ধারণ ও প্রকাশ করে", en: "The office sets and publishes its own service fees" },
-              { bn: "সাবস্ক্রিপশন ও ক্রেডিট প্ল্যাটফর্ম কর্তৃপক্ষের নিয়ন্ত্রণে; নিবন্ধন ফ্রি", en: "Subscription and credits controlled by the platform owner; registration is free" },
-            ].map((point) => (
-              <li key={point.en}>
-                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                  <path d="m4.5 12.5 5 5 10-11" />
-                </svg>
-                {choose(point)}
-              </li>
-            ))}
-          </ul>
+          <div className="hx-offices-grid">
+            <div className="hx-offices-copy">
+              <p className="hx-offices-kicker">
+                {choose({ bn: "ইউনিয়ন পরিষদ অফিসের জন্য", en: "For Union Parishad offices" })}
+              </p>
+              <h2 id="home-offices-heading">
+                {choose({
+                  bn: "খাতা-কলম ছাড়াই আবেদন থেকে সনদ, এক জায়গায়",
+                  en: "From application to certificate in one place, without the paper register",
+                })}
+              </h2>
+              <p className="hx-offices-lede">
+                {choose({
+                  bn: "নাগরিক অনলাইনে আবেদন করেন, আপনার অফিস এক স্ক্রিনে যাচাই করে, সনদ তৈরি হয় অফিসের লোগো ও চেয়ারম্যানের স্বাক্ষরসহ।",
+                  en: "Citizens apply online, your office reviews on one screen, and the certificate is produced with your logo and the chairman's signature.",
+                })}
+              </p>
+              <ul className="hx-offices-points">
+                {[
+                  {
+                    icon: "inbox" as const,
+                    bn: "সব ৪৭টি সেবার আবেদন এক তালিকায়",
+                    en: "Applications for all 47 services in one queue",
+                  },
+                  {
+                    icon: "seal" as const,
+                    bn: "আপনার লোগো, সিল ও স্বাক্ষরসহ দ্বিভাষিক সনদ",
+                    en: "Bilingual certificates with your logo, seal and signature",
+                  },
+                  {
+                    icon: "lock" as const,
+                    bn: "প্রতিটি অফিসের তথ্য সম্পূর্ণ আলাদা",
+                    en: "Each office's data kept fully separate",
+                  },
+                  {
+                    icon: "fee" as const,
+                    bn: "সেবা ফি আপনার অফিসই নির্ধারণ ও প্রকাশ করে",
+                    en: "Your office sets and publishes its own service fees",
+                  },
+                ].map((p) => (
+                  <li key={p.en}>
+                    <Icon name={p.icon} />
+                    {choose({ bn: p.bn, en: p.en })}
+                  </li>
+                ))}
+              </ul>
+            </div>
+            <ChairmanQueueSample />
+          </div>
+          <div className="hx-onboard">
+            <ol>
+              {[
+                { bn: "অফিস যুক্ত করার আবেদন পাঠান", en: "Send a request to add your office" },
+                { bn: "প্ল্যাটফর্ম টিম যাচাই করে অফিস চালু করে", en: "The platform team verifies and activates it" },
+                { bn: "চেয়ারম্যান ও কর্মী যুক্ত করে সেবা শুরু করুন", en: "Add your chairman and staff, then start serving" },
+              ].map((s, i) => (
+                <li key={s.en}>
+                  <span aria-hidden="true">{choose({ bn: "০১২৩৪৫৬৭৮৯"[i + 1], en: String(i + 1) })}</span>
+                  {choose({ bn: s.bn, en: s.en })}
+                </li>
+              ))}
+            </ol>
+            <div className="hx-onboard-actions">
+              <a className="button hx-cta-light" href="/register-office">
+                {choose({ bn: "অফিস যুক্ত করার আবেদন করুন", en: "Request to add your office" })}
+              </a>
+              <a className="hx-onboard-link" href="/login">
+                {choose({ bn: "ইতিমধ্যে যুক্ত? অফিস লগইন", en: "Already on board? Office sign-in" })}
+              </a>
+            </div>
+          </div>
           <OfficePhotoBand />
         </div>
       </section>
-      {/* §8 Onboarding CTA. */}
-      <section className="home-band home-onboard" aria-labelledby="home-onboard-heading">
-        <div className="ax-container home-onboard-inner">
-          <div>
-            <h2 id="home-onboard-heading" className="home-band-title">
-              {choose({
-                bn: "আপনার ইউনিয়ন পরিষদ অনলাইনে আনুন",
-                en: "Take your Union Parishad online",
-              })}
+
+      {/* FAQ — including the mandatory government-website answer. */}
+      <section className="hx-band" aria-labelledby="home-faq-heading">
+        <div className="ax-container hx-faq">
+          <div className="hx-faq-head">
+            <h2 id="home-faq-heading">
+              {choose({ bn: "সাধারণ জিজ্ঞাসা", en: "Common questions" })}
             </h2>
-            <p>
+            <p className="hx-lede">
               {choose({
-                bn: "আবেদন পাওয়ার পর প্ল্যাটফর্ম টিম অফিসটি যাচাই করে চালু করে দেবে।",
-                en: "Once your request arrives, the platform team verifies and activates the office.",
+                bn: "উত্তর না পেলে সহায়তা পৃষ্ঠা দেখুন বা আপনার ইউনিয়ন অফিসে যোগাযোগ করুন।",
+                en: "Not answered here? See the help page or contact your union office.",
               })}
             </p>
+            <a href="/help">{choose({ bn: "সহায়তা পৃষ্ঠা", en: "Help page" })}</a>
           </div>
-          <a className="button" href="/register-office">
-            {choose({ bn: "অফিস যুক্ত করার আবেদন করুন", en: "Request to add your office" })}
-          </a>
-        </div>
-      </section>
-      {/* §9 FAQ — including the mandatory government-website answer. */}
-      <section className="home-band" aria-labelledby="home-faq-heading">
-        <div className="ax-container home-faq">
-          <h2 id="home-faq-heading" className="home-band-title">
-            {choose({ bn: "সাধারণ জিজ্ঞাসা", en: "Frequently asked questions" })}
-          </h2>
-          {FAQS.map((item) => (
-            <details key={item.q.en} className="home-faq-item">
-              <summary>{choose(item.q)}</summary>
-              <p>{choose(item.a)}</p>
-            </details>
-          ))}
-          <p className="home-faq-more">
-            <a href="/help">
-              {choose({ bn: "আরও সহায়তা ও জিজ্ঞাসা →", en: "More help and questions →" })}
-            </a>
-          </p>
+          <div className="hx-faq-list">
+            {FAQS.map((item) => (
+              <details key={item.q.en} className="hx-faq-item">
+                <summary>{choose(item.q)}</summary>
+                <p>{choose(item.a)}</p>
+              </details>
+            ))}
+          </div>
         </div>
       </section>
     </PublicShell>
