@@ -204,7 +204,14 @@ test(
           `${route} overflow in ${language}`,
         );
         if (route === "/services")
-          assert.equal(await page.locator(".public-service").count(), 47);
+          // WEB-DEBT-CLOSURE: was ".public-service" — that class does not
+          // exist anywhere in the web source; service cards render as
+          // ".svc-card" inside ".public-service-grid" (PublicPortal.tsx,
+          // ui/kit.tsx ServiceCard). Same assertion, real selector.
+          assert.equal(
+            await page.locator(".public-service-grid .svc-card").count(),
+            47,
+          );
       }
       assert.equal(
         requests.some(
@@ -254,7 +261,11 @@ test(
       1,
     );
     await goToWorkspacePage(page, "services");
-    assert.equal(await page.locator(".catalog .service").count(), 47);
+    // WEB-DEBT-CLOSURE: was ".catalog .service" — no ".service" card class
+    // exists; the workspace catalogue renders ServiceCard components
+    // (".svc-card") inside ".catalog" (WorkspaceApp.tsx, ui/kit.tsx).
+    // Same assertion, real selector.
+    assert.equal(await page.locator(".catalog .svc-card").count(), 47);
     await page.getByRole("button", { name: "বাংলা", exact: true }).click();
     assert.equal(await page.locator("html").getAttribute("lang"), "bn");
     await page.getByRole("button", { name: "English", exact: true }).click();
