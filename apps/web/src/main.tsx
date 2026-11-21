@@ -104,7 +104,8 @@ function CertificateVerification({
                     icon and words all saying the same thing. */}
                 {(() => {
                   const status = String(verification.status ?? "");
-                  const verdict = verification.demo
+                  const verdict =
+                    verification.demo || verification.demoIssuance
                     ? "demo"
                     : status === "ISSUED"
                       ? "valid"
