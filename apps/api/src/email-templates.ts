@@ -48,6 +48,42 @@ export function certificateIssuedTemplate(input: {
 }
 
 /** The citizen's application was rejected, with the office's reason. */
+/** QA-08: the citizen must learn that the chairman asked for a correction. */
+export function correctionRequiredTemplate(input: {
+  reason: string;
+  service: string;
+}): Template {
+  return {
+    subject: "আবেদনে সংশোধন প্রয়োজন / Correction requested — DigitalUnion",
+    text: [
+      "চেয়ারম্যান আপনার আবেদনে সংশোধন চেয়েছেন। সাইন ইন করে তথ্য ঠিক করে আবার জমা দিন।",
+      "The chairman has asked for a correction. Sign in, update the application and resubmit it.",
+      "",
+      `সেবা / Service: ${input.service}`,
+      `যা ঠিক করতে হবে / What to correct: ${input.reason}`,
+    ].join("\n"),
+  };
+}
+/** QA-08: a revoked certificate is no longer valid; tell its holder. */
+export function certificateRevokedTemplate(input: {
+  reason: string;
+  service: string;
+  certificateNumber: string;
+}): Template {
+  return {
+    subject: "সনদ প্রত্যাহার করা হয়েছে / Certificate revoked — DigitalUnion",
+    text: [
+      "আপনার সনদটি প্রত্যাহার করা হয়েছে এবং এটি আর বৈধ নয়।",
+      "Your certificate has been revoked and is no longer valid.",
+      "",
+      `সেবা / Service: ${input.service}`,
+      `সনদ নম্বর / Certificate no: ${input.certificateNumber}`,
+      `কারণ / Reason: ${input.reason}`,
+      "",
+      "বিস্তারিত জানতে আপনার অফিসে যোগাযোগ করুন। / Contact your office for details.",
+    ].join("\n"),
+  };
+}
 export function applicationRejectedTemplate(input: {
   reason: string;
   service: string;

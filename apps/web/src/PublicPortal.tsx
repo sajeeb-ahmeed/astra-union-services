@@ -772,11 +772,13 @@ export function PublicPortal({
   const normalizedSearch = search
     .trim()
     .replace(/[০-৯]/g, (digit) => String("০১২৩৪৫৬৭৮৯".indexOf(digit)))
-    .toLowerCase();
+    .toLowerCase()
+    .normalize("NFC");
   const services = serviceCatalog.filter(
     (s) =>
       `${s.service_no} ${s.name_bn} ${s.name_en}`
         .toLowerCase()
+        .normalize("NFC")
         .includes(normalizedSearch) &&
       (!category || s.category_en === category),
   );

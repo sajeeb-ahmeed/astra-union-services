@@ -137,7 +137,24 @@ export function PayloadDetails({
                   <dt className={wide ? "wide" : undefined}>
                     {choose(row.field.label)}
                   </dt>
-                  <dd className={wide ? "wide" : undefined}>{row.text}</dd>
+                  <dd className={wide ? "wide" : undefined}>
+                    {row.text}
+                    {/* QA-05: reviewers must be able to open what they approve. */}
+                    {attachmentIds(row.field, payload[row.field.id]).map(
+                      (id, index, all) => (
+                        <a
+                          key={id}
+                          className="ax-flow-attachment-link"
+                          href={`/api/v1/attachments/${encodeURIComponent(id)}`}
+                          target="_blank"
+                          rel="noopener"
+                        >
+                          {choose({ bn: "নথি খুলুন", en: "Open document" })}
+                          {all.length > 1 ? ` ${index + 1}` : ""}
+                        </a>
+                      ),
+                    )}
+                  </dd>
                 </React.Fragment>
               );
             })}
@@ -146,6 +163,17 @@ export function PayloadDetails({
       ))}
     </div>
   );
+}
+
+/** QA-05: every stored attachment id under a field (repeating groups included). */
+function attachmentIds(field: FieldDefinition, value: any): string[] {
+  if (field.type === "attachment")
+    return typeof value?.attachmentId === "string" ? [value.attachmentId] : [];
+  if (Array.isArray(value) && field.children?.length)
+    return value.flatMap((row) =>
+      field.children!.flatMap((child) => attachmentIds(child, row?.[child.id])),
+    );
+  return [];
 }
 
 /**

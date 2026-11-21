@@ -8,6 +8,7 @@ import {
 } from "../service-categories.js";
 import "./tokens.css";
 import "./kit.css";
+import "../service-icons.css";
 
 /** Phase 1 component kit. Small, presentational, no data fetching; pages compose them. */
 
@@ -20,8 +21,8 @@ export function serviceCardMeta(documentCount?: number): { bn: string; en: strin
   const fee = { bn: "ফি: অফিস অনুযায়ী", en: "Fee: set by each office" };
   if (!documentCount || documentCount < 1) return fee;
   return {
-    bn: `${fee.bn} · নথি আপলোড: ${localDigits(documentCount, "bn")}টি`,
-    en: `${fee.en} · document uploads: ${documentCount}`,
+    bn: `${fee.bn} · প্রয়োজনীয় নথি: ${localDigits(documentCount, "bn")}টি`,
+    en: `${fee.en} · documents needed: ${documentCount}`,
   };
 }
 
@@ -51,14 +52,17 @@ export function serviceCardMetaRich(
   const docs =
     documentCount && documentCount >= 1
       ? {
-          bn: `নথি আপলোড: ${localDigits(documentCount, "bn")}টি`,
-          en: `document uploads: ${documentCount}`,
+          bn: `প্রয়োজনীয় নথি: ${localDigits(documentCount, "bn")}টি`,
+          en: `documents needed: ${documentCount}`,
         }
       : null;
   if (!summary) {
+    // HOME-REDESIGN-01: "not yet published by any office" on every card
+    // read as an empty platform. The fact that matters to the citizen is
+    // who sets the fee; the exact figure appears once the office publishes.
     const base = {
-      bn: "ফি ও সময়: এখনো কোনো অফিস প্রকাশ করেনি",
-      en: "Fee & time: not yet published by any office",
+      bn: "ফি ও সময়: আপনার ইউনিয়ন অফিস নির্ধারণ করে",
+      en: "Fee & time: set by your union office",
     };
     return docs
       ? { bn: `${base.bn} · ${docs.bn}`, en: `${base.en} · ${docs.en}` }

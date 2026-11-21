@@ -81,7 +81,7 @@ const roleInput = z.enum([
 const password = z
   .string()
   .min(6, "Password must be at least 6 characters.")
-  .max(18, "Password must be at most 18 characters.")
+  .max(64, "Password must be at most 64 characters.") // QA-09: was 18; long passphrases and password-manager passwords must work
   .refine((value) => !isCommonPassword(value), {
     message: "This password is too common. Choose a less predictable password.",
   });
@@ -566,6 +566,12 @@ publicManagementRouter.post(
             (v) =>
               Number.isFinite(Date.parse(v)) &&
               new Date(v).toISOString().slice(0, 10) === v,
+          )
+          // QA-16: the browser blocked future dates but the API accepted them.
+          .refine(
+            (v) =>
+              v <= new Date().toISOString().slice(0, 10) && v >= "1900-01-01",
+            "জন্ম তারিখ আজকের বা তার আগের হতে হবে। / Date of birth must be today or earlier.",
           ),
         addressBn: z.string().min(4).max(500),
         addressEn: z.string().min(4).max(500),

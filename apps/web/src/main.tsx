@@ -99,15 +99,61 @@ function CertificateVerification({
           {tx(
             verification ? (
               <>
-                <p>
-                  <span
-                    className={`ax-status tone-${applicationStatusMeta(String(verification.status ?? "")).tone}`}
-                  >
-                    <span className="ax-status-dot" aria-hidden="true" />
-                    {choose(applicationStatusMeta(String(verification.status ?? "")))}
-                  </span>
-                </p>
-                <dl>
+                {/* HOME-REDESIGN-01: the answer first, in one sentence a bank
+                    clerk can act on — valid, revoked or demo — with colour,
+                    icon and words all saying the same thing. */}
+                {(() => {
+                  const status = String(verification.status ?? "");
+                  const verdict = verification.demo
+                    ? "demo"
+                    : status === "ISSUED"
+                      ? "valid"
+                      : status === "REVOKED"
+                        ? "revoked"
+                        : "other";
+                  const head =
+                    verdict === "valid"
+                      ? { bn: "সনদটি বৈধ", en: "This certificate is valid" }
+                      : verdict === "revoked"
+                        ? { bn: "এই সনদ প্রত্যাহার করা হয়েছে", en: "This certificate has been revoked" }
+                        : verdict === "demo"
+                          ? { bn: "এটি নমুনা (ডেমো) সনদ", en: "This is a demo certificate" }
+                          : applicationStatusMeta(status);
+                  const sub =
+                    verdict === "valid"
+                      ? { bn: "ইস্যুকারী অফিসের নথির সঙ্গে মিলেছে। নিচের তথ্য কাগজের সনদের সঙ্গে মিলিয়ে নিন।", en: "It matches the issuing office's record. Compare the details below with the paper." }
+                      : verdict === "revoked"
+                        ? { bn: "ইস্যুকারী অফিস সনদটি বাতিল করেছে। দাপ্তরিক কাজে এটি গ্রহণ করবেন না।", en: "The issuing office withdrew it. Do not accept it for official use." }
+                        : verdict === "demo"
+                          ? { bn: "পরীক্ষার জন্য তৈরি। দাপ্তরিক কাজে এটি বৈধ নয়।", en: "Made for testing. It is not valid for official use." }
+                          : { bn: "বিস্তারিত জানতে ইস্যুকারী অফিসে যোগাযোগ করুন।", en: "Contact the issuing office for details." };
+                  return (
+                    <div className={`verify-verdict is-${verdict}`} role="status">
+                      <span className="verify-verdict-icon" aria-hidden="true">
+                        <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+                          {verdict === "valid" ? (
+                            <path d="m5 12.5 4.5 4.5L19 7.5" />
+                          ) : verdict === "revoked" ? (
+                            <path d="M7 7l10 10M17 7 7 17" />
+                          ) : (
+                            <path d="M12 7v6M12 16.5v.5" />
+                          )}
+                        </svg>
+                      </span>
+                      <div>
+                        <strong>{choose(head)}</strong>
+                        <p>{choose(sub)}</p>
+                      </div>
+                    </div>
+                  );
+                })()}
+                <dl className="verify-facts">
+                  {certificateNumber && (
+                    <>
+                      <dt>{choose({ bn: "সনদ নম্বর", en: "Certificate number" })}</dt>
+                      <dd className="verify-facts-number">{certificateNumber}</dd>
+                    </>
+                  )}
                   {tx(
                     [
                       [
@@ -128,6 +174,19 @@ function CertificateVerification({
                         choose({ bn: "ইস্যুর তারিখ", en: "Issued on" }),
                         formatDateTime(verification.issuedAt, language),
                       ],
+                      // QA-06: a partly masked holder name to compare with the
+                      // paper, and a clear warning for demo-mode documents.
+                      ...(verification.holderMaskedBn
+                        ? [
+                            [
+                              choose({ bn: "সনদধারী (আংশিক)", en: "Holder (partial)" }),
+                              choose({
+                                bn: verification.holderMaskedBn,
+                                en: verification.holderMaskedEn ?? verification.holderMaskedBn,
+                              }),
+                            ],
+                          ]
+                        : []),
                     ].map(([label, content]) => (
                       <React.Fragment key={label}>
                         <dt>{label}</dt>
@@ -138,10 +197,13 @@ function CertificateVerification({
                 </dl>
                 <p className="hint">
                   {choose({
-                    bn: "এই ফলাফল প্ল্যাটফর্মের নথির সঙ্গে মিলিয়ে দেখানো হয়েছে। নাম বা আবেদনের বিবরণ সর্বজনীন যাচাইয়ে দেখানো হয় না।",
-                    en: "This result was matched against the platform's record. Names and application details are never shown in public verification.",
+                    bn: "এই ফলাফল প্ল্যাটফর্মের নথির সঙ্গে মিলিয়ে দেখানো হয়েছে। সনদধারীর নাম আংশিক দেখানো হয় — কাগজের সনদের নামের সঙ্গে মিলিয়ে নিন। পুরো নাম বা আবেদনের বিবরণ দেখানো হয় না।",
+                    en: "This result was matched against the platform's record. The holder name is partly masked — compare it with the name on the paper. Full names and application details are never shown.",
                   })}
                 </p>
+                <a className="button secondary" href="/verify">
+                  {choose({ bn: "আরেকটি সনদ যাচাই করুন", en: "Check another certificate" })}
+                </a>
               </>
             ) : publicError ? (
               /* DESIGN-PHASE-C: a failed lookup is an error panel with a
@@ -532,7 +594,10 @@ function SessionApp() {
     };
   }, [checkSession]);
   if (!loaded) return <LoadingPanel />;
-  if (!session)
+  // QA-04: public tools stay public for signed-in users too. Officers verify
+  // certificates and track applications while signed in; before this, every
+  // path rendered the workspace (e.g. /verify became /verify#/pending).
+  if (!session || PUBLIC_WHILE_SIGNED_IN.test(location.pathname))
     return (
       <SignedOutPortal
         onLogin={(next) => {
@@ -628,6 +693,10 @@ function PaymentReturnNotice() {
     </div>
   );
 }
+
+/** QA-04: pages that render the public portal even when a session exists. */
+const PUBLIC_WHILE_SIGNED_IN =
+  /^\/(verify|tracking|services|offices|notices|help|guide|policies)(\/|$)/;
 
 function App() {
   if (barePaymentReturn)

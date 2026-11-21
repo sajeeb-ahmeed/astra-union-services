@@ -18,7 +18,7 @@ import { sendSmsViaHttp, smsHttpConfigured } from "./sms-http.js";
 export interface SmsMessage {
   mobile: string;
   message: string;
-  purpose: "certificate_issued" | "application_rejected";
+  purpose: "certificate_issued" | "application_rejected" | "correction_required" | "certificate_revoked";
 }
 export interface SmsProvider {
   send(message: SmsMessage): Promise<void>;

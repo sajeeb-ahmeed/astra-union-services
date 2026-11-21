@@ -1225,6 +1225,23 @@ color: #59461f;
   border-radius: 9px;
 }
 
+/* QA-11: coupon and notice tables use .table-scroll, which had no overflow
+   rule, so on a 375px phone the 660px table widened the whole page. */
+.table-scroll {
+  position: relative;
+  max-width: 100%;
+  overflow: auto;
+  border: 1px solid var(--astra-line);
+  border-radius: 9px;
+}
+.table-scroll table {
+  min-width: 560px;
+}
+.table-scroll td code,
+.table-scroll td:first-child {
+  white-space: nowrap;
+}
+
 /* FULL-UIUX-01 (programme 13, checklist C28): sticky table headers + row
    hover — the data-table system baseline on every list surface. */
 .table-wrap thead th {
@@ -1888,4 +1905,117 @@ legend {
   border-top: 1px solid var(--du-line);
   color: var(--du-muted);
   font-size: 14px;
+}
+
+/* HOME-REDESIGN-01: the verification result. The verdict leads, in one
+   sentence, with colour + icon + words agreeing; facts follow as a tidy
+   two-column record. These rules live here (global) because the result
+   page renders outside PublicPortal, whose stylesheet it never loads —
+   which is why its two columns used to collapse. */
+.public-verify-wrap {
+  padding-block: 28px 48px;
+}
+.public-verify-wrap .public-tool-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 360px);
+  gap: 28px;
+  align-items: start;
+}
+.public-verify-wrap .public-tool-visual {
+  min-width: 0;
+}
+.public-verify-wrap .public-tool-visual img {
+  max-width: 100%;
+  height: auto;
+}
+@media (max-width: 900px) {
+  .public-verify-wrap .public-tool-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+.verify-verdict {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+  border-radius: 12px;
+  padding: 18px 20px;
+  margin: 6px 0 20px;
+  border: 1px solid;
+}
+.verify-verdict strong {
+  display: block;
+  font-size: 21px;
+  line-height: 1.4;
+}
+.verify-verdict p {
+  margin: 4px 0 0;
+  font-size: 15.5px;
+  line-height: 1.65;
+}
+.verify-verdict-icon {
+  flex: none;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  color: #fff;
+}
+.verify-verdict.is-valid {
+  background: #eef8f0;
+  border-color: #b9dfc2;
+  color: var(--du-green-800, #03451f);
+}
+.verify-verdict.is-valid .verify-verdict-icon {
+  background: var(--du-green-700, #04592c);
+}
+.verify-verdict.is-revoked {
+  background: #fdecea;
+  border-color: #efb4ab;
+  color: #8c2318;
+}
+.verify-verdict.is-revoked .verify-verdict-icon {
+  background: #b3261e;
+}
+.verify-verdict.is-demo,
+.verify-verdict.is-other {
+  background: #fff6df;
+  border-color: #ecd28a;
+  color: #6d4d00;
+}
+.verify-verdict.is-demo .verify-verdict-icon,
+.verify-verdict.is-other .verify-verdict-icon {
+  background: #a86b00;
+}
+.verify-facts {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: 0;
+  margin: 0 0 16px;
+  border: 1px solid var(--du-line, #dde7da);
+  border-radius: 12px;
+  overflow: hidden;
+}
+.verify-facts dt,
+.verify-facts dd {
+  margin: 0;
+  padding: 11px 16px;
+  border-bottom: 1px solid var(--du-line, #dde7da);
+}
+.verify-facts dt {
+  color: var(--du-muted, #43584a);
+  background: #f7faf6;
+  font-size: 15px;
+}
+.verify-facts dd {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.verify-facts dt:nth-last-of-type(1),
+.verify-facts dd:last-child {
+  border-bottom: 0;
+}
+.verify-facts-number {
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.04em;
 }
