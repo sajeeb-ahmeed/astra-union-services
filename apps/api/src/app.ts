@@ -635,6 +635,9 @@ app.get(
     if (!record) fail(404, "NOT_FOUND", "Verification record not found.");
     // QA-06: a demo-mode number must never verify as a real document, and the
     // verifier gets a masked holder name to compare against the paper.
+    // `demo` keeps its meaning (the issuing tenant is a demo tenant — see
+    // migration 041 and integration fix 2); a certificate issued in demo
+    // issuance mode is flagged separately as `demoIssuance`.
     const holder = (
       await pool.query("SELECT * FROM public_verify_holder_by_number($1)", [
         matched,
@@ -642,7 +645,7 @@ app.get(
     ).rows[0];
     res.json({
       ...camelRow(record),
-      demo: Boolean(record.demo) || matched.startsWith("DEMO-"),
+      demoIssuance: matched.startsWith("DEMO-"),
       holderMaskedBn: holder ? maskName(holder.name_bn) : null,
       holderMaskedEn: holder ? maskName(holder.name_en) : null,
     });
