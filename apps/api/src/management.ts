@@ -326,6 +326,58 @@ managementRouter.patch(
     res.json(item);
   }),
 );
+// PROFILE-DYNAMIC (owner requirement, 20 Nov 2026): the office name printed on
+// certificates is part of the chairman's own office identity. The full office
+// editor above stays admin-only (it also moves geography and office type),
+// but the NAME must be fixable by the chairman (approver) from his own
+// profile — he is the one whose certificates carry it. This name-only path
+// mirrors the certificate-assets actor rule (admin + approver, own tenant)
+// and lands in the same OFFICE_UPDATED audit stream.
+managementRouter.get(
+  "/office/name",
+  wrap(async (req, res) => {
+    const a = role(req, ["admin", "approver"]);
+    const t = (
+      await pool.query(
+        "SELECT slug,name_bn,name_en FROM tenants WHERE id=$1",
+        [a.tenantId],
+      )
+    ).rows[0];
+    if (!t) fail(404, "NOT_FOUND", "Office not found.");
+    res.json({ slug: t.slug, nameBn: t.name_bn, nameEn: t.name_en });
+  }),
+);
+managementRouter.patch(
+  "/office/name",
+  wrap(async (req, res) => {
+    const a = role(req, ["admin", "approver"]);
+    const d = z
+      .object({
+        nameBn: z.string().trim().min(2).max(150).optional(),
+        nameEn: z.string().trim().min(2).max(150).optional(),
+      })
+      .strict()
+      .refine((v) => v.nameBn !== undefined || v.nameEn !== undefined, {
+        message: "Provide at least one office name.",
+      })
+      .parse(req.body);
+    const item = await transaction(a.tenantId!, async (db) => {
+      const r = (
+        await db.query(
+          "UPDATE tenants SET name_bn=coalesce($2,name_bn),name_en=coalesce($3,name_en) WHERE id=$1 RETURNING *",
+          [a.tenantId, d.nameBn ?? null, d.nameEn ?? null],
+        )
+      ).rows[0];
+      if (!r) fail(404, "NOT_FOUND", "Office not found.");
+      await audit(db, a.tenantId!, a.userId, "OFFICE_UPDATED", a.tenantId, {
+        ...d,
+        via: "office-profile",
+      });
+      return officeRow(r);
+    });
+    res.json(item);
+  }),
+);
 // Phase 3b: the office admin turns the citizen profile completeness gate on or off for certificate issuance.
 managementRouter.put(
   "/admin/office/profile-completeness",

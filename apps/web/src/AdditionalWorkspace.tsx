@@ -12,6 +12,7 @@ import {
   readPresentAddress,
 } from "./PresentAddressFields.js";
 import { CitizenDetailsEditor } from "./CitizenDetailsFields.js";
+import { OfficeIdentitySettings } from "./OfficeIdentity.js";
 import {
   GeographyFields,
   geographyPayload,
@@ -294,6 +295,11 @@ export function AdditionalWorkspace({
                 onSaved={setOwnCitizen}
               />
             )}
+            {/* PROFILE-DYNAMIC: the chairman (and the office admin) manage the
+                office identity — UP name, logo, seal, signature — from their
+                own profile page, not only from the admin workspace. */}
+            {(session.user.role === "approver" ||
+              session.user.role === "admin") && <OfficeIdentitySettings />}
             <section className="panel">
               <h2>{t("পাসওয়ার্ড পরিবর্তন / Change password")}</h2>
               <form
