@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { api, items } from "./api.js";
 import { choose, useLanguage } from "./i18n.js";
+import { EmptyState, StatusBadge, statusTone } from "./OwnerUi.js";
 import "./office-registration.css";
 
 /** Phase 2d: the platform owner verifies office staff who registered for a post. */
@@ -44,9 +45,9 @@ export function OwnerAccountRequests() {
   }
   return (
     <section className="panel owner-requests" aria-labelledby="owner-requests-title">
-      <h2 id="owner-requests-title">
+      <h3 id="owner-requests-title">
         {choose({ bn: "অফিস অ্যাকাউন্ট যাচাই", en: "Office account verification" })}
-      </h2>
+      </h3>
       <p>
         {choose({
           bn: "পদ অনুযায়ী নিবন্ধিত কর্মকর্তারা আপনার অনুমোদনের পরেই লগইন করতে পারেন। অনুমোদন পদের ভূমিকা দেয়; চেয়ারম্যান/মেয়রের সেবাভিত্তিক অনুমোদন আলাদাভাবে দিতে হয়।",
@@ -64,7 +65,13 @@ export function OwnerAccountRequests() {
       {rows === null ? (
         <p>{choose({ bn: "লোড হচ্ছে…", en: "Loading…" })}</p>
       ) : rows.length === 0 ? (
-        <p>{choose({ bn: "কোনো আবেদন নেই।", en: "No requests." })}</p>
+        <EmptyState
+          title={choose({ bn: "কোনো আবেদন নেই।", en: "No requests." })}
+          hint={choose({
+            bn: "এই অবস্থায় কোনো অ্যাকাউন্ট অনুরোধ নেই।",
+            en: "There are no account requests in this state.",
+          })}
+        />
       ) : (
         <div className="table-wrap">
           <table>
@@ -127,7 +134,13 @@ export function OwnerAccountRequests() {
                       </>
                     ) : (
                       <>
-                        {r.status}
+                        <StatusBadge tone={statusTone(r.status)}>
+                          {r.status === "APPROVED"
+                            ? choose({ bn: "অনুমোদিত", en: "Approved" })
+                            : r.status === "REJECTED"
+                              ? choose({ bn: "প্রত্যাখ্যাত", en: "Rejected" })
+                              : r.status}
+                        </StatusBadge>
                         {r.reason && <small>{r.reason}</small>}
                       </>
                     )}

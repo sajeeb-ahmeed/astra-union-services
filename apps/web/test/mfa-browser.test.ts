@@ -13,7 +13,7 @@ import { workspacePage, goToWorkspacePage } from "./fixtures/workspace-nav.js";
 import { signOut } from "./fixtures/session.js";
 
 const origin = "http://127.0.0.1:5173";
-const password = "Synthetic-Mfa-Browser-2026!";
+const password = "Synth-Mfa-Brows1!";
 async function launch() {
   const local = path.join(process.env.LOCALAPPDATA ?? "", "ms-playwright");
   const executablePath =

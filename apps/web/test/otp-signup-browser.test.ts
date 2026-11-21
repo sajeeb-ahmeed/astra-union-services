@@ -33,7 +33,7 @@ test(
     const browser = await browserInstance();
     const unique = Date.now();
     const mobile = `016${String(unique).slice(-8)}`;
-    const password = randomBytes(18).toString("base64url"); // generated per run
+    const password = randomBytes(12).toString("base64url"); // generated per run
     // Phase 3E (§3.6): registration only offers offices that serve the selected
     // union — onboard a mapped office for this test's union first.
     const union = JSON.parse(fs.readFileSync("data/geo/unions.json", "utf8")).find((row: any) => row.upazilaCode === "upa-001");
@@ -53,7 +53,7 @@ test(
           geography: { divisionCode: "div-01", districtCode: "dis-01", upazilaCode: "upa-001", unionCode: union.code },
           adminEmail: `admin@otp-union-${unique}.test`,
           adminName: "OTP Union Admin",
-          adminPassword: randomBytes(18).toString("base64url"),
+          adminPassword: randomBytes(12).toString("base64url"),
         },
       });
       assert.equal(created.status(), 201, await created.text());
@@ -69,9 +69,12 @@ test(
         await page.locator(`#signup-geo-${level} option[value="${code}"]`).waitFor({ state: "attached" });
         await page.locator(`#signup-geo-${level}`).selectOption(code);
       }
+      // BUNDLE06-R5 C4: registration is a stepper — advance area → office.
+      await page.getByRole("button", { name: "Continue", exact: true }).click();
       const officeOption = page.locator("#signup-office option").filter({ hasText: officeName });
       await officeOption.waitFor({ state: "attached" });
       await page.getByLabel("Select office", { exact: true }).selectOption((await officeOption.getAttribute("value"))!);
+      await page.getByRole("button", { name: "Continue", exact: true }).click();
       for (const [label, value] of Object.entries({
         "Email address": `otp-signup-${unique}@example.test`,
         "Choose password": password,
@@ -83,6 +86,8 @@ test(
         "Address (English)": "Synthetic Village",
       }))
         await page.getByLabel(label, { exact: true }).fill(value);
+      // BUNDLE06-R5 C4: account step → mobile-check step.
+      await page.getByRole("button", { name: "Continue", exact: true }).click();
 
       // Mobile verification: send, a wrong code is refused, the right code verifies.
       await page.locator("#signup-mobile").fill(mobile);

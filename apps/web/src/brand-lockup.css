@@ -1,0 +1,79 @@
+/* FULL-UIUX-01: the platform brand lockup (mark + BN/EN wordmark). One
+   horizontal lockup at every size — it never wraps to three lines. */
+.brand-lockup {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  line-height: 1.15;
+  text-decoration: none;
+}
+.brand-mark {
+  flex: none;
+  display: block;
+}
+.brand-mark-bg {
+  fill: var(--du-green-700, #04592c);
+}
+.brand-mark-roof,
+.brand-mark-doc,
+.brand-mark-fold,
+.brand-mark-line {
+  stroke: #ffffff;
+  fill: none;
+}
+.brand-mark.tone-light .brand-mark-bg {
+  fill: #ffffff;
+}
+.brand-mark.tone-light .brand-mark-roof,
+.brand-mark.tone-light .brand-mark-doc,
+.brand-mark.tone-light .brand-mark-fold,
+.brand-mark.tone-light .brand-mark-line {
+  stroke: var(--du-green-700, #04592c);
+}
+.brand-lockup-words {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.brand-lockup-bn {
+  font-size: 19px;
+  font-weight: 700;
+  color: var(--du-green-800, #03451f);
+  white-space: nowrap;
+}
+.brand-lockup-en {
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.22em;
+  color: var(--du-muted, #43584a);
+  white-space: nowrap;
+}
+.brand-lockup-tag {
+  font-size: 12px;
+  color: var(--du-muted, #43584a);
+  white-space: nowrap;
+}
+/* P2-12: the wordmark scales with the mark, per spec size. */
+.brand-lockup[data-lockup="header"] .brand-lockup-bn {
+  font-size: 21px;
+}
+.brand-lockup[data-lockup="header"] .brand-lockup-en {
+  font-size: 11.5px;
+}
+.brand-lockup[data-lockup="sidebar"] .brand-lockup-bn {
+  font-size: 17px;
+}
+.brand-lockup[data-lockup="sidebar"] .brand-lockup-en {
+  font-size: 9.5px;
+}
+.brand-lockup[data-lockup="sidebar"] .brand-lockup-tag {
+  font-size: 11px;
+}
+.brand-lockup.tone-light .brand-lockup-bn {
+  color: #ffffff;
+}
+.brand-lockup.tone-light .brand-lockup-en,
+.brand-lockup.tone-light .brand-lockup-tag {
+  color: rgb(255 255 255 / 78%);
+}

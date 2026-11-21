@@ -24,6 +24,14 @@ test('Deployment: same-origin SPA uses compressed immutable assets; private API 
     assert.equal((await fetch(url+'/assets/missing.js')).status,404);
     const unknown=await fetch(url+'/api/unknown');assert.equal(unknown.status,404);assert.match(unknown.headers.get('content-type')!,/json/);
     assert.equal((await fetch(url+'/secret.env')).status,404);
+    // BUNDLE06-R5 B5: unknown extensionless paths are honest 404s that
+    // still carry the SPA shell (the friendly not-found view renders);
+    // known exact and prefixed SPA routes stay 200.
+    const missing=await fetch(url+'/no-such-page');assert.equal(missing.status,404);assert.match(await missing.text(),/Astra/);
+    assert.equal((await fetch(url+'/home-preview')).status,404);
+    for(const known of ['/','/services','/services/citizenship-certificate','/offices/belabo','/verify/2026111832694893','/login','/register','/register-office','/payments/return']){
+      assert.equal((await fetch(url+known)).status,200,known);
+    }
   }finally{
     await new Promise<void>(r=>server.close(()=>r()));
     // Only known individual test fixture files; no recursive computed-path deletion.

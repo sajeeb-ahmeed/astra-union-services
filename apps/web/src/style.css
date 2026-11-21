@@ -27,16 +27,16 @@ h1, h2, h3, p {
 }
 
 h1 {
-  font-size: 30px;
+  font-size: var(--du-text-h1, 32px);
   line-height: 1.35;
 }
 
 h2 {
-  font-size: 22px;
+  font-size: var(--du-text-h2, 24px);
 }
 
 h3 {
-  font-size: 17px;
+  font-size: var(--du-text-h3, 18px);
 }
 
 small {
@@ -138,6 +138,17 @@ legend {
   font-size: 13px;
 }
 
+/* FULL-UIUX-01 C29: one control sizing system — checkboxes/radios are a
+   deliberate 20px control inside a 44px row everywhere, brand accent. */
+input[type="checkbox"],
+input[type="radio"] {
+  width: 20px;
+  height: 20px;
+  min-height: 20px;
+  flex: none;
+  accent-color: var(--du-green-700, #04592c);
+}
+
 .check-field {
   grid-column: 1/-1;
 }
@@ -145,15 +156,16 @@ legend {
 .check-field label {
   display: flex;
   gap: 12px;
-  align-items: flex-start;
-  margin: 16px 0;
+  align-items: center;
+  min-height: 44px;
+  margin: 8px 0;
 }
 
 .check-field input {
   width: 20px;
   min-height: 20px;
   height: 20px;
-  margin: 4px 0;
+  margin: 0;
   accent-color: #04592c;
 }
 
@@ -162,6 +174,21 @@ legend {
   border: 1px solid #c6d4cc;
   border-radius: 7px;
   padding: 18px;
+}
+/* REFINEMENT-02 P2-10: the flattened repeatable group — no second box;
+   a heading with a divider carries the group instead. */
+.repeatable-flat {
+  border: 0;
+  border-top: 1px solid #d8e2da;
+  border-radius: 0;
+  padding: 14px 0 2px;
+  margin-top: 6px;
+}
+.repeatable-heading {
+  font-weight: 700;
+  color: #30483c;
+  font-size: 14.5px;
+  margin-bottom: 10px;
 }
 
 .repeat-row {
@@ -216,7 +243,7 @@ legend {
 }
 
 .shell aside small {
-  color: #b4cac0;
+  color: var(--du-sidebar-muted);
 }
 
 .office {
@@ -234,14 +261,14 @@ legend {
   text-align: left;
   border: 0;
   background: transparent;
-  color: #e4eee8;
+  color: var(--du-sidebar-ink);
   padding: 11px 15px;
   border-radius: 6px;
 }
 
 .shell nav button[aria-current="page"] {
-  background: #0b5a34;
-  border-left: 3px solid #b9d6ab;
+  background: var(--du-sidebar-active-bg);
+  border-left: 3px solid var(--du-green-700);
 }
 
 .sidebar-bottom {
@@ -255,11 +282,11 @@ legend {
 }
 
 .sidebar-bottom .text-button {
-  color: white;
+  color: var(--du-green-700);
 }
 
 .sidebar-bottom .text-button:hover {
-  background: #0b5a34;
+  background: var(--du-sidebar-hover-bg);
 }
 
 .shell header p {
@@ -290,8 +317,6 @@ legend {
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 12px;
   margin-top: 20px;
-  max-height: 390px;
-  overflow: auto;
   padding: 3px;
 }
 
@@ -921,7 +946,10 @@ th, td {
 .present-address legend, .citizen-details legend {
   color: #30483c;
   font-size: 14px;
+  /* REFINEMENT-02 P2-7: 8px padding AND the card background, so the
+     legend never sits struck-through on the fieldset border. */
   padding: 0 8px;
+  background: var(--du-surface, #fff);
 }
 
 .present-address .geography-fields {
@@ -1036,11 +1064,20 @@ button.secondary:hover, .public-site button.secondary:hover {
 
 button:disabled {
   cursor: not-allowed;
-  opacity: 0.55;
+  /* FULL-UIUX-01 (P2-17 + finish kit): honest-contrast disabled state —
+     a neutral grey surface at full opacity, never a pale-green wash at
+     55% (which read as "broken" and failed contrast). */
+  background: #e8ede9;
+  border-color: #c9d4cb;
+  color: #54655a;
+  opacity: 1;
+  box-shadow: none;
 }
 
 button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible, summary:focus-visible {
-  outline: 3px solid var(--du-green-500, #2e9e5b);
+  /* FULL-UIUX-01 C41: the focus ring is the brand primary, on every
+     interactive element — not the lighter leaf green it used to be. */
+  outline: 3px solid var(--du-focus, #04592c);
   outline-offset: 3px;
 }
 
@@ -1050,12 +1087,33 @@ input, select, textarea {
   border: 1px solid #9dafaa;
   background: white;
   padding: 10px 12px;
-  min-height: 44px;
+  min-height: var(--du-control-h, 44px);
   margin: 6px 0 16px;
   border-color: #c5d1c9;
-  border-radius: 8px;
+  border-radius: var(--du-radius-control, 8px);
   color: var(--astra-ink);
   min-width: 0;
+  /* FULL-UIUX-01 C41: state transitions extend beyond buttons. */
+  transition:
+    border-color var(--du-transition, 140ms ease),
+    box-shadow var(--du-transition, 140ms ease),
+    background-color var(--du-transition, 140ms ease);
+}
+
+a {
+  transition: color var(--du-transition, 140ms ease);
+}
+
+/* BUNDLE06-R5 B2: every link inside the design system is themed — no
+   browser-default blue/underline anywhere. Component rules with their
+   own colours (nav, brand, buttons-as-links, card titles) keep theirs;
+   this base covers plain inline links, breadcrumbs and card titles that
+   previously fell through to #0000ee + underline. */
+a {
+  color: var(--du-green-700);
+}
+a:hover {
+  color: var(--du-green-800);
 }
 
 input::placeholder, textarea::placeholder {
@@ -1096,10 +1154,21 @@ label {
   letter-spacing: 1.8px;
 }
 
+/* FULL-UIUX-01 C43 (amber discipline): the default notice is a neutral
+   information surface (pale green-grey + icon-less calm). Amber is reserved
+   for genuine warnings via .notice.warning; success/error keep their own
+   treatments below so the three can never be confused. */
 .notice {
-  border: 1px solid #d2bb85;
-  background: #fff9e9;
+  border: 1px solid var(--astra-line);
+  background: #f2f7f2;
+  color: var(--astra-ink);
   padding: 14px;
+}
+
+.notice.warning {
+  border-color: #d2bb85;
+  background: #fff9e9;
+  color: #59461f;
 }
 
 /* Feedback split (UIUX-FIX-01 #9): success and error must never look alike.
@@ -1149,12 +1218,27 @@ color: #59461f;
 
 .table-wrap {
   position: relative;
-  overflow: auto;
+  overflow-x: auto;
+  overflow-y: hidden;
   margin-top: 20px;
   border: 1px solid var(--astra-line);
   border-radius: 9px;
-  /* Right-edge inset shadow: a quiet hint that the table scrolls sideways. */
-  box-shadow: inset -14px 0 14px -14px rgb(20 53 40 / 28%);
+}
+
+/* FULL-UIUX-01 (programme 13, checklist C28): sticky table headers + row
+   hover — the data-table system baseline on every list surface. */
+.table-wrap thead th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+}
+
+.table-wrap tbody tr {
+  transition: background-color var(--du-transition, 140ms ease);
+}
+
+.table-wrap tbody tr:hover {
+  background: #f4f9f4;
 }
 
 .table-wrap table {
@@ -1187,13 +1271,16 @@ tbody tr:last-child td {
 }
 
 .shell aside {
-  color: #eaf4ed;
+  /* BUNDLE06-R5 B1: light sidebar tokens (see ui/tokens.css) — the old
+     dark-green ground (#063d24) collided with the FULL-UIUX-01 light
+     shell's ink text at 1.2:1 whenever this rule won the cascade. */
+  color: var(--du-sidebar-ink);
   display: flex;
   flex-direction: column;
   position: sticky;
   top: 0;
   height: 100vh;
-  background: #063d24;
+  background: var(--du-sidebar-bg);
   padding: 30px 20px;
 }
 
@@ -1211,7 +1298,7 @@ tbody tr:last-child td {
     :not(.secondary, .text-button, .danger, .service, .public-service)
   ) {
   background: transparent;
-  color: #dceae1;
+  color: var(--du-sidebar-ink);
   border: 1px solid transparent;
   padding: 11px 13px;
   font-size: 13px;
@@ -1222,7 +1309,7 @@ tbody tr:last-child td {
   button:where(
     :not(.secondary, .text-button, .danger, .service, .public-service)
   ):hover {
-  background: #0a4d2a;
+  background: var(--du-sidebar-hover-bg);
 }
 
 .shell nav button[aria-current="page"], .shell
@@ -1230,9 +1317,9 @@ tbody tr:last-child td {
   button[aria-current="page"]:where(
     :not(.secondary, .text-button, .danger, .service, .public-service)
   ) {
-  background: #0d5c33;
-  border-color: #14663c;
-  color: white;
+  background: var(--du-sidebar-active-bg);
+  border-color: var(--du-green-700);
+  color: var(--du-sidebar-active-ink);
 }
 
 .shell main {
@@ -1541,6 +1628,10 @@ button, .button, .public-site button, .public-site .button {
 .completeness.warning {
   background: #fff8e6;
   border-color: #e8cf8a;
+  /* P0-2: this variant had NO color rule, so it inherited the rail's
+     light text (#eaf4ed) onto the cream background — 1.06:1, unreadable.
+     Dark warn ink on cream is ~7.8:1. */
+  color: var(--du-warn-ink, #6d4d00);
 }
 
 .completeness.blocking {
@@ -1602,4 +1693,68 @@ html[lang="bn"] .eyebrow, html[lang="bn"] .ax-eyebrow, html[lang="bn"] th, html[
   .shell header h1 { font-size: 25px; }
   .panel { padding: 23px 20px; border-radius: 10px; }
   .public-section-heading h2 { font-size: 23px; }
+}
+
+/* FULL-UIUX-01 (P2-18): the form-grid system — wide field types always take
+   the full row, and a lone trailing field never sits orphaned at half
+   width; every field follows the same two-column rhythm. */
+.form-grid > .field[data-field-type="textarea"],
+.form-grid > .field[data-field-type="attachment"],
+.form-grid > .repeatable {
+  grid-column: 1 / -1;
+}
+.form-grid > .field:last-child:nth-child(odd):not([data-field-type="checkbox"]) {
+  grid-column: 1 / -1;
+}
+
+/* FULL-UIUX-01 (B23/programme 19): attachment fields wear the same dashed
+   dropzone treatment as the kit UploadField (the flow uploads on pick, so
+   the native input stays — it just stops looking like one). */
+.field[data-field-type="attachment"] input[type="file"] {
+  border: 1.5px dashed var(--du-green-600, #0b7a43);
+  background: var(--du-green-50, #f2f8f3);
+  border-radius: var(--du-radius-control, 8px);
+  padding: 14px;
+  min-height: 52px;
+  cursor: pointer;
+  width: 100%;
+}
+.field[data-field-type="attachment"] input[type="file"]:hover {
+  background: var(--du-green-100, #e3f0e6);
+}
+
+/* FULL-UIUX-01 (C40/P2-20): fieldset/legend lose the dated browser frame —
+   legends read as section labels in the product type system. */
+fieldset {
+  border: 1px solid var(--du-line);
+  border-radius: var(--du-radius-panel, 12px);
+  padding: 18px;
+  margin: 0 0 18px;
+  min-width: 0;
+}
+legend {
+  font-weight: 700;
+  font-size: 15.5px;
+  color: var(--du-green-800);
+  padding: 0 8px;
+  margin-inline-start: -8px;
+}
+
+/* FULL-UIUX-01 C28 fix: at desktop widths the wrap stops being its own scroll
+   box so the sticky header binds to the window and stays visible on scroll. */
+@media (min-width: 1024px) {
+  .table-wrap { overflow: visible; }
+  .table-wrap thead th { background: var(--du-surface, #ffffff); }
+}
+/* REFINEMENT-02 P2-13 (C28 completion): in the tablet band the wrap was
+   overflow-y:hidden, so the sticky header had no scroll region to bind
+   to and scrolled away (the citizens table included). The wrap becomes
+   a bounded scroll region there — the same pattern the owner console
+   tables already use — and the sticky header binds to it. */
+@media (min-width: 768px) and (max-width: 1023px) {
+  .table-wrap {
+    max-height: min(70vh, 640px);
+    overflow-y: auto;
+  }
+  .table-wrap thead th { background: var(--du-surface, #ffffff); }
 }

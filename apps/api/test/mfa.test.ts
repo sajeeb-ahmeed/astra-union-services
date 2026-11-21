@@ -16,7 +16,7 @@ import {
 const originalKey = process.env.MFA_ENCRYPTION_KEY;
 process.env.MFA_ENCRYPTION_KEY = randomBytes(32).toString("hex");
 const db = new pg.Pool({ connectionString: adminConnectionString });
-const password = "Synthetic-MFA-Test-Pass!",
+const password = "Synth-MFA-Test-P1!",
   run = randomUUID().slice(0, 8);
 let server: ReturnType<typeof app.listen>,
   base: string,
@@ -523,7 +523,7 @@ test("MFA-LOCK-RACE: a challenge waiting behind password rotation cannot create 
     // verifying its credential digest is a second defense against stale grants.
     await blocker.query(
       "UPDATE platform_users SET password_hash=$2 WHERE id=$1",
-      [user.id, hashPassword("Rotated-Synthetic-MFA-Pass!")],
+      [user.id, hashPassword("Rot-Synth-MFA-Pa1!")],
     );
     await blocker.query("COMMIT");
     assert.equal((await attempt).body.error.code, "MFA_CHALLENGE_INVALID");
@@ -547,7 +547,7 @@ test("MFA-PASSWORD: password changes invalidate challenges and pending enrollmen
   const user = await createUser("password"),
     enrolled = await enroll(user),
     token = await challenge(user);
-  const changed = "Changed-Synthetic-MFA-Pass!";
+  const changed = "Chg-Synth-MFA-Pa1!";
   assert.equal(
     (
       await request(
@@ -696,7 +696,7 @@ test("MFA-RECOVERY: tenant admin password reset cannot bypass enrolled MFA and d
     (
       await request("POST", "/auth/recover", {
         token: before.body.token,
-        newPassword: "Recovered-Synthetic-MFA!",
+        newPassword: "Rec-Synth-MFA-Pa1!",
       })
     ).status,
     422,
@@ -722,7 +722,7 @@ test("MFA-RECOVERY: tenant admin password reset cannot bypass enrolled MFA and d
     (
       await request("POST", "/auth/recover", {
         token,
-        newPassword: "Recovered-Synthetic-MFA!",
+        newPassword: "Rec-Synth-MFA-Pa1!",
       })
     ).body.error.code,
     "MFA_RECOVERY_REQUIRED",

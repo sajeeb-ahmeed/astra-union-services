@@ -64,7 +64,7 @@ test(
           officeType: "UNION",
           adminEmail: `admin@demand-web-${unique}.test`,
           adminName: "Demand Web Admin",
-          adminPassword: randomBytes(18).toString("base64url"),
+          adminPassword: randomBytes(12).toString("base64url"),
         },
       });
       assert.equal(created.status(), 201, await created.text());
@@ -79,7 +79,7 @@ test(
       const blocked = await anon.request.post(`${origin}/api/v1/auth/signup`, {
         data: {
           email: `demand-web-${unique}@example.test`,
-          password: randomBytes(18).toString("base64url"),
+          password: randomBytes(12).toString("base64url"),
           displayName: "Demand Web Citizen",
           tenantId,
           nameBn: "চাহিদা ওয়েব নাগরিক",

@@ -7,7 +7,7 @@ import { goToWorkspacePage } from "./fixtures/workspace-nav.js";
 import { getDemoPayload } from "@astra/shared-schemas";
 
 const origin = "http://127.0.0.1:5173";
-const password = "Payment-browser-2026!";
+const password = "Payment-Browser1!";
 const runId = `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
 const email = (role: string) => `payment-${role}-${runId}@example.test`;
 const geography = {

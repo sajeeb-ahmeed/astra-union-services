@@ -75,6 +75,14 @@ import { assertCertificateGates } from "./cert-gates.js";
 import { applySubscriptionAction } from "./subscriptions.js";
 import { rechargeRouter } from "./recharge.js";
 import { merchantRouter } from "./gateways.js";
+import { applyOrderSettlement } from "./order-settlement.js";
+import {
+  orderPaymentsRouter,
+  publicOrderPaymentsRouter,
+  orderRefundsRouter,
+  ownerOrderRefundsRouter,
+  orderPaymentsEnabled,
+} from "./order-payments.js";
 import { merchantSecretsAvailable } from "./sslcommerz.js";
 import { refundsRouter } from "./refunds.js";
 import { ownerInclusionRouter, publicInclusionRouter } from "./office-inclusion.js";
@@ -239,6 +247,22 @@ async function validatePayload(
       "SCHEMA_UNAVAILABLE",
       "Operational schema version is unavailable.",
     );
+  // F-7: the order step records the citizen's certificate-language choice on
+  // the payload for every service (ServiceFlow onLanguageChange), but only
+  // some form schemas define a delivery_language field. The rest carry the
+  // choice on the order snapshot instead (orders.validateLanguage only
+  // requires agreement when the payload has the key, and issuance falls back
+  // to the snapshot). Drop the key for schema-less services before strict
+  // validation so the UI's own submission is not rejected as unknown_field.
+  if (
+    payload &&
+    typeof payload === "object" &&
+    Object.hasOwn(payload, "delivery_language") &&
+    !stored.schema_json.sections?.some((section: any) =>
+      section.fields?.some((field: any) => field.id === "delivery_language"),
+    )
+  )
+    delete payload.delivery_language;
   const validation = validateForm(stored.schema_json, payload);
   if (!validation.valid)
     throw new ApiError(
@@ -282,53 +306,6 @@ async function event(
     r.id,
     { from: r.state, to },
   );
-}
-/**
- * Phase 3A: the settlement effects of a payment order, shared verbatim by the
- * gateway webhook path (settle below) and the owner's manual settlement
- * endpoint, so the two can never diverge: one PLAN_GRANT/TOPUP ledger entry
- * (idempotency key `payment:<order>`), the subscription upsert for
- * subscription orders, the order status flip, the invoice, and the audit
- * event. The ledger actor stays the order's creator in both paths; the audit
- * actor/action identify who actually settled.
- */
-async function applyOrderSettlement(
-  db: DB,
-  order: any,
-  actorId: string,
-  auditAction: string,
-  auditMetadata: object,
-) {
-  await db.query(
-    "INSERT INTO credit_ledger(tenant_id,delta,kind,idempotency_key,actor_id,reason,balance_after) VALUES($1,$2,$3,$4,$5,$6,0)",
-    [
-      order.tenant_id,
-      order.credits,
-      order.kind === "subscription" ? "PLAN_GRANT" : "TOPUP",
-      `payment:${order.id}`,
-      order.created_by,
-      "Verified payment settlement",
-    ],
-  );
-  if (order.kind === "subscription") {
-    const plan = (
-      await db.query("SELECT * FROM subscription_plans WHERE id=$1", [
-        order.plan_id,
-      ])
-    ).rows[0];
-    await db.query(
-      "INSERT INTO tenant_subscriptions(tenant_id,plan_id,valid_until,status,plan_duration_days,plan_grant_credits,plan_allowance_limit) VALUES($1,$2,now()+($3::int*interval '1 day'),'ACTIVE',$4,$5,$6) ON CONFLICT(tenant_id) DO UPDATE SET plan_id=excluded.plan_id,valid_until=greatest(tenant_subscriptions.valid_until,now())+($3::int*interval '1 day'),status='ACTIVE',plan_duration_days=excluded.plan_duration_days,plan_grant_credits=excluded.plan_grant_credits,plan_allowance_limit=excluded.plan_allowance_limit",
-      [order.tenant_id, plan.id, plan.duration_days, plan.duration_days, plan.grant_credits, plan.monthly_allowance_limit],
-    );
-  }
-  await db.query("UPDATE payment_orders SET status='SETTLED' WHERE id=$1", [
-    order.id,
-  ]);
-  await db.query(
-    "INSERT INTO invoices(tenant_id,order_id,amount_minor,currency) VALUES($1,$2,$3,$4)",
-    [order.tenant_id, order.id, order.amount_minor, order.currency],
-  );
-  await audit(db, order.tenant_id, actorId, auditAction, order.id, auditMetadata);
 }
 async function settle(body: any, bodyHash: string) {
   const data = z
@@ -551,6 +528,7 @@ app.use("/api/v1", publicManagementRouter);
 app.use("/api/v1", geographyRouter);
 app.use("/api/v1", publicToolsRouter);
 app.use("/api/v1", publicPaymentsRouter);
+app.use("/api/v1", publicOrderPaymentsRouter);
 app.use("/api/v1", publicInclusionRouter);
 app.use("/api/v1", publicWitnessRouter);
 app.get(
@@ -569,6 +547,8 @@ app.get(
         officeMerchantCredentials: merchantSecretsAvailable(),
         // Phase X: whether outbound email (verification + status notifications) is configured.
         emailDelivery: emailAvailable(),
+        // Phase 7: whether online subscription/credit order payment is configured.
+        orderPayments: await orderPaymentsEnabled(),
       },
     });
   }),
@@ -805,6 +785,9 @@ app.use("/api/v1", ownerInclusionRouter);
 app.use("/api/v1", ownerWitnessRouter);
 app.use("/api/v1", operationsRouter);
 app.use("/api/v1", paymentsRouter);
+app.use("/api/v1", orderPaymentsRouter);
+app.use("/api/v1", orderRefundsRouter);
+app.use("/api/v1", ownerOrderRefundsRouter);
 app.use("/api/v1", attachmentsRouter);
 app.get(
   "/api/v1/auth/me",

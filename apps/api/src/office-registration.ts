@@ -52,10 +52,11 @@ publicOfficeRegistrationRouter.post(
         accountType: typeCode,
         email: z.string().email().max(150),
         // Security Audit 01, F5: same common-password blocklist as management.ts.
+        // FORM-UX (owner directive 19 Nov): same 6–18 rule as management.ts.
         password: z
           .string()
-          .min(12)
-          .max(200)
+          .min(6, "Password must be at least 6 characters.")
+          .max(18, "Password must be at most 18 characters.")
           .refine((value) => !isCommonPassword(value), {
             message: "This password is too common. Choose a less predictable password.",
           }),

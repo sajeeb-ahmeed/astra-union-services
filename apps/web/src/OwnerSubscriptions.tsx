@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { api } from "./api.js";
 import { choose, recordName, useLanguage } from "./i18n.js";
+import { EmptyState, StatusBadge, statusTone } from "./OwnerUi.js";
 
 const label = (bn: string, en: string) => choose({ bn, en });
 const bnDigits = (v: string) => v.replace(/\d/g, (d) => "০১২৩৪৫৬৭৮৯"[Number(d)]);
@@ -27,15 +28,38 @@ export function SubscriptionBadge({ subscription }: { subscription: any }) {
   if (!subscription) return null;
   const days = subscriptionDaysLeft(subscription.validUntil);
   const urgent = subscription.status !== "ACTIVE" || (days !== null && days <= 7);
+  // OWNER-REDESIGN-01: labelled fields + a status badge, never concatenated text.
   return (
-    <p className="subscription-badge" data-urgent={urgent || undefined}>
-      {label("সাবস্ক্রিপশন", "Subscription")}: {subscription.planId} · {statusText(subscription.status)} ·{" "}
-      {label("মেয়াদ", "Valid until")} {dateText(subscription.validUntil)}
-      {days !== null &&
-        (days >= 0
-          ? ` · ${n(days)} ${label("দিন বাকি", "days left")}`
-          : ` · ${n(-days)} ${label("দিন আগে শেষ", "days past expiry")}`)}
-    </p>
+    <div className="subscription-badge" data-urgent={urgent || undefined}>
+      <div className="labelled-fields">
+        <div className="labelled-field">
+          <span className="field-label">{label("প্ল্যান", "Plan")}</span>
+          <span className="field-value">{subscription.planId}</span>
+        </div>
+        <div className="labelled-field">
+          <span className="field-label">{label("সাবস্ক্রিপশনের অবস্থা", "Subscription status")}</span>
+          <span className="field-value">
+            <StatusBadge tone={statusTone(subscription.status)}>
+              {statusText(subscription.status)}
+            </StatusBadge>
+          </span>
+        </div>
+        <div className="labelled-field">
+          <span className="field-label">{label("মেয়াদ", "Valid until")}</span>
+          <span className="field-value">{dateText(subscription.validUntil)}</span>
+        </div>
+        {days !== null && (
+          <div className="labelled-field">
+            <span className="field-label">{label("বাকি সময়", "Time left")}</span>
+            <span className="field-value">
+              {days >= 0
+                ? `${n(days)} ${label("দিন বাকি", "days left")}`
+                : `${n(-days)} ${label("দিন আগে শেষ", "days past expiry")}`}
+            </span>
+          </div>
+        )}
+      </div>
+    </div>
   );
 }
 
@@ -220,7 +244,7 @@ export function OwnerPendingOrders() {
   };
   return (
     <section className="panel">
-      <h2>{label("পেমেন্ট অর্ডার", "Payment orders")}</h2>
+      <h3>{label("পেমেন্ট অর্ডার", "Payment orders")}</h3>
       <p>
         {label(
           "অপেক্ষমাণ অর্ডার ম্যানুয়ালি নিষ্পত্তি বা বাতিল করুন — নিষ্পত্তি গেটওয়ে ওয়েবহুকের মতোই ক্রেডিট ও সাবস্ক্রিপশন কার্যকর করে। প্রতিটি সিদ্ধান্তে কারণ আবশ্যক এবং অডিট লগে থাকে।",
@@ -242,7 +266,13 @@ export function OwnerPendingOrders() {
         </p>
       )}
       {orders.length === 0 ? (
-        <p role="status">{label("এই অবস্থায় কোনো অর্ডার নেই।", "No orders in this state.")}</p>
+        <EmptyState
+          title={label("এই অবস্থায় কোনো অর্ডার নেই।", "No orders in this state.")}
+          hint={label(
+            "নতুন অর্ডার এলে এখানে দেখা যাবে।",
+            "New orders will appear here.",
+          )}
+        />
       ) : (
         orders.map((order) => (
           <div className="tenant-card" key={order.id}>
@@ -250,13 +280,44 @@ export function OwnerPendingOrders() {
               {recordName({ nameBn: order.tenantNameBn, nameEn: order.tenantNameEn }) ||
                 order.tenantSlug}
             </h3>
-            <p>
-              {order.kind === "subscription"
-                ? `${label("সাবস্ক্রিপশন", "Subscription")} · ${order.planId ?? ""}`
-                : label("ক্রেডিট টপ-আপ", "Credit top-up")}{" "}
-              · {n(order.credits)} {label("ক্রেডিট", "credits")} · {n(order.amountMinor)}{" "}
-              {label("পয়সা", "poisha")} · {dateText(order.createdAt)} · {order.status}
-            </p>
+            <div className="labelled-fields">
+              <div className="labelled-field">
+                <span className="field-label">{label("ধরন", "Type")}</span>
+                <span className="field-value">
+                  {order.kind === "subscription"
+                    ? `${label("সাবস্ক্রিপশন", "Subscription")} · ${order.planId ?? ""}`
+                    : label("ক্রেডিট টপ-আপ", "Credit top-up")}
+                </span>
+              </div>
+              <div className="labelled-field">
+                <span className="field-label">{label("ক্রেডিট", "Credits")}</span>
+                <span className="field-value">{n(order.credits)}</span>
+              </div>
+              <div className="labelled-field">
+                <span className="field-label">{label("পরিমাণ", "Amount")}</span>
+                <span className="field-value">
+                  {n(order.amountMinor)} {label("পয়সা", "poisha")}
+                </span>
+              </div>
+              <div className="labelled-field">
+                <span className="field-label">{label("তারিখ", "Date")}</span>
+                <span className="field-value">{dateText(order.createdAt)}</span>
+              </div>
+              <div className="labelled-field">
+                <span className="field-label">{label("অবস্থা", "Status")}</span>
+                <span className="field-value">
+                  <StatusBadge tone={statusTone(order.status)}>
+                    {order.status === "PENDING"
+                      ? label("অপেক্ষমাণ", "Pending")
+                      : order.status === "SETTLED"
+                        ? label("নিষ্পত্তি হয়েছে", "Settled")
+                        : order.status === "CANCELLED"
+                          ? label("বাতিল", "Cancelled")
+                          : order.status}
+                  </StatusBadge>
+                </span>
+              </div>
+            </div>
             {order.status === "PENDING" && (
               <form onSubmit={(e) => e.preventDefault()}>
                 <label>

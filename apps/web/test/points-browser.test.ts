@@ -40,6 +40,8 @@ test(
     try {
       await signIn(page, "owner@astra.demo.test");
       await goToWorkspacePage(page, "Platform management");
+      // OWNER-REDESIGN-01: the pricing table lives in the Pricing section.
+      await page.locator('.owner-nav a[href="#owner-pricing"]').click();
       const prices = page.locator(".owner-pricing");
       await prices.waitFor();
       const row = prices.locator("tbody tr").nth(46);
@@ -55,6 +57,8 @@ test(
         () => (document.querySelectorAll(".owner-pricing tbody tr")[46]?.querySelector("input") as HTMLInputElement)?.value === "1",
       );
 
+      // OWNER-REDESIGN-01: office cards live in the Offices section.
+      await page.locator('.owner-nav a[href="#owner-offices"]').click();
       const card = page.locator(".tenant-card", { hasText: "Alpha Union" }).first();
       await card.locator("summary", { hasText: "Points wallet" }).click();
       const form = card.locator(".points-adjust");
@@ -76,6 +80,7 @@ test(
       // Take the test credit back out so the shared demo office is unchanged.
       await signIn(page, "owner@astra.demo.test");
       await goToWorkspacePage(page, "Platform management");
+      await page.locator('.owner-nav a[href="#owner-offices"]').click();
       const again = page.locator(".tenant-card", { hasText: "Alpha Union" }).first();
       await again.locator("summary", { hasText: "Points wallet" }).click();
       const back = again.locator(".points-adjust");

@@ -1,11 +1,11 @@
 import React, { useEffect, useState, useSyncExternalStore } from "react";
 import { choose, LanguageSwitcher, useLanguage } from "./i18n.js";
 import { useBranding } from "./branding.js";
+import { hasPageHead } from "./seo/head.js";
 import { GlobalNoticeBanner } from "./GlobalNotices.js";
 import "./ui/kit.js";
 import { SubscriptionForm } from "./SubscriptionForm.js";
-import logoLockup from "./assets/brand/logo-lockup.webp";
-import emblem from "./assets/brand/emblem.webp";
+import { BrandLockup } from "./BrandLockup.js";
 import "./public-shell.css";
 import "./du-shell.css";
 
@@ -120,7 +120,10 @@ export function SiteHeader({
   useLanguage();
   const branding = useBranding();
   useEffect(() => {
-    document.title = `${branding.name} — ${branding.taglineBn}`;
+    // SEO P5: a page that applied its own head (seo/head.ts) owns the
+    // title; the branding default must not overwrite it when the branding
+    // fetch resolves after the page's head effect ran.
+    if (!hasPageHead()) document.title = `${branding.name} — ${branding.taglineBn}`;
   }, [branding]);
   const phone = usePhone();
   const [drawer, setDrawer] = useState(false);
@@ -135,16 +138,10 @@ export function SiteHeader({
   const navLabel = choose({ bn: "প্রধান মেনু", en: "Public navigation" });
   return (
     <>
-      <div className="du-topline">
-        <div className="du-container">
-          <span>
-            {choose({
-              bn: "ডিজিটাল নাগরিক সেবায় স্বাগতম",
-              en: "Welcome to digital citizen services",
-            })}
-          </span>
-        </div>
-      </div>
+      {/* BUNDLE06-R5 C3: the old dark welcome strip (.du-topline) is
+          gone — the header is now two bars (brand row + nav row). The
+          welcome line rides inside the brand row as muted text and is
+          hidden on phones, where the bottom nav carries the chrome. */}
       <header className="du-header">
         <div className="du-container du-header-row">
           <NavLink
@@ -153,17 +150,16 @@ export function SiteHeader({
             className="du-brand"
             ariaLabel={choose({ bn: `${branding.name} হোম`, en: `${branding.name} home` })}
           >
-            <img className="du-brand-lockup" src={logoLockup} alt={branding.name} width={176} height={81} />
-            <span className="du-brand-mini">
-              <img src={emblem} alt="" width={40} height={40} />
-              <span>
-                <strong>{branding.name}</strong>
-                <small>
-                  {choose({ bn: branding.taglineBn, en: branding.taglineEn })}
-                </small>
-              </span>
-            </span>
+            {/* FULL-UIUX-01 · OWNER-DECISION 4: the one platform lockup —
+                mark + BN/EN wordmark; it never wraps or swaps variants. */}
+            <BrandLockup size={46} />
           </NavLink>
+          <span className="du-header-welcome">
+            {choose({
+              bn: "ডিজিটাল নাগরিক সেবায় স্বাগতম",
+              en: "Welcome to digital citizen services",
+            })}
+          </span>
           <div className="du-header-actions">
             <LanguageSwitcher />
             {account ?? (
@@ -270,8 +266,8 @@ export function SiteFooter({
 }) {
   useLanguage();
   const branding = useBranding();
-  const link = (href: string, bn: string, en: string) => (
-    <li key={href}>
+  const link = (href: string, bn: string, en: string, key?: string) => (
+    <li key={key ?? href}>
       <NavLink href={href} onNavigate={onNavigate} className="du-footlink">
         {choose({ bn, en })}
       </NavLink>
@@ -281,15 +277,23 @@ export function SiteFooter({
     <footer className="du-footer">
       <div className="du-container du-footer-grid">
         <div className="du-footer-brand">
-          <span className="du-footer-lockup">
-            <img src={emblem} alt="" width={44} height={44} />
-            <strong>{branding.name}</strong>
-          </span>
-          <p>{choose({ bn: branding.taglineBn, en: branding.taglineEn })}</p>
+          <BrandLockup size={40} tagline />
           <p className="du-footer-note">
             {choose({
               bn: "ইউনিয়ন পরিষদের নাগরিক সেবা — আবেদন, অবস্থা ও সনদ যাচাই এক ঠিকানায়।",
               en: "Union Parishad citizen services — apply, track and verify in one place.",
+            })}
+          </p>
+          <p className="du-footer-note">
+            {choose({
+              bn: "পাইলট অফিস: বেলাবো ইউনিয়ন পরিষদ, বেলাবো, নরসিংদী।",
+              en: "Pilot office: Belabo Union Parishad, Belabo, Narsingdi.",
+            })}
+          </p>
+          <p className="du-footer-note">
+            {choose({
+              bn: "DigitalUnion একটি বেসরকারি প্ল্যাটফর্ম, যা ইউনিয়ন পরিষদ অফিসগুলো ব্যবহার করে। এটি সরকারি ওয়েবসাইট নয়; সরকারি সিস্টেমটি unionservices.gov.bd।",
+              en: "DigitalUnion is a private platform used by Union Parishad offices. It is not a government website; the government system is unionservices.gov.bd.",
             })}
           </p>
         </div>
@@ -297,8 +301,8 @@ export function SiteFooter({
           <h3>{choose({ bn: "সেবা", en: "Services" })}</h3>
           {servicesSlot ?? (
             <ul>
-              {link("/services", "সব নাগরিক সেবা", "All citizen services")}
-              {link("/services", "নতুন আবেদন করুন", "Start an application")}
+              {link("/services", "সব নাগরিক সেবা", "All citizen services", "services-all")}
+              {link("/services", "নতুন আবেদন করুন", "Start an application", "services-apply")}
               {link("/offices", "আপনার ইউনিয়ন অফিস", "Your union office")}
             </ul>
           )}

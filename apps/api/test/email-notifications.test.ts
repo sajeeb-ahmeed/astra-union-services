@@ -14,7 +14,7 @@ import { closePdfBrowser } from "../src/pdf.js";
 process.env.NODE_ENV = "test";
 const db = new pg.Pool({ connectionString: adminConnectionString });
 // Test-only credentials are generated per run so no password-like literal sits in the repository.
-const password = randomBytes(18).toString("base64url");
+const password = randomBytes(12).toString("base64url");
 const run = randomUUID().slice(0, 8);
 const citizenMobile = `017${String(Date.now()).slice(-8)}`;
 let server: ReturnType<typeof app.listen>, base: string, tenantId: string, citizenId: string;

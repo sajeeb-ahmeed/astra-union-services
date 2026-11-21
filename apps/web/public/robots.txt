@@ -1,0 +1,19 @@
+# DigitalUnion — robots.txt (SEO-STRATEGY-01 design D6)
+# Public pages are crawlable; the API, authenticated workspaces and
+# utility/result surfaces are not.
+User-agent: *
+Allow: /
+Allow: /services
+Allow: /offices
+Allow: /verify
+Disallow: /api/
+Disallow: /login
+Disallow: /register
+Disallow: /register-office
+Disallow: /recover
+Disallow: /verify-email
+Disallow: /tracking
+Disallow: /witness
+Disallow: /payments/
+
+Sitemap: https://digitalunion.com.bd/sitemap.xml

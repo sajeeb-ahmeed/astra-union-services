@@ -76,10 +76,12 @@ const roleInput = z.enum([
 // Security Audit 01, F5: every password set/change point in this module (signup,
 // staff create, tenant create, recovery consume, password change) shares this
 // schema, so the common-password blocklist refine covers all of them at once.
+// FORM-UX (owner directive 19 Nov): every password a user sets is 6–18
+// characters — one rule everywhere, so no form can disagree with the API.
 const password = z
   .string()
-  .min(12)
-  .max(200)
+  .min(6, "Password must be at least 6 characters.")
+  .max(18, "Password must be at most 18 characters.")
   .refine((value) => !isCommonPassword(value), {
     message: "This password is too common. Choose a less predictable password.",
   });
@@ -416,7 +418,8 @@ publicManagementRouter.get(
              p.required_documents
            FROM service_catalog s JOIN tenant_service_configuration c USING(service_no)
            LEFT JOIN LATERAL (SELECT * FROM service_order_policies o WHERE o.tenant_id=c.tenant_id AND o.service_no=c.service_no ORDER BY o.version DESC LIMIT 1) p ON true
-           WHERE c.enabled ORDER BY s.service_no`,
+           WHERE c.enabled AND c.tenant_id=$1 ORDER BY s.service_no`,
+          [office.id],
         )
       ).rows.map(camelRow),
     );
@@ -656,7 +659,14 @@ publicManagementRouter.post(
         : "failed";
     res.status(201).json({
       registered: true,
-      verificationState: "SYNTHETIC_DEMO",
+      // BUNDLE06-R5 D1: demo wording is internal vocabulary — in OFFICIAL
+      // mode citizens must never see "SYNTHETIC_DEMO" in an API response.
+      // The citizens.verification_state column keeps its stored value; only
+      // this citizen-facing response label changes with the issuance mode.
+      verificationState:
+        process.env.ISSUANCE_MODE === "official"
+          ? "UNVERIFIED"
+          : "SYNTHETIC_DEMO",
       geography: d.geography ?? null,
       emailVerification,
     });

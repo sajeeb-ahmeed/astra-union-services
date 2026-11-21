@@ -27,8 +27,15 @@ test("user guide browser: every role has its section in both languages, and it p
   try {
     await page.goto(`${origin}/guide`);
     await page.getByRole("heading", { name: "DigitalUnion user guide", exact: true }).waitFor();
-    for (const role of ["Citizens", "Office staff and entrepreneurs", "Secretary", "Chairman (approver)", "Office admin and finance", "Platform owner"])
-      await page.getByRole("heading", { name: role, exact: true }).waitFor();
+    // FULL-UIUX-01 (A12): the guide is a themed accordion — each role is
+    // a details section whose title sits in its summary, not a heading.
+    for (const role of ["Citizens", "Office staff and entrepreneurs", "Secretary", "Chairman (approver)", "Office admin and finance", "Platform owner"]) {
+      const title = page.locator(".guide-section-title").filter({ hasText: role });
+      assert.equal(await title.count(), 1, role);
+      await title.click();
+      const section = page.locator(".guide-section", { has: title });
+      assert.ok((await section.locator("ol li").count()) >= 1, `${role} section has steps`);
+    }
     assert.ok((await page.locator(".user-guide ol li").count()) >= 20);
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), true);
     const pdf = await page.pdf({ format: "A4" });
@@ -36,7 +43,7 @@ test("user guide browser: every role has its section in both languages, and it p
     await page.evaluate(() => localStorage.setItem("astra.language", "bn"));
     await page.reload();
     await page.getByRole("heading", { name: "DigitalUnion ব্যবহারের নির্দেশিকা", exact: true }).waitFor();
-    await page.getByRole("heading", { name: "চেয়ারম্যান (অনুমোদনকারী)", exact: true }).waitFor();
+    await page.locator(".guide-section-title").filter({ hasText: "চেয়ারম্যান (অনুমোদনকারী)" }).waitFor();
   } finally {
     await browser.close();
   }

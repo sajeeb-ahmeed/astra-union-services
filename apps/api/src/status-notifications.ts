@@ -1,6 +1,10 @@
 import { getService } from "@astra/shared-schemas";
 import { transaction } from "./db.js";
 import { sendEmail } from "./mailer.js";
+import {
+  applicationRejectedTemplate,
+  certificateIssuedTemplate,
+} from "./email-templates.js";
 import { sendStatusSms } from "./sms.js";
 
 /**
@@ -51,16 +55,10 @@ export async function notifyCertificateIssued(input: {
     if (contact.email) {
       await sendEmail({
         to: contact.email,
-        subject: `সনদ ইস্যু হয়েছে / Certificate issued — ${input.certificateNumber}`,
-        text: [
-          "আপনার আবেদনের সনদ ইস্যু হয়েছে।",
-          "Your certificate has been issued.",
-          "",
-          `সেবা / Service: ${service}`,
-          `সনদ নম্বর / Certificate number: ${input.certificateNumber}`,
-          "",
-          "সাইন ইন করে সনদটি ডাউনলোড করুন। / Sign in to download your certificate.",
-        ].join("\n"),
+        ...certificateIssuedTemplate({
+          certificateNumber: input.certificateNumber,
+          service,
+        }),
       });
     }
     if (contact.mobile) {
@@ -87,16 +85,7 @@ export async function notifyApplicationRejected(input: {
     if (contact.email) {
       await sendEmail({
         to: contact.email,
-        subject: "আবেদন বাতিল হয়েছে / Application rejected — DigitalUnion",
-        text: [
-          "আপনার আবেদনটি বাতিল করা হয়েছে।",
-          "Your application has been rejected.",
-          "",
-          `সেবা / Service: ${service}`,
-          `কারণ / Reason: ${input.reason}`,
-          "",
-          "বিস্তারিত জানতে সাইন ইন করুন অথবা আপনার অফিসে যোগাযোগ করুন। / Sign in or contact your office for details.",
-        ].join("\n"),
+        ...applicationRejectedTemplate({ reason: input.reason, service }),
       });
     }
     if (contact.mobile) {

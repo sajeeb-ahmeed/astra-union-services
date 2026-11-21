@@ -28,7 +28,7 @@ import { closePdfBrowser } from "../src/pdf.js";
 type Session = { cookie: string; csrf: string; user: any };
 const run = randomUUID().slice(0, 8);
 const RUN = run.toUpperCase();
-const password = "Phase3e-Synthetic-123!";
+const password = "Phase3e-Synth-123!";
 const admin = new pg.Pool({ connectionString: adminConnectionString });
 let server: ReturnType<typeof app.listen>, base: string;
 const owner: { current?: Session } = {};

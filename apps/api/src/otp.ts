@@ -12,10 +12,12 @@ import {
   identifiersAvailable,
   normalizeIdentifier,
 } from "./identifiers.js";
+import { sendSmsViaHttp, smsHttpConfigured } from "./sms-http.js";
 
 /**
  * Phase 2c: one-time codes for mobile verification at citizen registration.
- * Owner decision: development provider only. A code is never returned by the API.
+ * A code is never returned by the API. Phase 7 adds the real SMS gateway beside
+ * the development provider: OTP_PROVIDER=http sends through sms-http.ts.
  * Security Audit 01, F1: the "log" provider previously wrote the plaintext code to
  * the server log — anyone with log access held a working code. The server log line
  * now records only the recipient hint and purpose, in every environment. Outside
@@ -38,9 +40,21 @@ export const logOtpProvider: OtpProvider = {
     }
   },
 };
+/** Phase 7: the real SMS gateway (OTP_PROVIDER=http, SMS_HTTP_* env) — see sms-http.ts. */
+export const httpOtpProvider: OtpProvider = {
+  async send({ mobile, code, purpose }) {
+    await sendSmsViaHttp(
+      mobile,
+      `DigitalUnion: আপনার যাচাই কোড ${code} / Your verification code is ${code}. It expires in ${CODE_TTL_MINUTES} minutes.`,
+    );
+    void purpose;
+  },
+};
 function configuredProvider(): OtpProvider | null {
   const name = process.env.OTP_PROVIDER ?? (process.env.NODE_ENV === "production" ? "" : "log");
-  return name === "log" ? logOtpProvider : null;
+  if (name === "log") return logOtpProvider;
+  if (name === "http") return smsHttpConfigured() ? httpOtpProvider : null;
+  return null;
 }
 let provider = configuredProvider();
 /** Tests swap the provider; production configuration comes only from OTP_PROVIDER. */

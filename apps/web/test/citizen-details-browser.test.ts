@@ -50,6 +50,7 @@ test(
       await page.getByLabel("Date of birth", { exact: true }).fill("1991-02-03");
       await page.getByLabel("Address (Bangla)", { exact: true }).fill("নমুনা পরীক্ষার গ্রাম");
       await page.getByLabel("Address (English)", { exact: true }).fill("Synthetic Details Village");
+      await page.getByRole("button", { name: "Continue", exact: true }).click(); // B-4: P2-7 stepper — advance to the next registration step
       const union = JSON.parse(fs.readFileSync("data/geo/unions.json", "utf8")).find(
         (row: any) => row.upazilaCode === "upa-001",
       );
@@ -63,6 +64,7 @@ test(
         await page.locator(`#citizen-geo-${level} option[value="${code}"]`).waitFor({ state: "attached" });
         await page.locator(`#citizen-geo-${level}`).selectOption(code);
       }
+      await page.getByRole("button", { name: "Continue", exact: true }).click(); // B-4: P2-7 stepper — advance to the next registration step
       await page.locator("#citizen-details-nid").fill(nid);
       await page.locator("#citizen-details-mobile").fill("01712345678");
       await page.locator("#citizen-details-gender").selectOption("female");
@@ -77,8 +79,13 @@ test(
       assert.equal(created.nidHint, `••••${nid.slice(-3)}`);
       assert.equal(JSON.stringify(created).includes(nid), false);
       // The registration form is cleared for the next citizen.
+      // B-4b: the P2-7 stepper unmounts step 3 on reset (back to step 1 with
+      // details state cleared), so "cleared" now means absent-or-empty.
       await page.waitForFunction(
-        () => (document.querySelector("#citizen-details-nid") as HTMLInputElement | null)?.value === "",
+        () => {
+          const el = document.querySelector("#citizen-details-nid") as HTMLInputElement | null;
+          return !el || el.value === "";
+        },
       );
 
       await page.getByRole("button", { name: `Details: ${name}`, exact: true }).click();

@@ -6,6 +6,7 @@ import { digest, randomToken } from "./security.js";
 import { createRateLimiter } from "./http-hardening.js";
 import { accountActionLimiter } from "./account-security.js";
 import { emailAvailable, emailProviderName, sendEmail } from "./mailer.js";
+import { emailVerificationTemplate } from "./email-templates.js";
 import type { Auth } from "./app.js";
 
 /**
@@ -48,21 +49,12 @@ export async function issueEmailVerificationToken(
   return { token, expiresAt: row.expires_at };
 }
 
-/** Bilingual verification message, in the product's BN/EN voice. Returns whether it was sent. */
+/** Bilingual verification message (template in email-templates.ts). Returns whether it was sent. */
 export async function sendEmailVerificationMessage(email: string, token: string): Promise<boolean> {
   const link = emailVerificationLink(token);
   return sendEmail({
     to: email,
-    subject: "আপনার ইমেইল যাচাই করুন / Verify your email — DigitalUnion",
-    text: [
-      "DigitalUnion-এ আপনার অ্যাকাউন্টের ইমেইল ঠিকানা যাচাই করতে নিচের লিংকটি খুলুন:",
-      "Open the link below to verify the email address on your DigitalUnion account:",
-      "",
-      link,
-      "",
-      `লিংকটি ${EMAIL_TOKEN_TTL_HOURS} ঘণ্টা পর্যন্ত কার্যকর থাকবে। / The link is valid for ${EMAIL_TOKEN_TTL_HOURS} hours.`,
-      "আপনি এই অ্যাকাউন্ট তৈরি না করে থাকলে এই বার্তাটি উপেক্ষা করুন। / If you did not create this account, ignore this message.",
-    ].join("\n"),
+    ...emailVerificationTemplate({ link, ttlHours: EMAIL_TOKEN_TTL_HOURS }),
   });
 }
 

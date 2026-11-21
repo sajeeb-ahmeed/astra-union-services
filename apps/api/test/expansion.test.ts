@@ -22,7 +22,7 @@ import { payloadGeographyNames } from "../src/geography.js";
 process.env.DEMO_SETTLE_ENABLED = "true";
 const db = new pg.Pool({ connectionString: adminConnectionString });
 const run = randomUUID().slice(0, 8),
-  password = "Synthetic-Test-Pass!";
+  password = "Synth-Test-Pass1!";
 let server: ReturnType<typeof app.listen>,
   base: string,
   office: any,
@@ -944,7 +944,7 @@ test("AUTH-NEW: signup validation, password verification and old-session invalid
         "/auth/password",
         {
           currentPassword: "incorrect",
-          newPassword: "Changed-Synthetic-Pass!",
+          newPassword: "Chg-Synthetic-Pa1!",
         },
         s.citizen,
       )
@@ -956,7 +956,7 @@ test("AUTH-NEW: signup validation, password verification and old-session invalid
       await req(
         "POST",
         "/auth/password",
-        { currentPassword: password, newPassword: "Changed-Synthetic-Pass!" },
+        { currentPassword: password, newPassword: "Chg-Synthetic-Pa1!" },
         s.citizen,
       )
     ).status,
@@ -971,7 +971,7 @@ test("AUTH-NEW: signup validation, password verification and old-session invalid
     (await req("POST", "/auth/login", { email, password })).status,
     401,
   );
-  await login("citizen", email, "Changed-Synthetic-Pass!");
+  await login("citizen", email, "Chg-Synthetic-Pa1!");
 });
 test("AUTH-RECOVERY: tenant-admin manual recovery is one-use, expires, blocks privilege escalation and invalidates sessions", async () => {
   assert.equal(
@@ -1018,11 +1018,11 @@ test("AUTH-RECOVERY: tenant-admin manual recovery is one-use, expires, blocks pr
   const results = await Promise.all([
     req("POST", "/auth/recover", {
       token: grant.body.token,
-      newPassword: "Recovered-Synthetic-Pass!",
+      newPassword: "Rec-Synthetic-Pa1!",
     }),
     req("POST", "/auth/recover", {
       token: grant.body.token,
-      newPassword: "Recovered-Synthetic-Pass!",
+      newPassword: "Rec-Synthetic-Pa1!",
     }),
   ]);
   assert.deepEqual(results.map((r) => r.status).sort(), [200, 422]);
@@ -1030,7 +1030,7 @@ test("AUTH-RECOVERY: tenant-admin manual recovery is one-use, expires, blocks pr
   await login(
     "staff",
     `staff@${office.slug}.test`,
-    "Recovered-Synthetic-Pass!",
+    "Rec-Synthetic-Pa1!",
   );
   const expired = await req(
     "POST",

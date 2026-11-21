@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { api } from "./api.js";
 import { choose, useLanguage } from "./i18n.js";
+import { formatDate } from "./ui/fmt.js";
 
 const label = (bn: string, en: string) => choose({ bn, en });
 const bnDigits = (value: string) => value.replace(/\d/g, (d) => "০১২৩৪৫৬৭৮৯"[Number(d)]);
@@ -14,13 +15,14 @@ const num = (value: number) => choose({ bn: bnDigits(String(value)), en: String(
  * (whose payment rail arrives in Phase 7; until then citizen-pays submits stay drafts).
  */
 export function OwnerPricing() {
-  useLanguage();
+  const [language] = useLanguage();
   const [items, setItems] = useState<any[]>([]);
   const [drafts, setDrafts] = useState<Record<number, string>>({});
   const [reasons, setReasons] = useState<Record<number, string>>({});
   const [history, setHistory] = useState<Record<number, any[]>>({});
   const [payer, setPayer] = useState<"office" | "citizen">("office");
   const [payerReason, setPayerReason] = useState("");
+  const [query, setQuery] = useState("");
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
@@ -112,9 +114,19 @@ export function OwnerPricing() {
     }
   }
 
+  const q = query.trim().toLowerCase();
+  const visibleItems = q
+    ? items.filter(
+        (i: any) =>
+          String(i.serviceNo).includes(q) ||
+          String(i.nameBn ?? "").toLowerCase().includes(q) ||
+          String(i.nameEn ?? "").toLowerCase().includes(q),
+      )
+    : items;
+
   return (
     <section className="panel owner-pricing">
-      <h2>{label("আবেদন ফি ও মূল্য", "Application fees & pricing")}</h2>
+      <h3>{label("আবেদন ফি ও মূল্য", "Application fees & pricing")}</h3>
       <p className="hint">
         {label(
           "প্রতিটি আবেদনের ফি শুধু প্রথমবার জমা দেওয়ার সময় কাটা হয় — সনদ ইস্যুর সময় কোনো চার্জ নেই। সাবস্ক্রিপশন সক্রিয় অফিসের আবেদনে ফি লাগে না।",
@@ -132,9 +144,9 @@ export function OwnerPricing() {
         </p>
       )}
 
-      <h3>{label("ফি কে দেবে", "Who pays the fee")}</h3>
+      <h4>{label("ফি কে দেবে", "Who pays the fee")}</h4>
       <div className="field-row">
-        <label>
+        <label className="radio-label">
           <input
             type="radio"
             name="fee-payer"
@@ -143,7 +155,7 @@ export function OwnerPricing() {
           />{" "}
           {label("অফিসের ওয়ালেট", "Office wallet")}
         </label>
-        <label>
+        <label className="radio-label">
           <input
             type="radio"
             name="fee-payer"
@@ -156,8 +168,8 @@ export function OwnerPricing() {
       {payer === "citizen" && (
         <p className="hint">
           {label(
-            "সতর্কতা: নাগরিকের পরিশোধের মাধ্যম এখনো চালু হয়নি (Phase 7)। এই সেটিং চালু থাকলে নতুন আবেদন খসড়া অবস্থায় আটকে থাকবে।",
-            "Note: citizen payment is not available yet (Phase 7). While this setting is on, new applications will stay as drafts.",
+            "সতর্কতা: নাগরিকের পরিশোধের মাধ্যম এখনো চালু হয়নি। এই সেটিং চালু থাকলে নতুন আবেদন খসড়া অবস্থায় আটকে থাকবে।",
+            "Note: citizen payment is not available yet. While this setting is on, new applications will stay as drafts.",
           )}
         </p>
       )}
@@ -175,13 +187,25 @@ export function OwnerPricing() {
         </button>
       </div>
 
-      <h3>{label("সেবা প্রতি ক্রেডিট মূল্য", "Credit price per service")}</h3>
+      <h4>{label("সেবা প্রতি ক্রেডিট মূল্য", "Credit price per service")}</h4>
       <p className="hint">
         {label(
           "সব অফিসের জন্য একই মূল্য। যেসব সেবার মূল্য প্রকাশ হয়নি, সেগুলোর ডিফল্ট মূল্য ১ ক্রেডিট। ০ মানে বিনামূল্যে। প্রতিটি পরিবর্তন কারণসহ নতুন সংস্করণ হিসেবে সংরক্ষিত হয়; জমার মুহূর্তে চালু থাকা মূল্যই কাটা হয়।",
           "One price for every office. Services without a published price default to 1 credit. 0 means free. Each change is kept as a new version with its reason; the price in force at submit is the price charged.",
         )}
       </p>
+      {/* OWNER-REDESIGN-01: client-side search over the already-loaded rows. */}
+      <div className="owner-search">
+        <label>
+          {label("সেবা খুঁজুন", "Search services")}
+          <input
+            type="search"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder={label("সেবার নাম বা নম্বর", "Service name or number")}
+          />
+        </label>
+      </div>
       <div className="table-wrap">
         <table>
           <thead>
@@ -194,7 +218,7 @@ export function OwnerPricing() {
             </tr>
           </thead>
           <tbody>
-            {items.map((item) => (
+            {visibleItems.map((item) => (
               <React.Fragment key={item.serviceNo}>
                 <tr>
                   <th scope="row">
@@ -230,7 +254,7 @@ export function OwnerPricing() {
                     <button type="button" disabled={busy} onClick={() => publish(item)}>
                       {label("প্রকাশ", "Publish")}
                     </button>{" "}
-                    <button type="button" disabled={busy} onClick={() => toggleHistory(item)}>
+                    <button type="button" className="secondary" disabled={busy} onClick={() => toggleHistory(item)}>
                       {label("ইতিহাস", "History")}
                     </button>
                   </td>
@@ -244,10 +268,7 @@ export function OwnerPricing() {
                             <li key={v.version}>
                               {label("সংস্করণ", "v")}
                               {num(v.version)} — {num(v.priceCredits)} {label("ক্রেডিট", "credits")} ·{" "}
-                              {v.reason} ·{" "}
-                              {new Date(v.createdAt).toLocaleDateString(
-                                choose({ bn: "bn-BD", en: "en-GB" }),
-                              )}
+                              {v.reason} · {formatDate(v.createdAt, language)}
                             </li>
                           ))}
                         </ul>
@@ -259,6 +280,13 @@ export function OwnerPricing() {
                 )}
               </React.Fragment>
             ))}
+            {q && visibleItems.length === 0 && (
+              <tr>
+                <td colSpan={5}>
+                  {label("কোনো সেবা মেলেনি।", "No service matches the search.")}
+                </td>
+              </tr>
+            )}
           </tbody>
         </table>
       </div>

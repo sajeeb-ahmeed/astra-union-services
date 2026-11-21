@@ -50,32 +50,36 @@ export function PointsWallet({ children }: { children?: React.ReactNode }) {
       </p>
       {children}
       <h3>{label("সাম্প্রতিক লেনদেন", "Recent movements")}</h3>
-      {data.ledger.length ? (
-        <div className="table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th scope="col">{label("তারিখ", "Date")}</th>
-                <th scope="col">{label("ধরন", "Type")}</th>
-                <th scope="col">{label("পরিমাণ", "Amount")}</th>
-                <th scope="col">{label("ব্যালান্স", "Balance")}</th>
+      <div className="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th scope="col">{label("তারিখ", "Date")}</th>
+              <th scope="col">{label("ধরন", "Type")}</th>
+              <th scope="col">{label("পরিমাণ", "Amount")}</th>
+              <th scope="col">{label("ব্যালান্স", "Balance")}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {data.ledger.map((e: any) => (
+              <tr key={e.id}>
+                <td>{new Date(e.createdAt).toLocaleDateString(choose({ bn: "bn-BD", en: "en-GB" }))}</td>
+                <td>{kindLabel(e.kind)}</td>
+                <td>{points(e.deltaMinor)}</td>
+                <td>{points(e.balanceAfterMinor)}</td>
               </tr>
-            </thead>
-            <tbody>
-              {data.ledger.map((e: any) => (
-                <tr key={e.id}>
-                  <td>{new Date(e.createdAt).toLocaleDateString(choose({ bn: "bn-BD", en: "en-GB" }))}</td>
-                  <td>{kindLabel(e.kind)}</td>
-                  <td>{points(e.deltaMinor)}</td>
-                  <td>{points(e.balanceAfterMinor)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      ) : (
-        <p>{label("এখনও কোনো লেনদেন নেই।", "No movements yet.")}</p>
-      )}
+            ))}
+            {/* P2-6: the empty state lives inside the table body. */}
+            {!data.ledger.length && (
+              <tr>
+                <td colSpan={4} className="empty-cell">
+                  {label("এখনও কোনো লেনদেন নেই।", "No movements yet.")}
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
     </section>
   );
 }

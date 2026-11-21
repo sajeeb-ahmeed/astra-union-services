@@ -79,7 +79,7 @@ export function PaymentMerchantSettings() {
           <div className="field">
             <label htmlFor="merchant-environment">{label("পরিবেশ", "Environment")}</label>
             <select id="merchant-environment" value={environment} onChange={(e) => setEnvironment(e.target.value)}>
-              <option value="SANDBOX">{label("স্যান্ডবক্স", "Sandbox")}</option>
+              <option value="SANDBOX">{label("পরীক্ষামূলক পরিবেশ", "Test environment")}</option>
               <option value="LIVE">{label("লাইভ", "Live")}</option>
             </select>
           </div>
@@ -194,7 +194,7 @@ export function BkashMerchantSettings() {
           <div className="field">
             <label htmlFor="bkash-environment">{label("পরিবেশ", "Environment")}</label>
             <select id="bkash-environment" value={environment} onChange={(e) => setEnvironment(e.target.value)}>
-              <option value="SANDBOX">{label("স্যান্ডবক্স", "Sandbox")}</option>
+              <option value="SANDBOX">{label("পরীক্ষামূলক পরিবেশ", "Test environment")}</option>
               <option value="LIVE">{label("লাইভ", "Live")}</option>
             </select>
           </div>

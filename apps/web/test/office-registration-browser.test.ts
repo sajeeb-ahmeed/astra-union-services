@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 import { randomBytes } from "node:crypto";
-import { workspacePage } from "./fixtures/workspace-nav.js";
+import { goToWorkspacePage, workspacePage } from "./fixtures/workspace-nav.js";
 import { chromium, type Browser, type Page } from "playwright";
 const origin = "http://127.0.0.1:5173";
 async function browserInstance(): Promise<Browser> {
@@ -34,7 +34,7 @@ test(
   async () => {
     const browser = await browserInstance();
     const email = `office-applicant-${Date.now()}@example.test`;
-    const secret = randomBytes(18).toString("base64url"); // generated per run
+    const secret = randomBytes(12).toString("base64url"); // generated per run
     try {
       const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
       const errors: string[] = [];
@@ -67,7 +67,11 @@ test(
       await owner.addInitScript(() => localStorage.setItem("astra.language", "en"));
       await signIn(owner, "owner@astra.demo.test", "Demo-Phase1!");
       await owner.getByRole("button", { name: "Sign out", exact: true }).waitFor();
-      await workspacePage(owner, "owner").click();
+      // FULL-UIUX-01: the owner lands on the console (its sidebar entry is
+      // the current page and the sidebar is collapsed there).
+      await goToWorkspacePage(owner, "owner");
+      // OWNER-REDESIGN-01: the verification queue lives in the Permissions section.
+      await owner.locator('.owner-nav a[href="#owner-permissions"]').click();
       const queue = owner.locator('section[aria-labelledby="owner-requests-title"]');
       const row = queue.locator("tr", { hasText: email });
       await row.waitFor();

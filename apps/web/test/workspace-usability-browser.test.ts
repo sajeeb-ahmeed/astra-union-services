@@ -29,6 +29,11 @@ async function login(page: Page, role = "staff") {
     .locator(".login-form")
     .getByRole("button", { name: "Sign in", exact: true })
     .click();
+  // OWNER-DECISION 3 (UX S3): landings are role-shaped (reviewer and
+  // approver start on the pending queue, finance on billing), so settle
+  // on the shell, return to the dashboard, and wait for its greeting.
+  await page.locator(".shell").waitFor();
+  await goToWorkspacePage(page, "home");
   await page
     .getByRole("heading", { name: "What would you like to do?", exact: true })
     .waitFor();
@@ -37,28 +42,32 @@ async function nav(page: Page, name: string) {
   await goToWorkspacePage(page, name);
 }
 // UIUX-FIX-01: the services page is a launch catalog; applications run through the guided flow and
-// drafts are saved from its review step. completeFees walks the flow's fees step.
-async function completeFees(page: Page) {
-  const next = page.getByRole("button", { name: "Next: review and submit" });
-  try {
+// drafts are saved from its review step. advanceToReview walks the fees step when the office
+// configured a fee policy for the service; with no policy the flow auto-skips it (feeStepEmpty).
+async function advanceToReview(page: Page) {
+  await Promise.race([
+    page.locator("#order-language").waitFor(),
+    page
+      .getByRole("button", { name: "Save as draft only", exact: true })
+      .waitFor(),
+  ]).catch(() => {});
+  if (await page.locator("#order-language").count()) {
+    const language = page.locator("#order-language");
+    if (!(await language.inputValue())) await language.selectOption("bn");
+    await page.getByRole("button", { name: "Review fees" }).click();
+    const accept = page.locator(".order-panel input[type=checkbox]");
+    await accept.waitFor();
+    await accept.check();
     await page.waitForFunction(
       () => !(document.querySelector(".ax-flow-actions button:last-child") as HTMLButtonElement)?.disabled,
-      undefined,
-      { timeout: 8000 },
     );
-    return next;
-  } catch {}
-  const language = page.locator("#order-language");
-  if (!(await language.inputValue())) await language.selectOption("bn");
-  const review = page.getByRole("button", { name: "Review fees" });
-  if (await review.count()) await review.click();
-  const accept = page.locator(".ax-flow input[type=checkbox]").last();
-  await accept.waitFor();
-  await accept.check();
-  await page.waitForFunction(
-    () => !(document.querySelector(".ax-flow-actions button:last-child") as HTMLButtonElement)?.disabled,
-  );
-  return next;
+    await page
+      .getByRole("button", { name: "Next: review and submit" })
+      .click();
+  }
+  await page
+    .getByRole("button", { name: "Save as draft only", exact: true })
+    .waitFor();
 }
 
 test(
@@ -78,7 +87,7 @@ test(
       await page.getByRole("button", { name: /Start an application/ }).click();
       await page.locator("#service-search").waitFor();
       await page.locator("#service-search").fill("৪৫");
-      assert.equal(await page.locator(".catalog .service").count(), 1);
+      assert.equal(await page.locator(".catalog .svc-card").count(), 1);
       await page.locator("#service-search").fill("no-such-service-ux");
       await page
         .getByRole("heading", { name: "No matching service.", exact: true })
@@ -89,33 +98,26 @@ test(
       await page
         .getByRole("button", { name: "Clear search", exact: true })
         .click();
-      assert.equal(await page.locator(".catalog .service").count(), 47);
+      assert.equal(await page.locator(".catalog .svc-card").count(), 47);
       // Launch the guided flow for service 45 from the catalog.
-      await page
-        .locator(".catalog .service")
-        .filter({ has: page.locator('.service-number:text-is("45")') })
-        .click();
+      await page.locator('.catalog .svc-card[data-service="45"]').click();
       await page.getByRole("list", { name: "Application steps" }).waitFor();
       await page.locator(".ax-citizen input").first().check();
-      // Phase 5: citizens may carry a legacy REF-… reference or the public
-      // format (dddddd-dddddd-dddddd); CERTNO-01 added the plain 16-digit
-      // format. Any of them must be stable across the switch.
-      const refOf = (text: string) => text.match(/REF-[0-9a-f-]+|\d{6}-\d{6}-\d{6}|\d{16}/)?.[0];
-      const firstCitizenRef = refOf(
-        await page.locator("label.ax-citizen:has(input:checked)").innerText(),
-      );
-      assert.ok(firstCitizenRef);
+      // The picker no longer prints a citizen reference; identity is the
+      // radio's value (the citizen id), which must be stable across the
+      // interface-language switch.
+      const checkedCitizen = () =>
+        page.locator("label.ax-citizen input:checked").getAttribute("value");
+      const firstCitizenId = await checkedCitizen();
+      assert.ok(firstCitizenId);
       await page
         .getByRole("button", { name: "Next: application form", exact: true })
         .click();
       await page.getByRole("button", { name: "বাংলা", exact: true }).click();
       await page.getByRole("list", { name: "আবেদনের ধাপ" }).waitFor();
-      // The chosen citizen survives the interface-language switch (labels localise; the REF is stable).
+      // The chosen citizen survives the interface-language switch (labels localise; the id is stable).
       await page.getByRole("button", { name: "← নাগরিক", exact: true }).click();
-      assert.equal(
-        refOf(await page.locator("label.ax-citizen:has(input:checked)").innerText()),
-        firstCitizenRef,
-      );
+      assert.equal(await checkedCitizen(), firstCitizenId);
       await page.getByRole("button", { name: "English", exact: true }).click();
       await page
         .getByRole("button", { name: "Next: application form", exact: true })
@@ -136,7 +138,7 @@ test(
       await page
         .getByRole("button", { name: "Next: fees and delivery", exact: true })
         .click();
-      await (await completeFees(page)).click();
+      await advanceToReview(page);
       const created = page.waitForResponse(
         (r) =>
           r.url().endsWith("/applications") && r.request().method() === "POST",
@@ -167,7 +169,8 @@ test(
         .click();
       assert.equal((await submitted).status(), 200);
       await page
-        .getByText("Submit application completed.", { exact: true })
+        .getByRole("status")
+        .filter({ hasText: "Application submitted." })
         .waitFor();
       assert.match(
         await page.locator(".application-guidance").innerText(),
@@ -209,7 +212,8 @@ test(
     await page.addInitScript(() => { if (!localStorage.getItem("astra.language")) localStorage.setItem("astra.language", "en"); });
     try {
       await login(page);
-      await page.locator("#workspace-jump").selectOption("applications");
+      // B27: the #workspace-jump select is gone — the tab bar navigates.
+      await nav(page, "applications");
       await page
         .locator("#application-search")
         .fill("no-existing-application-ux-unique");
@@ -227,9 +231,12 @@ test(
         .click();
       assert.equal(await page.locator("#application-search").inputValue(), "");
       assert.equal(await page.locator("#state-filter").inputValue(), "");
-      // On phones the applications list renders as cards, not table rows.
+      // On phones the applications list renders as cards, not table
+      // rows. The row shown is the application test 1 of this file
+      // submitted — the seed creates no applications, so this file's
+      // tests run in order against shared data by design.
       await page.locator(".ax-card-list .ax-card").first().waitFor();
-      await page.locator("#workspace-jump").selectOption("home");
+      await nav(page, "home");
       await page
         .getByRole("heading", { name: "আজ কী করতে চান?", exact: true })
         .waitFor();

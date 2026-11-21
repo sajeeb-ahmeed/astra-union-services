@@ -26,6 +26,25 @@
   --du-error-bg: #fdecea;
   --du-error-ink: #9b2c1f;
 
+  /* BUNDLE06-R5 B1: workspace sidebar tokens. The FULL-UIUX-01 light shell
+     is the design; the legacy dark-green aside in style.css lost the
+     cascade in production builds and left ink text on #063d24 (measured
+     1.2:1). Every sidebar rule now resolves through these tokens so no
+     import order can resurrect the dark ground. Contrast on --du-sidebar-bg
+     (#fbfdfb): ink 14.4:1, muted 7.4:1; active ink on active bg 9.6:1. */
+  --du-sidebar-bg: #fbfdfb;
+  --du-sidebar-ink: var(--du-ink);
+  --du-sidebar-muted: var(--du-muted);
+  --du-sidebar-hover-bg: var(--du-green-50);
+  --du-sidebar-active-bg: var(--du-green-100);
+  --du-sidebar-active-ink: var(--du-green-800);
+
+  /* ServiceCard interactive states (P0-3, ui/kit.css): rest = --ax-surface
+     + --ax-line; hover/focus-visible = --ax-green-50 ground +
+     --ax-green-600 border, title --ax-ink, category --ax-muted — all
+     ≥4.5:1 on the pale ground. There is no dark-filled card variant:
+     the global dark button:hover must never paint a card again. */
+
   /* Legacy aliases (same values, old names) */
   --ax-green-800: var(--du-green-800);
   --ax-green-700: var(--du-green-700);
@@ -63,4 +82,19 @@
   --du-band-desktop-min: 1280px;
   --du-container: 1200px;
   --du-touch: 48px;
+
+  /* FULL-UIUX-01 (programme 24/30): one type scale and one control system.
+     Every input/select/button consumes these; no surface invents its own. */
+  --du-text-display: 40px;
+  --du-text-h1: 32px;
+  --du-text-h2: 24px;
+  --du-text-h3: 18px;
+  --du-text-body: 16px;
+  --du-text-sm: 14px;
+  --du-control-h: 44px;
+  --du-control-h-sm: 36px;
+  --du-radius-control: 8px;
+  --du-radius-panel: 12px;
+  --du-focus: #04592c;
+  --du-transition: 140ms ease;
 }

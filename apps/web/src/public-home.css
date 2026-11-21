@@ -1,178 +1,553 @@
-.ax-home-search {
-  display: flex;
-  flex-direction: column;
-  gap: var(--ax-space-1);
-  max-width: 480px;
+/* FULL-UIUX-01: the composed landing (BD-LANDING-PLAN-01 blueprint).
+   Hero = the Civic Stage; bands alternate calm grounds; one primary
+   action per section. */
+.home-hero {
+  background:
+    radial-gradient(1100px 480px at 85% -10%, rgb(46 158 91 / 35%), transparent 60%),
+    linear-gradient(160deg, var(--du-green-800) 0%, var(--du-green-700) 58%, var(--du-green-600) 100%);
+  color: #fff;
+  padding: 52px 0 60px;
+  position: relative;
+  overflow: hidden;
 }
-.ax-home-search label {
-  font-weight: 600;
-  font-size: var(--ax-text-sm);
+.home-hero::after {
+  /* faint line motif — contour strokes in the corner, brand texture only */
+  content: "";
+  position: absolute;
+  inset-inline-end: -120px;
+  bottom: -160px;
+  width: 480px;
+  height: 480px;
+  border: 1.5px solid rgb(255 255 255 / 10%);
+  border-radius: 50%;
+  box-shadow:
+    0 0 0 34px rgb(255 255 255 / 4%),
+    0 0 0 78px rgb(255 255 255 / 3%);
+  pointer-events: none;
 }
-.ax-home-search input {
-  min-height: 46px;
-  padding: 10px 14px;
-  border: 1px solid var(--ax-line);
-  border-radius: var(--ax-radius);
-  background: var(--ax-surface);
-}
-.ax-home-stats {
-  margin-top: var(--ax-space-4);
+.home-hero-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 200px));
-  gap: var(--ax-space-3);
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr);
+  gap: 44px;
+  align-items: center;
+  position: relative;
+  z-index: 1;
 }
-
-.ax-home-layout {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 320px;
-  gap: var(--ax-space-5);
-  align-items: start;
-  padding-top: var(--ax-space-5);
+.home-hero-eyebrow {
+  display: inline-block;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  padding: 5px 12px;
+  border: 1px solid rgb(255 255 255 / 35%);
+  border-radius: 999px;
+  margin-bottom: 18px;
 }
-.ax-home-count {
-  margin: 0 0 var(--ax-space-3);
-  color: var(--ax-muted);
-  font-size: var(--ax-text-sm);
+.home-hero h1 {
+  font-size: var(--du-text-display, 40px);
+  line-height: 1.3;
+  margin: 0 0 14px;
+  color: #fff;
+  /* P0-1/P2-2: balance the headline so no word orphans or clips at
+     narrow widths. */
+  text-wrap: balance;
 }
-.ax-tile-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-  gap: var(--ax-space-3);
+.home-hero-sub {
+  font-size: 17.5px;
+  line-height: 1.65;
+  color: rgb(255 255 255 / 88%);
+  margin: 0 0 26px;
+  max-width: 34em;
 }
-.ax-home-empty {
-  background: var(--ax-surface);
-  border: 1px dashed var(--ax-line);
-  border-radius: var(--ax-radius);
-  padding: var(--ax-space-5);
+.home-hero-search {
+  position: relative;
+  margin-bottom: 22px;
+  max-width: 560px;
 }
-
-.ax-home-rail {
+.home-hero-search label {
+  color: #fff;
+  font-size: 15px;
+  margin-bottom: 8px;
+}
+.home-hero-search-row {
   display: flex;
-  flex-direction: column;
-  gap: var(--ax-space-4);
-  position: sticky;
-  top: var(--ax-space-4);
+  gap: 8px;
+  background: #fff;
+  padding: 6px;
+  border-radius: 14px;
+  box-shadow: 0 14px 30px rgb(3 40 20 / 30%);
 }
-.ax-home-rail form {
-  display: flex;
-  flex-direction: column;
-  gap: var(--ax-space-2);
-}
-.ax-home-rail label {
-  font-size: var(--ax-text-sm);
-  font-weight: 600;
-}
-.ax-home-rail input {
-  min-height: 44px;
-  padding: 8px 12px;
-  border: 1px solid var(--ax-line);
-  border-radius: var(--ax-radius-sm);
-}
-.ax-home-rail button {
-  border-radius: var(--ax-radius-sm);
-  background: var(--ax-green-600);
-  border-color: var(--ax-green-600);
-}
-.ax-home-rail button:hover {
-  background: var(--ax-green-700);
-}
-.ax-rail-text {
-  margin: 0 0 var(--ax-space-3);
-  color: var(--ax-muted);
-  font-size: var(--ax-text-sm);
-}
-.ax-rail-actions {
-  display: flex;
-  gap: var(--ax-space-2);
-}
-.ax-rail-actions .button {
-  flex: 1;
-}
-.ax-rail-error {
-  margin: var(--ax-space-2) 0 0;
-  color: #9b2c1f;
-  font-size: var(--ax-text-sm);
-}
-.ax-rail-result {
-  margin-top: var(--ax-space-3);
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: var(--ax-space-1);
-}
-.ax-notice-list {
-  list-style: none;
-  margin: 0 0 var(--ax-space-3);
-  padding: 0;
-}
-.ax-notice-list li {
-  padding-block: var(--ax-space-2);
-  border-bottom: 1px solid var(--ax-line);
-}
-.ax-notice-list a,
-.ax-rail-more {
-  color: var(--ax-green-700);
-}
-.ax-rail-more {
-  font-size: var(--ax-text-sm);
-  font-weight: 600;
-}
-
-@media (max-width: 1279px) {
-  .ax-home-layout {
-    grid-template-columns: 1fr;
-  }
-  .ax-home-rail {
-    position: static;
-  }
-}
-@media (max-width: 480px) {
-  .ax-home-stats {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-  .ax-tile-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-  .ax-stat strong {
-    font-size: 18px;
-  }
-}
-
-/* The real sign-in form (with MFA) is rendered inside the account panel. */
-.ax-rail-login .login-form {
-  display: flex;
-  flex-direction: column;
-  gap: var(--ax-space-2);
-}
-.ax-rail-login .login-form h2 {
-  display: none;
-}
-.ax-rail-login .login-form > p {
-  margin: 0;
-  color: var(--ax-muted);
-  font-size: var(--ax-text-sm);
-}
-.ax-rail-login .login-form form {
-  gap: var(--ax-space-2);
-}
-.ax-rail-login .password-control {
-  display: flex;
-  gap: var(--ax-space-2);
-}
-.ax-rail-login .password-control input {
+.home-hero-search-row input {
   flex: 1;
   min-width: 0;
+  border: 0;
+  margin: 0;
+  min-height: 48px;
+  font-size: 16.5px;
 }
-.ax-rail-login .password-control button {
-  background: var(--ax-surface);
-  color: var(--ax-green-700);
-  font-size: var(--ax-text-sm);
-  padding-inline: var(--ax-space-3);
+.home-hero-search-row input:focus {
+  outline: none;
 }
-.ax-rail-login .login-recovery,
-.ax-rail-login .ax-rail-more {
+.home-hero-search-row:focus-within {
+  outline: 3px solid #fff;
+  outline-offset: 2px;
+}
+.home-hero-search-row button {
+  min-height: 48px;
+  padding-inline: 22px;
+  border-radius: 10px;
+  font-size: 16px;
+}
+.home-hero-results {
+  position: absolute;
+  top: calc(100% + 8px);
+  inset-inline: 0;
+  background: #fff;
+  color: var(--du-ink);
+  border-radius: 12px;
+  box-shadow: 0 18px 36px rgb(3 40 20 / 35%);
+  overflow: hidden;
+  z-index: 5;
+}
+.home-hero-results a {
+  display: flex;
+  flex-direction: column;
+  padding: 11px 16px;
+  text-decoration: none;
+  color: var(--du-ink);
+  border-bottom: 1px solid var(--du-line);
+}
+.home-hero-results a:last-child {
+  border-bottom: 0;
+}
+.home-hero-results a:hover {
+  background: var(--du-green-50);
+}
+.home-hero-results small {
+  color: var(--du-muted);
+}
+.home-hero-results p {
+  margin: 0;
+  padding: 12px 16px;
+  color: var(--du-muted);
+}
+.home-hero-ctas {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+.home-hero .home-hero-ctas a.home-cta-primary {
+  background: #fff;
+  border-color: #fff;
+  color: var(--du-green-800);
+  font-size: 16px;
+  padding: 12px 22px;
+}
+.home-hero .home-hero-ctas a.home-cta-primary:hover {
+  background: var(--du-green-50);
+  color: var(--du-green-800);
+}
+.home-hero .home-hero-ctas a.home-cta-secondary {
+  background: transparent;
+  border-color: rgb(255 255 255 / 65%);
+  color: #fff;
+  font-size: 16px;
+  padding: 12px 22px;
+}
+.home-hero .home-hero-ctas a.home-cta-secondary:hover {
+  background: rgb(255 255 255 / 12%);
+}
+.home-hero-verify-link {
+  color: #fff;
+  font-weight: 600;
+  padding: 10px 6px;
+}
+.home-hero-visual-note {
+  color: rgb(255 255 255 / 75%);
+  font-size: 13.5px;
+  text-align: center;
+  margin: 14px 0 0;
+}
+
+.home-band {
+  padding: 44px 0;
+}
+.home-band-title {
+  font-size: var(--du-text-h2, 24px);
+  color: var(--du-green-800);
+  margin: 0 0 16px;
+}
+.home-band-lede {
+  color: var(--du-muted);
+  max-width: 46em;
+  margin: 0 0 22px;
+  font-size: 16.5px;
+}
+.home-band-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+}
+.home-trust {
+  background: var(--du-green-50);
+  border-bottom: 1px solid var(--du-line);
+  padding: 30px 0;
+}
+.home-notices {
+  padding: 30px 0;
+  border-bottom: 1px solid var(--du-line);
+}
+.home-notice-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px 28px;
+}
+.home-notice-list li {
+  display: flex;
+  flex-direction: column;
+  padding: 10px 0;
+  border-bottom: 1px dashed var(--du-line);
+}
+.home-notice-list a {
+  font-weight: 600;
+  color: var(--du-ink);
+  text-decoration: none;
+}
+.home-notice-list a:hover {
+  color: var(--du-green-700);
+  text-decoration: underline;
+}
+.home-notice-list small {
+  color: var(--du-muted);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+  align-items: center;
+  margin-top: 3px;
+}
+/* REFINEMENT-02 P2-1: office attribution chip + date on every notice;
+   with fewer than 3 notices the band collapses to a single-line ticker. */
+.home-notice-office {
+  background: var(--du-green-50);
+  color: var(--du-green-800);
+  border: 1px solid var(--du-line);
+  border-radius: 999px;
+  padding: 1px 9px;
+  font-weight: 600;
+}
+.home-notices.is-ticker {
+  padding: 16px 0;
+}
+.home-notices.is-ticker .home-notice-list {
+  grid-template-columns: 1fr;
+  gap: 2px;
+}
+.home-notices.is-ticker .home-notice-list li {
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px 12px;
+  border-bottom: 0;
+  padding: 4px 0;
+}
+.home-notices.is-ticker .home-notice-list small {
+  margin-top: 0;
+}
+.home-service-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+  margin-bottom: 18px;
+}
+.home-category-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 22px;
+}
+.home-category-chip {
+  padding: 8px 14px;
+  min-height: 40px;
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid var(--du-line);
+  border-radius: 999px;
+  background: #fff;
+  color: var(--du-green-800);
+  font-weight: 600;
+  font-size: 14px;
+  text-decoration: none;
+}
+.home-category-chip:hover {
+  border-color: var(--du-green-600);
+  background: var(--du-green-50);
+}
+.home-how {
+  background: #fff;
+  border-block: 1px solid var(--du-line);
+}
+.home-how-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 0.8fr);
+  gap: 40px;
+  align-items: start;
+}
+.home-steps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+/* REFINEMENT-02 P2-1: on wide screens the four steps run 2×2 so the band
+   no longer leaves a tall void under a single column beside the account
+   card. */
+@media (min-width: 1100px) {
+  .home-steps {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px 28px;
+  }
+}
+/* REFINEMENT-02 P1-2: photographic band (renders only when the pilot
+   office photo asset is present). Brand-green duotone treatment. */
+.home-photo-band {
+  margin: 28px 0 0;
+}
+.home-photo-band img {
   display: block;
-  margin-top: var(--ax-space-2);
-  color: var(--ax-green-700);
+  width: 100%;
+  max-height: 380px;
+  object-fit: cover;
+  border-radius: 14px;
+  border: 1px solid var(--du-line);
+  filter: saturate(0.82) contrast(1.04) sepia(0.18) hue-rotate(62deg);
+}
+.home-photo-band figcaption {
+  margin-top: 8px;
+  font-size: 13.5px;
+  color: var(--du-muted);
+}
+.home-steps li {
+  display: flex;
+  gap: 16px;
+}
+.home-step-number {
+  flex: none;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--du-green-700);
+  color: #fff;
+  display: grid;
+  place-items: center;
+  font-weight: 700;
+  font-size: 17px;
+}
+.home-steps strong {
+  display: block;
+  font-size: 16.5px;
+  margin-bottom: 2px;
+}
+.home-steps p {
+  margin: 0;
+  color: var(--du-muted);
+}
+.home-account-card {
+  background: var(--du-green-50);
+  border: 1px solid var(--du-line);
+  border-radius: var(--du-radius-panel, 12px);
+  padding: 24px;
+}
+/* The account card carries the heading; the embedded sign-in form's own
+   greeting would duplicate it (and its top gap was the old A10 defect). */
+.home-account-card .login-form {
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--ax-space-2);
+}
+.home-account-card .login-form h2 {
+  display: none;
+}
+.home-account-card .login-form > p {
+  margin: 0;
+  color: var(--du-muted);
   font-size: var(--ax-text-sm);
+}
+.home-account-card .login-recovery {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  color: var(--du-green-700);
+  font-weight: 600;
+}
+.home-account-more {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  font-weight: 600;
+  color: var(--du-green-700);
+}
+.home-account-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.home-verify {
+  background: linear-gradient(180deg, var(--du-green-50), #fff);
+}
+.home-verify-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 380px);
+  gap: 40px;
+  align-items: center;
+}
+.home-verify-form label {
+  font-size: 15px;
+}
+.home-verify-row {
+  display: flex;
+  gap: 8px;
+  max-width: 520px;
+}
+.home-verify-row input {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+}
+.home-verify-row button {
+  flex: none;
+}
+.home-verify-error {
+  color: var(--du-error-ink);
+  font-weight: 600;
+}
+.home-verify-alt {
+  margin-top: 14px;
+}
+.home-office-points {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px 30px;
+  max-width: 900px;
+}
+.home-office-points li {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  font-size: 16px;
+}
+.home-office-points svg {
+  color: var(--du-green-600);
+  flex: none;
+  margin-top: 4px;
+}
+.home-onboard {
+  background: var(--du-green-800);
+  color: #fff;
+}
+.home-onboard .home-band-title {
+  color: #fff;
+}
+.home-onboard p {
+  color: rgb(255 255 255 / 85%);
+  margin: 0;
+}
+.home-onboard-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 28px;
+  flex-wrap: wrap;
+}
+/* BUNDLE06-R5 B3: the selector must beat `.ax-public a.button`
+   (public-shell.css, 0-2-1), which painted this CTA green-600 with
+   green-800 text on the green-800 band — it read as disabled. White
+   ground + green-800 text is ~10:1 on the band. */
+.ax-public .home-onboard a.button {
+  background: #fff;
+  border-color: #fff;
+  color: var(--du-green-800);
+  font-size: 16px;
+  padding: 12px 22px;
+}
+.ax-public .home-onboard a.button:hover {
+  background: var(--du-green-50);
+}
+.home-faq {
+  max-width: 860px;
+}
+.home-faq-item {
+  border: 1px solid var(--du-line);
+  border-radius: var(--du-radius-panel, 12px);
+  background: #fff;
+  margin-bottom: 10px;
+  overflow: hidden;
+}
+.home-faq-item summary {
+  cursor: pointer;
+  font-weight: 700;
+  font-size: 16px;
+  padding: 16px 20px;
+  min-height: 44px;
+  color: var(--du-green-800);
+}
+.home-faq-item p {
+  margin: 0;
+  padding: 0 20px 18px;
+  color: var(--du-muted);
+  line-height: 1.7;
+}
+.home-faq-more {
+  margin-top: 16px;
+}
+
+@media (max-width: 1023px) {
+  .home-service-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 767px) {
+  .home-hero {
+    padding: 36px 0 44px;
+  }
+  .home-hero h1 {
+    font-size: 31px;
+  }
+  /* P0-1: bare `1fr` tracks keep their min-content automatic minimum,
+     so the hero's 405px certificate visual stretched the track past
+     the 328px container and the headline/body/cert were clipped by the
+     hero's overflow:hidden. minmax(0, 1fr) + min-width: 0 lets the
+     track and its children shrink to the container. */
+  .home-hero-grid,
+  .home-how-grid,
+  .home-verify-grid {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 30px;
+  }
+  .home-hero-grid > *,
+  .home-how-grid > *,
+  .home-verify-grid > * {
+    min-width: 0;
+  }
+  .home-hero-visual {
+    max-width: 100%;
+  }
+  .home-notice-list,
+  .home-office-points {
+    grid-template-columns: 1fr;
+  }
+  .home-band {
+    padding: 34px 0;
+  }
 }

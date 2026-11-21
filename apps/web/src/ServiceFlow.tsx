@@ -13,7 +13,8 @@ import { DynamicForm } from "./DynamicForm.js";
 import { ApplicationOrder, type IntakeOrderState } from "./ApplicationOrder.js";
 import { chosenCitizenAddress } from "./PresentAddressFields.js";
 import { withoutOrderLanguage } from "./order-schema.js";
-import { StatusPill, Stepper } from "./ui/kit.js";
+import { ApplicationStatus, RefChip, Stepper } from "./ui/kit.js";
+import { SampleCertificate } from "./TrustVisual.js";
 import "./service-flow.css";
 
 const steps = [
@@ -71,11 +72,38 @@ function detailText(field: FieldDefinition, value: any): string | null {
 }
 
 /**
+ * FULL-UIUX-01 (P0-5i): a validation path ("father_name", "guardians[0].name")
+ * is a schema key, not language. Resolve it to the field's own bilingual
+ * label by walking the schema; only an unmapped path falls back to itself.
+ */
+function fieldLabelForPath(
+  schema: FormSchema,
+  path: string,
+): { bn: string; en: string } | null {
+  const parts = path
+    .replace(/\[\d+\]/g, "")
+    .split(".")
+    .filter(Boolean);
+  let fields: readonly FieldDefinition[] | undefined = schema.sections.flatMap(
+    (s) => s.fields,
+  );
+  let found: FieldDefinition | undefined;
+  for (const part of parts) {
+    found = fields?.find((f) => f.id === part);
+    if (!found) return null;
+    fields = found.children;
+  }
+  return found?.label ?? null;
+}
+
+/**
  * Phase 4: the review step lists the service-specific details the citizen
  * actually entered, grouped by form section — not only the generic
  * service/applicant/office/fee summary.
+ * FULL-UIUX-01: exported — the workspace application detail reuses this
+ * exact renderer as its read-only summary (one summary pattern).
  */
-function PayloadDetails({
+export function PayloadDetails({
   schema,
   payload,
 }: {
@@ -101,12 +129,18 @@ function PayloadDetails({
         <div key={section.id} className="ax-flow-details-section">
           <h4>{choose(section.title)}</h4>
           <dl className="ax-flow-details-list">
-            {rows.map((row) => (
-              <React.Fragment key={row.field.id}>
-                <dt>{choose(row.field.label)}</dt>
-                <dd>{row.text}</dd>
-              </React.Fragment>
-            ))}
+            {rows.map((row) => {
+              /* P2-5: long declarations span both columns. */
+              const wide = String(row.text ?? "").length > 120;
+              return (
+                <React.Fragment key={row.field.id}>
+                  <dt className={wide ? "wide" : undefined}>
+                    {choose(row.field.label)}
+                  </dt>
+                  <dd className={wide ? "wide" : undefined}>{row.text}</dd>
+                </React.Fragment>
+              );
+            })}
           </dl>
         </div>
       ))}
@@ -122,6 +156,7 @@ function PayloadDetails({
 export function ServiceFlow({
   serviceNo,
   initialCitizen = null,
+  selfCitizen = false,
   tenant,
   onOpenApplication,
   onRegisterCitizen,
@@ -131,6 +166,9 @@ export function ServiceFlow({
   serviceNo: number;
   /** A citizen registered from inside the flow; the flow resumes at the form with them selected. */
   initialCitizen?: any;
+  /** FULL-UIUX-01 (UX M14): the signed-in citizen applying for themselves —
+      their own record is pre-selected and the citizen step leaves the stepper. */
+  selfCitizen?: boolean;
   tenant: any;
   onOpenApplication: (id: string) => void;
   onRegisterCitizen: () => void;
@@ -152,10 +190,21 @@ export function ServiceFlow({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [result, setResult] = useState<{ id: string; reference?: string; state: string; note?: string } | null>(null);
+  // FULL-UIUX-01 (FE S8): when the office has no fee policy, the fee step
+  // has nothing to ask — it is skipped in both directions.
+  const [feeSkipped, setFeeSkipped] = useState(false);
   const heading = useRef<HTMLHeadingElement>(null);
   const context = `flow:${citizen?.id ?? ""}:${serviceNo}`;
   const orderConfigured = order?.context === context && order.configured;
   const formSchema = orderConfigured ? withoutOrderLanguage(schema) : schema;
+  const feeStepEmpty =
+    order?.context === context && order.ready && !order.configured;
+  useEffect(() => {
+    if (feeStepEmpty && step === 2) {
+      setFeeSkipped(true);
+      setStep(3);
+    }
+  }, [feeStepEmpty, step]);
 
   useEffect(() => {
     heading.current?.focus();
@@ -190,6 +239,7 @@ export function ServiceFlow({
       setPayload({});
       setIssues([]);
       setOrder(null);
+      setFeeSkipped(false);
     }
     setCitizen(next);
   }
@@ -217,6 +267,16 @@ export function ServiceFlow({
       try {
         await api(`/applications/${id}/transition`, "POST", { action: "submit" });
         setResult({ id, reference, state: "SUBMITTED" });
+        // FULL-UIUX-01 (B20): mark the just-submitted reference so the
+        // applications list can surface it at the top with a "new" badge.
+        try {
+          sessionStorage.setItem(
+            "du:last-submitted-reference",
+            reference ?? id,
+          );
+        } catch {
+          // Storage unavailable (private mode): the list simply shows no badge.
+        }
       } catch (submitError) {
         // The draft exists; say so plainly instead of hiding it behind a generic failure.
         setResult({ id, reference, state: "DRAFT", note: (submitError as Error).message });
@@ -247,8 +307,8 @@ export function ServiceFlow({
         )}
       </div>
       <Stepper
-        steps={steps.map((s) => choose(s))}
-        current={step}
+        steps={(selfCitizen ? steps.slice(1) : steps).map((s) => choose(s))}
+        current={selfCitizen ? Math.max(0, step - 1) : step}
         label={choose({ bn: "আবেদনের ধাপ", en: "Application steps" })}
       />
       <section className="ax-flow-panel" aria-labelledby="ax-flow-step-heading">
@@ -330,21 +390,24 @@ export function ServiceFlow({
               <div role="alert" className="error-summary" tabIndex={-1}>
                 <strong>{choose({ bn: "নিচের ঘরগুলো সংশোধন করুন", en: "Correct these fields" })}</strong>
                 <ul>
-                  {issues.map((i) => (
-                    <li key={i.path}>
-                      <button
-                        type="button"
-                        className="text-button"
-                        onClick={() =>
-                          document
-                            .querySelector<HTMLElement>(`.ax-flow [data-field-path="${CSS.escape(i.path)}"]`)
-                            ?.focus()
-                        }
-                      >
-                        {i.path}: {choose(i.message)}
-                      </button>
-                    </li>
-                  ))}
+                  {issues.map((i) => {
+                    const label = fieldLabelForPath(formSchema, i.path);
+                    return (
+                      <li key={i.path}>
+                        <button
+                          type="button"
+                          className="text-button"
+                          onClick={() =>
+                            document
+                              .querySelector<HTMLElement>(`.ax-flow [data-field-path="${CSS.escape(i.path)}"]`)
+                              ?.focus()
+                          }
+                        >
+                          {label ? choose(label) : i.path}: {choose(i.message)}
+                        </button>
+                      </li>
+                    );
+                  })}
                 </ul>
               </div>
             )}
@@ -355,14 +418,28 @@ export function ServiceFlow({
                 schema={formSchema}
                 citizenId={citizen.id}
                 value={payload}
-                onChange={setPayload}
+                onChange={(next) => {
+                  setPayload(next);
+                  // FORM-UX: after the first validation attempt, keep the
+                  // issues live — a field the citizen has just corrected
+                  // must lose its error immediately, not keep showing a
+                  // stale message until the next "Next" click. Before the
+                  // first attempt nothing is flagged while typing.
+                  if (issues.length) {
+                    const rechecked = validateForm(formSchema, next);
+                    setIssues(rechecked.issues);
+                    if (rechecked.valid) setError("");
+                  }
+                }}
                 issues={issues}
               />
             </div>
             <div className="ax-flow-actions">
-              <button type="button" className="secondary" onClick={() => go(0)}>
-                {choose({ bn: "← নাগরিক", en: "← Citizen" })}
-              </button>
+              {!selfCitizen && (
+                <button type="button" className="secondary" onClick={() => go(0)}>
+                  {choose({ bn: "← নাগরিক", en: "← Citizen" })}
+                </button>
+              )}
               <button
                 type="button"
                 onClick={() => {
@@ -445,8 +522,14 @@ export function ServiceFlow({
               })}
             </p>
             <div className="ax-flow-actions">
-              <button type="button" className="secondary" onClick={() => go(2)}>
-                {choose({ bn: "← ফি ও সরবরাহ", en: "← Fees and delivery" })}
+              <button
+                type="button"
+                className="secondary"
+                onClick={() => go(feeSkipped ? 1 : 2)}
+              >
+                {feeSkipped
+                  ? choose({ bn: "← আবেদনের তথ্য", en: "← Application form" })
+                  : choose({ bn: "← ফি ও সরবরাহ", en: "← Fees and delivery" })}
               </button>
               <button type="button" className="secondary" disabled={busy} onClick={() => create(false)}>
                 {choose({ bn: "শুধু খসড়া সংরক্ষণ", en: "Save as draft only" })}
@@ -462,7 +545,16 @@ export function ServiceFlow({
 
         {step === 4 && result && (
           <div className="ax-flow-done" role="status">
-            <StatusPill>{result.state}</StatusPill>
+            {/* FULL-UIUX-01 (D53/programme 25): the completion moment gets
+                the brand treatment — a check medallion, and for a submitted
+                application the sample-certificate visual showing what the
+                finished document looks like (clearly marked as a sample). */}
+            <span className="ax-done-medallion" aria-hidden="true">
+              <svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M4.5 12.5 10 18 19.5 6.5" />
+              </svg>
+            </span>
+            <ApplicationStatus state={result.state} />
             <p>
               {result.state === "SUBMITTED"
                 ? choose({ bn: "আবেদন জমা হয়েছে এবং অফিসের পর্যালোচনায় আছে।", en: "The application is submitted and waiting for office review." })
@@ -471,8 +563,19 @@ export function ServiceFlow({
             {result.note && <p className="ax-flow-error">{result.note}</p>}
             <p>
               {choose({ bn: "আবেদনের রেফারেন্স", en: "Application reference" })}:{" "}
-              <code className="ax-flow-reference">{result.reference || result.id}</code>
+              <RefChip value={result.reference || result.id} />
             </p>
+            {result.state === "SUBMITTED" && (
+              <div className="ax-flow-done-visual">
+                <SampleCertificate compact />
+                <p className="hint">
+                  {choose({
+                    bn: "অনুমোদনের পর আপনার সনদটি দেখতে এমনই হবে — উপরেরটি একটি নমুনা।",
+                    en: "After approval, your certificate will look like this — the one above is a sample.",
+                  })}
+                </p>
+              </div>
+            )}
             <div className="ax-flow-actions">
               <button type="button" onClick={() => onOpenApplication(result.id)}>
                 {choose({ bn: "আবেদন খুলুন", en: "Open application" })}
@@ -484,6 +587,7 @@ export function ServiceFlow({
                   setPayload({});
                   setIssues([]);
                   setOrder(null);
+                  setFeeSkipped(false);
                   setResult(null);
                   go(1);
                 }}

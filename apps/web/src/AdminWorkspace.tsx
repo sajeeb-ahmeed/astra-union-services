@@ -23,7 +23,9 @@ export function AccountSecurity() {
   const [securityRevision, setSecurityRevision] = useState(0);
   return (
     <>
-      <section className="panel narrow">
+      {/* FULL-UIUX-01 (C40/P2-20): the security page's panels share ONE
+          width system — the former "narrow" first panel is gone. */}
+      <section className="panel">
         <h2>{t("Account security")}</h2>
         <p>
           {t("Change your password. Other signed-in sessions will be expired.")}
@@ -64,7 +66,8 @@ export function AccountSecurity() {
             id="new-password"
             type="password"
             name="newPassword"
-            minLength={12}
+            minLength={6}
+            maxLength={18}
             autoComplete="new-password"
             required
           />
@@ -95,7 +98,9 @@ export function AdminWorkspace() {
   const [recovery, setRecovery] = useState<any>(null);
   const [officeGeography, setOfficeGeography] = useState(emptyGeography);
   const [officeType, setOfficeType] = useState("UNION");
-  const [tab, setTab] = useState("users"),
+  // FULL-UIUX-01 (C35/P2-11): the default tab IS the first tab — the
+  // panel no longer opens on a tab the header doesn't show first.
+  const [tab, setTab] = useState("order-policies"),
     [office, setOffice] = useState<any>(null),
     [users, setUsers] = useState<any[]>([]),
     [accountTypes, setAccountTypes] = useState<any[]>([]),
@@ -144,7 +149,8 @@ export function AdminWorkspace() {
   return (
     <>
       <section className="panel">
-        <h2>{t("অফিস ব্যবস্থাপনা / Office administration")}</h2>
+        {/* FULL-UIUX-01 (C35/P2-11): no second title duplicating the page
+            H1 — the panel opens with its purpose line. */}
         <p>
           {t(
             "Manage your office's staff, service availability, explicit approval assignments and published notices. ",
@@ -164,16 +170,20 @@ export function AdminWorkspace() {
             {choose({ bn: "আবেদন ফি নীতি", en: "Application fee policies" })}
           </button>
           {tx(
-            [
-              ["office", "Office profile"],
-              ["cert-assets", "Certificate assets"],
-              ["users", "Staff accounts"],
-              ["services", "Service settings"],
-              ["authority", "Approval authority"],
-              ["notices", "Office notices"],
-              ["coupons", "Coupons"],
-              ["payments", "Online payments"],
-            ].map(([key, text]) => (
+            // FULL-UIUX-01 (B23/P1-13): every tab label has a Bangla form —
+            // "Certificate assets" no longer renders as raw English jargon.
+            (
+              [
+                ["office", { bn: "অফিসের তথ্য", en: "Office profile" }],
+                ["cert-assets", { bn: "সনদে ব্যবহৃত ছবি", en: "Certificate images" }],
+                ["users", { bn: "কর্মীদের অ্যাকাউন্ট", en: "Staff accounts" }],
+                ["services", { bn: "সেবার সেটিংস", en: "Service settings" }],
+                ["authority", { bn: "অনুমোদনের ক্ষমতা", en: "Approval authority" }],
+                ["notices", { bn: "অফিসের নোটিশ", en: "Office notices" }],
+                ["coupons", { bn: "কুপন", en: "Coupons" }],
+                ["payments", { bn: "অনলাইন পেমেন্ট", en: "Online payments" }],
+              ] as const
+            ).map(([key, label]) => (
               <button
                 key={key}
                 role="tab"
@@ -181,7 +191,7 @@ export function AdminWorkspace() {
                 className={tab === key ? "" : "secondary"}
                 onClick={() => setTab(key)}
               >
-                {tx(text)}
+                {choose(label)}
               </button>
             )),
           )}
@@ -423,7 +433,8 @@ export function AdminWorkspace() {
                     <input
                       name="password"
                       type="password"
-                      minLength={12}
+                      minLength={6}
+                      maxLength={18}
                       autoComplete="new-password"
                       required
                     />
@@ -903,7 +914,7 @@ export function OwnerOnboarding({ onSaved }: { onSaved: () => Promise<void> }) {
   }, []);
   return (
     <section className="panel">
-      <h2>{t("নতুন অফিস যুক্ত করুন / Onboard an office")}</h2>
+      <h3>{t("নতুন অফিস যুক্ত করুন / Onboard an office")}</h3>
       <p>
         {t(
           "Create an isolated tenant and its first administrator.",
@@ -980,7 +991,8 @@ export function OwnerOnboarding({ onSaved }: { onSaved: () => Promise<void> }) {
                         ? "email"
                         : "text"
                   }
-                  minLength={key === "adminPassword" ? 12 : undefined}
+                  minLength={key === "adminPassword" ? 6 : undefined}
+                  maxLength={key === "adminPassword" ? 18 : undefined}
                   pattern={key === "slug" ? "[a-z0-9-]+" : undefined}
                   autoComplete="off"
                 />

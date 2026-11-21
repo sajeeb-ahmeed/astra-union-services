@@ -112,9 +112,16 @@
 }
 .ax-flow-details-list {
   display: grid;
-  grid-template-columns: minmax(140px, 220px) 1fr;
+  /* P2-5: the label column gets real room (200–280px) so long labels
+     stop crushing their values. */
+  grid-template-columns: minmax(200px, 280px) 1fr;
   gap: var(--ax-space-2) var(--ax-space-4);
   margin: 0;
+}
+/* P2-5: long declarations span both columns instead of a narrow strip. */
+.ax-flow-details-list dt.wide,
+.ax-flow-details-list dd.wide {
+  grid-column: 1 / -1;
 }
 .ax-flow-details-list dt {
   color: var(--ax-muted);
@@ -167,4 +174,37 @@
 .ax-flow-done .ax-flow-actions {
   align-self: stretch;
   justify-content: flex-start;
+}
+
+/* FULL-UIUX-01 (P2-18): the review definition lists hold when a label
+   wraps — top-aligned rows, a narrower label column, ruled rows. */
+.ax-flow-summary,
+.ax-flow-details-list {
+  grid-template-columns: minmax(120px, 200px) 1fr;
+  align-items: start;
+}
+.ax-flow-summary dt,
+.ax-flow-details-list dt {
+  line-height: 1.5;
+}
+.ax-flow-summary dd,
+.ax-flow-details-list dd {
+  overflow-wrap: anywhere;
+  line-height: 1.6;
+}
+
+/* FULL-UIUX-01 (D53): completion medallion + sample visual. */
+.ax-done-medallion {
+  display: inline-grid;
+  place-items: center;
+  width: 58px;
+  height: 58px;
+  border-radius: 50%;
+  background: var(--du-green-700, #0b5a34);
+  color: #fff;
+  margin-bottom: 10px;
+}
+.ax-flow-done-visual {
+  margin-top: 16px;
+  max-width: 340px;
 }

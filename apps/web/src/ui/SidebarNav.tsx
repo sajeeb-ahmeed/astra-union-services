@@ -1,9 +1,15 @@
 import React from "react";
 import { choose } from "../i18n.js";
 import type { WorkspaceNavItem } from "../workspace-navigation.js";
+import { NavIcon } from "./nav-icons.js";
 import "./kit.js";
 
-/** Config-driven workspace sidebar (Phase 1). Disabled items explain when they arrive. */
+/**
+ * Config-driven workspace sidebar.
+ * FULL-UIUX-01 (programme 3): icon-led items in the shared nav language;
+ * unbuilt destinations no longer appear at all (the "soon (Phase N)"
+ * placeholders were removed from the navigation model).
+ */
 export function SidebarNav({
   items,
   current,
@@ -18,18 +24,9 @@ export function SidebarNav({
   return (
     <nav aria-label={label} className="ax-sidebar-nav">
       {items.map((item) =>
-        item.soon ? (
-          <span
-            key={item.key}
-            className="ax-sidebar-item is-soon"
-            aria-disabled="true"
-            title={choose(item.soon)}
-          >
-            <span>{choose(item)}</span>
-            <small>{choose(item.soon)}</small>
-          </span>
-        ) : item.href ? (
+        item.href ? (
           <a key={item.key} className="ax-sidebar-item" href={item.href}>
+            <NavIcon name={item.key} />
             <span>{choose(item)}</span>
           </a>
         ) : (
@@ -41,6 +38,7 @@ export function SidebarNav({
             aria-current={current === item.key ? "page" : undefined}
             onClick={() => onSelect(item)}
           >
+            <NavIcon name={item.key} />
             <span>{choose(item)}</span>
           </button>
         ),

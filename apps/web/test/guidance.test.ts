@@ -24,11 +24,15 @@ function render(props: Partial<ApplicationGuidanceProps>) {
   );
 }
 
-test("guidance: saving a draft is not submission and only applicant roles get submission navigation", () => {
+test("guidance: saving a draft is not submission and guidance carries no action links", () => {
+  // FULL-UIUX-01 (B18/P1-7) redesigned contract: guidance is read-only prose
+  // plus the progress steps — the submit/save controls live in the detail
+  // rail beside the panel, so guidance renders no action link for any state
+  // except the issued-certificate record link.
   for (const role of ["citizen", "staff", "admin"]) {
     const html = render({ role });
     assert.match(html, /Saving a draft alone does not start review/);
-    assert.match(html, /href="#application-actions"/);
+    assert.doesNotMatch(html, /href=|<button|<form/);
     assert.equal((html.match(/aria-current="step"/g) ?? []).length, 1);
   }
   for (const role of ["reviewer", "approver", "finance", "owner"]) {
@@ -40,7 +44,9 @@ test("guidance: saving a draft is not submission and only applicant roles get su
 
 test("guidance: the Chairman alone verifies and decides; the Secretary is view-only", () => {
   for (const state of ["SUBMITTED", "RESUBMITTED"]) {
-    assert.match(render({ state, role: "approver" }), /Go to decision controls/);
+    const approverHtml = render({ state, role: "approver" });
+    assert.match(approverHtml, /then decide: approval issues the certificate at once/);
+    assert.doesNotMatch(approverHtml, /href=|<button|<form/);
     const reviewerHtml = render({ state, role: "reviewer" });
     assert.doesNotMatch(reviewerHtml, /href=/);
     assert.match(reviewerHtml, /Chairman&#x27;s work/);
@@ -67,7 +73,7 @@ test("guidance: the Chairman alone verifies and decides; the Secretary is view-o
 test("guidance: corrections require saved edits and resubmission rather than approval", () => {
   const applicant = render({ state: "CORRECTION_REQUIRED" });
   assert.match(applicant, /save the changes, then resubmit/);
-  assert.match(applicant, /Go to resubmission controls/);
+  assert.doesNotMatch(applicant, /href=|<button|<form/);
   assert.match(applicant, /Correct details/);
   const approver = render({ state: "CORRECTION_REQUIRED", role: "approver" });
   assert.match(approver, /Waiting for the applicant/);
@@ -108,7 +114,8 @@ test("guidance: provider PAID or unknown payment flags cannot imply settled appl
     collected,
     /server checks approval, any required payment and credits again/,
   );
-  assert.match(collected, /Go to issuance controls/);
+  assert.match(collected, /use the controls below/);
+  assert.doesNotMatch(collected, /href=|<button|<form/);
   assert.doesNotMatch(
     collected,
     /Certificate PDF available|Payment verified|Verified paid/,

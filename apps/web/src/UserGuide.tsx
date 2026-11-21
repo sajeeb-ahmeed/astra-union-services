@@ -79,6 +79,18 @@ const sections: Section[] = [
 
 export function UserGuide() {
   useLanguage();
+  // Anchor links (the section index above) open their accordion panel.
+  React.useEffect(() => {
+    const openFromHash = () => {
+      const id = location.hash.replace("#", "");
+      if (!id.startsWith("guide-")) return;
+      const target = document.getElementById(id);
+      if (target instanceof HTMLDetailsElement) target.open = true;
+    };
+    openFromHash();
+    addEventListener("hashchange", openFromHash);
+    return () => removeEventListener("hashchange", openFromHash);
+  }, []);
   return (
     <article className="panel prose user-guide">
       <h1>{choose({ bn: "DigitalUnion ব্যবহারের নির্দেশিকা", en: "DigitalUnion user guide" })}</h1>
@@ -102,17 +114,24 @@ export function UserGuide() {
           ))}
         </ul>
       </nav>
-      {sections.map((s) => (
-        <section key={s.id} id={`guide-${s.id}`} aria-labelledby={`guide-${s.id}-title`}>
-          <h2 id={`guide-${s.id}-title`}>{choose(s.title)}</h2>
-          <p className="hint">{choose(s.who)}</p>
-          <ol>
-            {s.steps.map((step, i) => (
-              <li key={i}>{choose(step)}</li>
-            ))}
-          </ol>
-        </section>
-      ))}
+      {/* FULL-UIUX-01 (A12): the guide renders as the designed themed
+          accordion — one role open at a time, same details/summary pattern
+          as the public FAQ — instead of one long undifferentiated stack. */}
+      <div className="guide-accordion">
+        {sections.map((s, index) => (
+          <details key={s.id} id={`guide-${s.id}`} className="guide-section" open={index === 0}>
+            <summary>
+              <span className="guide-section-title">{choose(s.title)}</span>
+              <span className="guide-section-who">{choose(s.who)}</span>
+            </summary>
+            <ol>
+              {s.steps.map((step, i) => (
+                <li key={i}>{choose(step)}</li>
+              ))}
+            </ol>
+          </details>
+        ))}
+      </div>
     </article>
   );
 }

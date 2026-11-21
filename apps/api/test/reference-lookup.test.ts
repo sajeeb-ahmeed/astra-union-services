@@ -11,7 +11,7 @@ process.env.DEMO_SETTLE_ENABLED = "true";
 type Session = { cookie: string; csrf: string; user: any };
 const sessions: Record<string, Session> = {};
 const run = randomUUID().slice(0, 8);
-const password = "Synthetic-Lookup-Pass!";
+const password = "Synth-Lookup-Pa1!";
 let server: ReturnType<typeof app.listen>, base: string;
 let issued: any, certificate: any, draft: any, neighborDraft: any;
 

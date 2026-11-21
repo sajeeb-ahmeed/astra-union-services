@@ -28,8 +28,8 @@ const admin = new pg.Pool({ connectionString: adminConnectionString });
 let server: ReturnType<typeof app.listen>, base: string;
 let owner: Session;
 let officeId = "";
-const ADMIN_PASSWORD = "Hardening-Admin-Pass!1";
-const GOOD = "Hardening-Test-Pass!42";
+const ADMIN_PASSWORD = "Hard-Admin-Pass1!";
+const GOOD = "Hard-Test-Pass!42";
 const BLOCKED = "password123456";
 const BLOCKED_MIXED = "Password123456";
 
@@ -272,9 +272,9 @@ test("Audit 01 F5: recovery consume rejects a blocklisted new password and the t
   assert.ok(token, "the recovery grant returns the token");
   const rejected = await req("POST", "/auth/recover", { token, newPassword: BLOCKED });
   assert.equal(rejected.status, 422, JSON.stringify(rejected.body));
-  const recovered = await req("POST", "/auth/recover", { token, newPassword: "Hardening-Recovered-Pass!7" });
+  const recovered = await req("POST", "/auth/recover", { token, newPassword: "Hard-Recovered-P1!" });
   assert.equal(recovered.status, 200, JSON.stringify(recovered.body));
-  await login(`recover-${run}@hardening.test`, "Hardening-Recovered-Pass!7");
+  await login(`recover-${run}@hardening.test`, "Hard-Recovered-P1!");
 });
 
 test("Audit 01 F7: application date-range bounds filter exactly as before, now as bound parameters", async () => {

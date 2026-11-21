@@ -40,9 +40,15 @@ async function login(page: Page) {
 async function nav(page: Page, name: string) {
   await goToWorkspacePage(page, name);
 }
+// FULL-UIUX-01: catalog entries are ServiceCards named by category +
+// service name; the internal service number is not the card's lead text.
+const serviceNames: Record<string, string> = {
+  "42": "Trade license",
+  "45": "Permanent resident certificate",
+};
 function catalogTile(page: Page, serviceNo: string) {
-  return page.locator(".catalog .service").filter({
-    has: page.locator(`.service-number:text-is("${serviceNo}")`),
+  return page.locator("button.svc-card", {
+    hasText: serviceNames[serviceNo],
   });
 }
 async function assertBlank(page: Page) {
@@ -59,26 +65,57 @@ async function assertBlank(page: Page) {
   assert.equal(await form.locator("input[type=checkbox]:checked").count(), 0);
 }
 async function completeFees(page: Page) {
-  const next = page.getByRole("button", { name: "Next: review and submit" });
+  const next = page.getByRole("button", {
+    name: "Next: review and submit",
+    exact: true,
+  });
+  const draftButton = page.getByRole("button", {
+    name: "Save as draft only",
+    exact: true,
+  });
+  const language = page.locator("#order-language");
+  // The fees step settles asynchronously: the office's fee settings load
+  // first, then the step either shows the order panel (language select) or —
+  // when the office has no fee policy for the service (FULL-UIUX-01 FE S8) —
+  // is skipped straight to the review step. Wait for either outcome instead
+  // of racing the loading state.
+  for (let i = 0; i < 80; i++) {
+    if (await draftButton.isVisible().catch(() => false)) return;
+    if (await language.isVisible().catch(() => false)) break;
+    await page.waitForTimeout(250);
+  }
+  if (await draftButton.isVisible().catch(() => false)) return;
   try {
     await page.waitForFunction(
-      () => !(document.querySelector(".ax-flow-actions button:last-child") as HTMLButtonElement)?.disabled,
+      () =>
+        !(
+          document.querySelector(
+            ".ax-flow-actions button:last-child",
+          ) as HTMLButtonElement
+        )?.disabled,
       undefined,
       { timeout: 8000 },
     );
-    return next;
+    await next.click();
+    return;
   } catch {}
-  const language = page.locator("#order-language");
-  if (!(await language.inputValue())) await language.selectOption("bn");
+  if (await language.count()) {
+    if (!(await language.inputValue())) await language.selectOption("bn");
+  }
   const review = page.getByRole("button", { name: "Review fees" });
   if (await review.count()) await review.click();
   const accept = page.locator(".ax-flow input[type=checkbox]").last();
   await accept.waitFor();
   await accept.check();
   await page.waitForFunction(
-    () => !(document.querySelector(".ax-flow-actions button:last-child") as HTMLButtonElement)?.disabled,
+    () =>
+      !(
+        document.querySelector(
+          ".ax-flow-actions button:last-child",
+        ) as HTMLButtonElement
+      )?.disabled,
   );
-  return next;
+  await next.click();
 }
 
 test(
@@ -143,7 +180,8 @@ test(
       await page
         .getByRole("button", { name: "Cancel and return to dashboard", exact: true })
         .click();
-      await page.locator('.ax-dashboard .ax-tile[data-service="42"]').click();
+      await nav(page, "Service catalog");
+      await catalogTile(page, "42").click();
       await page.locator(".ax-citizen input").first().check();
       await page
         .getByRole("button", { name: "Next: application form", exact: true })
@@ -170,6 +208,13 @@ test(
       await page
         .getByLabel("Address (English)", { exact: true })
         .fill("Synthetic Intake Village");
+      // BUNDLE06-R5 E1: the citizen registration form is the P2-7 stepper
+      // (Identity → Area & address → Identity details). Advance through
+      // the steps with "Continue"; only the last step submits.
+      await page
+        .getByRole("button", { name: "Continue", exact: true })
+        .click();
+      await page.locator("#citizen-geo-division").waitFor();
       const union = JSON.parse(
         fs.readFileSync("data/geo/unions.json", "utf8"),
       ).find((row: any) => row.upazilaCode === "upa-001");
@@ -185,6 +230,12 @@ test(
           .waitFor({ state: "attached" });
         await page.locator(`#citizen-geo-${level}`).selectOption(code);
       }
+      await page
+        .getByRole("button", { name: "Continue", exact: true })
+        .click();
+      await page
+        .getByRole("button", { name: "Register citizen", exact: true })
+        .waitFor();
       const registered = page.waitForResponse(
         (response) =>
           response.url().endsWith("/citizens") &&
@@ -248,14 +299,19 @@ test(
       assert.equal(create.status(), 201, await create.text());
       const application = await create.json();
       await nav(page, "Applications");
-      await page
-        .getByLabel("Find application or certificate", { exact: true })
-        .fill(application.id);
+      // FULL-UIUX-01: the reference lookup lives inside the collapsed
+      // "More filters & reference lookup" details; the detail header shows
+      // the application's 16-digit reference (RefChip), not a truncated id.
+      assert.ok(application.reference, "created application carries its public reference");
+      await page.locator("details.app-more-filters > summary").click();
+      await page.locator("#application-reference").fill(application.id);
       await page
         .getByRole("button", { name: "Find record", exact: true })
         .click();
       await page
-        .getByText(`APPLICATION ${application.id.slice(0, 8)}`, { exact: true })
+        .locator(".ax-refchip")
+        .filter({ hasText: application.reference })
+        .first()
         .waitFor();
 
       // A browser-only reverse proxy exercises the actual app under a non-loopback hostname.
@@ -309,7 +365,7 @@ test(
         await hostedPage
           .getByRole("button", { name: "Next: fees and delivery", exact: true })
           .click();
-        await completeFees(hostedPage).then((next) => next.click());
+        await completeFees(hostedPage);
         assert.ok(
           await hostedPage
             .getByRole("button", {

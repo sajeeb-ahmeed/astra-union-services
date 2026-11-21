@@ -57,6 +57,21 @@ export function flattenFields(schema: FormSchema): readonly FieldDefinition[] {
 function text(bn: string, en: string): LocalizedText {
   return { bn, en };
 }
+/**
+ * FORM-UX: a format error must say what format IS expected, not only that
+ * the value is wrong. The two patterns citizens actually meet get a concrete
+ * instruction; anything else keeps the generic message.
+ */
+function formatMessage(pattern: string): LocalizedText {
+  if (pattern.startsWith("^01"))
+    return text(
+      "সঠিক ১১ সংখ্যার মোবাইল নম্বর দিন (01 দিয়ে শুরু হতে হবে)।",
+      "Enter a valid 11-digit mobile number starting with 01.",
+    );
+  if (pattern.includes("@"))
+    return text("সঠিক ইমেইল ঠিকানা দিন।", "Enter a valid email address.");
+  return text("বিন্যাসটি সঠিক নয়।", "Value has an invalid format.");
+}
 
 export const geographyCodePattern = /^[a-z0-9-]{3,30}$/;
 const geographyKeys = [
@@ -374,7 +389,7 @@ export function validateForm(
           path,
           "min_length",
           text(
-            "আরও বিস্তারিত দিন।",
+            `কমপক্ষে ${rules.minLength}টি অক্ষর দিন।`,
             `Use at least ${rules.minLength} characters.`,
           ),
         );
@@ -383,16 +398,12 @@ export function validateForm(
           path,
           "max_length",
           text(
-            "লেখাটি বেশি দীর্ঘ।",
+            `সর্বোচ্চ ${rules.maxLength}টি অক্ষর দিন।`,
             `Use at most ${rules.maxLength} characters.`,
           ),
         );
       if (rules.pattern && !new RegExp(rules.pattern, "u").test(value))
-        issue(
-          path,
-          "format",
-          text("বিন্যাসটি সঠিক নয়।", "Value has an invalid format."),
-        );
+        issue(path, "format", formatMessage(rules.pattern));
       if (
         field.type === "select" &&
         !field.options?.some((option) => option.value === value)

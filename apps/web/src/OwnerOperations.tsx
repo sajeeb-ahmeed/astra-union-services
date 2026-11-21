@@ -45,7 +45,7 @@ export function OwnerOperations() {
     q = data.queues;
   return (
     <section className="panel owner-operations" aria-labelledby="operations-title">
-      <h2 id="operations-title">{label("পরিচালনার অবস্থা", "Operations")}</h2>
+      <h3 id="operations-title">{label("পরিচালনার অবস্থা", "Operations")}</h3>
       {data.alerts.length === 0 ? (
         <p className="notice" role="status" data-testid="operations-ok">
           {label("সব ঠিক আছে — কোনো সতর্কতা নেই।", "All clear — no alerts.")}
@@ -59,22 +59,63 @@ export function OwnerOperations() {
           ))}
         </ul>
       )}
-      <dl className="operations-grid">
-        <dt>{label("স্ক্যানের অপেক্ষায়", "Waiting for scan")}</dt>
-        <dd>{n(Number(s.waiting) + Number(s.scanning))}</dd>
-        <dt>{label("স্ক্যানারের শেষ সাড়া", "Scanner last check-in")}</dt>
-        <dd>{s.lastHeartbeatAt ? new Date(s.lastHeartbeatAt).toLocaleString(choose({ bn: "bn-BD", en: "en-GB" })) : "—"}</dd>
-        <dt>{label("রিচার্জের অনুরোধ", "Recharge requests")}</dt>
-        <dd>{n(q.rechargesPending)}</dd>
-        <dt>{label("অফিস অ্যাকাউন্ট অনুরোধ", "Office account requests")}</dt>
-        <dd>{n(q.officeAccountRequestsPending)}</dd>
-        <dt>{label("অফিস যুক্ত করার অনুরোধ", "Office inclusion requests")}</dt>
-        <dd>{n(q.officeInclusionRequestsOpen)}</dd>
-        <dt>{label("ফি ফেরত (সিদ্ধান্তের অপেক্ষায় / চলমান)", "Refunds (to decide / in progress)")}</dt>
-        <dd>
-          {n(q.refundsAwaitingDecision)} / {n(q.refundsInProgress)}
-        </dd>
-      </dl>
+      {/* REFINEMENT-02 P1-11: when every queue is empty the six zero
+          tiles collapse into one calm "all clear" panel — a wall of ০s
+          reads as broken, not as healthy. */}
+      {Number(s.waiting) + Number(s.scanning) === 0 &&
+      Number(q.rechargesPending) === 0 &&
+      Number(q.officeAccountRequestsPending) === 0 &&
+      Number(q.officeInclusionRequestsOpen) === 0 &&
+      Number(q.refundsAwaitingDecision) === 0 &&
+      Number(q.refundsInProgress) === 0 ? (
+        <p className="notice" role="status">
+          {label(
+            "সব ঠিক আছে — কোনো সারি অপেক্ষমাণ নেই।",
+            "All clear — every queue is empty.",
+          )}
+        </p>
+      ) : (
+      <>
+      {/* OWNER-REDESIGN-01: the six operational figures as KPI stat cards
+          (label, big value, small caption) — same values, same labels. */}
+      <div className="kpi-grid">
+        <div className="kpi-card">
+          <div className="kpi-label">{label("স্ক্যানের অপেক্ষায়", "Waiting for scan")}</div>
+          <div className="kpi-value">{n(Number(s.waiting) + Number(s.scanning))}</div>
+          <div className="kpi-caption">{label("ফাইল স্ক্যান বাকি", "Files awaiting a scan")}</div>
+        </div>
+        <div className="kpi-card">
+          <div className="kpi-label">{label("স্ক্যানারের শেষ সাড়া", "Scanner last check-in")}</div>
+          <div className="kpi-value small">
+            {s.lastHeartbeatAt ? new Date(s.lastHeartbeatAt).toLocaleString(choose({ bn: "bn-BD", en: "en-GB" })) : "—"}
+          </div>
+          <div className="kpi-caption">{label("সর্বশেষ হার্টবিটের সময়", "Time of the latest heartbeat")}</div>
+        </div>
+        <div className="kpi-card">
+          <div className="kpi-label">{label("রিচার্জের অনুরোধ", "Recharge requests")}</div>
+          <div className="kpi-value">{n(q.rechargesPending)}</div>
+          <div className="kpi-caption">{label("নিশ্চিত করার অপেক্ষায়", "Waiting for confirmation")}</div>
+        </div>
+        <div className="kpi-card">
+          <div className="kpi-label">{label("অফিস অ্যাকাউন্ট অনুরোধ", "Office account requests")}</div>
+          <div className="kpi-value">{n(q.officeAccountRequestsPending)}</div>
+          <div className="kpi-caption">{label("যাচাইয়ের অপেক্ষায়", "Waiting for verification")}</div>
+        </div>
+        <div className="kpi-card">
+          <div className="kpi-label">{label("অফিস যুক্ত করার অনুরোধ", "Office inclusion requests")}</div>
+          <div className="kpi-value">{n(q.officeInclusionRequestsOpen)}</div>
+          <div className="kpi-caption">{label("খোলা অনুরোধ", "Open requests")}</div>
+        </div>
+        <div className="kpi-card">
+          <div className="kpi-label">{label("ফি ফেরত (সিদ্ধান্তের অপেক্ষায় / চলমান)", "Refunds (to decide / in progress)")}</div>
+          <div className="kpi-value">
+            {n(q.refundsAwaitingDecision)} / {n(q.refundsInProgress)}
+          </div>
+          <div className="kpi-caption">{label("সিদ্ধান্তের অপেক্ষায় / চলমান", "To decide / in progress")}</div>
+        </div>
+      </div>
+      </>
+      )}
     </section>
   );
 }

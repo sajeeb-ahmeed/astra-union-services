@@ -7,7 +7,7 @@ import { pool, adminConnectionString } from "../src/db.js";
 import { digest, hashPassword, randomToken } from "../src/security.js";
 
 const db = new pg.Pool({ connectionString: adminConnectionString });
-const password = "Synthetic-Security-Pass!";
+const password = "Synth-Security-P1!";
 const run = randomUUID().slice(0, 8);
 let server: ReturnType<typeof app.listen>, base: string;
 let tenantId: string, otherTenantId: string, officeAdmin: Session;
@@ -227,7 +227,7 @@ test("SEC-PASSWORD: change consumes previously issued recovery links across acco
   const changed = await request(
     "POST",
     "/auth/password",
-    { currentPassword: password, newPassword: "Updated-Security-Pass!" },
+    { currentPassword: password, newPassword: "Upd-Security-Pa1!" },
     target.session,
   );
   assert.equal(changed.status, 200, JSON.stringify(changed.body));
@@ -257,7 +257,7 @@ test("SEC-PASSWORD: change consumes previously issued recovery links across acco
     )
   ).rows[0];
   assert.deepEqual(event.metadata, { revokedSessions: 1 });
-  await login(target.email, "Updated-Security-Pass!");
+  await login(target.email, "Upd-Security-Pa1!");
 });
 
 test("SEC-RACE: login waiting on password rotation cannot create a session from the old password", async () => {
@@ -273,7 +273,7 @@ test("SEC-RACE: login waiting on password rotation cannot create a session from 
     await blockedAccountQuery("WHERE email=$1 FOR UPDATE");
     await held.query("UPDATE platform_users SET password_hash=$2 WHERE id=$1", [
       target.id,
-      hashPassword("Rotated-Security-Pass!"),
+      hashPassword("Rot-Security-Pa1!"),
     ]);
     await held.query(
       "UPDATE sessions SET expires_at=clock_timestamp() WHERE user_id=$1",
@@ -343,12 +343,12 @@ test("SEC-RACE: concurrent recovery and password change have one winner without 
     request(
       "POST",
       "/auth/password",
-      { currentPassword: password, newPassword: "Changed-Concurrent-Pass!" },
+      { currentPassword: password, newPassword: "Chg-Concurrent-P1!" },
       target.session,
     ),
     request("POST", "/auth/recover", {
       token: grant.body.token,
-      newPassword: "Recovered-Concurrent-Pass!",
+      newPassword: "Rec-Concurrent-P1!",
     }),
   ]);
   assert.equal(
@@ -371,8 +371,8 @@ test("SEC-RACE: concurrent recovery and password change have one winner without 
   await login(
     target.email,
     outcomes[0].status === 200
-      ? "Changed-Concurrent-Pass!"
-      : "Recovered-Concurrent-Pass!",
+      ? "Chg-Concurrent-P1!"
+      : "Rec-Concurrent-P1!",
   );
 });
 

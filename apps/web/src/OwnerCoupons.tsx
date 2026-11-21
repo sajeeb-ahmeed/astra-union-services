@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { api } from "./api.js";
 import { choose, useLanguage } from "./i18n.js";
+import { StatusBadge } from "./OwnerUi.js";
 
 const label = (bn: string, en: string) => choose({ bn, en });
 const bnDigits = (v: string) => v.replace(/\d/g, (d) => "০১২৩৪৫৬৭৮৯"[Number(d)]);
@@ -438,7 +439,11 @@ export function OwnerCoupons() {
                     : label("হিডেন", "Hidden")}
                 </td>
                 <td>
-                  {c.active ? label("চালু", "Active") : label("বন্ধ", "Off")}
+                  {c.active ? (
+                    <StatusBadge tone="ok">{label("চালু", "Active")}</StatusBadge>
+                  ) : (
+                    <StatusBadge tone="neutral">{label("বন্ধ", "Off")}</StatusBadge>
+                  )}
                 </td>
                 <td>
                   <div className="button-row">
@@ -457,7 +462,7 @@ export function OwnerCoupons() {
             ))}
             {!items.length && (
               <tr>
-                <td colSpan={8}>{label("এখনো কোনো কুপন নেই।", "No coupons yet.")}</td>
+                <td colSpan={8} className="empty-cell">{label("এখনো কোনো কুপন নেই।", "No coupons yet.")}</td>
               </tr>
             )}
           </tbody>
@@ -500,7 +505,7 @@ export function OwnerCoupons() {
             ))}
             {!redemptions.length && (
               <tr>
-                <td colSpan={4}>{label("এখনো কোনো কুপন ব্যবহৃত হয়নি।", "No coupon has been redeemed yet.")}</td>
+                <td colSpan={4} className="empty-cell">{label("এখনো কোনো কুপন ব্যবহৃত হয়নি।", "No coupon has been redeemed yet.")}</td>
               </tr>
             )}
           </tbody>

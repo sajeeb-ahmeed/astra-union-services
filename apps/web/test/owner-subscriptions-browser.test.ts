@@ -37,7 +37,7 @@ test(
     const stamp = Date.now();
     const slug = `sub-browser-${stamp}`;
     const officeName = `Subscription Browser Office ${stamp}`;
-    const adminPassword = randomBytes(18).toString("base64url");
+    const adminPassword = randomBytes(12).toString("base64url");
     // Arrange through the API: a fresh office (subscription EXPIRED) with one PENDING subscription order.
     const owner = await browser.newContext();
     const login = await owner.request.post(`${origin}/api/v1/auth/login`, {
@@ -83,6 +83,8 @@ test(
     try {
       await signIn(page, "owner@astra.demo.test", "Demo-Phase1!");
       await goToWorkspacePage(page, "Platform management");
+      // OWNER-REDESIGN-01: onboarding + office cards live in the Offices section.
+      await page.locator('.owner-nav a[href="#owner-offices"]').click();
       // The onboarding form offers activation on approval.
       await page.getByLabel("Activate subscription now", { exact: true }).waitFor();
       // The office card shows the expired badge; the panel activates it.
@@ -97,6 +99,8 @@ test(
       await card.locator(".subscription-badge").getByText("Active").waitFor();
       await panel.getByText("Subscription updated.").waitFor();
       // The pending order is listed with the office name; settle it from the page.
+      // OWNER-REDESIGN-01: payment orders live in the Subscriptions section.
+      await page.locator('.owner-nav a[href="#owner-subscriptions"]').click();
       const ordersSection = page
         .locator("section.panel")
         .filter({ has: page.getByRole("heading", { name: "Payment orders", exact: true }) });

@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { api } from "./api.js";
 import { choose, useLanguage } from "./i18n.js";
+import { EmptyState } from "./OwnerUi.js";
 
 const label = (bn: string, en: string) => choose({ bn, en });
 const typeLabel = (type: string) =>
@@ -148,10 +149,16 @@ export function OwnerInclusionRequests() {
       .catch((e) => setMessage((e as Error).message));
   return (
     <section className="panel owner-inclusion">
-      <h2>{label("অফিস যুক্ত করার অনুরোধ", "Office inclusion requests")}</h2>
+      <h3>{label("অফিস যুক্ত করার অনুরোধ", "Office inclusion requests")}</h3>
       {message && <p role="status">{message}</p>}
       {items.length === 0 ? (
-        <p>{label("খোলা কোনো অনুরোধ নেই।", "No open requests.")}</p>
+        <EmptyState
+          title={label("খোলা কোনো অনুরোধ নেই।", "No open requests.")}
+          hint={label(
+            "নতুন অফিস যুক্ত করার অনুরোধ এলে এখানে দেখা যাবে।",
+            "New office inclusion requests will appear here.",
+          )}
+        />
       ) : (
         items.map((r) => (
           <article key={r.id} className="inclusion-item">

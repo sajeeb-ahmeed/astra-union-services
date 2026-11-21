@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { api } from "./api.js";
 import { choose, useLanguage } from "./i18n.js";
+import { StatusBadge } from "./OwnerUi.js";
 
 const label = (bn: string, en: string) => choose({ bn, en });
 const toLocalInput = (iso: string) => {
@@ -310,7 +311,21 @@ export function OwnerNotices() {
                     ? new Date(notice.endsAt).toLocaleString()
                     : label("সীমাহীন", "No end")}
                 </td>
-                <td>{statusText(notice.status)}</td>
+                <td>
+                  <StatusBadge
+                    tone={
+                      notice.status === "live"
+                        ? "ok"
+                        : notice.status === "scheduled"
+                          ? "info"
+                          : notice.status === "expired"
+                            ? "neutral"
+                            : "warn"
+                    }
+                  >
+                    {statusText(notice.status)}
+                  </StatusBadge>
+                </td>
                 <td>
                   <div className="button-row">
                     <button type="button" className="secondary" disabled={busy} onClick={() => startEdit(notice)}>
@@ -328,7 +343,7 @@ export function OwnerNotices() {
             ))}
             {!items.length && (
               <tr>
-                <td colSpan={4}>{label("এখনো কোনো গ্লোবাল নোটিশ নেই।", "No global notices yet.")}</td>
+                <td colSpan={4} className="empty-cell">{label("এখনো কোনো গ্লোবাল নোটিশ নেই।", "No global notices yet.")}</td>
               </tr>
             )}
           </tbody>

@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { api } from "./api.js";
 import { choose, useLanguage } from "./i18n.js";
+import { EmptyState } from "./OwnerUi.js";
 
 const label = (bn: string, en: string) => choose({ bn, en });
 const areaName = (row: any, level: "division" | "district" | "upazila" | "union" | "ward") =>
@@ -41,7 +42,13 @@ export function OwnerDemand() {
       )}
       {data === null && !error && <p role="status">{label("লোড হচ্ছে…", "Loading…")}</p>}
       {data !== null && data.items.length === 0 && (
-        <p>{label("এখনো কোনো চাহিদা জমা হয়নি।", "No registration demand has been captured yet.")}</p>
+        <EmptyState
+          title={label("এখনো কোনো চাহিদা জমা হয়নি।", "No registration demand has been captured yet.")}
+          hint={label(
+            "তালিকাভুক্ত নয় এমন ইউনিয়নের নাগরিক আবেদন করলেই এখানে দেখা যাবে।",
+            "Attempts from citizens in unions that are not listed yet will appear here.",
+          )}
+        />
       )}
       {data !== null && data.byUnion.length > 0 && (
         <div className="table-wrap">

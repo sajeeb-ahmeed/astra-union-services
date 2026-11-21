@@ -33,13 +33,18 @@
   min-width: 0;
 }
 .ax-stat strong {
-  font-size: 22px;
-  line-height: 1.2;
+  /* REFINEMENT-02 P1-3: the value is the KPI — display size. */
+  font-size: 32px;
+  line-height: 1.15;
   color: var(--ax-green-700);
 }
 .ax-stat span {
   font-size: var(--ax-text-sm);
   color: var(--ax-muted);
+}
+.ax-stat-label {
+  font-weight: 600;
+  color: var(--ax-ink);
 }
 
 .ax-tile {
@@ -66,7 +71,7 @@
   transform: translateY(-1px);
 }
 .ax-tile:focus-visible {
-  outline: 3px solid var(--ax-accent);
+  outline: 3px solid var(--du-focus, #04592c);
   outline-offset: 2px;
 }
 .ax-tile-number {
@@ -192,7 +197,11 @@ textarea:hover {
 }
 button:disabled,
 .button:disabled {
-  opacity: 0.55;
+  background: #e8ede9;
+  border-color: #c9d4cb;
+  color: #54655a;
+  opacity: 1;
+  box-shadow: none;
   cursor: not-allowed;
 }
 button[aria-busy="true"],
@@ -366,4 +375,310 @@ button[aria-busy="true"]::after,
   .ax-stepper li.is-current {
     flex: 1 1 auto;
   }
+  /* FULL-UIUX-01 C39: the current step's full name always fits — wrap, never
+     truncate to one character. */
+  .ax-stepper li.is-current .ax-step-label {
+    white-space: normal;
+    overflow: visible;
+    text-overflow: clip;
+  }
+}
+
+/* FULL-UIUX-01: stepper summary line + progress bar (visible on phones,
+   where the chip row alone cannot carry the step name). */
+.ax-stepper-summary {
+  display: none;
+  margin: 0 0 var(--ax-space-2);
+  font-weight: 700;
+  color: var(--ax-green-800);
+}
+.ax-stepper-progress {
+  display: none;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--ax-green-100);
+  overflow: hidden;
+  margin-bottom: var(--ax-space-3);
+}
+.ax-stepper-progress span {
+  display: block;
+  height: 100%;
+  background: var(--ax-green-600);
+  border-radius: 999px;
+  transition: width 0.25s ease;
+}
+@media (max-width: 767px) {
+  .ax-stepper-summary,
+  .ax-stepper-progress {
+    display: block;
+  }
+}
+
+/* FULL-UIUX-01: the one application-status badge (fixed colour semantics). */
+.ax-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 11px;
+  border-radius: 999px;
+  font-size: 12.5px;
+  font-weight: 700;
+  line-height: 1.5;
+  white-space: nowrap;
+}
+.ax-status::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: currentColor;
+  flex: none;
+}
+.ax-status.tone-ok {
+  background: #e2f1e4;
+  color: #04592c;
+}
+.ax-status.tone-info {
+  background: #e3ecf7;
+  color: #00356e;
+}
+.ax-status.tone-warn {
+  background: #fff3d6;
+  color: #6d4d00;
+}
+.ax-status.tone-danger {
+  background: #fdecea;
+  color: #9b2c1f;
+}
+.ax-status.tone-neutral {
+  background: #eef1ee;
+  color: #43584a;
+}
+
+/* Legacy .status spans are aligned to the same language by tone-less
+   neutral styling (components migrate to .ax-status progressively). */
+
+/* FULL-UIUX-01: copyable reference chip. */
+.ax-refchip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--ax-green-50);
+  border: 1px solid var(--ax-line);
+  border-radius: var(--ax-radius);
+  padding: 4px 6px 4px 12px;
+  max-width: 100%;
+}
+.ax-refchip code {
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--ax-green-800);
+}
+.ax-refchip-label {
+  font-size: var(--ax-text-sm);
+  color: var(--ax-muted);
+}
+.ax-refchip-copy {
+  min-height: 32px;
+  min-width: 36px;
+  padding: 2px 8px;
+  border-radius: 6px;
+  background: var(--ax-surface);
+  color: var(--ax-green-700);
+  border: 1px solid var(--ax-line);
+  font-size: 14px;
+}
+.ax-refchip-done {
+  font-size: 12px;
+  color: var(--ax-green-700);
+  font-weight: 700;
+}
+
+/* FULL-UIUX-01: one service card, three densities + the category tints. */
+.svc-card {
+  display: flex;
+  align-items: center;
+  gap: var(--ax-space-3);
+  width: 100%;
+  text-align: left;
+  background: var(--ax-surface);
+  border: 1px solid var(--ax-line);
+  border-radius: var(--ax-radius-lg);
+  padding: var(--ax-space-3) var(--ax-space-4);
+  color: var(--ax-ink);
+  text-decoration: none;
+  transition: border-color var(--du-transition), box-shadow var(--du-transition),
+    transform var(--du-transition);
+}
+/* P0-3: ServiceCard interactive states, in tokens (see ui/tokens.css).
+   The global `button:hover { background: #03451f }` (style.css) used to
+   win on `button.svc-card` because this rule set border/shadow/
+   transform but no background — dark card, dark title/category, 1.x:1.
+   Hover and keyboard focus now deepen the LIGHT tint and darken the
+   border; the title stays --ax-ink and the category --ax-muted on the
+   pale ground, so every state stays ≥4.5:1. No dark-filled variant
+   exists for this component; if one is ever added it must flip all
+   child text/icon colours to the on-dark set in the same rule. */
+a.svc-card:hover,
+button.svc-card:hover,
+a.svc-card:focus-visible,
+button.svc-card:focus-visible {
+  background: var(--ax-green-50);
+  border-color: var(--ax-green-600);
+  box-shadow: var(--ax-shadow);
+  transform: translateY(-1px);
+}
+.svc-card.svc-tile {
+  flex-direction: column;
+  align-items: flex-start;
+  /* REFINEMENT-02 P1-7: content now fills the card (metadata line added);
+     the old 148px floor left ~45% empty padding under a 3-line card. */
+  min-height: 118px;
+  padding: var(--ax-space-4);
+}
+.svc-card.svc-compact {
+  padding: var(--ax-space-2) var(--ax-space-3);
+  border-radius: var(--ax-radius);
+}
+.svc-medallion {
+  flex: none;
+  width: 48px;
+  height: 48px;
+  border-radius: 14px;
+  display: grid;
+  place-items: center;
+}
+.svc-compact .svc-medallion {
+  width: 38px;
+  height: 38px;
+  border-radius: 11px;
+}
+.svc-medallion svg {
+  width: 26px;
+  height: 26px;
+}
+.svc-compact .svc-medallion svg {
+  width: 21px;
+  height: 21px;
+}
+.svc-card-text {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+.svc-card-category {
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--ax-muted);
+  text-transform: uppercase;
+}
+.svc-card-name {
+  font-size: 15.5px;
+  line-height: 1.35;
+  color: var(--ax-ink);
+}
+.svc-card-fee {
+  font-size: 12.5px;
+  color: var(--ax-muted);
+}
+/* Category tints — soft ground, deep ink icon. */
+.cat-tint-0 { background: #e2f1e4; color: #04592c; }
+.cat-tint-1 { background: #fdeef2; color: #8c2d4a; }
+.cat-tint-2 { background: #e3ecf7; color: #00356e; }
+.cat-tint-3 { background: #e8f3ee; color: #0b5c46; }
+.cat-tint-4 { background: #fdf0dd; color: #7a4d00; }
+.cat-tint-5 { background: #f3e8f7; color: #5b2a72; }
+.cat-tint-6 { background: #e0f2f1; color: #00594f; }
+.cat-tint-7 { background: #fdecea; color: #9b2c1f; }
+.cat-tint-8 { background: #e6f0fa; color: #144a7a; }
+.cat-tint-9 { background: #eef1ee; color: #43584a; }
+
+/* FULL-UIUX-01: styled upload control (replaces native file inputs). */
+.ax-upload {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ax-space-2);
+}
+.ax-upload-label {
+  font-weight: 600;
+}
+.ax-upload-zone {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: var(--ax-space-4);
+  border: 1.5px dashed var(--ax-green-600);
+  border-radius: var(--ax-radius-lg);
+  background: var(--ax-green-50);
+  color: var(--ax-green-800);
+  cursor: pointer;
+  text-align: center;
+  transition: border-color var(--du-transition), background var(--du-transition);
+}
+.ax-upload-zone:hover {
+  background: var(--ax-green-100);
+}
+.ax-upload-zone small {
+  color: var(--ax-muted);
+}
+.ax-upload-input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  overflow: hidden;
+}
+.ax-upload-file {
+  display: flex;
+  align-items: center;
+  gap: var(--ax-space-2);
+  border: 1px solid var(--ax-line);
+  border-radius: var(--ax-radius);
+  padding: var(--ax-space-2) var(--ax-space-3);
+  background: var(--ax-surface);
+}
+.ax-upload-file-name {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+/* StatCard context line + icon (programme 12). */
+.ax-stat {
+  position: relative;
+}
+.ax-stat-icon {
+  position: absolute;
+  top: var(--ax-space-3);
+  inset-inline-end: var(--ax-space-3);
+  color: var(--ax-green-600);
+  display: grid;
+  place-items: center;
+}
+.ax-stat-context {
+  color: var(--ax-muted);
+  font-size: 12.5px;
+}
+
+
+/* FULL-UIUX-01: the label/value summary grid is a SHARED pattern (it began
+   in the flow's read-only summary); security sessions and other summary
+   lists consume the same classes from the kit so they render identically
+   on pages that never load the flow chunk. */
+.ax-flow-details-list {
+  display: grid;
+  grid-template-columns: minmax(140px, 220px) 1fr;
+  gap: 8px 16px;
+  margin: 0;
+}
+.ax-flow-details-list dt {
+  color: var(--du-muted);
+  font-weight: 600;
+}
+.ax-flow-details-list dd {
+  margin: 0;
 }

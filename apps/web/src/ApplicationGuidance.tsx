@@ -83,13 +83,6 @@ function guidanceFor({
             "The applicant or authorised counter staff must submit this draft first. Review and approval follow submission.",
           ),
       step: 0,
-      ...(applicant
-        ? {
-            action: actions(
-              text("জমা দেওয়ার বোতামে যান", "Go to submission controls"),
-            ),
-          }
-        : {}),
     };
   if (state === "CORRECTION_REQUIRED")
     return {
@@ -105,16 +98,6 @@ function guidanceFor({
           ),
       warning: true,
       step: 0,
-      ...(applicant
-        ? {
-            action: actions(
-              text(
-                "পুনরায় জমা দেওয়ার বোতামে যান",
-                "Go to resubmission controls",
-              ),
-            ),
-          }
-        : {}),
     };
   if (["SUBMITTED", "RESUBMITTED"].includes(state))
     return {
@@ -138,13 +121,8 @@ function guidanceFor({
                 "The application has been submitted. The Chairman will verify the information; any correction request will appear here. You do not need to submit the same application again now.",
               ),
       step: 1,
-      ...(role === "approver"
-        ? {
-            action: actions(
-              text("সিদ্ধান্তের বোতামে যান", "Go to decision controls"),
-            ),
-          }
-        : {}),
+      // FULL-UIUX-01 (B18/P1-7): no "go to the decision buttons" link —
+      // the decision rail beside this panel carries the actions at all times.
     };
   if (state === "UNDER_REVIEW")
     // Legacy state from before Phase W (no transition leads here now); the Chairman decides it
@@ -167,13 +145,8 @@ function guidanceFor({
                 "The office is verifying this application. Corrections or a decision will update its status here. When the Chairman approves, the certificate is issued at once.",
               ),
       step: 1,
-      ...(role === "approver"
-        ? {
-            action: actions(
-              text("সিদ্ধান্তের বোতামে যান", "Go to decision controls"),
-            ),
-          }
-        : {}),
+      // FULL-UIUX-01 (B18/P1-7): no "go to the decision buttons" link —
+      // the decision rail beside this panel carries the actions at all times.
     };
   if (["APPROVED", "ISSUANCE_PENDING"].includes(state)) {
     // COLLECTED is the application's server-computed payment state. A provider
@@ -213,13 +186,6 @@ function guidanceFor({
               "Approval is recorded. An authorised officer must issue the certificate after any required fee verification. Check the current payment information below; the PDF will appear here after issuance.",
             ),
       step: 2,
-      ...(role === "approver"
-        ? {
-            action: actions(
-              text("সনদ ইস্যুর বোতামে যান", "Go to issuance controls"),
-            ),
-          }
-        : {}),
     };
   }
   if (state === "ISSUED")

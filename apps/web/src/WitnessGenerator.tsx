@@ -143,7 +143,7 @@ export function OwnerWitnessTypes() {
   }, []);
   return (
     <section className="panel owner-witness-types">
-      <h2>{label("সাক্ষীর প্রত্যয়নের ধরন", "Witness statement types")}</h2>
+      <h3>{label("সাক্ষীর প্রত্যয়নের ধরন", "Witness statement types")}</h3>
       <p className="hint">
         {label(
           "পাবলিক সাক্ষীর প্রত্যয়ন পাতায় এই তালিকার ধর্ম ও সনদের ধরনই দেখানো হয়।",

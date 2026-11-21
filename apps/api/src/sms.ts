@@ -1,13 +1,14 @@
 import fs from "node:fs";
 import { identifierHint } from "./identifiers.js";
+import { sendSmsViaHttp, smsHttpConfigured } from "./sms-http.js";
 
 /**
  * Phase X: status SMS for application events (certificate issued, application rejected),
  * closing the E2E QA J8 gap "no status SMS exists for application events".
- * SMS in this product has exactly one channel today — the development "log" provider the
- * OTP module uses (otp.ts) — so this module is gated by the same OTP_PROVIDER setting:
- * a real SMS provider, once the owner chooses and integrates one, replaces the channel for
- * OTP codes and status messages alike. With the log provider a message reaches no handset;
+ * SMS in this product shares one channel with the OTP module (otp.ts) — the development
+ * "log" provider, or the real gateway under OTP_PROVIDER=http (Phase 7, sms-http.ts) —
+ * so this module is gated by the same OTP_PROVIDER setting for OTP codes and status
+ * messages alike. With the log provider a message reaches no handset;
  * Security Audit 01, F1: the server log line records only the recipient hint and purpose
  * (status messages carry certificate numbers, which must never land in a server log);
  * outside production the message is also written to the git-ignored
@@ -35,9 +36,17 @@ export const logSmsProvider: SmsProvider = {
   },
 };
 
+/** Phase 7: the real SMS gateway (OTP_PROVIDER=http, SMS_HTTP_* env) — see sms-http.ts. */
+export const httpSmsProvider: SmsProvider = {
+  async send({ mobile, message }) {
+    await sendSmsViaHttp(mobile, message);
+  },
+};
 function configuredProvider(): SmsProvider | null {
   const name = process.env.OTP_PROVIDER ?? (process.env.NODE_ENV === "production" ? "" : "log");
-  return name === "log" ? logSmsProvider : null;
+  if (name === "log") return logSmsProvider;
+  if (name === "http") return smsHttpConfigured() ? httpSmsProvider : null;
+  return null;
 }
 let provider = configuredProvider();
 /** Tests swap the provider; production configuration comes only from OTP_PROVIDER. */

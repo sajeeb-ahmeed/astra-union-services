@@ -47,8 +47,9 @@ export function workspacePage(page: Page, nameOrLabel: string | RegExp) {
 
 /**
  * Navigate to a workspace page in either layout: on wide screens the sidebar entry is clicked; on phone
- * widths the sidebar is hidden by design and the page-picker select (#workspace-jump) is the navigation.
- * The picker's option values are page keys for plain pages in both navigation variants.
+ * widths the sidebar is hidden by design and the bottom tab bar is the navigation (FULL-UIUX-01 B27
+ * deleted the #workspace-jump select). The tab bar carries the role's primary destinations as direct
+ * tabs (data-tab); every visible page is also listed in the "More" sheet (data-page).
  */
 export async function goToWorkspacePage(page: Page, nameOrLabel: string | RegExp) {
   const key =
@@ -59,8 +60,62 @@ export async function goToWorkspacePage(page: Page, nameOrLabel: string | RegExp
   // viewport rather than racing element visibility while the shell mounts.
   const width = page.viewportSize()?.width ?? 1280;
   if (width <= 767) {
-    await page.locator("#workspace-jump").selectOption(String(key));
+    const sheetEntry = page.locator(`.ws-tab-sheet button[data-page="${key}"]`);
+    if (await sheetEntry.isVisible().catch(() => false)) {
+      await sheetEntry.click();
+      return;
+    }
+    const directTab = page.locator(`.ws-tabbar button[data-tab="${key}"]`);
+    if (await directTab.count()) {
+      await directTab.click();
+      return;
+    }
+    await page.locator('.ws-tabbar button[data-tab="more"]').click();
+    await sheetEntry.click();
     return;
   }
-  await workspacePage(page, nameOrLabel).click();
+  const entry = workspacePage(page, nameOrLabel);
+  if (!(await entry.isVisible().catch(() => false))) {
+    // FULL-UIUX-01: on the owner console page the workspace sidebar
+    // collapses to the brand strip (`.shell-owner` sets the aside nav to
+    // display:none), so its entries are present but hidden. The platform
+    // owner lands on that page at sign-in — when the target entry is
+    // already the current page, navigation is a no-op.
+    // The check must go through a plain CSS locator: role queries exclude
+    // display:none subtrees from the accessibility tree, so the
+    // role-scoped `entry` can never resolve in owner mode (its
+    // getAttribute would just burn the full timeout).
+    const plain = page.locator(`[data-page="${key}"]`);
+    // Step 0 (b): a detail sub-view (e.g. #/applications/<id>) is NOT the
+    // list page — the Applications entry carries aria-current="page" on the
+    // detail view too. Right after a reload on a detail view the entry is
+    // not yet in the DOM, the poll below sees aria-current and returns
+    // early, and the detail stays open forever (browser.test.ts test 1
+    // timed out at openById for exactly this reason). A detail-open URL
+    // therefore disables the no-op: fall through to the click, whose
+    // handler closes the detail (setDetail(null)) and shows the list.
+    const detailOpen =
+      key === "applications" && /#\/applications\/[^/?#]+/.test(page.url());
+    // Poll briefly: right after a reload the shell may not have rendered
+    // the nav yet, so a single immediate check can miss the marker.
+    for (let attempt = 0; attempt < 40; attempt++) {
+      const total = await plain.count();
+      let isCurrent = false;
+      for (let i = 0; i < total; i++) {
+        if (
+          (await plain
+            .nth(i)
+            .getAttribute("aria-current")
+            .catch(() => null)) === "page"
+        ) {
+          isCurrent = true;
+          break;
+        }
+      }
+      if (isCurrent && !detailOpen) return;
+      if (await entry.isVisible().catch(() => false)) break;
+      await page.waitForTimeout(250);
+    }
+  }
+  await entry.click();
 }

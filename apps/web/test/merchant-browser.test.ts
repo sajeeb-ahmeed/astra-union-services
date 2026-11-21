@@ -28,7 +28,7 @@ test(
   async () => {
     const browser = await browserInstance();
     const slug = `merchant-browser-${Date.now()}`;
-    const adminPassword = randomBytes(18).toString("base64url");
+    const adminPassword = randomBytes(12).toString("base64url");
     const storePassword = randomBytes(10).toString("hex");
     const owner = await browser.newContext();
     const login = await owner.request.post(`${origin}/api/v1/auth/login`, {

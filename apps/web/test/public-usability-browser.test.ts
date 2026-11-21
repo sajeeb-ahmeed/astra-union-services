@@ -47,8 +47,10 @@ test(
       await page.getByRole("button", { name: "বাংলা", exact: true }).click();
       const banglaNav = page.getByRole("navigation", { name: "প্রধান মেনু", exact: true });
       await banglaNav.getByRole("link", { name: "আবেদনের অবস্থা", exact: true }).waitFor();
-      await page.locator("#ax-rail-track-heading").getByText("আবেদনের অবস্থা").waitFor();
-      await page.locator("#ax-rail-verify-heading").getByText("সনদ যাচাই").waitFor();
+      // The rail panels are gone; on the Bangla home the verify band
+      // carries both the verification heading and the tracking cross-link.
+      await page.locator("#home-verify-heading").getByText("সনদ যাচাই — যে কেউ, যেকোনো সময়").waitFor();
+      await page.getByRole("link", { name: "আবেদনের অবস্থা দেখতে চান? →", exact: true }).waitFor();
       assert.equal(
         await page.evaluate(
           () => document.documentElement.scrollWidth <= innerWidth + 1,
@@ -57,7 +59,7 @@ test(
       );
       fs.mkdirSync("execution/screenshots", { recursive: true });
       await page
-        .locator(".ax-title-band")
+        .locator(".home-hero")
         .screenshot({
           path: "execution/screenshots/usability-public-home-bn.png",
         });
@@ -71,7 +73,7 @@ test(
 );
 
 test(
-  "public usability: Bengali search, empty recovery and selected service replace the long catalog",
+  "public usability: Bengali search, empty recovery and the service page replace the long catalog",
   { timeout: 60000 },
   async () => {
     const browser = await launch();
@@ -83,54 +85,58 @@ test(
       await page.goto(`${origin}/services`);
       const search = page.getByLabel("Search public services", { exact: true });
       await search.waitFor();
-      assert.equal(await page.locator(".public-service").count(), 47);
+      const cards = page.locator(".public-service-grid .svc-card");
+      assert.equal(await cards.count(), 47);
       await search.fill(" ৪৫ ");
-      assert.equal(await page.locator(".public-service").count(), 1);
-      await page.locator(".public-service").click();
-      const detail = page.getByRole("region", {
-        name: "Service information",
-        exact: true,
-      });
+      assert.equal(await cards.count(), 1);
+      // FULL-UIUX-01 (A5): a service is a real page at /services/<slug>;
+      // opening the card navigates there and the catalog unmounts.
+      await cards.first().click();
+      await page.waitForURL(/\/services\/permanent-resident-certificate$/);
+      const detail = page.locator(".service-detail");
       await detail.waitFor();
+      // The catalog (search + grid) is gone; the cards still on the page
+      // are the detail's own "Related services" siblings.
+      assert.equal(await page.locator("#public-service-search").count(), 0);
       assert.equal(
-        await detail.evaluate((element) => document.activeElement === element),
+        await page.evaluate(() => window.scrollY <= 1),
         true,
+        "the service page starts at the top",
       );
-      assert.equal(await page.locator(".public-service").count(), 0);
-      assert.ok(
-        (await detail.boundingBox())!.y < 150,
-        "Selected service should be brought into view",
+      assert.equal(
+        await detail.evaluate((el) => el.querySelector("h1")!.getBoundingClientRect().top < window.innerHeight),
+        true,
+        "the service heading is in the first viewport",
       );
       await detail
-        .getByRole("button", { name: "← Choose another service", exact: true })
+        .getByRole("button", { name: "← All services", exact: true })
         .click();
+      await page.waitForURL(/\/services$/);
       assert.equal(
         await search.evaluate((element) => document.activeElement === element),
         true,
+        "returning to the catalog restores focus to the search",
       );
-      assert.equal(await page.locator(".public-service").count(), 1);
+      assert.equal(await cards.count(), 1);
       await page
         .getByRole("button", { name: "Clear search", exact: true })
         .click();
       assert.equal(await search.inputValue(), "");
-      assert.equal(await page.locator(".public-service").count(), 47);
+      assert.equal(await cards.count(), 47);
       await search.fill("unmatched-service-example");
-      assert.equal(await page.locator(".public-service").count(), 0);
+      assert.equal(await cards.count(), 0);
       await page
         .getByRole("button", { name: "Show all services", exact: true })
         .click();
-      assert.equal(await page.locator(".public-service").count(), 47);
+      assert.equal(await cards.count(), 47);
       await search.fill("Family certificate");
-      await page.locator(".public-service").click();
+      await cards.first().click();
+      await page.waitForURL(/\/services\/family-certificate$/);
       await page.getByRole("button", { name: "বাংলা", exact: true }).click();
       await page
-        .locator(".service-information")
-        .getByRole("button", { name: "← অন্য সেবা বেছে নিন", exact: true })
+        .locator(".service-detail")
+        .getByRole("button", { name: "← সব সেবা", exact: true })
         .waitFor();
-      assert.equal(
-        await page.locator("#public-service-search").inputValue(),
-        "Family certificate",
-      );
       assert.equal(
         await page.evaluate(
           () => document.documentElement.scrollWidth <= innerWidth + 1,
@@ -139,7 +145,7 @@ test(
       );
       fs.mkdirSync("execution/screenshots", { recursive: true });
       await page
-        .locator(".service-information")
+        .locator(".service-detail")
         .screenshot({
           path: "execution/screenshots/usability-public-service-bn.png",
         });
@@ -186,7 +192,7 @@ test(
       );
       assert.equal(loginPosts, 0);
       await page.getByRole("button", { name: "বাংলা", exact: true }).click();
-      await form.getByRole("button", { name: "লুকান", exact: true }).click();
+      await form.getByRole("button", { name: "পাসওয়ার্ড লুকান", exact: true }).click();
       assert.equal(
         await page.locator("#password").getAttribute("type"),
         "password",

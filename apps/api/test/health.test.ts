@@ -19,11 +19,11 @@ test("health reports which optional keys are configured as true/false only, neve
   assert.equal(r.status, 200);
   const body = await r.json();
   assert.equal(body.status, "ok");
-  assert.deepEqual(Object.keys(body.features).sort(), ["citizenIdentityNumbers", "emailDelivery", "officeMerchantCredentials", "signInIdentifiers"]);
+  assert.deepEqual(Object.keys(body.features).sort(), ["citizenIdentityNumbers", "emailDelivery", "officeMerchantCredentials", "orderPayments", "signInIdentifiers"]);
   for (const value of Object.values(body.features)) assert.equal(typeof value, "boolean");
   // Outside production a development key file is used, so every feature is available in tests.
   // Phase X: emailDelivery joins the set — outside production the mailer defaults to the log provider.
-  assert.deepEqual(body.features, { signInIdentifiers: true, citizenIdentityNumbers: true, officeMerchantCredentials: true, emailDelivery: true });
+  assert.deepEqual(body.features, { signInIdentifiers: true, citizenIdentityNumbers: true, officeMerchantCredentials: true, emailDelivery: true, orderPayments: false });
   for (const secret of [process.env.MFA_ENCRYPTION_KEY, process.env.CITIZEN_DATA_KEY, process.env.MERCHANT_SECRET_KEY, process.env.IDENTIFIER_SECRET])
     if (secret) assert.equal(JSON.stringify(body).includes(secret), false);
 });

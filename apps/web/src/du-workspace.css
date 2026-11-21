@@ -77,3 +77,640 @@
   padding-bottom: 6px;
   border-bottom: 2px solid var(--du-green-700);
 }
+
+/* ================================================================== */
+/* FULL-UIUX-01: the light, icon-led workspace shell (P1-11) — white/   */
+/* pale aside, ink text, soft-green active pill, ONE left alignment    */
+/* for every role including staff. Replaces the dark-green sidebar.    */
+/* ================================================================== */
+.shell > aside {
+  background: var(--du-sidebar-bg);
+  color: var(--du-sidebar-ink);
+  border-inline-end: 1px solid var(--du-line);
+}
+.shell > aside .brand {
+  color: var(--du-sidebar-ink);
+  text-decoration: none;
+}
+.shell > aside .office {
+  color: var(--du-sidebar-ink);
+  margin: 20px 0 14px;
+  font-size: 15px;
+}
+.shell > aside .office small,
+.shell > aside small {
+  color: var(--du-sidebar-muted);
+}
+.shell > aside nav button,
+.shell > aside .ax-sidebar-nav .ax-sidebar-item {
+  display: flex;
+  align-items: center;
+  /* REFINEMENT-02 P1-9: one nav geometry for all roles — the base button
+     rule's justify-content:center used to centre icon+label groups so
+     labels never shared a left axis. Fixed: flex-start, 20px left
+     padding, a fixed 20px icon box, 10px gap. */
+  justify-content: flex-start;
+  gap: 10px;
+  width: 100%;
+  color: var(--du-sidebar-ink);
+  background: transparent;
+  border: 0;
+  border-radius: 8px;
+  padding: 9px 12px 9px 20px;
+  min-height: 44px;
+  font-size: 14.5px;
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+}
+.shell > aside nav button svg,
+.shell > aside .ax-sidebar-nav .ax-sidebar-item svg {
+  color: var(--du-green-700);
+  flex: none;
+  width: 20px;
+  height: 20px;
+}
+.shell > aside nav button:hover,
+.shell > aside .ax-sidebar-nav .ax-sidebar-item:hover {
+  background: var(--du-sidebar-hover-bg);
+}
+.shell > aside nav button[aria-current="page"],
+.shell > aside .ax-sidebar-nav .ax-sidebar-item[aria-current="page"] {
+  background: var(--du-sidebar-active-bg);
+  color: var(--du-sidebar-active-ink);
+  font-weight: 700;
+  box-shadow: inset 3px 0 0 var(--du-green-700);
+}
+.shell > aside .ax-sidebar-nav .ax-sidebar-item {
+  flex-direction: row;
+}
+.ws-nav-group {
+  margin-bottom: 14px;
+}
+/* REFINEMENT-02 P2-9: queue age chips — neutral by default; amber is
+   earned only by exceeding the office's stated service time. */
+.age-chip {
+  display: inline-block;
+  margin-inline-start: 8px;
+  padding: 1px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--du-line);
+  background: var(--du-surface);
+  color: var(--du-muted);
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.age-chip-warn {
+  border-color: #d9be6a;
+  background: #fdf3d7;
+  color: #6b5310;
+}
+/* REFINEMENT-02 P2-7: a full-strength primary submit. */
+button.primary-strong {
+  background: var(--du-green-700);
+  color: #fff;
+  font-weight: 700;
+  border: 1px solid var(--du-green-700);
+}
+button.primary-strong:hover {
+  background: var(--du-green-800, #03401f);
+}
+/* REFINEMENT-02 P2-4: unread notification rows — accent bar + dot. */
+.notice-unread {
+  border-left: 4px solid var(--du-green-700);
+  background: var(--du-green-50);
+}
+.notice-dot {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--du-green-700);
+  margin-inline-end: 8px;
+  vertical-align: baseline;
+}
+.ws-nav-group-title {
+  display: block;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  color: var(--du-muted);
+  /* P1-9: group headings share the items' 20px left axis. */
+  padding: 4px 12px 6px 20px;
+  text-transform: uppercase;
+}
+.ws-nav-badge {
+  margin-inline-start: auto;
+  background: var(--du-green-700);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  min-width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  display: inline-grid;
+  place-items: center;
+  padding: 0 6px;
+}
+.shell > aside .sidebar-bottom > p {
+  color: var(--du-sidebar-ink);
+}
+.shell > aside .sidebar-bottom .text-button {
+  color: var(--du-green-700);
+}
+.shell > aside .sidebar-bottom .text-button:hover {
+  background: var(--du-sidebar-hover-bg);
+}
+
+/* Owner console = ONE layer (C34/P2-10): on the owner page the outer
+   workspace aside collapses to a brand/sign-out strip; the console's own
+   navigation is the only navigation layer. */
+@media (min-width: 768px) {
+  .shell.shell-owner {
+    grid-template-columns: 104px minmax(0, 1fr);
+  }
+  .shell.shell-owner > aside {
+    padding: 22px 12px;
+    align-items: center;
+  }
+  .shell.shell-owner > aside .brand .brand-lockup-words,
+  .shell.shell-owner > aside .office,
+  .shell.shell-owner > aside nav,
+  .shell.shell-owner > aside .sidebar-bottom > p {
+    display: none;
+  }
+  .shell.shell-owner > aside .sidebar-bottom {
+    padding-top: 12px;
+  }
+  .shell.shell-owner > aside .sidebar-bottom .text-button {
+    white-space: nowrap;
+    font-size: 13px;
+    padding: 8px 4px;
+  }
+}
+/* Owner section nav: scroll affordance on small screens. */
+.owner-console .owner-nav {
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  scrollbar-width: thin;
+  -webkit-mask-image: linear-gradient(90deg, #000 92%, transparent);
+  mask-image: linear-gradient(90deg, #000 92%, transparent);
+  padding-bottom: 4px;
+}
+.owner-console .owner-nav a {
+  flex: none;
+}
+
+/* Header: the global search (OWNER-DECISION 2). */
+.workspace-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.ws-global-search {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #fff;
+  border: 1px solid var(--du-line);
+  border-radius: 999px;
+  padding: 0 6px 0 14px;
+  min-height: 44px;
+  color: var(--du-muted);
+}
+/* The search's label is for assistive tech only — the placeholder and the
+   icon carry it visually (it rendered as a chip inside the pill before). */
+.ws-global-search > label {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+.ws-global-search:focus-within {
+  border-color: var(--du-green-600);
+  outline: 2px solid var(--du-focus);
+  outline-offset: 1px;
+}
+.ws-global-search input {
+  border: 0;
+  margin: 0;
+  min-height: 42px;
+  width: 250px;
+  background: transparent;
+}
+.ws-global-search input:focus {
+  outline: none;
+}
+.ws-global-results {
+  position: absolute;
+  top: calc(100% + 8px);
+  inset-inline-end: 0;
+  width: min(380px, 86vw);
+  background: #fff;
+  border: 1px solid var(--du-line);
+  border-radius: 12px;
+  box-shadow: 0 18px 36px rgb(3 40 20 / 18%);
+  padding: 8px;
+  z-index: 30;
+  color: var(--du-ink);
+}
+.ws-global-group > span {
+  display: block;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--du-muted);
+  padding: 8px 10px 4px;
+}
+.ws-global-group button {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  border: 0;
+  color: var(--du-ink);
+  padding: 9px 10px;
+  border-radius: 8px;
+  min-height: 44px;
+  cursor: pointer;
+}
+.ws-global-group button:hover {
+  background: var(--du-green-50);
+}
+.ws-global-empty {
+  margin: 0;
+  padding: 10px;
+  color: var(--du-muted);
+}
+@media (max-width: 900px) {
+  .ws-global-search input {
+    width: 150px;
+  }
+}
+
+/* Mobile bottom tab bar + sheet (B27/P1-12). */
+.ws-tabbar {
+  position: fixed;
+  inset-inline: 0;
+  bottom: 0;
+  z-index: 40;
+  display: flex;
+  background: #fff;
+  border-top: 1px solid var(--du-line);
+  box-shadow: 0 -6px 18px rgb(3 40 20 / 8%);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+.ws-tabbar button {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  background: transparent;
+  border: 0;
+  /* P2-11: inactive labels use --du-muted (#43584a on white ≈ 7:1,
+     above the 4.5:1 floor) — never the paler fallback grey. */
+  color: var(--du-muted);
+  font-size: 12px;
+  font-weight: 600;
+  /* P2-11: labels clear the home indicator — the safe-area inset is
+     honoured on the buttons themselves as well as the bar. */
+  padding: 8px 2px max(10px, env(safe-area-inset-bottom));
+  min-height: 56px;
+  cursor: pointer;
+  position: relative;
+}
+.ws-tabbar button[aria-current="page"] {
+  color: var(--du-green-800);
+}
+.ws-tabbar button[aria-current="page"]::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  width: 34px;
+  height: 3px;
+  border-radius: 0 0 3px 3px;
+  background: var(--du-green-700);
+}
+.ws-tabbar .ws-nav-badge {
+  position: absolute;
+  top: 4px;
+  inset-inline-end: calc(50% - 20px);
+  margin: 0;
+}
+.ws-tab-sheet {
+  position: fixed;
+  inset-inline: 10px;
+  bottom: 70px;
+  z-index: 41;
+  background: #fff;
+  border: 1px solid var(--du-line);
+  border-radius: 14px;
+  box-shadow: 0 18px 36px rgb(3 40 20 / 22%);
+  padding: 10px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+  max-height: 55vh;
+  overflow-y: auto;
+}
+.ws-tab-sheet button {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  background: transparent;
+  border: 0;
+  border-radius: 8px;
+  padding: 10px;
+  min-height: 44px;
+  color: var(--du-ink);
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+}
+.ws-tab-sheet button[aria-current="page"] {
+  background: var(--du-green-100, #e3f0e6);
+  color: var(--du-green-800);
+}
+@media (max-width: 767px) {
+  .shell main {
+    padding-bottom: 84px;
+  }
+}
+
+/* Applications toolbar + chips (B20/P1-9). */
+.app-toolbar {
+  margin-bottom: 16px;
+}
+.app-toolbar-main {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  align-items: flex-end;
+}
+.app-toolbar-field {
+  display: flex;
+  flex-direction: column;
+}
+.app-toolbar-field label {
+  font-size: 13.5px;
+  margin-bottom: 5px;
+}
+.app-toolbar-field input,
+.app-toolbar-field select {
+  margin: 0;
+}
+.app-toolbar-search {
+  flex: 1 1 260px;
+}
+.app-filter-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin-top: 12px;
+}
+.app-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  background: var(--du-green-50);
+  border: 1px solid var(--du-green-100, #cfe3d4);
+  color: var(--du-green-800);
+  font-weight: 600;
+  font-size: 13.5px;
+  border-radius: 999px;
+  padding: 4px 6px 4px 12px;
+  min-height: 32px;
+}
+.app-chip button {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: 0;
+  background: #fff;
+  color: var(--du-green-800);
+  font-size: 15px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0;
+}
+.app-more-filters {
+  margin-top: 12px;
+  border-top: 1px dashed var(--du-line);
+  padding-top: 10px;
+}
+.app-more-filters summary {
+  cursor: pointer;
+  font-weight: 600;
+  color: var(--du-green-700);
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+}
+.app-more-filters .reference-lookup {
+  margin-top: 14px;
+}
+tr.ax-row-new td {
+  background: var(--du-green-50);
+}
+.ax-new-badge {
+  display: inline-block;
+  margin-inline-start: 8px;
+  background: var(--du-green-700);
+  color: #fff;
+  font-size: 11.5px;
+  font-weight: 700;
+  border-radius: 999px;
+  padding: 2px 8px;
+  vertical-align: middle;
+}
+.ax-card-new {
+  border-color: var(--du-green-600);
+}
+
+/* Citizen status home (B17/P1-5). */
+.citizen-status-home {
+  margin-bottom: 22px;
+}
+.citizen-correction-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  background: #fdf3f2;
+  border: 1px solid #e5b6b0;
+  border-radius: var(--du-radius-panel, 12px);
+  padding: 16px 18px;
+  margin-bottom: 14px;
+}
+.citizen-correction-card strong {
+  color: #8c2b1e;
+  font-size: 16.5px;
+}
+.citizen-correction-card p {
+  margin: 4px 0 0;
+  color: #6d3a33;
+}
+.citizen-status-cards {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 14px;
+}
+.citizen-draft-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  flex-wrap: wrap;
+  background: #fff;
+  border: 1px solid var(--du-line);
+  border-radius: var(--du-radius-panel, 12px);
+  padding: 14px 18px;
+  margin-bottom: 14px;
+}
+.citizen-draft-card > div {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.citizen-recent {
+  background: #fff;
+  border: 1px solid var(--du-line);
+  border-radius: var(--du-radius-panel, 12px);
+  padding: 16px 18px;
+}
+.citizen-recent h2 {
+  margin: 0 0 10px;
+  font-size: 18px;
+}
+.citizen-recent ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.citizen-recent li {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 9px 0;
+  border-bottom: 1px dashed var(--du-line);
+}
+.citizen-recent li:last-child {
+  border-bottom: 0;
+}
+.citizen-recent li > span {
+  flex: 1;
+  min-width: 140px;
+}
+@media (max-width: 767px) {
+  .citizen-status-cards {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Application detail: two-column + sticky decision rail (UX S5). */
+.detail-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 320px;
+  gap: 20px;
+  align-items: start;
+}
+.detail-rail {
+  position: sticky;
+  top: 16px;
+  background: #fff;
+  border: 1px solid var(--du-line);
+  border-radius: var(--du-radius-panel, 12px);
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+/* P0-2: `.shell aside` (style.css, specificity 0-1-1) beats `.detail-rail`
+   (0-1-0), so the rail accidentally inherited the dark sidebar
+   background (#063d24) and light text (#eaf4ed) — and every
+   light-surface child token failed contrast on it (rail labels 1.61,
+   hints 2.01, completeness warning 1.06). The rail is designed white:
+   scope it explicitly (0-2-1) with its own ink color. */
+.shell aside.detail-rail {
+  background: #fff;
+  color: var(--du-ink);
+  /* P0-4: the same rule also imposed `height: 100vh` on the rail, so
+     every detail view carried a viewport-tall slab (the citizen issued
+     rail measured 1024px tall with 301px of content — 70.6% void).
+     The rail is content-driven: opt out of the sidebar's fixed height. */
+  height: auto;
+}
+/* P0-4: separate the destructive action from the decision stack. */
+.detail-rail-divider {
+  border-top: 1px solid var(--du-line);
+  margin: 3px 0;
+}
+.detail-rail-block {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.detail-rail-label {
+  font-size: 12.5px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--du-muted);
+  margin-top: 6px;
+}
+.detail-rail-label:first-child {
+  margin-top: 0;
+}
+.detail-rail-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+}
+.detail-rail-actions button {
+  width: 100%;
+}
+@media (max-width: 1023px) {
+  .detail-layout {
+    grid-template-columns: 1fr;
+  }
+  .detail-rail {
+    position: static;
+    order: -1;
+  }
+}
+
+/* FULL-UIUX-01 refinement (P2-20): stat rows use the FULL row — the old
+   fixed 4-column grid left a 2-card finance row at ~55% width. */
+.stats {
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+}
+/* The billing summary definition list joins the shared summary pattern:
+   label above value, in an even grid — not a loose stack. */
+.billing-summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 14px 24px;
+  margin: 0 0 18px;
+}
+.billing-summary dt {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--du-muted);
+  margin-bottom: 3px;
+}
+.billing-summary dd {
+  margin: 0;
+  font-size: 16.5px;
+  font-weight: 600;
+}

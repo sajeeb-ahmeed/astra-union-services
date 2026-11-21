@@ -33,6 +33,9 @@ async function signIn(page: Page, who: string) {
 /** Opens an application by its full id through the workspace's reference lookup. */
 async function openApplication(page: Page, id: string) {
   await goToWorkspacePage(page, "Applications");
+  // FULL-UIUX-01: the reference lookup lives inside the collapsed
+  // "More filters & reference lookup" details on the applications page.
+  await page.locator("details.app-more-filters > summary").click();
   await page.locator("#application-reference").fill(id);
   await page.getByRole("button", { name: "Find record", exact: true }).click();
 }

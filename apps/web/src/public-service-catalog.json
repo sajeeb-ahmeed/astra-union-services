@@ -3,282 +3,329 @@
     "service_no": 1,
     "name_bn": "হোল্ডিং ট্যাক্স",
     "name_en": "Holding tax",
-    "category_en": "Property and local taxation"
+    "category_en": "Property and local taxation",
+    "document_count": 1
   },
   {
     "service_no": 2,
     "name_bn": "পারিবারিক সনদ",
     "name_en": "Family certificate",
-    "category_en": "Family and civil status"
+    "category_en": "Family and civil status",
+    "document_count": 1
   },
   {
     "service_no": 3,
     "name_bn": "ওয়ারিশ সনদ",
     "name_en": "Legal heirs certificate",
-    "category_en": "Family and civil status"
+    "category_en": "Family and civil status",
+    "document_count": 1
   },
   {
     "service_no": 4,
     "name_bn": "উত্তরাধিকার সনদ",
     "name_en": "Succession certificate",
-    "category_en": "Family and civil status"
+    "category_en": "Family and civil status",
+    "document_count": 1
   },
   {
     "service_no": 5,
     "name_bn": "ক্ষমতা অর্পণ প্রত্যয়ন",
     "name_en": "Delegation of authority attestation",
-    "category_en": "Consent and authorization"
+    "category_en": "Consent and authorization",
+    "document_count": 1
   },
   {
     "service_no": 6,
     "name_bn": "নতুন বিদ্যুৎ সংযোগের প্রত্যয়ন",
     "name_en": "New electricity connection attestation",
-    "category_en": "Utilities"
+    "category_en": "Utilities",
+    "document_count": 1
   },
   {
     "service_no": 7,
     "name_bn": "মৃত্যু প্রত্যয়ন",
     "name_en": "Death attestation",
-    "category_en": "Family and civil status"
+    "category_en": "Family and civil status",
+    "document_count": 1
   },
   {
     "service_no": 8,
     "name_bn": "রোহিঙ্গা নয় প্রত্যয়ন",
     "name_en": "Non Rohingya attestation",
-    "category_en": "Identity and citizenship"
+    "category_en": "Identity and citizenship",
+    "document_count": 1
   },
   {
     "service_no": 9,
     "name_bn": "ভোটার তথ্য যাচাই-বাছাই প্রত্যয়ন",
     "name_en": "Voter information verification attestation",
-    "category_en": "Voter and identity records"
+    "category_en": "Voter and identity records",
+    "document_count": 1
   },
   {
     "service_no": 10,
     "name_bn": "বেকারত্ব সনদ",
     "name_en": "Unemployment certificate",
-    "category_en": "Occupation and economic status"
+    "category_en": "Occupation and economic status",
+    "document_count": 1
   },
   {
     "service_no": 11,
     "name_bn": "জাতীয়তা সনদ",
     "name_en": "Nationality certificate",
-    "category_en": "Identity and citizenship"
+    "category_en": "Identity and citizenship",
+    "document_count": 1
   },
   {
     "service_no": 12,
     "name_bn": "নাগরিকত্ব সনদ",
     "name_en": "Citizenship certificate",
-    "category_en": "Identity and citizenship"
+    "category_en": "Identity and citizenship",
+    "document_count": 1
   },
   {
     "service_no": 13,
     "name_bn": "পুনঃবিবাহ সনদ",
     "name_en": "Remarriage certificate",
-    "category_en": "Family and civil status"
+    "category_en": "Family and civil status",
+    "document_count": 1
   },
   {
     "service_no": 14,
     "name_bn": "ভূমিহীন সনদ",
     "name_en": "Landless certificate",
-    "category_en": "Property and local taxation"
+    "category_en": "Property and local taxation",
+    "document_count": 1
   },
   {
     "service_no": 15,
     "name_bn": "নতুন ভোটার প্রত্যয়ন",
     "name_en": "New voter attestation",
-    "category_en": "Voter and identity records"
+    "category_en": "Voter and identity records",
+    "document_count": 1
   },
   {
     "service_no": 16,
     "name_bn": "বিধবা প্রত্যয়ন",
     "name_en": "Widow attestation",
-    "category_en": "Family and civil status"
+    "category_en": "Family and civil status",
+    "document_count": 1
   },
   {
     "service_no": 17,
     "name_bn": "পেশাগত সনদ",
     "name_en": "Occupation certificate",
-    "category_en": "Occupation and economic status"
+    "category_en": "Occupation and economic status",
+    "document_count": 1
   },
   {
     "service_no": 18,
     "name_bn": "সম্প্রদায় সনদ",
     "name_en": "Community certificate",
-    "category_en": "Community and social status"
+    "category_en": "Community and social status",
+    "document_count": 1
   },
   {
     "service_no": 19,
     "name_bn": "অভিভাবক সম্মতি সনদ",
     "name_en": "Guardian consent certificate",
-    "category_en": "Consent and authorization"
+    "category_en": "Consent and authorization",
+    "document_count": 1
   },
   {
     "service_no": 20,
     "name_bn": "মুক্তিযোদ্ধা প্রত্যয়ন",
     "name_en": "Freedom fighter attestation",
-    "category_en": "Community and social status"
+    "category_en": "Community and social status",
+    "document_count": 1
   },
   {
     "service_no": 21,
     "name_bn": "কৃষি প্রত্যয়ন",
     "name_en": "Agriculture attestation",
-    "category_en": "Occupation and economic status"
+    "category_en": "Occupation and economic status",
+    "document_count": 1
   },
   {
     "service_no": 22,
     "name_bn": "অবিবাহিত সনদ",
     "name_en": "Unmarried certificate",
-    "category_en": "Family and civil status"
+    "category_en": "Family and civil status",
+    "document_count": 2
   },
   {
     "service_no": 23,
     "name_bn": "বার্ষিক আয়ের সনদ",
     "name_en": "Annual income certificate",
-    "category_en": "Occupation and economic status"
+    "category_en": "Occupation and economic status",
+    "document_count": 1
   },
   {
     "service_no": 24,
     "name_bn": "এতিম সনদ",
     "name_en": "Orphan certificate",
-    "category_en": "Family and civil status"
+    "category_en": "Family and civil status",
+    "document_count": 1
   },
   {
     "service_no": 25,
     "name_bn": "বিবাহিত প্রত্যয়ন",
     "name_en": "Married attestation",
-    "category_en": "Family and civil status"
+    "category_en": "Family and civil status",
+    "document_count": 1
   },
   {
     "service_no": 26,
     "name_bn": "যৌতুক বিহীন বিবাহ প্রত্যয়ন",
     "name_en": "Dowry free marriage attestation",
-    "category_en": "Family and civil status"
+    "category_en": "Family and civil status",
+    "document_count": 1
   },
   {
     "service_no": 27,
     "name_bn": "পাসপোর্ট প্রদানের প্রত্যয়ন",
     "name_en": "Passport issuance attestation",
-    "category_en": "Identity and citizenship"
+    "category_en": "Identity and citizenship",
+    "document_count": 1
   },
   {
     "service_no": 28,
     "name_bn": "জীবিত ব্যক্তির প্রত্যয়ন",
     "name_en": "Living person attestation",
-    "category_en": "Identity and citizenship"
+    "category_en": "Identity and citizenship",
+    "document_count": 1
   },
   {
     "service_no": 29,
     "name_bn": "মাসিক আয়ের সনদ",
     "name_en": "Monthly income certificate",
-    "category_en": "Occupation and economic status"
+    "category_en": "Occupation and economic status",
+    "document_count": 1
   },
   {
     "service_no": 30,
     "name_bn": "আর্থিক স্বচ্ছলতার সনদ",
     "name_en": "Financial solvency certificate",
-    "category_en": "Occupation and economic status"
+    "category_en": "Occupation and economic status",
+    "document_count": 1
   },
   {
     "service_no": 31,
     "name_bn": "অবিবাহিত অবস্থায় মৃত্যু সনদ",
     "name_en": "Death while unmarried certificate",
-    "category_en": "Family and civil status"
+    "category_en": "Family and civil status",
+    "document_count": 1
   },
   {
     "service_no": 32,
     "name_bn": "আর্থিক অস্বচ্ছলতার সনদ",
     "name_en": "Financial hardship certificate",
-    "category_en": "Occupation and economic status"
+    "category_en": "Occupation and economic status",
+    "document_count": 1
   },
   {
     "service_no": 33,
     "name_bn": "জাতীয় পরিচয় তথ্য সংশোধন প্রত্যয়ন",
     "name_en": "National identity information correction attestation",
-    "category_en": "Voter and identity records"
+    "category_en": "Voter and identity records",
+    "document_count": 1
   },
   {
     "service_no": 34,
     "name_bn": "নিঃসন্তান প্রত্যয়ন",
     "name_en": "Childless attestation",
-    "category_en": "Family and civil status"
+    "category_en": "Family and civil status",
+    "document_count": 1
   },
   {
     "service_no": 35,
     "name_bn": "চারিত্রিক সনদ",
     "name_en": "Character certificate",
-    "category_en": "Identity and citizenship"
+    "category_en": "Identity and citizenship",
+    "document_count": 1
   },
   {
     "service_no": 36,
     "name_bn": "অনাপত্তি সনদ",
     "name_en": "No objection certificate",
-    "category_en": "Consent and authorization"
+    "category_en": "Consent and authorization",
+    "document_count": 1
   },
   {
     "service_no": 37,
     "name_bn": "ভোটার এলাকা স্থানান্তর প্রত্যয়ন",
     "name_en": "Voter area transfer attestation",
-    "category_en": "Voter and identity records"
+    "category_en": "Voter and identity records",
+    "document_count": 1
   },
   {
     "service_no": 38,
     "name_bn": "প্রতিবন্ধী সনদ",
     "name_en": "Disability certificate",
-    "category_en": "Community and social status"
+    "category_en": "Community and social status",
+    "document_count": 1
   },
   {
     "service_no": 39,
     "name_bn": "একই ব্যক্তির প্রত্যয়ন",
     "name_en": "Same person attestation",
-    "category_en": "Identity and citizenship"
+    "category_en": "Identity and citizenship",
+    "document_count": 1
   },
   {
     "service_no": 40,
     "name_bn": "উপজাতি সনদ",
     "name_en": "Indigenous community certificate",
-    "category_en": "Community and social status"
+    "category_en": "Community and social status",
+    "document_count": 1
   },
   {
     "service_no": 41,
     "name_bn": "প্রিমিসেস লাইসেন্স",
     "name_en": "Premises license",
-    "category_en": "Licensing"
+    "category_en": "Licensing",
+    "document_count": 1
   },
   {
     "service_no": 42,
     "name_bn": "ট্রেড লাইসেন্স",
     "name_en": "Trade license",
-    "category_en": "Licensing"
+    "category_en": "Licensing",
+    "document_count": 1
   },
   {
     "service_no": 43,
     "name_bn": "ভোটার তালিকা বাদ পড়ায় অন্তর্ভুক্তির প্রত্যয়ন",
     "name_en": "Omitted voter inclusion attestation",
-    "category_en": "Voter and identity records"
+    "category_en": "Voter and identity records",
+    "document_count": 1
   },
   {
     "service_no": 44,
     "name_bn": "পুনঃবিবাহ না হওয়ার প্রত্যয়ন",
     "name_en": "Non remarriage attestation",
-    "category_en": "Family and civil status"
+    "category_en": "Family and civil status",
+    "document_count": 1
   },
   {
     "service_no": 45,
     "name_bn": "স্থায়ী বাসিন্দা সনদ",
     "name_en": "Permanent resident certificate",
-    "category_en": "Identity and citizenship"
+    "category_en": "Identity and citizenship",
+    "document_count": 0
   },
   {
     "service_no": 46,
     "name_bn": "যানবাহন লাইসেন্স",
     "name_en": "Vehicle license",
-    "category_en": "Licensing"
+    "category_en": "Licensing",
+    "document_count": 1
   },
   {
     "service_no": 47,
     "name_bn": "বিবিধ সনদ",
     "name_en": "Miscellaneous certificate",
-    "category_en": "Miscellaneous"
+    "category_en": "Miscellaneous",
+    "document_count": 1
   }
 ]

@@ -53,21 +53,33 @@ test(
         });
         await signIn(page, "owner@astra.demo.test", "Demo-Phase1!");
         await goToWorkspacePage(page, "Platform management");
-        // The §3.9 section nav is present with all six sections.
+        // The section nav lists every console section (OWNER-REDESIGN-01: ten sections).
         const nav = page.getByRole("navigation", { name: "Platform management sections" });
-        for (const name of ["Overview", "Offices", "Subscriptions", "Pricing", "Permissions", "Audit"])
+        for (const name of ["Overview", "Offices", "Registration demand", "Subscriptions", "Pricing", "Coupons", "Notices", "Permissions", "Audit", "Settings"])
           await nav.getByRole("link", { name, exact: true }).waitFor();
         await page
           .locator("#owner-overview")
           .getByRole("heading", { name: "Overview", exact: true })
           .waitFor();
+        // OWNER-REDESIGN-01: one section at a time — the Audit section is reached via its nav link.
+        await nav.getByRole("link", { name: "Audit", exact: true }).click();
         await page
           .locator("#owner-audit")
           .getByRole("heading", { name: "Audit", exact: true })
           .waitFor();
-        // Edit the branding from the Overview section.
+        // Branding moved out of Overview into the Settings section. The
+        // branding form populates itself from GET /owner/branding on mount;
+        // wait for that load to land before filling — filling earlier races
+        // the load, whose setForm silently overwrites the typed name.
+        const brandingLoaded = page.waitForResponse(
+          (r) =>
+            r.url().includes("/api/v1/owner/branding") &&
+            r.request().method() === "GET",
+        );
+        await nav.getByRole("link", { name: "Settings", exact: true }).click();
+        await brandingLoaded;
         const brandingPanel = page
-          .locator("#owner-overview")
+          .locator("#owner-settings")
           .locator("section.panel")
           .filter({ has: page.getByRole("heading", { name: "Branding", exact: true }) });
         await brandingPanel.getByLabel("Platform name", { exact: true }).fill(newName);
@@ -77,17 +89,22 @@ test(
         await brandingPanel.getByLabel("Reason", { exact: true }).fill("Browser branding test");
         await brandingPanel.getByRole("button", { name: "Save branding", exact: true }).click();
         await brandingPanel.getByText("Branding updated.").waitFor();
-        // The workspace sidebar brand picks the new name up without a reload.
-        await page.locator("aside .brand").getByText(newName).waitFor();
+        // The workspace picks the new name up without a reload. Since
+        // FULL-UIUX-01 (OD-4) the sidebar brand is the fixed platform
+        // lockup; the editable name renders in the workspace footer line.
+        await page.locator("footer").getByText(newName).waitFor();
         // After a reload the Audit section's settings history lists the change.
         await page.reload();
         await goToWorkspacePage(page, "Platform management");
+        await page.locator('.owner-nav a[href="#owner-audit"]').click();
         await page.locator("#owner-audit").getByText(newName).first().waitFor();
-        // A signed-out visitor sees the new name in the public shell footer.
+        // A signed-out visitor sees the new name in the public shell
+        // footer (the © line renders the editable branding name; the
+        // footer lockup itself is the fixed platform lockup).
         const visitor = await browser.newContext();
         const publicPage = await visitor.newPage();
         await publicPage.goto(`${origin}/login`);
-        await publicPage.locator(".du-footer-lockup strong", { hasText: newName }).waitFor();
+        await publicPage.locator(".du-footer").getByText(newName).waitFor();
         await visitor.close();
         await context.close();
       } finally {

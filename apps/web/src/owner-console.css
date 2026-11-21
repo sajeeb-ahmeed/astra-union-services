@@ -1,0 +1,347 @@
+/*
+ * OWNER-REDESIGN-01: platform management console presentation.
+ * Scoped under .owner-console so no other workspace screen changes.
+ * Fixes, in order: sectioned sticky sub-navigation, KPI dashboard cards,
+ * status badges, the radio/checkbox alignment defect (the global input rule
+ * made radios/checkboxes full-width 44px blocks, detached from their labels),
+ * full-width panel content (.panel > p had an 820px cap), sticky table
+ * headers, designed empty states, one button system.
+ */
+
+/* ---------- Sectioned layout + sticky sub-navigation ---------- */
+.owner-console {
+  align-items: start;
+}
+.owner-console .owner-nav {
+  gap: 6px;
+  margin: 0 0 20px;
+}
+/* REFINEMENT-02 P1-11: owner nav items take the workspace sidebar
+   geometry (P1-9): flex-start, 20px left padding, 20px icon box, light
+   active surface with an inset bar — no dark filled pill, no gradient. */
+.owner-console .owner-nav a {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 10px;
+  font-weight: 600;
+  border: 0;
+  border-radius: 8px;
+  padding: 9px 12px 9px 20px;
+  min-height: 44px;
+  color: var(--du-ink);
+  text-decoration: none;
+}
+.owner-console .owner-nav a svg {
+  width: 20px;
+  height: 20px;
+  flex: none;
+  color: var(--du-green-700);
+}
+.owner-console .owner-nav a:hover {
+  background: var(--du-green-50);
+}
+.owner-console .owner-nav a[aria-current="page"] {
+  background: var(--du-green-100, #e3f0e6);
+  color: var(--du-green-800);
+  font-weight: 700;
+  box-shadow: inset 3px 0 0 var(--du-green-700);
+  text-decoration: none;
+}
+@media (min-width: 1024px) {
+  .owner-console {
+    display: grid;
+    grid-template-columns: 218px minmax(0, 1fr);
+    gap: 26px;
+  }
+  .owner-console .owner-nav {
+    position: sticky;
+    top: 16px;
+    flex-direction: column;
+    flex-wrap: nowrap;
+    margin: 0;
+  }
+  .owner-console .owner-nav a {
+    border-radius: 10px;
+  }
+}
+@media (max-width: 1023px) {
+  .owner-console .owner-nav {
+    position: sticky;
+    top: 0;
+    z-index: 6;
+    flex-direction: row;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    padding: 8px 2px;
+    background: var(--du-bg, #f4f7f4);
+    scrollbar-width: thin;
+  }
+  .owner-console .owner-nav a {
+    flex: 0 0 auto;
+    white-space: nowrap;
+  }
+  /* P1-11: on the mobile tab strip the groups dissolve into one row. */
+  .owner-console .owner-nav .ws-nav-group {
+    display: contents;
+  }
+  .owner-console .owner-nav .ws-nav-group-title {
+    display: none;
+  }
+}
+.owner-console .owner-section {
+  margin: 0;
+  min-width: 0;
+}
+
+/* ---------- Full-width content ---------- */
+.owner-console .panel > p {
+  max-width: none;
+}
+.owner-console .tenant-card {
+  max-width: none;
+}
+
+/* ---------- KPI stat cards (Overview dashboard) ---------- */
+.kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(175px, 1fr));
+  gap: 12px;
+  margin: 14px 0 6px;
+}
+.kpi-card {
+  border: 1px solid var(--astra-line, #d8e2da);
+  border-radius: 10px;
+  background: var(--du-surface, #fff);
+  padding: 14px 16px;
+}
+.kpi-label {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--astra-muted, #64766b);
+}
+.kpi-value {
+  font-size: 27px;
+  font-weight: 700;
+  line-height: 1.25;
+  color: var(--astra-ink, #1d2b21);
+  margin-top: 2px;
+  overflow-wrap: anywhere;
+}
+.kpi-value.small {
+  font-size: 17px;
+  padding-top: 5px;
+}
+.kpi-caption {
+  font-size: 12px;
+  color: var(--astra-muted, #64766b);
+  margin-top: 2px;
+}
+@media (max-width: 640px) {
+  .kpi-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 360px) {
+  .kpi-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* ---------- Status badges (one component, every section) ---------- */
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 10px;
+  border: 1px solid;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.5;
+  white-space: nowrap;
+}
+.status-badge.tone-ok {
+  background: #e7f4ec;
+  border-color: #9cc7a8;
+  color: #04592c;
+}
+.status-badge.tone-warn {
+  background: #fdf3d7;
+  border-color: #d9be6a;
+  color: #6b5310;
+}
+.status-badge.tone-danger {
+  background: #fdecea;
+  border-color: #e0a49c;
+  color: #9b2c1f;
+}
+.status-badge.tone-neutral {
+  background: #eef1ee;
+  border-color: #c5d1c9;
+  color: #45564b;
+}
+.status-badge.tone-info {
+  background: #e6f2f0;
+  border-color: #9fc6bd;
+  color: #14534a;
+}
+
+/* ---------- Radio / checkbox alignment fix ---------- */
+.owner-console input[type="radio"],
+.owner-console input[type="checkbox"] {
+  display: inline-block;
+  width: 20px;
+  height: 20px;
+  min-height: 20px;
+  margin: 0;
+  padding: 0;
+  flex: none;
+  accent-color: var(--du-green-700, #04592c);
+}
+.owner-console .radio-label,
+.owner-console .checkbox-label,
+.owner-console label.checkbox {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  font-weight: 500;
+  cursor: pointer;
+}
+.owner-console .field-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 26px;
+  align-items: flex-end;
+  margin: 8px 0 16px;
+}
+.owner-console .field-row > label {
+  flex: 1 1 230px;
+}
+.owner-console .field-row > .radio-label,
+.owner-console .field-row > .checkbox-label {
+  flex: 0 1 auto;
+}
+.owner-console .field-row > button {
+  flex: 0 0 auto;
+}
+
+/* ---------- Offices as records ---------- */
+.owner-console .tenant-card {
+  border: 1px solid var(--astra-line, #d8e2da);
+  border-radius: 12px;
+  background: var(--du-surface, #fff);
+  padding: 20px 22px;
+  margin: 0 0 16px;
+}
+.office-card-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.office-card-head h3 {
+  margin: 0;
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.labelled-fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 10px 22px;
+  margin: 14px 0 4px;
+}
+.labelled-field .field-label {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--astra-muted, #64766b);
+  margin-bottom: 2px;
+}
+.labelled-field .field-value {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--astra-ink, #1d2b21);
+}
+.owner-console .subscription-badge {
+  font-size: inherit;
+  color: inherit;
+}
+.owner-console .subscription-badge .labelled-fields {
+  margin: 6px 0 2px;
+}
+
+/* ---------- Tables: sticky headers, internal scroll ---------- */
+.owner-console .table-wrap,
+.owner-console .table-scroll {
+  max-height: min(68vh, 720px);
+}
+.owner-console .table-wrap thead th,
+.owner-console .table-scroll thead th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+}
+.owner-search {
+  max-width: 430px;
+  margin: 12px 0 4px;
+}
+
+/* ---------- Designed empty states ---------- */
+.owner-empty {
+  display: grid;
+  justify-items: start;
+  gap: 3px;
+  margin-top: 14px;
+  text-align: left;
+}
+.owner-empty-mark {
+  color: var(--du-green-700, #04592c);
+  opacity: 0.6;
+  margin-bottom: 4px;
+}
+.owner-empty-title {
+  font-weight: 700;
+  color: var(--astra-ink, #1d2b21);
+  margin: 0;
+}
+.owner-empty-hint {
+  margin: 0;
+}
+.owner-console td.empty-cell {
+  text-align: center;
+  color: var(--astra-muted, #64766b);
+  padding: 26px 12px;
+}
+
+/* ---------- One button system inside the console ---------- */
+.owner-console .button-row,
+.owner-console .actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+.owner-console .panel > h3:first-child,
+.owner-console .owner-section .panel > h2 {
+  margin-top: 0;
+}
+
+/* FULL-UIUX-01 (C34): pricing rows stay slim — inline editors are
+   compact, the two row actions form one cluster, KPI cards equalise. */
+.owner-pricing td input {
+  width: 120px;
+  margin: 0;
+}
+.owner-pricing td:last-child {
+  white-space: nowrap;
+}
+.kpi-grid {
+  align-items: stretch;
+}
+.kpi-card {
+  height: 100%;
+}

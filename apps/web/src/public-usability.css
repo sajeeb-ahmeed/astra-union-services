@@ -49,27 +49,46 @@
   scroll-margin-top: 20px;
 }
 .service-information:focus-visible {
-  outline: 3px solid #a15800;
+  outline: 3px solid var(--du-focus, #04592c);
   outline-offset: 4px;
 }
+/* FULL-UIUX-01 A10: the password control rules are context-free — the same
+   login form renders on the home rail, the login page and the brand panel,
+   and the field must stay full-width with a compact toggle in all of them
+   (the home instance previously fell outside the .public-site scope and
+   collapsed to a sliver beside a full-width button). */
 .password-control {
-  display: flex;
-  align-items: stretch;
-  gap: 8px;
+  /* P2-8: the toggle lives INSIDE the input's right edge. */
+  position: relative;
   margin: 6px 0 16px;
 }
-.public-site .login-form .password-control input {
+.password-control input {
   margin: 0;
   min-width: 0;
-  flex: 1;
+  width: 100%;
+  padding-inline-end: 52px;
 }
-.public-site .login-form .password-control button {
-  flex: 0 0 auto;
-  width: auto;
-  max-width: 45%;
+.password-control .password-toggle {
+  position: absolute;
+  top: 50%;
+  inset-inline-end: 4px;
+  transform: translateY(-50%);
+  width: 44px;
+  height: 44px;
+  min-height: 44px;
+  display: inline-grid;
+  place-items: center;
+  padding: 0;
   margin: 0;
-  padding-inline: 10px;
-  font-size: 13px;
+  background: transparent;
+  border: 0;
+  border-radius: 8px;
+  color: var(--du-muted, #5c6f62);
+  cursor: pointer;
+}
+.password-control .password-toggle:hover {
+  background: var(--du-green-50, #eef6f0);
+  color: var(--du-green-800, #04592c);
 }
 @media (max-width: 767px) {
   .public-quick-tasks {
@@ -125,6 +144,52 @@
     display: none !important;
   }
   .user-guide section {
+    break-inside: avoid-page;
+  }
+}
+
+/* FULL-UIUX-01 (A12): the guide as the themed accordion — same
+   details/summary pattern as the public FAQ. Print opens every panel. */
+.guide-accordion {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 18px;
+}
+.guide-section {
+  border: 1px solid var(--du-line);
+  border-radius: var(--du-radius-panel, 12px);
+  background: #fff;
+  overflow: hidden;
+}
+.guide-section summary {
+  cursor: pointer;
+  padding: 15px 20px;
+  min-height: 44px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.guide-section-title {
+  font-weight: 700;
+  font-size: 16.5px;
+  color: var(--du-green-800);
+}
+.guide-section-who {
+  color: var(--du-muted);
+  font-size: 14px;
+  font-weight: 400;
+}
+.guide-section ol {
+  margin: 0;
+  padding: 4px 22px 18px 40px;
+  line-height: 1.8;
+}
+.guide-section li {
+  margin-bottom: 8px;
+}
+@media print {
+  .guide-section {
     break-inside: avoid-page;
   }
 }

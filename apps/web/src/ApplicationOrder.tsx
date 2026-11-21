@@ -134,6 +134,13 @@ export function ApplicationOrder({
   const [busy, setBusy] = useState(false);
   // Phase 4b: an optional office coupon code, applied when the fees are reviewed.
   const [coupon, setCoupon] = useState("");
+  // FORM-UX: Bangla is the default certificate language (the product is
+  // Bangla-first and both language versions issue under one number), so
+  // preselect it instead of forcing an extra decision on every application.
+  // The citizen can still switch to English in the same step.
+  useEffect(() => {
+    if (!certificateLanguage) onLanguageChange("bn");
+  }, [certificateLanguage, onLanguageChange]);
   const requestEpoch = useRef(0);
   const currentPreferences = JSON.stringify({
     certificateLanguage,

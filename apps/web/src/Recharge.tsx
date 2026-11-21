@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { api } from "./api.js";
 import { choose, useLanguage } from "./i18n.js";
+import { EmptyState } from "./OwnerUi.js";
 import { parseTakaToMinor } from "./OrderPolicySettings.js";
 import { points } from "./PointsWallet.js";
 
@@ -208,10 +209,16 @@ export function OwnerRecharges() {
   }
   return (
     <section className="panel owner-recharges">
-      <h2>{label("রিচার্জের অনুরোধ", "Recharge requests")}</h2>
+      <h3>{label("রিচার্জের অনুরোধ", "Recharge requests")}</h3>
       {message && <p role="status">{message}</p>}
       {items.length === 0 ? (
-        <p>{label("অপেক্ষমাণ কোনো অনুরোধ নেই।", "No pending requests.")}</p>
+        <EmptyState
+          title={label("অপেক্ষমাণ কোনো অনুরোধ নেই।", "No pending requests.")}
+          hint={label(
+            "অফিসের রিচার্জ অনুরোধ এলে এখানে দেখা যাবে।",
+            "Office recharge requests will appear here.",
+          )}
+        />
       ) : (
         items.map((item) => (
           <article key={item.id} className="recharge-item">

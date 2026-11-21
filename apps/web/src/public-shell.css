@@ -5,6 +5,11 @@
   min-height: 100vh;
   display: flex;
   flex-direction: column;
+  /* P0-1 safety net (added AFTER the overflow source was fixed — the
+     hero grid track + digit strip): clip any residual horizontal
+     overflow on the public shell. `clip` (unlike `hidden`) creates no
+     scroll container, so sticky descendants keep working. */
+  overflow-x: clip;
 }
 .ax-public main {
   flex: 1;
@@ -134,10 +139,14 @@
 .ax-footer a {
   color: #fff;
 }
+/* FULL-UIUX-01 A11 + P2-17: the subscribe form lives in the light footer —
+   its label is deep green (readable), the button is the brand green like
+   every other primary action (the lime accent is retired), and the helper
+   line meets contrast on the light ground. */
 .ax-subscribe label {
   display: block;
   font-weight: 600;
-  color: #fff;
+  color: var(--du-green-800, #03451f);
   margin-bottom: var(--ax-space-2);
 }
 .ax-subscribe-row {
@@ -149,21 +158,45 @@
   min-width: 0;
   min-height: 44px;
   padding: 8px 12px;
-  border: 0;
+  border: 1px solid var(--du-line, #dde7da);
   border-radius: var(--ax-radius-sm);
 }
 .ax-subscribe-row button {
   border-radius: var(--ax-radius-sm);
-  background: var(--ax-accent);
-  border-color: var(--ax-accent);
-  color: var(--ax-green-800);
+  background: var(--du-green-700, #04592c);
+  border-color: var(--du-green-700, #04592c);
+  color: #fff;
+}
+.ax-subscribe-row button:hover {
+  background: var(--du-green-800, #03451f);
 }
 .ax-subscribe small {
-  color: #cfe2c6;
+  color: var(--du-muted, #43584a);
   margin-top: var(--ax-space-1);
 }
 .ax-subscribe p {
-  color: #fff;
+  color: var(--du-green-800, #03451f);
+}
+/* REFINEMENT-02 P0-5: on mobile the subscribe row was squeezed into a
+   half-width footer cell and the input collapsed to a sliver beside the
+   button. Under 768px the form stacks vertically — input full width,
+   button full width below it, 12px gap — and the footer cell spans the
+   full grid width so the input is fully visible and tappable. */
+.du-footer-grid > * {
+  min-width: 0;
+}
+@media (max-width: 767px) {
+  .du-footer-grid > div:last-child {
+    grid-column: 1 / -1;
+  }
+  .ax-subscribe-row {
+    flex-direction: column;
+    gap: 12px;
+  }
+  .ax-subscribe-row input,
+  .ax-subscribe-row button {
+    width: 100%;
+  }
 }
 @media (max-width: 1279px) {
   .ax-footer-grid {

@@ -38,7 +38,7 @@ test(
     const stamp = Date.now();
     const slug = `recharge-browser-${stamp}`;
     const bank = `browser-bank-${stamp}`;
-    const adminPassword = randomBytes(18).toString("base64url");
+    const adminPassword = randomBytes(12).toString("base64url");
     const owner = await browser.newContext();
     const login = await owner.request.post(`${origin}/api/v1/auth/login`, {
       data: { email: "owner@astra.demo.test", password: "Demo-Phase1!" },
@@ -87,6 +87,8 @@ test(
 
       await signIn(page, "owner@astra.demo.test", "Demo-Phase1!");
       await goToWorkspacePage(page, "Platform management");
+      // OWNER-REDESIGN-01: the recharge queue lives in the Offices section.
+      await page.locator('.owner-nav a[href="#owner-offices"]').click();
       const item = page.locator(".owner-recharges .recharge-item", { hasText: `TXN-${stamp}` });
       await item.waitFor();
       // Rejecting without a reason is refused by the server.

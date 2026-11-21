@@ -149,12 +149,13 @@ export function OfficeRegistration() {
               />
             </label>
             <label htmlFor="office-reg-password">
-              {choose({ bn: "পাসওয়ার্ড (কমপক্ষে ১২ অক্ষর)", en: "Password (at least 12 characters)" })}
+              {choose({ bn: "পাসওয়ার্ড (৬ থেকে ১৮ অক্ষর)", en: "Password (6 to 18 characters)" })}
               <input
                 id="office-reg-password"
                 type="password"
                 required
-                minLength={12}
+                minLength={6}
+                maxLength={18}
                 autoComplete="new-password"
                 value={form.password}
                 onChange={(e) => setForm({ ...form, password: e.target.value })}

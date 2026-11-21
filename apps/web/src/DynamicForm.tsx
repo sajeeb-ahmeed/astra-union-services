@@ -63,6 +63,39 @@ export function DynamicForm({
       lifetime.current += 1;
     };
   }, [context]);
+  // FORM-UX: a repeatable that requires rows (minRows >= 1) must not open as
+  // an empty fieldset whose fields stay hidden until the citizen discovers
+  // the Add button — seed the minimum rows once per form context. Rows the
+  // citizen (or a loaded draft) already has are never touched.
+  useEffect(() => {
+    const seed: Values = { ...currentValue.current };
+    let changed = false;
+    for (const section of schema.sections)
+      for (const field of section.fields) {
+        if (field.type !== "repeatable") continue;
+        const minRows = field.constraints?.minRows ?? 0;
+        if (minRows < 1) continue;
+        const existing = Array.isArray(seed[field.id]) ? seed[field.id] : [];
+        if (existing.length >= minRows) continue;
+        const blankRow = () =>
+          Object.fromEntries(
+            (field.children ?? [])
+              .filter((child) => child.type === "checkbox")
+              .map((child) => [child.id, false]),
+          );
+        seed[field.id] = [
+          ...existing,
+          ...Array.from({ length: minRows - existing.length }, blankRow),
+        ];
+        changed = true;
+      }
+    if (changed) {
+      currentValue.current = seed;
+      currentOnChange.current(seed);
+    }
+    // Runs once per form context (the parent remounts on context change).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [context]);
   currentValue.current = value;
   currentOnChange.current = onChange;
   currentContext.current = context;
@@ -94,6 +127,12 @@ export function DynamicForm({
             (field.requiredWhen && evaluatePredicate(field.requiredWhen, scope))
           ) &&
           (field.type !== "checkbox" || !!field.constraints?.mustBeTrue);
+        // FORM-UX: pattern-constrained text fields get the keyboard and the
+        // example their format needs (mobile keypad for 01… numbers, email
+        // keyboard for addresses) instead of a plain text box.
+        const pattern = field.constraints?.pattern;
+        const isMobileField = !!pattern && pattern.startsWith("^01");
+        const isEmailField = !!pattern && pattern.includes("@");
         const update = (nextValue: any) => {
           // Resolve the latest root value so an asynchronous upload cannot overwrite intervening edits.
           const parentPath = tokens(key).slice(0, -1);
@@ -142,14 +181,27 @@ export function DynamicForm({
           const latestRows = () =>
             atPath(currentValue.current, tokens(key)) ?? [];
           return (
-            <fieldset
-              {...shared}
-              disabled={undefined}
+            /* REFINEMENT-02 P2-10: repeatables flatten from a nested
+               fieldset (a bordered box inside the section's bordered
+               box) into a headed group with a divider. */
+            <div
+              id={id}
+              data-field-path={key}
+              aria-required={required || undefined}
+              aria-invalid={!!error}
+              aria-describedby={error ? `${id}-error` : undefined}
+              role="group"
+              aria-label={choose(field.label)}
               tabIndex={-1}
               key={key}
-              className="repeatable"
+              className="repeatable repeatable-flat"
             >
-              <legend>{choose(field.label)}</legend>
+              <div className="repeatable-heading">
+                {choose(field.label)}
+                {/* FORM-UX: required repeatables carry the same " *" marker
+                    as every other required field (was an unmarked legend). */}
+                {required ? " *" : ""}
+              </div>
               {tx(
                 rows.map((row: Values, index: number) => (
                   <div className="repeat-row" key={index}>
@@ -210,7 +262,7 @@ export function DynamicForm({
                   </p>
                 ),
               )}
-            </fieldset>
+            </div>
           );
         }
 
@@ -229,6 +281,7 @@ export function DynamicForm({
               className="field geography-picker"
               key={key}
               data-field-path={key}
+              tabIndex={-1}
               aria-invalid={!!error}
             >
               <GeographyFields
@@ -269,7 +322,7 @@ export function DynamicForm({
             .filter(Boolean)
             .join(" ");
           return (
-            <div className="field" key={key}>
+            <div className="field" data-field-type="attachment" key={key}>
               <label htmlFor={id}>
                 {choose(field.label)}
                 {required ? " *" : ""}
@@ -430,6 +483,7 @@ export function DynamicForm({
         return (
           <div
             className={`field ${field.type === "checkbox" ? "check-field" : ""}`}
+            data-field-type={field.type}
             key={key}
           >
             {tx(
@@ -491,10 +545,20 @@ export function DynamicForm({
                             ? "decimal"
                             : field.type === "date"
                               ? "numeric"
-                              : undefined
+                              : isMobileField
+                                ? "numeric"
+                                : isEmailField
+                                  ? "email"
+                                  : undefined
                         }
                         placeholder={
-                          field.type === "date" ? "YYYY-MM-DD" : undefined
+                          field.type === "date"
+                            ? "YYYY-MM-DD"
+                            : isMobileField
+                              ? "01XXXXXXXXX"
+                              : isEmailField
+                                ? "name@example.com"
+                                : undefined
                         }
                         maxLength={
                           field.type === "date"

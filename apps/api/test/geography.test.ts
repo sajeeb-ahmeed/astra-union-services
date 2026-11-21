@@ -26,7 +26,7 @@ const geo = {
 };
 const signup = {
   email: `geo-citizen-${suffix}@example.test`,
-  password: "Geography-test-Password!",
+  password: "Geography-Pass1!",
   displayName: "Geography test citizen",
   nameBn: "অবস্থান পরীক্ষার নাগরিক",
   nameEn: "Geography Test Citizen",
@@ -145,7 +145,7 @@ test("GEO-03: owner creates a mapped office from codes and public filtering retu
     geography: { ...geo, wardCode: undefined },
     adminEmail: `geo-admin-${suffix}@example.test`,
     adminName: "Geography Admin",
-    adminPassword: "Geography-test-Password!",
+    adminPassword: "Geography-Pass1!",
   };
   const denied = await request("POST", "/owner/tenants", input);
   assert.equal(denied.status, 401);

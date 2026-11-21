@@ -40,12 +40,21 @@ test(
       // one and leave service-45 applications in the alpha office.)
       await goToWorkspacePage(page, "Applications");
       const filtered = page.waitForResponse((r) => r.url().includes("serviceNo=45"));
-      await page.getByLabel("Filter by service", { exact: true }).selectOption("45");
+      // FULL-UIUX-01 toolbar: the service filter is labelled "Service"
+      // (id service-filter); the request still carries serviceNo.
+      await page.locator("#service-filter").selectOption("45");
       assert.equal((await filtered).status(), 200);
-      const serviceCells = await page.locator("tbody tr td:nth-child(2)").allTextContents();
+      // Columns are Reference / Citizen / Service / Status / action, and the
+      // service cell carries the catalog name (the "#45" prefix is internal
+      // numbering, not the assertion target).
+      const serviceCells = await page.locator("tbody tr td:nth-child(3)").allTextContents();
       assert.ok(serviceCells.length > 0, "service 45 has rows to show");
       assert.ok(
-        serviceCells.every((text) => text.trim().startsWith("#45")),
+        // BUNDLE06-R5 E2: the product's catalog name is Title Case
+        // ("Permanent Resident Certificate", service 45 in the API
+        // catalog); the test's old sentence-case string was stale.
+        // Product casing is unchanged — only this assertion aligns.
+        serviceCells.every((text) => text.includes("Permanent Resident Certificate")),
         `every row is service 45: ${JSON.stringify(serviceCells)}`,
       );
 
@@ -60,7 +69,7 @@ test(
       const reviewText = (await reviewHeading.textContent()) || "";
       const reviewCount = Number(reviewText.match(/·\s*([\d,]+)/)?.[1].replace(",", ""));
       assert.ok(reviewCount >= 1, `awaiting review count is live: ${reviewText}`);
-      await page.getByRole("button", { name: "Open application", exact: true }).first().click();
+      await page.getByRole("button", { name: "Open", exact: true }).first().click();
       await page.getByRole("button", { name: /All applications/ }).waitFor();
     } finally {
       await browser.close();

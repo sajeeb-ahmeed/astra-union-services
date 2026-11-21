@@ -37,6 +37,9 @@ test(
       await goToWorkspacePage(page, "Applications");
       const count = page.locator(".application-filter-tools [role=status]");
       await count.waitFor();
+      // The date range and renewals controls now live in the "More
+      // filters & reference lookup" disclosure — open it first.
+      await page.getByText("More filters & reference lookup", { exact: true }).click();
       const loaded = page.waitForResponse((r) => r.url().includes("/applications?") && r.url().includes("to=2000-01-02"));
       await page.getByLabel("From date", { exact: true }).fill("2000-01-01");
       await page.getByLabel("To date", { exact: true }).fill("2000-01-02");

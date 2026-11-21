@@ -176,6 +176,20 @@
   padding-top: 24px;
 }
 
+/* BUNDLE06-R5 C4: stepper navigation row (Back / Continue). */
+.registration-nav {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 24px;
+  border-top: 1px solid #e4ebe6;
+  padding-top: 24px;
+}
+.registration-nav > button:last-child {
+  margin-inline-start: auto;
+}
+
 .registration-actions > span {
   font-size: 13px;
   color: #627568;
@@ -287,6 +301,17 @@
 
 .office-card h2 {
   font-size: 19px;
+}
+/* BUNDLE06-R5 B2: the office card title is a heading link — ink like the
+   service card titles, brand green + underline on hover (it previously
+   rendered in browser-default blue). */
+.office-card h2 a {
+  color: var(--du-ink);
+  text-decoration: none;
+}
+.office-card h2 a:hover {
+  color: var(--du-green-800);
+  text-decoration: underline;
 }
 
 .office-card h3 {
@@ -402,4 +427,320 @@
 .service-office-entry ul {
   margin: 4px 0 8px;
   padding-left: 20px;
+}
+
+/* SEO P2/P3/P10: slug-linked cards, chips and the D4 service-page blocks. */
+.public-site a.public-service {
+  text-decoration: none;
+  color: inherit;
+}
+.service-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.service-chips > span,
+.service-chips > a {
+  border: 1px solid var(--border, #d8dee4);
+  border-radius: 999px;
+  padding: 4px 12px;
+  font-size: 13px;
+  text-decoration: none;
+}
+.service-breadcrumb ol {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  list-style: none;
+  margin: 0 0 12px;
+  padding: 0;
+  font-size: 13px;
+}
+.service-breadcrumb li + li::before {
+  content: "/";
+  margin-right: 6px;
+  opacity: 0.6;
+}
+/* BUNDLE06-R5 B2: breadcrumb links themed (were browser-default blue). */
+.service-breadcrumb a {
+  color: var(--du-green-700);
+  text-decoration: none;
+}
+.service-breadcrumb a:hover {
+  color: var(--du-green-800);
+  text-decoration: underline;
+}
+.service-intro {
+  font-size: 16px;
+  line-height: 1.65;
+}
+.service-note {
+  border-left: 4px solid var(--accent, #04592c);
+  background: var(--surface-muted, #f4f6f4);
+  padding: 10px 14px;
+  line-height: 1.6;
+}
+.service-facts {
+  border: 1px solid var(--border, #d8dee4);
+  border-radius: 12px;
+  padding: 14px 18px;
+  margin: 18px 0;
+}
+.service-facts ul {
+  margin: 6px 0;
+  padding-left: 20px;
+  line-height: 1.7;
+}
+.service-faq article {
+  border-top: 1px solid var(--border, #d8dee4);
+  padding: 10px 0;
+}
+.service-faq article h3 {
+  margin: 4px 0;
+  font-size: 16px;
+}
+.service-related ul {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 18px;
+  list-style: none;
+  padding: 0;
+  line-height: 1.7;
+}
+
+/* FULL-UIUX-01: tool pages (tracking / verify) — form panel + the framed
+   sample-certificate visual (checklist A8). */
+.public-tool-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 380px);
+  gap: 28px;
+  align-items: start;
+}
+.public-tool-visual p {
+  color: var(--du-muted);
+  margin-top: 12px;
+}
+/* REFINEMENT-02 P1-12: the "what you need" mini-panel on tool pages. */
+.tool-need {
+  margin-top: 16px;
+  border: 1px solid var(--du-line);
+  border-radius: var(--du-radius);
+  background: var(--du-surface);
+  padding: 14px 16px;
+}
+.tool-need h2 {
+  font-size: 16px;
+  margin: 0 0 8px;
+}
+.tool-need ul {
+  margin: 0;
+  padding-inline-start: 20px;
+  display: grid;
+  gap: 6px;
+  font-size: 14px;
+  line-height: 1.55;
+}
+.tool-need p {
+  font-size: 14px;
+}
+@media (max-width: 860px) {
+  .public-tool-grid {
+    grid-template-columns: 1fr;
+  }
+  .public-tool-visual {
+    max-width: 420px;
+  }
+}
+
+/* FULL-UIUX-01 (programme 25): the sign-in page is a split screen — brand
+   panel beside the form on wide screens, a compact banner above it on
+   phones. */
+.login-split {
+  display: grid;
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+  gap: 0;
+  border: 1px solid var(--du-line);
+  border-radius: var(--du-radius-panel, 12px);
+  overflow: hidden;
+  background: #fff;
+  max-width: 980px;
+  margin-inline: auto;
+}
+.login-brand-panel {
+  background:
+    radial-gradient(700px 320px at 90% -10%, rgb(46 158 91 / 35%), transparent 60%),
+    linear-gradient(165deg, var(--du-green-800), var(--du-green-700));
+  color: #fff;
+  padding: 36px 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  /* BUNDLE06-R5 B4: spread the brand content over the panel's full
+     height — margin-top:auto on the pilot line alone left one large
+     void in the middle of the panel whenever the form column ran tall. */
+  justify-content: space-between;
+}
+.login-brand-panel p {
+  margin: 0;
+  color: rgb(255 255 255 / 88%);
+  line-height: 1.65;
+}
+.login-brand-pilot {
+  font-size: 13.5px;
+  color: rgb(255 255 255 / 70%) !important;
+}
+.login-split .standalone-login {
+  padding: 32px;
+  /* REFINEMENT-02 P2-8: ONE border and ONE shadow per card — the split
+     frame provides both; the standalone-login's own border (style.css)
+     is a second frame inside it. */
+  border: 0;
+}
+.login-split {
+  box-shadow: 0 12px 32px rgb(6 43 24 / 0.1);
+}
+.login-split .standalone-login .login-form {
+  padding: 0;
+}
+/* The sign-in form brings its own panel card; inside the split frame that
+   second frame is a rendering artefact — the split provides the border. */
+.login-split .standalone-login .panel {
+  border: 0;
+  box-shadow: none;
+  background: transparent;
+  padding: 0;
+  margin: 0;
+  max-width: none;
+}
+.login-brand-facts {
+  list-style: none;
+  margin: 6px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  color: rgb(255 255 255 / 92%);
+  font-size: 15px;
+}
+.login-brand-facts li::before {
+  content: "✓";
+  font-weight: 700;
+  margin-inline-end: 9px;
+  color: #bfe3c8;
+}
+@media (max-width: 767px) {
+  .login-split {
+    grid-template-columns: 1fr;
+  }
+  .login-brand-panel {
+    padding: 22px;
+  }
+  .login-brand-pilot {
+    display: none;
+  }
+  .login-split .standalone-login {
+    padding: 22px;
+  }
+}
+
+/* FULL-UIUX-01: the service page (SEO §D4 structure). */
+.service-detail {
+  max-width: 920px;
+}
+.service-detail-intro {
+  font-size: 17px;
+  line-height: 1.7;
+  color: var(--du-ink);
+  max-width: 44em;
+}
+.service-detail section {
+  margin-top: 30px;
+}
+.service-detail h2 {
+  color: var(--du-green-800);
+}
+.service-facts {
+  background: var(--du-green-50);
+  border: 1px solid var(--du-line);
+  border-radius: var(--du-radius-panel, 12px);
+  padding: 20px 22px;
+}
+.service-facts h2 {
+  margin-top: 0;
+}
+.service-facts dl {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 14px 22px;
+  margin: 0;
+}
+.service-facts dt {
+  color: var(--du-muted);
+  font-size: 13.5px;
+  font-weight: 600;
+}
+.service-facts dd {
+  margin: 2px 0 0;
+  font-weight: 700;
+}
+.service-info-needed ul {
+  margin: 6px 0 12px;
+  padding-left: 22px;
+  line-height: 1.8;
+}
+.service-steps ol {
+  line-height: 1.9;
+  padding-left: 22px;
+}
+/* REFINEMENT-02 P1-6: sentinel reserves the bar's space in the column;
+   unpublished offices collapse to a one-line muted row. */
+.service-office-unpublished {
+  margin: 0;
+  padding: 10px 0;
+  color: var(--du-muted, #43584a);
+  border-bottom: 1px dashed var(--du-line, #dde7da);
+}
+/* BUNDLE06-R5 C1: no sentinel wrapper — the bar is a direct child of
+   .service-detail, so sticky travel spans the whole article. */
+.service-apply-bar {
+  position: sticky;
+  bottom: 12px;
+  margin-top: 34px;
+  background: var(--du-green-800);
+  color: #fff;
+  border-radius: var(--du-radius-panel, 12px);
+  padding: 16px 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  box-shadow: 0 12px 28px rgb(3 40 20 / 28%);
+  z-index: 3;
+}
+.service-apply-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.service-apply-bar .secondary {
+  background: transparent;
+  color: #fff;
+  border-color: rgb(255 255 255 / 65%);
+}
+/* On phones the sticky bar must clear the fixed bottom navigation
+   (56px + safe-area) instead of sliding underneath it. */
+@media (max-width: 767px) {
+  .service-apply-bar {
+    bottom: 64px;
+  }
+}
+.public-verify-wrap {
+  padding-block: 28px;
+}
+.payment-return-actions .button {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  text-decoration: none;
 }

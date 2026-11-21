@@ -38,6 +38,9 @@ test(
       await page.locator(".login-form").getByRole("button", { name: "Sign in", exact: true }).click();
       await page.getByRole("button", { name: "Sign out", exact: true }).waitFor();
       await goToWorkspacePage(page, "Office administration");
+      // FULL-UIUX-01: office administration opens on the fee-policies tab;
+      // the account-creation form lives under "Staff accounts".
+      await page.getByRole("tab", { name: "Staff accounts", exact: true }).click();
 
       const post = page.getByLabel("Office post", { exact: true });
       await post.locator("option", { hasText: "UP Secretary" }).waitFor({ state: "attached" });

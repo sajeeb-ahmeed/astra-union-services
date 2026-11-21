@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { api, ApiError } from "./api.js";
 import { choose, useLanguage } from "./i18n.js";
+import { EmptyState } from "./ui/kit.js";
+import { localDigits } from "./ui/fmt.js";
 import { money } from "./ApplicationOrder.js";
 import { ApplicationRefunds } from "./Refunds.js";
 
@@ -258,7 +260,7 @@ function GatewayNotice({ availability }: { availability: Availability }) {
         <p>
           <strong>SSLCommerz</strong> ·{" "}
           {availability.sslcommerz.environment === "SANDBOX"
-            ? label("স্যান্ডবক্স গেটওয়ে (কার্ড ও মোবাইল ব্যাংকিং)", "Sandbox gateway (cards and mobile wallets)")
+            ? label("পরীক্ষামূলক গেটওয়ে (কার্ড ও মোবাইল ব্যাংকিং)", "Test gateway (cards and mobile wallets)")
             : label("কার্ড ও মোবাইল ব্যাংকিং গেটওয়ে প্রস্তুত", "Cards and mobile wallets ready")}
         </p>
       )}
@@ -266,7 +268,7 @@ function GatewayNotice({ availability }: { availability: Availability }) {
         <strong>bKash</strong> ·{" "}
         {availability.available
           ? availability.environment === "SANDBOX"
-            ? label("স্যান্ডবক্স গেটওয়ে", "Sandbox gateway")
+            ? label("পরীক্ষামূলক গেটওয়ে", "Test gateway")
             : label("মার্চেন্ট গেটওয়ে প্রস্তুত", "Merchant gateway ready")
           : label("মার্চেন্ট সেটআপ প্রয়োজন", "Merchant setup required")}
       </p>
@@ -281,8 +283,8 @@ function GatewayNotice({ availability }: { availability: Availability }) {
       {(availability.environment === "SANDBOX" || availability.sslcommerz?.environment === "SANDBOX") && (
         <p className="notice">
           {label(
-            "এটি গেটওয়ের স্যান্ডবক্স পরিবেশ। প্রকৃত টাকা পরিশোধের প্রমাণ নয়।",
-            "This is the gateway's sandbox environment. It is not evidence of a real-money payment.",
+            "এটি পরীক্ষামূলক পরিবেশ — এখানে আসল টাকা পরিশোধ হয় না।",
+            "This is the test environment — no real money is paid here.",
           )}
         </p>
       )}
@@ -552,7 +554,7 @@ export function ApplicationPayment({
 }
 
 export function PaymentsWorkspace({ role }: { role: string }) {
-  useLanguage();
+  const [language] = useLanguage();
   const canReconcile = ["admin", "finance"].includes(role);
   const [availability, setAvailability] = useState<Availability | null>(null);
   const [section, setSection] = useState("register"),
@@ -728,13 +730,20 @@ export function PaymentsWorkspace({ role }: { role: string }) {
           <>
             <h3>{label("পেমেন্ট অনুরোধ", "Payment attempts")}</h3>
             {payments.length === 0 && (
-              <p>
-                {label(
-                  "নির্বাচিত তারিখ ও অবস্থায় কোনো পেমেন্ট অনুরোধ নেই।",
+              <EmptyState
+                title={label(
+                  "নির্বাচিত তারিখ ও অবস্থায় কোনো পেমেন্ট অনুরোধ নেই।",
                   "There are no payment attempts for the selected date and status.",
                 )}
-              </p>
+                hint={label(
+                  "তারিখ বা অবস্থা বদলে আবার দেখুন।",
+                  "Change the date or status to look again.",
+                )}
+              />
             )}
+            {/* P2-6: no orphaned header — the table renders only when
+                it has rows. */}
+            {payments.length > 0 && (
             <div className="table-wrap">
               <table>
                 <thead>
@@ -762,7 +771,7 @@ export function PaymentsWorkspace({ role }: { role: string }) {
                         bKash ·{" "}
                         {payment.environment === "LIVE"
                           ? label("লাইভ", "Live")
-                          : label("স্যান্ডবক্স", "Sandbox")}
+                          : label("পরীক্ষামূলক", "Test")}
                         <small>{statusLabel(payment.status)}</small>
                         {payment.paymentStatus === "REVIEW_REQUIRED" && (
                           <span className="status">
@@ -826,6 +835,7 @@ export function PaymentsWorkspace({ role }: { role: string }) {
                 </tbody>
               </table>
             </div>
+            )}
             <div className="actions">
               <button
                 className="secondary"
@@ -835,8 +845,8 @@ export function PaymentsWorkspace({ role }: { role: string }) {
                 {label("আগের পৃষ্ঠা", "Previous page")}
               </button>
               <span>
-                {label("পৃষ্ঠা", "Page")} {page} · {total}{" "}
-                {label("রেকর্ড", "records")}
+                {label("পৃষ্ঠা", "Page")} {localDigits(page, language)} ·{" "}
+                {localDigits(total, language)} {label("রেকর্ড", "records")}
               </span>
               <button
                 className="secondary"

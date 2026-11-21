@@ -2,9 +2,15 @@
  * Assemble the slim cPanel deployment bundle in dist-cpanel/.
  *
  * The bundle contains only what the production server needs at runtime:
- *   - app.js (Passenger entry) + package.json / package-lock.json
- *   - apps/api/src (TypeScript, executed via tsx — there is no build step
- *     for the API), apps/web/dist (pre-built frontend) + workspace manifests
+ *   - app.js (Passenger entry — the COMPILED entry, app.compiled.js:
+ *     plain Node, no tsx) + package.json / package-lock.json
+ *   - apps/api/dist (the tsc-compiled API — the server runtime never
+ *     executes TypeScript) + apps/web/dist (pre-built frontend) +
+ *     workspace manifests. apps/api/src is still copied for ONE reason:
+ *     the deploy-time ops scripts (scripts/initialize.ts) import
+ *     ../apps/api/src/security.ts and run through tsx; compiling the ops
+ *     scripts too is the documented PHASE8-PREP follow-up that lets src
+ *     leave the bundle entirely.
  *   - packages/ sources imported by the API at runtime
  *   - db/migrations + data/geo (needed by the deploy-time migration runner)
  *   - the cPanel deploy scripts (bootstrap/migrate/initialize + geography),
@@ -66,6 +72,17 @@ if (!fs.existsSync(manifest)) {
   execFileSync("npm", ["run", "build"], { cwd: root, stdio: "inherit" });
 }
 
+// 1b. Phase 8: the compiled API must exist (the bundle's server entry is
+// app.compiled.js -> apps/api/dist/server.js, and @astra/shared-schemas
+// resolves to its own dist/ at runtime).
+if (
+  !fs.existsSync(path.join(root, "apps", "api", "dist", "server.js")) ||
+  !fs.existsSync(path.join(root, "packages", "shared-schemas", "dist", "index.js"))
+) {
+  console.log("compiled API missing — running npm run build:api first…");
+  execFileSync("npm", ["run", "build:api"], { cwd: root, stdio: "inherit" });
+}
+
 fs.rmSync(out, { recursive: true, force: true });
 fs.mkdirSync(out, { recursive: true });
 
@@ -94,12 +111,15 @@ function copy(rel, filter = keep) {
 }
 
 // 2. Runtime sources and manifests.
-for (const file of ["package.json", "package-lock.json", "app.js", "tsconfig.json", ".env.cpanel.example"])
+for (const file of ["package.json", "package-lock.json", "tsconfig.json", ".env.cpanel.example"])
   copy(file);
+// Phase 8: the bundle's app.js is the compiled entry (no tsx at runtime).
+fs.copyFileSync(path.join(root, "app.compiled.js"), path.join(out, "app.js"));
 // API sources (tests excluded by filter), web manifest + built dist only.
 // Phase Y: certificate template assets (government emblem + per-office seal
 // artwork) are runtime files — official-mode documents inline them.
 copy(path.join("apps", "api", "src"));
+copy(path.join("apps", "api", "dist"));
 copy(path.join("apps", "api", "assets"));
 copy(path.join("apps", "api", "package.json"));
 copy(path.join("apps", "web", "package.json"));

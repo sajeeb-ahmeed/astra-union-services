@@ -8,7 +8,7 @@ import { goToWorkspacePage } from "./fixtures/workspace-nav.js";
 import { demoPayloads } from "@astra/shared-schemas";
 
 const origin = "http://127.0.0.1:5173";
-const password = "Order-browser-test-2026!";
+const password = "Order-Browser-1!";
 const run = `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
 const adminEmail = `order-admin-${run}@example.test`;
 const citizenEmail = `order-citizen-${run}@example.test`;
@@ -126,9 +126,9 @@ test("order browser: explicit office fees, citizen-first quote acceptance, bilin
     assert.equal(await citizen.getByRole("button", { name: "Office administration", exact: true }).count(), 0);
     await nav(citizen, "Service catalog");
     assert.equal(await citizen.locator("#order-language").count(), 0, "Select a citizen before configuring an order");
-    await citizen.locator(".catalog .service").filter({ has: citizen.locator('.service-number:text-is("45")') }).click();
-    await citizen.locator(".ax-citizen input").first().check();
-    await citizen.getByRole("button", { name: "Next: application form", exact: true }).click();
+    await citizen.locator("button.svc-card", { hasText: "Permanent resident certificate" }).click();
+    // FULL-UIUX-01 (UX M14): a signed-in citizen applying for themselves
+    // skips the citizen step — the flow opens on the application form.
     await fillApplicationForm(citizen, demoPayloads[45]);
     await citizen.getByLabel("Purpose (English)", { exact: false }).fill("Preserved custom order purpose");
     // Form values survive an interface-language switch before the fees step is reached.
@@ -204,7 +204,7 @@ test("order browser: explicit office fees, citizen-first quote acceptance, bilin
       preferences: { addressBasis: "registered_profile", certificateLanguage: "en", deliveryMode: "office_collection", urgency: "normal" },
     });
     await citizen.getByRole("button", { name: "Open application", exact: true }).click();
-    await citizen.getByText(`APPLICATION ${application.id.slice(0, 8)}`, { exact: true }).waitFor();
+    await citizen.getByRole("button", { name: "← All applications", exact: true }).waitFor();
     const summary = citizen.getByRole("region", { name: "Application fee breakdown" });
     assert.match(await summary.innerText(), /115\.75/);
     assert.match(await summary.innerText(), /cannot be issued until verified fee settlement/);

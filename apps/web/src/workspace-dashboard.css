@@ -5,10 +5,24 @@
 }
 .ax-dashboard-stats {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  /* P1-8: four stats now (pending first) — auto-fit keeps them even. */
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
   gap: var(--ax-space-3);
 }
-.ax-dashboard .ax-stat-button {
+/* P1-8: the pending-queue stat is emphasised — it is the day's work. */
+.ax-stat-emphasis .ax-stat {
+  border-color: var(--ax-green-600);
+  background: var(--ax-green-50);
+}
+.ax-dashboard-expand {
+  margin-top: var(--ax-space-3);
+}
+/* REFINEMENT-02 P1-3: these rules were scoped to .ax-dashboard, so the
+   citizen home's stat buttons (outside .ax-dashboard) fell back to the
+   global button chrome — a full-width dark-green slab with the small
+   white StatCard floating inside it. The reset now applies wherever
+   .ax-stat-button is used; the card itself is the light surface. */
+.ax-stat-button {
   display: block;
   padding: 0;
   border: 0;
@@ -18,20 +32,16 @@
   min-height: 0;
   font-weight: inherit;
 }
-.ax-dashboard .ax-stat-button:hover {
+.ax-stat-button:hover {
   background: transparent;
 }
-.ax-dashboard .ax-stat-button:hover .ax-stat,
-.ax-dashboard .ax-stat-button:focus-visible .ax-stat {
+.ax-stat-button:hover .ax-stat,
+.ax-stat-button:focus-visible .ax-stat {
   border-color: var(--ax-green-600);
   box-shadow: var(--ax-shadow);
 }
-.ax-dashboard .ax-stat {
+.ax-stat-button .ax-stat {
   height: 100%;
-  border-left: 4px solid var(--ax-accent);
-}
-.ax-dashboard .ax-stat strong {
-  font-size: 28px;
 }
 
 .ax-dashboard-services {

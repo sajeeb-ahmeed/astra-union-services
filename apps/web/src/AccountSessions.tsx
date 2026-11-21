@@ -59,7 +59,9 @@ export function AccountSessions({ revision = 0 }: { revision?: number }) {
         </p>
       )}
       {summary ? (
-        <dl>
+        // FULL-UIUX-01 (C40/P2-20): sessions render in the shared
+        // label/value grid, not a loose definition list.
+        <dl className="ax-flow-details-list">
           <dt>{t("মোট সক্রিয় লগইন / Total active sign-ins")}</dt>
           <dd data-testid="active-session-count">
             {number(summary.activeSessions)}

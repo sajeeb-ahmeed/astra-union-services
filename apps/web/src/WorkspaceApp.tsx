@@ -32,14 +32,31 @@ import {
 import { ProfileCompleteness } from "./ProfileCompleteness.js";
 import { WorkspaceWelcome } from "./WorkspaceWelcome.js";
 import { withoutOrderLanguage } from "./order-schema.js";
-import { ServiceFlow } from "./ServiceFlow.js";
+import { ServiceFlow, PayloadDetails } from "./ServiceFlow.js";
 import { WorkspaceDashboard } from "./WorkspaceDashboard.js";
 import { SidebarNav } from "./ui/SidebarNav.js";
-import { EmptyState, SkeletonRows } from "./ui/kit.js";
+import {
+  ApplicationStatus,
+  applicationStatusMeta,
+  ledgerKindMeta,
+  ledgerReasonText,
+  planNameText,
+  EmptyState,
+  RefChip,
+  ServiceCard,
+  SkeletonRows,
+  StatCard,
+  Stepper,
+} from "./ui/kit.js";
+import { formatDate, formatDateTime, localDigits } from "./ui/fmt.js";
+import { BrandLockup } from "./BrandLockup.js";
+import { NavIcon } from "./ui/nav-icons.js";
 import { udcNavigation, usesUdcNavigation } from "./workspace-navigation.js";
 import { ApplicationGuidance } from "./ApplicationGuidance.js";
 import "./workspace-usability.css";
 import "./du-workspace.css";
+import "./owner-console.css";
+import { StatusBadge, statusTone } from "./OwnerUi.js";
 import {
   ApplicationOrder,
   OrderSummary,
@@ -131,6 +148,9 @@ const AdditionalWorkspace = lazy(() =>
     default: m.AdditionalWorkspace,
   })),
 );
+const UserGuide = lazy(() =>
+  import("./UserGuide.js").then((m) => ({ default: m.UserGuide })),
+);
 const ApplicationPayment = lazy(() =>
   import("./OnlinePayments.js").then((m) => ({
     default: m.ApplicationPayment,
@@ -155,6 +175,7 @@ const labels: Record<string, string> = {
   notifications: "Notifications",
   reports: "Reports",
   support: "Support inbox",
+  guide: "User guide",
 };
 const localized: Record<string, string> = {
   home: "সেবার সারসংক্ষেপ",
@@ -172,7 +193,31 @@ const localized: Record<string, string> = {
   notifications: "নোটিফিকেশন",
   reports: "প্রতিবেদন",
   support: "সহায়তা ইনবক্স",
+  guide: "ব্যবহার নির্দেশিকা",
 };
+/** FULL-UIUX-01 (P2-20): the H1 always equals the nav label — the staff
+    dashboard is the one deliberate exception, labelled ড্যাশবোর্ড in both. */
+const pageTitles: Record<string, { bn: string; en: string }> = Object.fromEntries(
+  Object.keys(labels).map((key) => [
+    key,
+    { bn: localized[key], en: labels[key] },
+  ]),
+);
+/** Sidebar groups (programme 3): main work, office, account. */
+const NAV_GROUPS: { title: { bn: string; en: string }; pages: string[] }[] = [
+  {
+    title: { bn: "প্রধান", en: "Main" },
+    pages: ["home", "services", "applications", "pending"],
+  },
+  {
+    title: { bn: "অফিস", en: "Office" },
+    pages: ["citizens", "prints", "payments", "billing", "reports", "admin"],
+  },
+  {
+    title: { bn: "অ্যাকাউন্ট", en: "Account" },
+    pages: ["profile", "notifications", "security", "guide", "support", "owner"],
+  },
+];
 const actionText: Record<string, string> = {
   submit: "Submit application",
   request_correction: "Request correction",
@@ -182,6 +227,127 @@ const actionText: Record<string, string> = {
   cancel: "Cancel application",
   summon: "Ask the applicant to come",
 };
+/** FULL-UIUX-01: transition confirmations in the reader's language —
+    the banner is a full sentence, never an English fragment. */
+const actionDone: Record<string, { bn: string; en: string }> = {
+  submit: { bn: "আবেদন জমা দেওয়া হয়েছে।", en: "Application submitted." },
+  request_correction: {
+    bn: "সংশোধনের অনুরোধ পাঠানো হয়েছে।",
+    en: "Correction requested.",
+  },
+  resubmit: { bn: "আবেদন আবার জমা দেওয়া হয়েছে।", en: "Application resubmitted." },
+  approve: {
+    bn: "অনুমোদন সম্পন্ন — সনদ ইস্যু হয়েছে।",
+    en: "Approved — the certificate has been issued.",
+  },
+  reject: { bn: "আবেদন প্রত্যাখ্যান করা হয়েছে।", en: "Application rejected." },
+  cancel: { bn: "আবেদন বাতিল করা হয়েছে।", en: "Application cancelled." },
+  summon: {
+    bn: "আবেদনকারীকে আসতে বলা হয়েছে।",
+    en: "The applicant has been asked to come.",
+  },
+};
+/* FULL-UIUX-01 · OWNER-DECISION 1: real workspace routes. Hash-based
+   (production is an SPA behind LiteSpeed with no rewrite control):
+   #/<page>, #/applications/<id>, #/applications?state=X&service=N,
+   #/owner/<section> (the legacy #owner-<section> stays readable).
+   Refresh and Back restore the view; a deep link beats the role default. */
+const OWNER_SECTIONS = [
+  "overview",
+  "offices",
+  "demand",
+  "subscriptions",
+  "pricing",
+  "coupons",
+  "notices",
+  "permissions",
+  "audit",
+  "settings",
+];
+type WorkspaceRoute = {
+  page?: string;
+  detailId?: string;
+  state?: string;
+  service?: string;
+  ownerSection?: string;
+};
+function parseWorkspaceHash(): WorkspaceRoute {
+  const hash = window.location.hash;
+  if (hash.startsWith("#owner-")) {
+    const section = hash.slice("#owner-".length);
+    return OWNER_SECTIONS.includes(section)
+      ? { page: "owner", ownerSection: section }
+      : { page: "owner" };
+  }
+  if (!hash.startsWith("#/")) return {};
+  const [path, query] = hash.slice(1).split("?");
+  const segments = path.split("/").filter(Boolean);
+  const params = new URLSearchParams(query ?? "");
+  if (segments[0] === "owner") {
+    const section = segments[1] ?? "";
+    return {
+      page: "owner",
+      ownerSection: OWNER_SECTIONS.includes(section) ? section : "overview",
+    };
+  }
+  return {
+    page: segments[0] || "home",
+    detailId: segments[0] === "applications" ? segments[1] : undefined,
+    state: params.get("state") ?? undefined,
+    service: params.get("service") ?? undefined,
+  };
+}
+function roleDefaultPage(role: string): string {
+  // OWNER-DECISION 3 (UX S3): role-shaped landings as real defaults.
+  if (role === "approver" || role === "reviewer") return "pending";
+  if (role === "finance") return "billing";
+  if (role === "owner") return "owner";
+  return "home";
+}
+/** WS4 (Phase 3 remainder), integrated at BUNDLE-06 merge: settled-revenue
+    KPI for the owner Overview, rendered as the shared StatCard (WS2 P1-11
+    style). Reads the existing owner endpoint
+    GET /owner/payment-orders?status=SETTLED — no new API. amountMinor is
+    poisha; the card shows taka (minor / 100). Until the fetch resolves — or
+    if it fails — the value stays "—" rather than a fabricated zero. */
+function OwnerSettledRevenueCard() {
+  const [language] = useLanguage();
+  const [settled, setSettled] = useState<{ count: number; totalMinor: number } | null>(null);
+  useEffect(() => {
+    let live = true;
+    api("/owner/payment-orders?status=SETTLED")
+      .then((r: any) => {
+        if (!live) return;
+        const rows: any[] = r?.items ?? [];
+        setSettled({
+          count: rows.length,
+          totalMinor: rows.reduce((sum, o) => sum + (Number(o.amountMinor) || 0), 0),
+        });
+      })
+      .catch(() => {
+        if (live) setSettled(null);
+      });
+    return () => {
+      live = false;
+    };
+  }, []);
+  const taka = settled ? (settled.totalMinor / 100).toFixed(2) : null;
+  return (
+    <StatCard
+      label={choose({ bn: "নিষ্পত্তিকৃত রাজস্ব", en: "Settled revenue" })}
+      value={taka === null ? "—" : `৳${localDigits(taka, language)}`}
+      context={
+        settled === null
+          ? choose({ bn: "পেমেন্ট অর্ডার থেকে", en: "From payment orders" })
+          : choose({
+              bn: `${localDigits(String(settled.count), language)}টি নিষ্পত্তিকৃত অর্ডার`,
+              en: `${settled.count} settled order(s)`,
+            })
+      }
+      icon={<NavIcon name="reports" />}
+    />
+  );
+}
 export function WorkspaceApp({
   session,
   onSignOut,
@@ -206,7 +372,11 @@ export function WorkspaceApp({
     () => window.matchMedia("(max-width: 767px)").matches,
     () => false,
   );
-  const [page, setPage] = useState("home"),
+  const [page, setPage] = useState<string>(
+    () =>
+      parseWorkspaceHash().page ??
+      roleDefaultPage(session?.user?.role ?? ""),
+  ),
     [message, setMessage] = useState(""),
     [errorMessage, setErrorMessage] = useState(""),
     [busy, setBusy] = useState(false);
@@ -220,6 +390,12 @@ export function WorkspaceApp({
     [orderCoupon, setOrderCoupon] = useState(""),
     [tenants, setTenants] = useState<any[]>([]),
     [plans, setPlans] = useState<any[]>([]);
+  // OWNER-REDESIGN-01 + FULL-UIUX-01: the owner console shows ONE section
+  // at a time; the route hash names it (#owner-<section> legacy or
+  // #/owner/<section>) so clicks, reloads and deep links agree.
+  const [ownerSection, setOwnerSection] = useState<string>(
+    () => parseWorkspaceHash().ownerSection ?? "overview",
+  );
   // Phase 1 slice (iii), approved: dashboard tiles open the guided application flow.
   const [flowService, setFlowService] = useState<number | null>(null);
   const [flowCitizen, setFlowCitizen] = useState<any>(null);
@@ -247,6 +423,59 @@ export function WorkspaceApp({
       Record<string, { items: any[]; total: number }>
     >({});
   const [applicationReference, setApplicationReference] = useState("");
+  /* FULL-UIUX-01 · OWNER-DECISION 2: one global header search — services
+     from the loaded catalog, applications and citizens from the existing
+     list endpoints (role-gated). No new endpoint was needed. */
+  const [globalQuery, setGlobalQuery] = useState("");
+  const [globalResults, setGlobalResults] = useState<{
+    services: any[];
+    applications: any[];
+    citizens: any[];
+  } | null>(null);
+  const [globalFocus, setGlobalFocus] = useState(false);
+  const [tabSheet, setTabSheet] = useState(false);
+
+  useEffect(() => {
+    const q = globalQuery.trim();
+    if (q.length < 2) {
+      setGlobalResults(null);
+      return;
+    }
+    let active = true;
+    const timer = setTimeout(async () => {
+      const services = catalog
+        .filter((service) =>
+          normalizeSearch(
+            `${service.service_no} ${service.name_bn} ${service.name_en}`,
+          ).includes(normalizeSearch(q)),
+        )
+        .slice(0, 4);
+      let applications: any[] = [];
+      let citizens: any[] = [];
+      try {
+        if (!["owner", "finance"].includes(role)) {
+          applications = items(
+            await api(
+              `/applications?q=${encodeURIComponent(q)}&pageSize=5`,
+            ),
+          );
+        }
+        if (["staff", "admin", "reviewer", "approver"].includes(role)) {
+          citizens = items(
+            await api(`/citizens?q=${encodeURIComponent(q)}&pageSize=5`),
+          );
+        }
+      } catch {
+        // Search is best-effort: a failed lookup shows what was found locally.
+      }
+      if (active) setGlobalResults({ services, applications, citizens });
+    }, 250);
+    return () => {
+      active = false;
+      clearTimeout(timer);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [globalQuery]);
   const [renewalOrder, setRenewalOrder] = useState<IntakeOrderState | null>(
     null,
   );
@@ -279,6 +508,10 @@ export function WorkspaceApp({
     emptyPresentAddress(),
   );
   const [citizenDetails, setCitizenDetails] = useState(emptyCitizenDetails);
+  /* REFINEMENT-02 P2-7: registration is a true stepper — one section per
+     step (identity → area & address → identity details), submit only on
+     the last step. */
+  const [regStep, setRegStep] = useState(0);
   // Phase 3a: the citizen whose details panel is open on the citizens page.
   const [detailsCitizenId, setDetailsCitizenId] = useState("");
   useEffect(() => {
@@ -347,10 +580,13 @@ export function WorkspaceApp({
     paymentReturnHandled.current = true;
     onPaymentReturnHandled();
     void run(async () => {
-      await openApplication(paymentReturnApplication);
-      history.replaceState({}, "", "/");
+      await openApplication(paymentReturnApplication, false);
+      history.replaceState({}, "", `#/applications/${paymentReturnApplication}`);
       setMessage(
-        "You returned from the gateway. Check the server-verified payment status below.",
+        choose({
+          bn: "আপনি পেমেন্ট পৃষ্ঠা থেকে ফিরে এসেছেন। নিচে সার্ভার-যাচাইকৃত পেমেন্টের অবস্থা দেখুন।",
+          en: "You returned from the gateway. Check the server-verified payment status below.",
+        }),
       );
     });
   }, [session]);
@@ -359,6 +595,52 @@ export function WorkspaceApp({
     approver = role === "approver",
     finance = ["finance", "admin"].includes(role);
   const canApply = staff || role === "citizen";
+  /** FULL-UIUX-01 (UX M14): the signed-in citizen's own record — the
+      citizens list is self-scoped for the citizen role, so their record is
+      the one whose user matches the session (fallback: the only record). */
+  function ownCitizen() {
+    if (role !== "citizen") return null;
+    return (
+      citizens.find((c) => (c.userId ?? c.user_id) === session.user.id) ??
+      citizens[0] ??
+      null
+    );
+  }
+  /* FULL-UIUX-01 (B17/P1-5): the citizen home is status-first — per-state
+     totals from the list endpoint itself (pageSize=1 reads), never from
+     counting a fetched page. */
+  const [citizenCounts, setCitizenCounts] = useState<Record<string, number> | null>(null);
+  useEffect(() => {
+    if (role !== "citizen" || page !== "home") return;
+    let active = true;
+    (async () => {
+      const states = [
+        "DRAFT",
+        "CORRECTION_REQUIRED",
+        "SUBMITTED",
+        "UNDER_REVIEW",
+        "RESUBMITTED",
+        "APPROVED",
+        "ISSUANCE_PENDING",
+        "ISSUED",
+      ];
+      const entries = await Promise.all(
+        states.map(async (s) => {
+          try {
+            const r = await api(`/applications?state=${s}&pageSize=1`);
+            return [s, r.total ?? items(r).length] as const;
+          } catch {
+            return [s, 0] as const;
+          }
+        }),
+      );
+      if (active) setCitizenCounts(Object.fromEntries(entries));
+    })();
+    return () => {
+      active = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [role, page, appTotal]);
   // Phase 1 slice (ii), approved: staff get the UDC sidebar; staff and office admins get the dashboard home.
   const udcPreview = usesUdcNavigation(role);
   const dashboardHome = staff;
@@ -369,9 +651,13 @@ export function WorkspaceApp({
         ? "new-application"
         : page === "prints"
           ? "print-certificate"
-          : page === "applications" && filter === "ISSUED"
-            ? "renewal"
-            : page;
+          : page === "guide"
+            ? "user-guide"
+            : page === "applications" && filter === "ISSUED" && appService === "42"
+              ? "trade-renewal"
+              : page === "applications" && filter === "ISSUED"
+                ? "renewal"
+                : page;
   const visiblePages = Object.keys(labels).filter((p) =>
     role === "owner"
       ? [
@@ -383,6 +669,9 @@ export function WorkspaceApp({
           "support",
         ].includes(p)
       : !["owner", "support"].includes(p) &&
+        // FULL-UIUX-01 (B19/P1-8): a citizen's sidebar carries no office
+        // citizen-registry entry — that register is staff tooling.
+        (p !== "citizens" || role !== "citizen") &&
         (p !== "admin" || role === "admin") &&
         (p !== "pending" ||
           ["staff", "admin", "reviewer", "approver"].includes(role)) &&
@@ -429,10 +718,72 @@ export function WorkspaceApp({
     setAppQuery("");
     setAppPage(1);
   }
-  function openTask(next: string, state = "") {
+  /* FULL-UIUX-01 · OWNER-DECISION 1: route writes. Every navigation keeps
+     the hash truthful; applying a hash never writes one back. */
+  function writeRoute(hash: string) {
+    if (window.location.hash !== hash) history.pushState({}, "", hash);
+  }
+  function routeHashFor(next: string): string {
+    return next === "owner" ? `#/owner/${ownerSection}` : `#/${next}`;
+  }
+  function applicationsHash(): string {
+    const params = new URLSearchParams({
+      ...(filter ? { state: filter } : {}),
+      ...(appService ? { service: appService } : {}),
+    });
+    const query = params.toString();
+    return `#/applications${query ? `?${query}` : ""}`;
+  }
+  function applyRoute(route: WorkspaceRoute) {
+    if (route.ownerSection) setOwnerSection(route.ownerSection);
+    if (!route.page) return;
+    if (route.page === "applications") {
+      setFilter(route.state ?? "");
+      setAppService(route.service ?? "");
+      setAppPage(1);
+    }
+    setDetail(null);
+    setPage(route.page);
+    if (route.page === "applications" && route.detailId) {
+      void openApplication(route.detailId, false);
+    }
+  }
+  useEffect(() => {
+    const route = parseWorkspaceHash();
+    if (route.page) applyRoute(route);
+    else {
+      history.replaceState(
+        {},
+        "",
+        routeHashFor(
+          parseWorkspaceHash().page ??
+            roleDefaultPage(session?.user?.role ?? ""),
+        ),
+      );
+    }
+    const onHash = () => {
+      const next = parseWorkspaceHash();
+      if (next.page) applyRoute(next);
+    };
+    addEventListener("hashchange", onHash);
+    return () => removeEventListener("hashchange", onHash);
+    // Mount once: the route is the source of truth from here on.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  function openTask(next: string, state = "", serviceNo = "") {
     if (next === "applications") {
       clearApplicationFilters();
       setFilter(state);
+      setAppService(serviceNo);
+      setDetail(null);
+      setPage("applications");
+      const params = new URLSearchParams({
+        ...(state ? { state } : {}),
+        ...(serviceNo ? { service: serviceNo } : {}),
+      });
+      const query = params.toString();
+      writeRoute(`#/applications${query ? `?${query}` : ""}`);
+      return;
     }
     nav(next);
   }
@@ -442,10 +793,15 @@ export function WorkspaceApp({
     renewalLanguageChoice && renewalLanguageChoice.id === application?.id
       ? renewalLanguageChoice.language
       : detailPayload.delivery_language;
-  async function openApplication(id: string) {
+  async function openApplication(id: string, push = true) {
     setDetail(await api(`/applications/${id}`));
     setPage("applications");
     setReason("");
+    if (push) writeRoute(`#/applications/${id}`);
+  }
+  function closeDetail() {
+    setDetail(null);
+    writeRoute(applicationsHash());
   }
   async function transition(action: string) {
     await api(`/applications/${application.id}/transition`, "POST", {
@@ -454,7 +810,7 @@ export function WorkspaceApp({
     });
     await openApplication(application.id);
     await refresh();
-    setMessage(`${actionText[action]} completed.`);
+    setMessage(choose(actionDone[action] ?? actionText[action] ?? { bn: "সম্পন্ন হয়েছে।", en: "Done." }));
   }
   // CHAIRMAN-DASH-01: the Pending applications queue. Counts always come from the
   // API (/applications/counts) — never from counting a fetched page — and the rows
@@ -463,9 +819,12 @@ export function WorkspaceApp({
   // the next move is the citizen's, so it is not office-pending work.
   const pendingReviewStates = ["SUBMITTED", "RESUBMITTED", "UNDER_REVIEW"],
     pendingIssuanceStates = ["APPROVED"];
-  async function loadPending() {
+  async function loadPendingCounts() {
     const counts = await api("/applications/counts");
     setPendingCounts(counts);
+  }
+  async function loadPending() {
+    await loadPendingCounts();
     const lists: Record<string, { items: any[]; total: number }> = {};
     await Promise.all(
       [...pendingReviewStates, ...pendingIssuanceStates].map(async (state) => {
@@ -481,68 +840,122 @@ export function WorkspaceApp({
     setPendingLists(lists);
   }
   useEffect(() => {
-    if (page === "pending" && session) void run(loadPending);
+    if (!session) return;
+    if (page === "pending") void run(loadPending);
+    /* The dashboard's pending-applications tile (P1-8) reads pendingCounts,
+       which only the pending page loaded — on home it sat at "—" forever.
+       Load the counts for the staff dashboard too. */
+    else if (page === "home" && staff) void run(loadPendingCounts);
   }, [page, session]);
-  // One row presentation for application lists, shared by the applications page
-  // and the Pending queue so the two can never drift apart.
-  function applicationRow(a: any) {
+  // FULL-UIUX-01 (B24/P1-14): one row presentation for application lists,
+  // shared by the applications page and the Pending queue. A row is
+  // identified by the citizen's 16-digit reference (RefChip), names the
+  // citizen, carries the shared status badge, and ends in a real button.
+  const lastSubmittedReference = (() => {
+    try {
+      return sessionStorage.getItem("du:last-submitted-reference");
+    } catch {
+      return null;
+    }
+  })();
+  function citizenNameFor(a: any): string {
+    const found = citizens.find(
+      (c) => c.id === (a.citizenId ?? a.citizen_id),
+    );
+    return found ? recordName(found) : "";
+  }
+  function isNewApplication(a: any): boolean {
     return (
-      <tr key={a.id}>
+      !!lastSubmittedReference &&
+      (a.reference === lastSubmittedReference || a.id === lastSubmittedReference)
+    );
+  }
+  function applicationRow(a: any, hideCitizen = false) {
+    const serviceNo = a.serviceNo || a.service_no;
+    const isNew = isNewApplication(a);
+    return (
+      <tr key={a.id} className={isNew ? "ax-row-new" : undefined}>
         <td>
-          <code>{tx(a.id.slice(0, 8))}</code>
+          <RefChip value={a.reference || a.id} />
           <small>{applicationDate(a.createdAt || a.created_at)}</small>
-        </td>
-        <td>
-          {t("#")}
-          {tx(a.serviceNo || a.service_no)}
-          {tx(" ")}
-          {tx(
-            recordName(
-              catalog.find(
-                (s) => s.service_no === (a.serviceNo || a.service_no),
-              ),
-            ),
+          {isNew && (
+            <span className="ax-new-badge">
+              {choose({ bn: "নতুন", en: "New" })}
+            </span>
           )}
         </td>
+        {!hideCitizen && <td>{citizenNameFor(a) || "—"}</td>}
         <td>
-          <span className="status">{tx(a.state || a.status)}</span>
+          {/* P2-3: no internal "#NN" prefix in list contexts — the
+              service number survives as an explicit field on detail
+              pages only. */}
+          {tx(recordName(catalog.find((s) => s.service_no === serviceNo)))}
+          {/* REFINEMENT-02 P2-9: queue triage — an age chip on staff
+              rows. Amber ONLY when the wait exceeds the office's stated
+              service time for the service (a.statedDays, when the API
+              supplies it); otherwise the chip stays neutral. */}
+          {!hideCitizen &&
+            (() => {
+              const created = new Date(a.createdAt || a.created_at);
+              if (Number.isNaN(created.getTime())) return null;
+              const days = Math.max(
+                0,
+                Math.floor((Date.now() - created.getTime()) / 86_400_000),
+              );
+              const stated = Number(a.statedDays ?? a.serviceDays ?? NaN);
+              const overdue = Number.isFinite(stated) && days > stated;
+              return (
+                <span className={`age-chip${overdue ? " age-chip-warn" : ""}`}>
+                  {days === 0
+                    ? choose({ bn: "আজ জমা", en: "Submitted today" })
+                    : choose({
+                        bn: `${localDigits(String(days), language)} দিন অপেক্ষমাণ`,
+                        en: `${days} day${days === 1 ? "" : "s"} waiting`,
+                      })}
+                </span>
+              );
+            })()}
+        </td>
+        <td>
+          <ApplicationStatus state={String(a.state || a.status || "")} />
         </td>
         <td>
           <button
-            className="text-button"
+            type="button"
+            className="secondary"
             onClick={() => run(() => openApplication(a.id))}
           >
-            {t("Open application ")}
+            {choose({ bn: "খুলুন", en: "Open" })}
           </button>
         </td>
       </tr>
     );
   }
   function applicationCard(a: any) {
+    const serviceNo = a.serviceNo || a.service_no;
+    const isNew = isNewApplication(a);
     return (
-      <article className="ax-card" key={a.id}>
+      <article className={`ax-card${isNew ? " ax-card-new" : ""}`} key={a.id}>
         <div className="ax-card-head">
-          <code>{tx(a.id.slice(0, 8))}</code>
-          <span className="status">{tx(a.state || a.status)}</span>
+          <RefChip value={a.reference || a.id} />
+          <ApplicationStatus state={String(a.state || a.status || "")} />
         </div>
         <strong>
-          {t("#")}
-          {tx(a.serviceNo || a.service_no)}
-          {tx(" ")}
-          {tx(
-            recordName(
-              catalog.find(
-                (svc) => svc.service_no === (a.serviceNo || a.service_no),
-              ),
-            ),
-          )}
+          {tx(recordName(catalog.find((svc) => svc.service_no === serviceNo)))}
         </strong>
+        {citizenNameFor(a) && <span>{citizenNameFor(a)}</span>}
         <small>{applicationDate(a.createdAt || a.created_at)}</small>
+        {isNew && (
+          <span className="ax-new-badge">
+            {choose({ bn: "নতুন জমা", en: "Just submitted" })}
+          </span>
+        )}
         <button
-          className="text-button"
+          type="button"
+          className="secondary"
           onClick={() => run(() => openApplication(a.id))}
         >
-          {t("Open application ")}
+          {choose({ bn: "খুলুন", en: "Open" })}
         </button>
       </article>
     );
@@ -557,9 +970,11 @@ export function WorkspaceApp({
   ) {
     const rows = states
       .flatMap((state) => pendingLists[state]?.items ?? [])
+      /* P2-9: queues triage oldest-first — the longest wait is the
+         first row, and the heading says so. */
       .sort((x, y) =>
-        String(y.updatedAt || y.updated_at || "").localeCompare(
-          String(x.updatedAt || x.updated_at || ""),
+        String(x.createdAt || x.created_at || "").localeCompare(
+          String(y.createdAt || y.created_at || ""),
         ),
       );
     return (
@@ -570,6 +985,10 @@ export function WorkspaceApp({
             {count !== null &&
               ` · ${count.toLocaleString(language === "bn" ? "bn-BD" : "en-GB")}`}
           </h2>
+          {/* P2-9: the sort order is stated, not implicit. */}
+          <span className="hint">
+            {choose({ bn: "পুরনো আবেদন আগে", en: "Oldest first" })}
+          </span>
         </div>
         {rows.length ? (
           <>
@@ -577,13 +996,18 @@ export function WorkspaceApp({
               <table>
                 <thead>
                   <tr>
-                    <th>{t("Application")}</th>
-                    <th>{t("Service")}</th>
-                    <th>{t("Status")}</th>
-                    <th>{t("Open")}</th>
+                    <th>{choose({ bn: "রেফারেন্স", en: "Reference" })}</th>
+                    <th>{choose({ bn: "নাগরিক", en: "Citizen" })}</th>
+                    <th>{choose({ bn: "সেবা", en: "Service" })}</th>
+                    <th>{choose({ bn: "অবস্থা", en: "Status" })}</th>
+                    <th>
+                      <span className="visually-hidden">
+                        {choose({ bn: "খুলুন", en: "Open" })}
+                      </span>
+                    </th>
                   </tr>
                 </thead>
-                <tbody>{tx(rows.map(applicationRow))}</tbody>
+                <tbody>{tx(rows.map((a) => applicationRow(a)))}</tbody>
               </table>
             </div>
             {phoneLayout && (
@@ -617,7 +1041,7 @@ export function WorkspaceApp({
                 className="text-button"
                 onClick={() => openTask("applications", state)}
               >
-                {tx(state)}
+                {choose(applicationStatusMeta(state))}
               </button>
             ))}
           </p>
@@ -633,6 +1057,7 @@ export function WorkspaceApp({
     setMessage("");
     setErrorMessage("");
     setSearch("");
+    writeRoute(routeHashFor(next));
   }
   function certificatePanel(cert: any) {
     if (!cert) return null;
@@ -701,12 +1126,22 @@ export function WorkspaceApp({
                 onClick={() =>
                   run(async () => {
                     if (reason.trim().length < 3)
-                      throw Error("Enter a revocation reason.");
+                      throw Error(
+                        choose({
+                          bn: "প্রত্যাহারের কারণ লিখুন।",
+                          en: "Enter a revocation reason.",
+                        }),
+                      );
                     await api(`/certificates/${cert.id}/revoke`, "POST", {
                       reason,
                     });
                     await openApplication(application.id);
-                    setMessage("Certificate revoked.");
+                    setMessage(
+                      choose({
+                        bn: "সনদ প্রত্যাহার করা হয়েছে।",
+                        en: "Certificate revoked.",
+                      }),
+                    );
                   })
                 }
               >
@@ -718,26 +1153,28 @@ export function WorkspaceApp({
       </div>
     );
   }
+  const roleLabels: Record<string, { bn: string; en: string }> = {
+    citizen: { bn: "নাগরিক", en: "Citizen" },
+    staff: { bn: "অফিস কর্মী", en: "Office staff" },
+    admin: { bn: "অফিস অ্যাডমিন", en: "Office admin" },
+    approver: { bn: "চেয়ারম্যান (অনুমোদনকারী)", en: "Chairman (approver)" },
+    reviewer: { bn: "পর্যালোচক", en: "Reviewer" },
+    finance: { bn: "হিসাব", en: "Finance" },
+    owner: { bn: "প্ল্যাটফর্ম মালিক", en: "Platform owner" },
+  };
+  const pendingBadge =
+    pendingCounts != null
+      ? (pendingCounts.awaitingReview ?? 0) + (pendingCounts.awaitingIssuance ?? 0)
+      : null;
   return (
-    <div className="shell">
+    <div className={`shell${page === "owner" ? " shell-owner" : ""}`}>
       <a className="skip" href="#content">
         {t("Skip to main content ")}
       </a>
       <aside>
-        <a className="brand" href="/">
-          <img
-            className="brand-emblem"
-            src={emblem}
-            alt=""
-            width={38}
-            height={38}
-          />
-          <span>
-            {branding.name}
-            <small>
-              {choose({ bn: branding.taglineBn, en: branding.taglineEn })}
-            </small>
-          </span>
+        <a className="brand" href="/" aria-label={choose({ bn: "DigitalUnion হোম", en: "DigitalUnion home" })}>
+          {/* OWNER-DECISION 4: the one platform lockup in the workspace shell. */}
+          <BrandLockup size={38} />
         </a>
         <p className="office">
           {tx(recordName(session.tenant) || "Platform owner")}
@@ -747,71 +1184,47 @@ export function WorkspaceApp({
             )}
           </small>
         </p>
-        <div className="workspace-jump">
-          <label htmlFor="workspace-jump">
-            {choose({ bn: "কোথায় যেতে চান?", en: "Go to a page" })}
-          </label>
-          {udcPreview ? (
-            <select
-              id="workspace-jump"
-              value={
-                udcNavigation.find((i) => i.key === udcCurrent && !i.state && i.page)?.page ?? udcCurrent
-              }
-              onChange={(event) => {
-                // Options use the page name (shared with the legacy picker); filtered items use their key.
-                const item = udcNavigation.find(
-                  (i) => (i.state ? i.key : (i.page ?? i.key)) === event.target.value,
-                );
-                if (item?.href) location.assign(item.href);
-                else if (item?.page === "applications") openTask("applications", item.state ?? "");
-                else if (item?.page) nav(item.page);
-              }}
-            >
-              {udcNavigation
-                .filter((item) => !item.soon)
-                .map((item) => (
-                  <option key={item.key} value={item.state ? item.key : (item.page ?? item.key)}>
-                    {choose(item)}
-                  </option>
-                ))}
-            </select>
-          ) : (
-          <select
-            id="workspace-jump"
-            value={page}
-            onChange={(event) => nav(event.target.value)}
-          >
-            {visiblePages.map((key) => (
-              <option key={key} value={key}>
-                {choose({ bn: localized[key], en: labels[key] })}
-              </option>
-            ))}
-          </select>
-          )}
-        </div>
         {udcPreview ? (
           <SidebarNav
             items={udcNavigation}
             current={udcCurrent}
             label={t("Workspace navigation")}
             onSelect={(item) => {
-              if (item.page === "applications") openTask("applications", item.state ?? "");
+              if (item.page === "applications")
+                openTask("applications", item.state ?? "", item.serviceNo ?? "");
               else if (item.page) nav(item.page);
             }}
           />
         ) : (
-        <nav aria-label={t("Workspace navigation")}>
+        <nav aria-label={t("Workspace navigation")} className="ws-nav">
           {tx(
-            visiblePages.map((p) => (
-              <button
-                key={p}
-                data-page={p}
-                aria-current={page === p ? "page" : undefined}
-                onClick={() => nav(p)}
-              >
-                <span>{choose({ bn: localized[p], en: labels[p] })}</span>
-              </button>
-            )),
+            NAV_GROUPS.map((group) => {
+              const groupPages = group.pages.filter((p) =>
+                visiblePages.includes(p),
+              );
+              if (!groupPages.length) return null;
+              return (
+                <div className="ws-nav-group" key={group.title.en}>
+                  <span className="ws-nav-group-title">{choose(group.title)}</span>
+                  {groupPages.map((p) => (
+                    <button
+                      key={p}
+                      data-page={p}
+                      aria-current={page === p ? "page" : undefined}
+                      onClick={() => nav(p)}
+                    >
+                      <NavIcon name={p} />
+                      <span>{choose({ bn: localized[p], en: labels[p] })}</span>
+                      {p === "pending" && pendingBadge ? (
+                        <span className="ws-nav-badge">
+                          {localDigits(String(pendingBadge), language)}
+                        </span>
+                      ) : null}
+                    </button>
+                  ))}
+                </div>
+              );
+            }),
           )}
         </nav>
         )}
@@ -822,7 +1235,11 @@ export function WorkspaceApp({
                 session.user.display_name ||
                 session.user.email,
             )}
-            <small>{tx(role)}</small>
+            <small>
+              {roleLabels[role]
+                ? choose(roleLabels[role])
+                : tx(role)}
+            </small>
           </p>
           <button
             className="text-button"
@@ -869,17 +1286,122 @@ export function WorkspaceApp({
         <header>
           <div>
             <span className="eyebrow">
-              {t("DIGITALUNION · UNION SERVICES")}
+              {choose({ bn: "ডিজিটাল ইউনিয়ন · ইউনিয়ন সেবা", en: "DigitalUnion · Union services" })}
             </span>
             <h1>
-              {dashboardHome && page === "home"
-                ? choose({ bn: "ড্যাশবোর্ড", en: "Dashboard" })
-                : page === "flow"
+              {page === "flow"
                 ? choose({ bn: "নতুন আবেদন", en: "New application" })
-                : choose({ bn: localized[page], en: labels[page] })}
+                : page === "applications" && detail
+                  ? choose({ bn: "আবেদনের বিবরণ", en: "Application details" })
+                  : page === "applications" && filter === "ISSUED"
+                    ? appService === "42"
+                      ? choose({ bn: "ট্রেড লাইসেন্স নবায়ন", en: "Trade licence renewal" })
+                      : choose({ bn: "সনদ নবায়ন", en: "Certificate renewal" })
+                    : dashboardHome && page === "home"
+                      ? choose({ bn: "ড্যাশবোর্ড", en: "Dashboard" })
+                      : choose(pageTitles[page] ?? { bn: localized[page] ?? page, en: labels[page] ?? page })}
             </h1>
           </div>
           <div className="workspace-header-actions">
+            <div className="ws-global-search">
+              <label htmlFor="ws-global-search-input" className="visually-hidden">
+                {choose({
+                  bn: "সেবা, আবেদন বা নাগরিক খুঁজুন",
+                  en: "Search services, applications or citizens",
+                })}
+              </label>
+              <NavIcon name="search" size={18} />
+              <input
+                id="ws-global-search-input"
+                type="search"
+                value={globalQuery}
+                onChange={(e) => setGlobalQuery(e.target.value)}
+                onFocus={() => setGlobalFocus(true)}
+                onBlur={() => window.setTimeout(() => setGlobalFocus(false), 180)}
+                placeholder={choose({
+                  bn: "খুঁজুন — সেবা, আবেদন, নাগরিক…",
+                  en: "Search — services, applications, citizens…",
+                })}
+                autoComplete="off"
+              />
+              {globalFocus && globalResults && (
+                <div className="ws-global-results" role="listbox">
+                  {globalResults.services.length > 0 && (
+                    <div className="ws-global-group">
+                      <span>{choose({ bn: "সেবা", en: "Services" })}</span>
+                      {globalResults.services.map((s) => (
+                        <button
+                          key={s.service_no}
+                          type="button"
+                          onClick={() => {
+                            setGlobalQuery("");
+                            if (canApply) {
+                              setSelectedService(s.service_no);
+                              setFlowService(s.service_no);
+                              setFlowCitizen(
+                                role === "citizen" ? ownCitizen() : null,
+                              );
+                              nav("flow");
+                            } else nav("services");
+                          }}
+                        >
+                          {recordName(s)}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                  {globalResults.applications.length > 0 && (
+                    <div className="ws-global-group">
+                      <span>{choose({ bn: "আবেদন", en: "Applications" })}</span>
+                      {globalResults.applications.map((a) => (
+                        <button
+                          key={a.id}
+                          type="button"
+                          onClick={() => {
+                            setGlobalQuery("");
+                            void run(() => openApplication(a.id));
+                          }}
+                        >
+                          {a.reference || a.id} ·{" "}
+                          {choose(applicationStatusMeta(String(a.state || a.status || "")))}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                  {globalResults.citizens.length > 0 && (
+                    <div className="ws-global-group">
+                      <span>{choose({ bn: "নাগরিক", en: "Citizens" })}</span>
+                      {globalResults.citizens.map((c) => (
+                        <button
+                          key={c.id}
+                          type="button"
+                          onClick={() => {
+                            setGlobalQuery("");
+                            nav("citizens");
+                            setDetailsCitizenId(c.id);
+                          }}
+                        >
+                          {recordName(c)}
+                          {c.syntheticReference
+                            ? ` · ${c.syntheticReference}`
+                            : ""}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                  {!globalResults.services.length &&
+                    !globalResults.applications.length &&
+                    !globalResults.citizens.length && (
+                      <p className="ws-global-empty">
+                        {choose({
+                          bn: "কিছু পাওয়া যায়নি।",
+                          en: "Nothing found.",
+                        })}
+                      </p>
+                    )}
+                </div>
+              )}
+            </div>
             <LanguageSwitcher />
           </div>
         </header>
@@ -909,6 +1431,7 @@ export function WorkspaceApp({
             key={`${flowService}:${flowCitizen?.id ?? ""}`}
             serviceNo={flowService}
             initialCitizen={flowCitizen}
+            selfCitizen={role === "citizen" && !!flowCitizen}
             tenant={session.tenant}
             onOpenApplication={(id) => void run(() => openApplication(id))}
             onRegisterCitizen={() => {
@@ -925,11 +1448,17 @@ export function WorkspaceApp({
             services={catalog}
             citizenTotal={citizenTotal}
             applicationTotal={appTotal}
+            pendingTotal={
+              pendingCounts != null
+                ? (pendingCounts.awaitingReview ?? 0) +
+                  (pendingCounts.awaitingIssuance ?? 0)
+                : null
+            }
             creditBalance={wallet?.balance ?? null}
             onStartService={(serviceNo) => {
               setSelectedService(serviceNo);
               setFlowService(serviceNo);
-              setFlowCitizen(null);
+              setFlowCitizen(role === "citizen" ? ownCitizen() : null);
               nav("flow");
             }}
             onOpenCitizens={() => nav("citizens")}
@@ -941,6 +1470,150 @@ export function WorkspaceApp({
         )}
         {page === "home" && !dashboardHome && (
           <>
+            {role === "citizen" && (
+              <section
+                className="citizen-status-home"
+                aria-label={choose({ bn: "আমার আবেদনের অবস্থা", en: "My application status" })}
+              >
+                {citizenCounts && (citizenCounts.CORRECTION_REQUIRED ?? 0) > 0 && (
+                  <div className="citizen-correction-card">
+                    <div>
+                      <strong>
+                        {choose({
+                          bn: "সংশোধন প্রয়োজন",
+                          en: "Correction needed",
+                        })}
+                        {" · "}
+                        {localDigits(String(citizenCounts.CORRECTION_REQUIRED), language)}
+                      </strong>
+                      <p>
+                        {choose({
+                          bn: "অফিস একটি আবেদনে সংশোধন চেয়েছে। কারণ পড়ে ঠিক করে আবার জমা দিন।",
+                          en: "The office asked for a correction on an application. Read the reason, fix it and resubmit.",
+                        })}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => openTask("applications", "CORRECTION_REQUIRED")}
+                    >
+                      {choose({ bn: "আবেদনগুলো দেখুন", en: "View applications" })}
+                    </button>
+                  </div>
+                )}
+                <div className="citizen-status-cards">
+                  <button
+                    type="button"
+                    className="ax-stat-button"
+                    onClick={() => openTask("applications", "DRAFT")}
+                  >
+                    <StatCard
+                      value={localDigits(String(citizenCounts?.DRAFT ?? 0), language)}
+                      label={choose({ bn: "খসড়া", en: "Drafts" })}
+                      icon={<NavIcon name="applications" />}
+                      context={choose({ bn: "চালিয়ে যান", en: "Continue" })}
+                    />
+                  </button>
+                  <button
+                    type="button"
+                    className="ax-stat-button"
+                    onClick={() => openTask("applications")}
+                  >
+                    <StatCard
+                      value={localDigits(
+                        String(
+                          (citizenCounts?.SUBMITTED ?? 0) +
+                            (citizenCounts?.UNDER_REVIEW ?? 0) +
+                            (citizenCounts?.RESUBMITTED ?? 0) +
+                            (citizenCounts?.APPROVED ?? 0) +
+                            (citizenCounts?.ISSUANCE_PENDING ?? 0),
+                        ),
+                        language,
+                      )}
+                      label={choose({ bn: "পর্যালোচনাধীন", en: "In review" })}
+                      icon={<NavIcon name="pending" />}
+                      context={choose({ bn: "অবস্থা দেখুন", en: "Check status" })}
+                    />
+                  </button>
+                  <button
+                    type="button"
+                    className="ax-stat-button"
+                    onClick={() => openTask("applications", "ISSUED")}
+                  >
+                    <StatCard
+                      value={localDigits(String(citizenCounts?.ISSUED ?? 0), language)}
+                      label={choose({ bn: "ইস্যু হয়েছে", en: "Issued" })}
+                      icon={<NavIcon name="print-certificate" />}
+                      context={choose({ bn: "সনদ ডাউনলোড", en: "Download certificates" })}
+                    />
+                  </button>
+                </div>
+                {(() => {
+                  const draft = applications.find(
+                    (a) => (a.state || a.status) === "DRAFT",
+                  );
+                  return draft ? (
+                    <div className="citizen-draft-card">
+                      <div>
+                        <strong>
+                          {choose({ bn: "খসড়া চালিয়ে যান: ", en: "Continue your draft: " })}
+                          {tx(
+                            recordName(
+                              catalog.find(
+                                (s) =>
+                                  s.service_no ===
+                                  (draft.serviceNo || draft.service_no),
+                              ),
+                            ),
+                          )}
+                        </strong>
+                        <RefChip value={draft.reference || draft.id} />
+                      </div>
+                      <button
+                        type="button"
+                        className="secondary"
+                        onClick={() => run(() => openApplication(draft.id))}
+                      >
+                        {choose({ bn: "খুলুন", en: "Open" })}
+                      </button>
+                    </div>
+                  ) : null;
+                })()}
+                {applications.length > 0 && (
+                  <div className="citizen-recent">
+                    <h2>{choose({ bn: "সাম্প্রতিক আবেদন", en: "Recent applications" })}</h2>
+                    <ul>
+                      {applications.slice(0, 5).map((a) => (
+                        <li key={a.id}>
+                          <RefChip value={a.reference || a.id} />
+                          <span>
+                            {tx(
+                              recordName(
+                                catalog.find(
+                                  (s) =>
+                                    s.service_no ===
+                                    (a.serviceNo || a.service_no),
+                                ),
+                              ),
+                            )}
+                          </span>
+                          <ApplicationStatus
+                            state={String(a.state || a.status || "")}
+                          />
+                          <button
+                            type="button"
+                            className="secondary"
+                            onClick={() => run(() => openApplication(a.id))}
+                          >
+                            {choose({ bn: "খুলুন", en: "Open" })}
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </section>
+            )}
             <WorkspaceWelcome role={role} navigate={openTask} />
             <section className="panel">
               <h2>
@@ -1049,35 +1722,50 @@ export function WorkspaceApp({
                     })}
                   />
                 )}
+                {/* FULL-UIUX-01 (A7 + C42/P2-23): the services page uses the
+                    one ServiceCard. Roles that cannot apply see the SAME
+                    full-strength cards with a "শুধু দেখার জন্য" badge and
+                    this explanation — never a washed-out disabled grid. */}
+                {!canApply && (
+                  <p className="notice" role="note">
+                    {choose({
+                      bn: "আপনার ভূমিকায় নতুন আবেদন শুরু করা যায় না — এই তালিকাটি শুধু দেখার জন্য।",
+                      en: "Your role cannot start new applications — this list is for reference only.",
+                    })}
+                  </p>
+                )}
                 <div className="catalog">
                   {tx(
                     matchingServices.map((s) => (
-                      <button
-                        className="service"
+                      <ServiceCard
                         key={s.service_no}
-                        disabled={!canApply}
-                        onClick={() => {
-                          setSelectedService(s.service_no);
-                          setFlowService(s.service_no);
-                          nav("flow");
-                        }}
-                      >
-                        <span className="service-number">
-                          {tx(String(s.service_no).padStart(2, "0"))}
-                        </span>
-                        <span>
-                          <strong>
-                            {choose({ bn: s.name_bn, en: s.name_en })}
-                          </strong>
-                          <em>
-                            {tx(
-                              operationalServiceNumbers.includes(s.service_no)
-                                ? "Available"
-                                : "Reference",
-                            )}
-                          </em>
-                        </span>
-                      </button>
+                        serviceNo={s.service_no}
+                        name={choose({ bn: s.name_bn, en: s.name_en })}
+                        category={
+                          s.category_en ?? s.categoryEn ?? s.category ?? "Miscellaneous"
+                        }
+                        status={
+                          <span className="ax-status tone-neutral">
+                            {operationalServiceNumbers.includes(s.service_no)
+                              ? canApply
+                                ? choose({ bn: "আবেদন করা যায়", en: "Available" })
+                                : choose({ bn: "শুধু দেখার জন্য", en: "View only" })
+                              : choose({ bn: "তথ্যের জন্য", en: "Reference" })}
+                          </span>
+                        }
+                        onClick={
+                          canApply
+                            ? () => {
+                                setSelectedService(s.service_no);
+                                setFlowService(s.service_no);
+                                setFlowCitizen(
+                                  role === "citizen" ? ownCitizen() : flowCitizen,
+                                );
+                                nav("flow");
+                              }
+                            : undefined
+                        }
+                      />
                     )),
                   )}
                 </div>
@@ -1149,7 +1837,15 @@ export function WorkspaceApp({
                                 </span>
                               </td>
                               <td>
-                                <code>{tx(c.id.slice(0, 8))}</code>
+                                {/* FULL-UIUX-01 (C31/P2-7): the citizen's own
+                                    record reference, never a truncated UUID. */}
+                                <code>
+                                  {tx(
+                                    c.syntheticReference ||
+                                      c.synthetic_reference ||
+                                      c.id.slice(0, 8),
+                                  )}
+                                </code>
                               </td>
                               <td>
                                 <button
@@ -1185,7 +1881,13 @@ export function WorkspaceApp({
                           </span>
                         </div>
                         <small>{c.nameEn || c.name_en}</small>
-                        <code>{tx(c.id.slice(0, 8))}</code>
+                        <code>
+                          {tx(
+                            c.syntheticReference ||
+                              c.synthetic_reference ||
+                              c.id.slice(0, 8),
+                          )}
+                        </code>
                         <button
                           type="button"
                           className="secondary"
@@ -1228,6 +1930,12 @@ export function WorkspaceApp({
                     <form
                       onSubmit={(e) => {
                         e.preventDefault();
+                        /* P2-7: Enter/Continue advances the stepper;
+                           only the last step submits. */
+                        if (regStep < 2) {
+                          setRegStep(regStep + 1);
+                          return;
+                        }
                         run(async () => {
                           if (!citizenGeography.wardCode)
                             throw Error(
@@ -1242,6 +1950,7 @@ export function WorkspaceApp({
                             details: citizenDetailsPayload(citizenDetails),
                           });
                           await refresh();
+                          setRegStep(0);
                           setCitizenPresentAddress(emptyPresentAddress());
                           setCitizenDetails(emptyCitizenDetails());
                           setCitizenForm({
@@ -1258,7 +1967,10 @@ export function WorkspaceApp({
                             setCitizenQuery("");
                             nav("flow");
                             setMessage(
-                              "Citizen registered and selected. Complete the application below.",
+                              choose({
+                                bn: "নাগরিক নিবন্ধিত ও নির্বাচিত হয়েছে। নিচে আবেদনটি সম্পূর্ণ করুন।",
+                                en: "Citizen registered and selected. Complete the application below.",
+                              }),
                             );
                           } else if (returnToIntake) {
                             // One application flow: the new citizen is remembered
@@ -1276,12 +1988,25 @@ export function WorkspaceApp({
                             );
                           } else {
                             setMessage(
-                              "Citizen registered. Duplicate identity keys are rejected.",
+                              choose({
+                                bn: "নাগরিক নিবন্ধিত হয়েছে। একই পরিচয় তথ্য দিয়ে দ্বিতীয় নিবন্ধন গ্রহণ করা হয় না।",
+                                en: "Citizen registered. Duplicate identity keys are rejected.",
+                              }),
                             );
                           }
                         });
                       }}
                     >
+                      <Stepper
+                        steps={[
+                          choose({ bn: "পরিচিতি", en: "Identity" }),
+                          choose({ bn: "এলাকা ও ঠিকানা", en: "Area & address" }),
+                          choose({ bn: "পরিচয় বিবরণ", en: "Identity details" }),
+                        ]}
+                        current={regStep}
+                        label={choose({ bn: "নিবন্ধনের ধাপ", en: "Registration steps" })}
+                      />
+                      {regStep === 0 && (
                       <div className="form-grid">
                         {tx(
                           Object.entries(citizenForm).map(([key, val]) => (
@@ -1304,6 +2029,20 @@ export function WorkspaceApp({
                                 id={`citizen-${key}`}
                                 value={val}
                                 required
+                                minLength={
+                                  key === "dateOfBirth"
+                                    ? undefined
+                                    : key.startsWith("address")
+                                      ? 4
+                                      : 2
+                                }
+                                maxLength={
+                                  key === "dateOfBirth"
+                                    ? undefined
+                                    : key.startsWith("address")
+                                      ? 500
+                                      : 120
+                                }
                                 onChange={(e) =>
                                   setCitizenForm({
                                     ...citizenForm,
@@ -1315,24 +2054,53 @@ export function WorkspaceApp({
                           )),
                         )}
                       </div>
-                      <GeographyFields
-                        prefix="citizen-geo"
-                        value={citizenGeography}
-                        onChange={setCitizenGeography}
-                        required
-                        showCoverage
-                      />
-                      <PresentAddressFields
-                        prefix="citizen-present"
-                        value={citizenPresentAddress}
-                        onChange={setCitizenPresentAddress}
-                      />
-                      <CitizenDetailsFields
-                        prefix="citizen-details"
-                        value={citizenDetails}
-                        onChange={setCitizenDetails}
-                      />
-                      <button disabled={busy}>{t("Register citizen")}</button>
+                      )}
+                      {regStep === 1 && (
+                        <>
+                          <GeographyFields
+                            prefix="citizen-geo"
+                            value={citizenGeography}
+                            onChange={setCitizenGeography}
+                            required
+                            showCoverage
+                          />
+                          <PresentAddressFields
+                            prefix="citizen-present"
+                            value={citizenPresentAddress}
+                            onChange={setCitizenPresentAddress}
+                          />
+                        </>
+                      )}
+                      {regStep === 2 && (
+                        <CitizenDetailsFields
+                          prefix="citizen-details"
+                          value={citizenDetails}
+                          onChange={setCitizenDetails}
+                        />
+                      )}
+                      <div className="actions">
+                        {regStep > 0 && (
+                          <button
+                            type="button"
+                            className="secondary"
+                            disabled={busy}
+                            onClick={() => setRegStep(regStep - 1)}
+                          >
+                            {choose({ bn: "পেছনে", en: "Back" })}
+                          </button>
+                        )}
+                        {regStep < 2 ? (
+                          <button type="submit">
+                            {choose({ bn: "পরবর্তী ধাপ", en: "Continue" })}
+                          </button>
+                        ) : (
+                          /* P2-7: the submit is full-strength primary —
+                             never a washed-out default. */
+                          <button disabled={busy} className="primary-strong">
+                            {t("Register citizen")}
+                          </button>
+                        )}
+                      </div>
                     </form>
                   </section>
                 ),
@@ -1355,174 +2123,335 @@ export function WorkspaceApp({
                   ),
                 )}
               </div>
-              <form
-                className="reference-lookup"
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  void run(async () => {
-                    const found = await api(
-                      `/applications/lookup?${new URLSearchParams({ reference: applicationReference.trim() })}`,
-                    );
-                    await openApplication(found.application.id);
-                  });
-                }}
-              >
-                <label htmlFor="application-reference">
-                  {t("Find application or certificate")}
-                </label>
-                <div className="reference-lookup-controls">
-                  <input
-                    id="application-reference"
-                    value={applicationReference}
-                    onChange={(e) => setApplicationReference(e.target.value)}
-                    required
-                    maxLength={120}
-                    aria-describedby="application-reference-hint"
-                    placeholder={t(
-                      "Full DigitalUnion application ID or certificate number",
-                    )}
-                  />
-                  <button disabled={busy || !applicationReference.trim()}>
-                    {t("Find record")}
-                  </button>
-                </div>
-                <p id="application-reference-hint" className="hint">
-                  {t(
-                    "Use a DigitalUnion reference from your account or certificate. Numbers issued by other websites are not supported. Open an issued record to download or renew it.",
-                  )}
-                </p>
-              </form>
-              <label htmlFor="application-search">
-                {t("Search applications")}
-              </label>
-              <input
-                id="application-search"
-                placeholder={t(
-                  "Application ID, citizen name or reference",
-                )}
-                value={appSearch}
-                onChange={(e) => setAppSearch(e.target.value)}
-              />
-              <label htmlFor="state-filter">{t("Status filter")}</label>
-              <select
-                id="state-filter"
-                value={filter}
-                onChange={(e) => {
-                  setFilter(e.target.value);
-                  setAppPage(1);
-                }}
-              >
-                <option value="">{t("All states")}</option>
-                {tx(
-                  [
-                    "DRAFT",
-                    "SUBMITTED",
-                    "UNDER_REVIEW",
-                    "CORRECTION_REQUIRED",
-                    "RESUBMITTED",
-                    "APPROVED",
-                    "ISSUED",
-                    "REJECTED",
-                    "CANCELLED",
-                    "REVOKED",
-                  ].map((s) => (
-                    <option key={s} value={s}>
-                      {tx(s)}
-                    </option>
-                  )),
-                )}
-              </select>
-              <label htmlFor="service-filter">
-                {choose({ bn: "সেবা অনুযায়ী ছাঁকুন", en: "Filter by service" })}
-              </label>
-              <select
-                id="service-filter"
-                value={appService}
-                onChange={(e) => {
-                  setAppService(e.target.value);
-                  setAppPage(1);
-                }}
-              >
-                <option value="">
-                  {choose({ bn: "সব সেবা", en: "All services" })}
-                </option>
-                {tx(
-                  catalog.map((s) => (
-                    <option key={s.service_no} value={s.service_no}>
-                      {tx(`#${s.service_no} ${recordName(s)}`)}
-                    </option>
-                  )),
-                )}
-              </select>
-              <div className="form-grid date-range">
-                <div className="field">
-                  <label htmlFor="application-from">{choose({ bn: "যে তারিখ থেকে", en: "From date" })}</label>
-                  <input
-                    id="application-from"
-                    type="date"
-                    value={appFrom}
-                    max={appTo || undefined}
-                    onChange={(e) => {
-                      setAppFrom(e.target.value);
-                      setAppPage(1);
-                    }}
-                  />
-                </div>
-                <div className="field">
-                  <label htmlFor="application-to">{choose({ bn: "যে তারিখ পর্যন্ত", en: "To date" })}</label>
-                  <input
-                    id="application-to"
-                    type="date"
-                    value={appTo}
-                    min={appFrom || undefined}
-                    onChange={(e) => {
-                      setAppTo(e.target.value);
-                      setAppPage(1);
-                    }}
-                  />
-                </div>
-                <div className="check-field">
-                  <label htmlFor="application-renewals">
+              {/* FULL-UIUX-01 (B20/P1-9): ONE toolbar row — search, status
+                  and service together; everything else lives behind the
+                  "আরও ফিল্টার" disclosure, so the first row of results is
+                  above the fold instead of under a filter stack. */}
+              <div className="app-toolbar">
+                <div className="app-toolbar-main">
+                  <div className="app-toolbar-field app-toolbar-search">
+                    <label htmlFor="application-search">
+                      {choose({ bn: "আবেদন খুঁজুন", en: "Search applications" })}
+                    </label>
                     <input
-                      id="application-renewals"
-                      type="checkbox"
-                      checked={appRenewals}
-                      onChange={(e) => {
-                        setAppRenewals(e.target.checked);
-                        setAppPage(1);
-                      }}
+                      id="application-search"
+                      placeholder={choose({
+                        bn: "রেফারেন্স, নাগরিকের নাম বা সেবা",
+                        en: "Reference, citizen name or service",
+                      })}
+                      value={appSearch}
+                      onChange={(e) => setAppSearch(e.target.value)}
                     />
-                    <span>{choose({ bn: "শুধু নবায়নের আবেদন", en: "Renewals only" })}</span>
-                  </label>
+                  </div>
+                  <div className="app-toolbar-field">
+                    <label htmlFor="state-filter">
+                      {choose({ bn: "অবস্থা", en: "Status" })}
+                    </label>
+                    <select
+                      id="state-filter"
+                      value={filter}
+                      onChange={(e) => {
+                        setFilter(e.target.value);
+                        setAppPage(1);
+                        writeRoute(
+                          e.target.value || appService
+                            ? `#/applications?${new URLSearchParams({
+                                ...(e.target.value ? { state: e.target.value } : {}),
+                                ...(appService ? { service: appService } : {}),
+                              })}`
+                            : "#/applications",
+                        );
+                      }}
+                    >
+                      <option value="">{choose({ bn: "সব অবস্থা", en: "All states" })}</option>
+                      {tx(
+                        [
+                          "DRAFT",
+                          "SUBMITTED",
+                          "UNDER_REVIEW",
+                          "CORRECTION_REQUIRED",
+                          "RESUBMITTED",
+                          "APPROVED",
+                          "ISSUANCE_PENDING",
+                          "ISSUED",
+                          "REJECTED",
+                          "CANCELLED",
+                          "REVOKED",
+                        ].map((s) => (
+                          <option key={s} value={s}>
+                            {choose(applicationStatusMeta(s))}
+                          </option>
+                        )),
+                      )}
+                    </select>
+                  </div>
+                  <div className="app-toolbar-field">
+                    <label htmlFor="service-filter">
+                      {choose({ bn: "সেবা", en: "Service" })}
+                    </label>
+                    <select
+                      id="service-filter"
+                      value={appService}
+                      onChange={(e) => {
+                        setAppService(e.target.value);
+                        setAppPage(1);
+                        writeRoute(
+                          filter || e.target.value
+                            ? `#/applications?${new URLSearchParams({
+                                ...(filter ? { state: filter } : {}),
+                                ...(e.target.value ? { service: e.target.value } : {}),
+                              })}`
+                            : "#/applications",
+                        );
+                      }}
+                    >
+                      <option value="">
+                        {choose({ bn: "সব সেবা", en: "All services" })}
+                      </option>
+                      {tx(
+                        catalog.map((s) => (
+                          <option key={s.service_no} value={s.service_no}>
+                            {tx(recordName(s))}
+                          </option>
+                        )),
+                      )}
+                    </select>
+                  </div>
                 </div>
-              </div>
-              <div className="application-filter-tools">
-                <p className="hint" role="status">
-                  {appTotal.toLocaleString(
-                    language === "bn" ? "bn-BD" : "en-GB",
-                  )}{" "}
-                  {choose({ bn: "টি আবেদন", en: "applications" })}
-                </p>
-                {(filter || appService || appSearch) && (
-                  <button
-                    className="secondary"
-                    onClick={clearApplicationFilters}
-                  >
-                    {choose({ bn: "সব ফিল্টার মুছুন", en: "Clear filters" })}
-                  </button>
+                {(filter || appService || appSearch || appFrom || appTo || appRenewals) && (
+                  <div className="app-filter-chips">
+                    {filter && (
+                      <span className="app-chip">
+                        {choose(applicationStatusMeta(filter))}
+                        <button
+                          type="button"
+                          aria-label={choose({ bn: "অবস্থার ফিল্টার সরান", en: "Remove status filter" })}
+                          onClick={() => {
+                            setFilter("");
+                            setAppPage(1);
+                          }}
+                        >
+                          ×
+                        </button>
+                      </span>
+                    )}
+                    {appService && (
+                      <span className="app-chip">
+                        {tx(
+                          recordName(
+                            catalog.find(
+                              (s) => String(s.service_no) === appService,
+                            ),
+                          ),
+                        )}
+                        <button
+                          type="button"
+                          aria-label={choose({ bn: "সেবার ফিল্টার সরান", en: "Remove service filter" })}
+                          onClick={() => {
+                            setAppService("");
+                            setAppPage(1);
+                          }}
+                        >
+                          ×
+                        </button>
+                      </span>
+                    )}
+                    {appSearch && (
+                      <span className="app-chip">
+                        “{appSearch}”
+                        <button
+                          type="button"
+                          aria-label={choose({ bn: "খোঁজা মুছুন", en: "Clear search" })}
+                          onClick={() => setAppSearch("")}
+                        >
+                          ×
+                        </button>
+                      </span>
+                    )}
+                    {(appFrom || appTo) && (
+                      <span className="app-chip">
+                        {appFrom ? formatDate(appFrom, language) : "…"} —{" "}
+                        {appTo ? formatDate(appTo, language) : "…"}
+                        <button
+                          type="button"
+                          aria-label={choose({ bn: "তারিখের ফিল্টার সরান", en: "Remove date filter" })}
+                          onClick={() => {
+                            setAppFrom("");
+                            setAppTo("");
+                            setAppPage(1);
+                          }}
+                        >
+                          ×
+                        </button>
+                      </span>
+                    )}
+                    {appRenewals && (
+                      <span className="app-chip">
+                        {choose({ bn: "শুধু নবায়ন", en: "Renewals only" })}
+                        <button
+                          type="button"
+                          aria-label={choose({ bn: "নবায়নের ফিল্টার সরান", en: "Remove renewals filter" })}
+                          onClick={() => {
+                            setAppRenewals(false);
+                            setAppPage(1);
+                          }}
+                        >
+                          ×
+                        </button>
+                      </span>
+                    )}
+                    <button
+                      className="text-button"
+                      onClick={clearApplicationFilters}
+                    >
+                      {choose({ bn: "সব ফিল্টার মুছুন", en: "Clear filters" })}
+                    </button>
+                  </div>
                 )}
+                <details className="app-more-filters">
+                  <summary>
+                    {choose({ bn: "আরও ফিল্টার ও রেফারেন্স খোঁজা", en: "More filters & reference lookup" })}
+                  </summary>
+                  <div className="form-grid date-range">
+                    <div className="field">
+                      <label htmlFor="application-from">{choose({ bn: "যে তারিখ থেকে", en: "From date" })}</label>
+                      <input
+                        id="application-from"
+                        type="date"
+                        value={appFrom}
+                        max={appTo || undefined}
+                        onChange={(e) => {
+                          setAppFrom(e.target.value);
+                          setAppPage(1);
+                        }}
+                      />
+                    </div>
+                    <div className="field">
+                      <label htmlFor="application-to">{choose({ bn: "যে তারিখ পর্যন্ত", en: "To date" })}</label>
+                      <input
+                        id="application-to"
+                        type="date"
+                        value={appTo}
+                        min={appFrom || undefined}
+                        onChange={(e) => {
+                          setAppTo(e.target.value);
+                          setAppPage(1);
+                        }}
+                      />
+                    </div>
+                    <div className="check-field">
+                      <label htmlFor="application-renewals">
+                        <input
+                          id="application-renewals"
+                          type="checkbox"
+                          checked={appRenewals}
+                          onChange={(e) => {
+                            setAppRenewals(e.target.checked);
+                            setAppPage(1);
+                          }}
+                        />
+                        <span>{choose({ bn: "শুধু নবায়নের আবেদন", en: "Renewals only" })}</span>
+                      </label>
+                    </div>
+                    <div className="field">
+                      <label htmlFor="application-page-size">
+                        {choose({ bn: "প্রতি পৃষ্ঠায় আবেদন", en: "Applications per page" })}
+                      </label>
+                      <select
+                        id="application-page-size"
+                        value={appPageSize}
+                        onChange={(e) => {
+                          setAppPageSize(Number(e.target.value));
+                          setAppPage(1);
+                        }}
+                      >
+                        {tx(
+                          [10, 25, 50, 100].map((n) => (
+                            <option key={n} value={n}>
+                              {tx(n)}
+                            </option>
+                          )),
+                        )}
+                      </select>
+                    </div>
+                  </div>
+                  <form
+                    className="reference-lookup"
+                    onSubmit={(e) => {
+                      e.preventDefault();
+                      void run(async () => {
+                        const found = await api(
+                          `/applications/lookup?${new URLSearchParams({ reference: applicationReference.trim() })}`,
+                        );
+                        await openApplication(found.application.id);
+                      });
+                    }}
+                  >
+                    <label htmlFor="application-reference">
+                      {choose({
+                        bn: "রেফারেন্স দিয়ে আবেদন বা সনদ খুঁজুন",
+                        en: "Find application or certificate by reference",
+                      })}
+                    </label>
+                    <div className="reference-lookup-controls">
+                      <input
+                        id="application-reference"
+                        value={applicationReference}
+                        onChange={(e) => setApplicationReference(e.target.value)}
+                        required
+                        maxLength={120}
+                        aria-describedby="application-reference-hint"
+                        placeholder={choose({
+                          bn: "সম্পূর্ণ রেফারেন্স নম্বর বা সনদ নম্বর",
+                          en: "Full reference or certificate number",
+                        })}
+                      />
+                      {/* FULL-UIUX-01 (B25/P1-15): the button renders at full
+                          strength — the required input itself guards the
+                          empty submit; it no longer washes out while typing. */}
+                      <button disabled={busy}>
+                        {choose({ bn: "খুঁজুন", en: "Find record" })}
+                      </button>
+                    </div>
+                    <p id="application-reference-hint" className="hint">
+                      {choose({
+                        bn: "আপনার অ্যাকাউন্ট বা সনদে থাকা DigitalUnion রেফারেন্স ব্যবহার করুন। অন্য ওয়েবসাইটের নম্বর এখানে চলবে না। ইস্যু হওয়া রেকর্ড খুলে ডাউনলোড বা নবায়ন করা যায়।",
+                        en: "Use a DigitalUnion reference from your account or certificate. Numbers issued by other websites are not supported. Open an issued record to download or renew it.",
+                      })}
+                    </p>
+                  </form>
+                </details>
+                <div className="application-filter-tools">
+                  <p className="hint" role="status">
+                    {appTotal.toLocaleString(
+                      language === "bn" ? "bn-BD" : "en-GB",
+                    )}{" "}
+                    {choose({ bn: "টি আবেদন", en: "applications" })}
+                  </p>
+                </div>
               </div>
               <div className="table-wrap responsive-table">
                 <table>
                   <thead>
                     <tr>
-                      <th>{t("Application")}</th>
-                      <th>{t("Service")}</th>
-                      <th>{t("Status")}</th>
-                      <th>{t("Open")}</th>
+                      <th>{choose({ bn: "রেফারেন্স", en: "Reference" })}</th>
+                      {/* P2-3: role-shaped columns — a citizen's own list
+                          drops the Citizen column (every row is them). */}
+                      {role !== "citizen" && (
+                        <th>{choose({ bn: "নাগরিক", en: "Citizen" })}</th>
+                      )}
+                      <th>{choose({ bn: "সেবা", en: "Service" })}</th>
+                      <th>{choose({ bn: "অবস্থা", en: "Status" })}</th>
+                      <th>
+                        <span className="visually-hidden">
+                          {choose({ bn: "খুলুন", en: "Open" })}
+                        </span>
+                      </th>
                     </tr>
                   </thead>
-                  <tbody>{tx(applications.map(applicationRow))}</tbody>
+                  <tbody>
+                    {tx(applications.map((a) => applicationRow(a, role === "citizen")))}
+                  </tbody>
                 </table>
               </div>
               {tx(busy && !applications.length && <SkeletonRows rows={5} />)}
@@ -1593,41 +2522,24 @@ export function WorkspaceApp({
                   {t("Next applications ")}
                 </button>
               </div>
-              <label htmlFor="application-page-size">
-                {t("Applications per page")}
-              </label>
-              <select
-                id="application-page-size"
-                value={appPageSize}
-                onChange={(e) => {
-                  setAppPageSize(Number(e.target.value));
-                  setAppPage(1);
-                }}
-              >
-                {tx(
-                  [10, 25, 50, 100].map((n) => (
-                    <option key={n} value={n}>
-                      {tx(n)}
-                    </option>
-                  )),
-                )}
-              </select>
             </section>
           ),
         )}
         {tx(
           page === "applications" && detail && (
             <>
+              {/* FULL-UIUX-01 (B18/P1-7 + OWNER-DECISION 3/UX S5): the detail
+                  is a two-column surface — the record in the main column,
+                  a sticky decision rail beside it (status, reference,
+                  completeness, reason, decision actions). */}
+              <div className="detail-layout">
+              <div className="detail-main">
               <section className="panel">
-                <button className="text-button" onClick={() => setDetail(null)}>
-                  {t("← All applications ")}
+                <button className="text-button" onClick={closeDetail}>
+                  {choose({ bn: "← সব আবেদন", en: "← All applications" })}
                 </button>
                 <div className="section-heading">
                   <div>
-                    <span className="eyebrow">
-                      {t("APPLICATION ")}
-                      {tx(application.id?.slice(0, 8))}
-                    </span>
                     <h2>
                       {tx(
                         recordName(
@@ -1639,10 +2551,11 @@ export function WorkspaceApp({
                         ) || "Application details",
                       )}
                     </h2>
+                    <RefChip value={application.reference || application.id} />
                   </div>
-                  <span className="status">
-                    {tx(application.state || application.status)}
-                  </span>
+                  <ApplicationStatus
+                    state={String(application.state || application.status || "")}
+                  />
                 </div>
                 {tx(
                   detail.citizen && (
@@ -1684,18 +2597,6 @@ export function WorkspaceApp({
                     })}
                   </p>
                 )}
-                {detail.profileCompleteness &&
-                  role !== "citizen" &&
-                  !detail.certificate &&
-                  !["ISSUED", "REVOKED", "REJECTED", "CANCELLED"].includes(
-                    application.state,
-                  ) && (
-                    <ProfileCompleteness
-                      completeness={detail.profileCompleteness}
-                      enforced={detail.profileCompleteness.enforced}
-                      context="application"
-                    />
-                  )}
                 <ApplicationGuidance
                   state={application.state || application.status}
                   role={role}
@@ -1708,20 +2609,6 @@ export function WorkspaceApp({
                   }
                   order={detail.order}
                 />
-                <label htmlFor="application-reference">
-                  {t("Full application reference ")}
-                </label>
-                <input
-                  id="application-reference"
-                  readOnly
-                  value={application.reference || application.id}
-                  onFocus={(e) => e.target.select()}
-                />
-                <p className="hint">
-                  {t(
-                    "Use this reference on the public application tracking page. Only status and service information are returned. ",
-                  )}
-                </p>
                 {detail.order && (
                   <>
                     <OrderSummary order={detail.order} />
@@ -1751,34 +2638,31 @@ export function WorkspaceApp({
                     </p>
                   </>
                 )}
-                <DynamicForm
-                  key={application.id}
-                  contextKey={application.id}
-                  schema={(detail.order
+                {(() => {
+                  const detailSchema = (detail.order
                     ? withoutOrderLanguage
                     : (value: ReturnType<typeof getServiceSchema>) => value)(
                     getServiceSchema(
                       application.serviceNo || application.service_no,
                       application.schemaVersion || 1,
                     ),
-                  )}
-                  citizenId={application.citizenId}
-                  value={detailPayload}
-                  onChange={(v) => setDetail({ ...detail, payload: v })}
-                  disabled={
-                    !(
-                      (staff || role === "citizen") &&
-                      ["DRAFT", "CORRECTION_REQUIRED"].includes(
-                        application.state,
-                      )
-                    )
-                  }
-                />
-                {tx(
-                  (staff || role === "citizen") &&
-                    ["DRAFT", "CORRECTION_REQUIRED"].includes(
-                      application.state,
-                    ) && (
+                  );
+                  const canEditPayload =
+                    (staff || role === "citizen") &&
+                    ["DRAFT", "CORRECTION_REQUIRED"].includes(application.state);
+                  // FULL-UIUX-01 (B18/P1-7): a non-editable payload renders
+                  // as the shared read-only summary — never a greyed-out
+                  // form pretending to be a record.
+                  return canEditPayload ? (
+                    <>
+                      <DynamicForm
+                        key={application.id}
+                        contextKey={application.id}
+                        schema={detailSchema}
+                        citizenId={application.citizenId}
+                        value={detailPayload}
+                        onChange={(v) => setDetail({ ...detail, payload: v })}
+                      />
                       <button
                         className="secondary"
                         onClick={() =>
@@ -1791,24 +2675,26 @@ export function WorkspaceApp({
                               },
                             );
                             await openApplication(application.id);
-                            setMessage("Changes saved.");
+                            setMessage(
+                              choose({
+                                bn: "পরিবর্তন সংরক্ষিত হয়েছে।",
+                                en: "Changes saved.",
+                              }),
+                            );
                           })
                         }
                       >
-                        {t("Save changes ")}
+                        {choose({ bn: "পরিবর্তন সংরক্ষণ করুন", en: "Save changes" })}
                       </button>
-                    ),
-                )}
-                <div id="application-actions" tabIndex={-1} />
-                <label htmlFor="reason">
-                  {t("Decision or revocation reason ")}
-                </label>
-                <textarea
-                  id="reason"
-                  value={reason}
-                  onChange={(e) => setReason(e.target.value)}
-                  placeholder={t("Explain this decision")}
-                />
+                    </>
+                  ) : (
+                    <PayloadDetails
+                      schema={detailSchema}
+                      payload={detailPayload}
+                    />
+                  );
+                })()}
+                {!approver && <div id="application-actions" tabIndex={-1} />}
                 <div className="actions">
                   {tx(
                     (staff || role === "citizen") &&
@@ -1820,7 +2706,7 @@ export function WorkspaceApp({
                           disabled={busy}
                           onClick={() => run(() => transition("cancel"))}
                         >
-                          {t("Cancel application ")}
+                          {choose({ bn: "আবেদন বাতিল করুন", en: "Cancel application" })}
                         </button>
                       ),
                   )}
@@ -1831,23 +2717,7 @@ export function WorkspaceApp({
                           disabled={busy}
                           onClick={() => run(() => transition("submit"))}
                         >
-                          {tx(actionText.submit)}
-                        </button>
-                      ),
-                  )}
-                  {tx(
-                    approver &&
-                      ["SUBMITTED", "RESUBMITTED"].includes(
-                        application.state,
-                      ) && (
-                        <button
-                          disabled={busy}
-                          className="secondary"
-                          onClick={() =>
-                            run(() => transition("request_correction"))
-                          }
-                        >
-                          {tx(actionText.request_correction)}
+                          {choose({ bn: "আবেদন জমা দিন", en: "Submit application" })}
                         </button>
                       ),
                   )}
@@ -1858,78 +2728,7 @@ export function WorkspaceApp({
                           disabled={busy}
                           onClick={() => run(() => transition("resubmit"))}
                         >
-                          {tx(actionText.resubmit)}
-                        </button>
-                      ),
-                  )}
-                  {tx(
-                    approver &&
-                      ["SUBMITTED", "RESUBMITTED"].includes(
-                        application.state,
-                      ) && (
-                        <button
-                          disabled={busy}
-                          onClick={() => run(() => transition("approve"))}
-                        >
-                          {tx(actionText.approve)}
-                        </button>
-                      ),
-                  )}
-                  {tx(
-                    approver &&
-                      ["SUBMITTED", "RESUBMITTED"].includes(
-                        application.state,
-                      ) && (
-                        <button
-                          disabled={busy}
-                          className="secondary"
-                          onClick={() => run(() => transition("summon"))}
-                        >
-                          {tx(actionText.summon)}
-                        </button>
-                      ),
-                  )}
-                  {tx(
-                    approver &&
-                      ["SUBMITTED", "RESUBMITTED"].includes(
-                        application.state,
-                      ) && (
-                        <button
-                          className="danger"
-                          disabled={busy}
-                          onClick={() => run(() => transition("reject"))}
-                        >
-                          {tx(actionText.reject)}
-                        </button>
-                      ),
-                  )}
-                  {tx(
-                    approver &&
-                      ["APPROVED", "ISSUANCE_PENDING", "ISSUED"].includes(
-                        application.state,
-                      ) && (
-                        <button
-                          disabled={busy}
-                          onClick={() =>
-                            run(async () => {
-                              await api(
-                                `/applications/${application.id}/issue`,
-                                "POST",
-                                {},
-                              );
-                              await openApplication(application.id);
-                              await refresh();
-                              setMessage(
-                                `Certificate issued. The application fee was settled at submission; retries return the same certificate.`,
-                              );
-                            })
-                          }
-                        >
-                          {tx(
-                            application.state === "ISSUED"
-                              ? "Retry issuance safely"
-                              : "Issue certificate",
-                          )}
+                          {choose({ bn: "আবার জমা দিন", en: "Resubmit application" })}
                         </button>
                       ),
                   )}
@@ -1942,8 +2741,34 @@ export function WorkspaceApp({
                 {tx(
                   detail.renewal && (
                     <p className="notice">
-                      {t("Renewal lineage: ")}
-                      {tx(JSON.stringify(detail.renewal))}
+                      {choose({
+                        bn: "এটি একটি নবায়নের আবেদন। আগের সনদ নম্বর: ",
+                        en: "This is a renewal application. Source certificate number: ",
+                      })}
+                      {detail.renewal.sourceNumber ? (
+                        <RefChip value={String(detail.renewal.sourceNumber)} />
+                      ) : (
+                        tx("—")
+                      )}
+                      {detail.renewal.sourceApplicationId && (
+                        <>
+                          {tx(" ")}
+                          <button
+                            type="button"
+                            className="text-button"
+                            onClick={() =>
+                              run(() =>
+                                openApplication(detail.renewal.sourceApplicationId),
+                              )
+                            }
+                          >
+                            {choose({
+                              bn: "আগের আবেদনটি খুলুন",
+                              en: "Open the source application",
+                            })}
+                          </button>
+                        </>
+                      )}
                     </p>
                   ),
                 )}
@@ -2025,33 +2850,255 @@ export function WorkspaceApp({
                 </h2>
                 <ol className="timeline">
                   {tx(
-                    (detail.events || []).map((event: any, i: number) => (
-                      <li key={event.id || i}>
-                        <strong>
-                          {tx(
-                            event.action ||
-                              event.toState ||
-                              event.to_state ||
-                              event.event_type,
-                          )}
-                        </strong>
-                        <p>{tx(event.reason || "Recorded action")}</p>
-                        <small>
-                          {tx(event.createdAt || event.created_at)}
-                          {t(" ·")}
-                          {tx(" ")}
-                          {tx(event.actorId || event.actor_id)}
-                        </small>
-                      </li>
-                    )),
+                    (detail.events || [])
+                      /* REFINEMENT-02 P2-5: issuance used to appear twice
+                         — the approve event ("অনুমোদন সম্পন্ন — সনদ ইস্যু
+                         হয়েছে") and a paired state event to ISSUED at the
+                         same timestamp. One issuance event: the paired
+                         state row is dropped when its approve twin exists. */
+                      .filter((event: any, _i: number, all: any[]) => {
+                        const toState = event.toState || event.to_state;
+                        const actionKey = String(event.action || "").toLowerCase();
+                        if (toState !== "ISSUED" || actionKey === "approve")
+                          return true;
+                        const stamp = event.createdAt || event.created_at;
+                        return !all.some(
+                          (other: any) =>
+                            String(other.action || "").toLowerCase() ===
+                              "approve" &&
+                            (other.createdAt || other.created_at) === stamp,
+                        );
+                      })
+                      .map((event: any, i: number) => {
+                      // FULL-UIUX-01 (B21/P1-10): localised dates, named
+                      // actions, actor ROLES — never raw ISO strings or
+                      // actor UUIDs.
+                      const actionKey = String(
+                        event.action || "",
+                      ).toLowerCase();
+                      const toState = event.toState || event.to_state;
+                      const stateMeta = toState
+                        ? applicationStatusMeta(String(toState))
+                        : null;
+                      const label = actionDone[actionKey]
+                        ? choose(actionDone[actionKey])
+                        : stateMeta
+                          ? choose(stateMeta)
+                          : choose({
+                              bn: "নথিভুক্ত কাজ",
+                              en: "Recorded action",
+                            });
+                      const actorRole =
+                        event.actorRole || event.actor_role || event.role;
+                      return (
+                        <li key={event.id || i}>
+                          <strong>{label}</strong>
+                          {event.reason && <p>{tx(event.reason)}</p>}
+                          <small>
+                            {formatDateTime(
+                              event.createdAt || event.created_at,
+                              language,
+                            )}
+                            {actorRole && roleLabels[String(actorRole)]
+                              ? ` · ${choose(roleLabels[String(actorRole)])}`
+                              : ""}
+                          </small>
+                        </li>
+                      );
+                    }),
                   )}
                 </ol>
                 <p className="hint">
-                  {t("Payload versions:")}
-                  {tx(" ")}
-                  {tx(detail.versions?.length ?? "preserved by server")}
+                  {choose({ bn: "তথ্যের সংস্করণ: ", en: "Payload versions: " })}
+                  {tx(
+                    detail.versions?.length != null
+                      ? localDigits(String(detail.versions.length), language)
+                      : choose({
+                          bn: "সার্ভারে সংরক্ষিত",
+                          en: "preserved by server",
+                        }),
+                  )}
                 </p>
               </section>
+              </div>
+              <aside className="detail-rail" aria-label={choose({ bn: "সিদ্ধান্ত ও অবস্থা", en: "Decision and status" })}>
+                <div id={approver ? "application-actions" : undefined} tabIndex={-1} />
+                <div className="detail-rail-block">
+                  <span className="detail-rail-label">
+                    {choose({ bn: "বর্তমান অবস্থা", en: "Current status" })}
+                  </span>
+                  <ApplicationStatus
+                    state={String(application.state || application.status || "")}
+                  />
+                  <span className="detail-rail-label">
+                    {choose({ bn: "রেফারেন্স", en: "Reference" })}
+                  </span>
+                  {/* FULL-UIUX-01 (C32/P2-8): the reference is copyable
+                      text (RefChip), never a read-only form input. */}
+                  <RefChip value={application.reference || application.id} />
+                  <p className="hint">
+                    {choose({
+                      bn: "এই রেফারেন্স দিয়ে সর্বজনীন অবস্থা পৃষ্ঠায় আবেদনের অবস্থা দেখা যায় — শুধু অবস্থা ও সেবার তথ্য ফেরত আসে।",
+                      en: "This reference works on the public tracking page. Only status and service information are returned.",
+                    })}
+                  </p>
+                  {/* P0-4: on non-decision states the rail is a light
+                      summary card — status, reference, issued date and
+                      a verify link — not an empty slab. */}
+                  {detail.certificate && (
+                    <>
+                      <span className="detail-rail-label">
+                        {choose({ bn: "ইস্যুর তারিখ", en: "Issued" })}
+                      </span>
+                      <span>
+                        {formatDate(detail.certificate.issuedAt, language)}
+                      </span>
+                      <a
+                        href={
+                          detail.certificate.verificationUrl || "/verify"
+                        }
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        {choose({
+                          bn: "সনদ যাচাই করুন",
+                          en: "Verify this certificate",
+                        })}
+                      </a>
+                    </>
+                  )}
+                </div>
+                {detail.profileCompleteness &&
+                  role !== "citizen" &&
+                  !detail.certificate &&
+                  !["ISSUED", "REVOKED", "REJECTED", "CANCELLED"].includes(
+                    application.state,
+                  ) && (
+                    <ProfileCompleteness
+                      completeness={detail.profileCompleteness}
+                      enforced={detail.profileCompleteness.enforced}
+                      context="application"
+                    />
+                  )}
+                {tx(
+                  approver &&
+                    (["SUBMITTED", "RESUBMITTED", "UNDER_REVIEW"].includes(
+                      application.state,
+                    ) ||
+                      detail.certificate) && (
+                      <div className="detail-rail-block">
+                        {/* FULL-UIUX-01 (C33/P2-9): the reason field exists
+                            only where a decision is actually made — it no
+                            longer leaks into the citizen's correction view. */}
+                        <label htmlFor="reason">
+                          {choose({
+                            bn: "সিদ্ধান্ত বা প্রত্যাহারের কারণ",
+                            en: "Decision or revocation reason",
+                          })}
+                        </label>
+                        <textarea
+                          id="reason"
+                          value={reason}
+                          onChange={(e) => setReason(e.target.value)}
+                          placeholder={choose({
+                            bn: "সিদ্ধান্তের কারণ লিখুন",
+                            en: "Explain this decision",
+                          })}
+                        />
+                      </div>
+                    ),
+                )}
+                {tx(
+                  approver &&
+                    ["SUBMITTED", "RESUBMITTED", "UNDER_REVIEW"].includes(
+                      application.state,
+                    ) && (
+                      <div className="detail-rail-actions">
+                        <button
+                          disabled={busy}
+                          onClick={() => run(() => transition("approve"))}
+                        >
+                          {choose({
+                            bn: "অনুমোদন করে সনদ ইস্যু করুন",
+                            en: "Approve and issue certificate",
+                          })}
+                        </button>
+                        <button
+                          disabled={busy}
+                          className="secondary"
+                          onClick={() =>
+                            run(() => transition("request_correction"))
+                          }
+                        >
+                          {choose({
+                            bn: "সংশোধন চান",
+                            en: "Request correction",
+                          })}
+                        </button>
+                        <button
+                          disabled={busy}
+                          className="secondary"
+                          onClick={() => run(() => transition("summon"))}
+                        >
+                          {choose({
+                            bn: "আবেদনকারীকে আসতে বলুন",
+                            en: "Ask the applicant to come",
+                          })}
+                        </button>
+                        {/* P0-4: the destructive action is separated from
+                            the decision stack by a divider. */}
+                        <div
+                          className="detail-rail-divider"
+                          aria-hidden="true"
+                        />
+                        <button
+                          className="danger"
+                          disabled={busy}
+                          onClick={() => run(() => transition("reject"))}
+                        >
+                          {choose({ bn: "প্রত্যাখ্যান করুন", en: "Reject application" })}
+                        </button>
+                      </div>
+                    ),
+                )}
+                {tx(
+                  approver &&
+                    ["APPROVED", "ISSUANCE_PENDING", "ISSUED"].includes(
+                      application.state,
+                    ) && (
+                      <div className="detail-rail-actions">
+                        <button
+                          disabled={busy}
+                          onClick={() =>
+                            run(async () => {
+                              await api(
+                                `/applications/${application.id}/issue`,
+                                "POST",
+                                {},
+                              );
+                              await openApplication(application.id);
+                              await refresh();
+                              setMessage(
+                                choose({
+                                  bn: "সনদ ইস্যু হয়েছে। আবেদনের ফি জমার সময়ই নিষ্পত্তি হয়েছে; আবার চেষ্টা করলে একই সনদই ফেরত আসবে।",
+                                  en: "Certificate issued. The application fee was settled at submission; retries return the same certificate.",
+                                }),
+                              );
+                            })
+                          }
+                        >
+                          {application.state === "ISSUED"
+                            ? choose({
+                                bn: "নিরাপদে আবার ইস্যু চেষ্টা করুন",
+                                en: "Retry issuance safely",
+                              })
+                            : choose({ bn: "সনদ ইস্যু করুন", en: "Issue certificate" })}
+                        </button>
+                      </div>
+                    ),
+                )}
+              </aside>
+              </div>
             </>
           ),
         )}
@@ -2084,53 +3131,70 @@ export function WorkspaceApp({
                 <div className="stat">
                   <span>{t("PREPAID BALANCE")}</span>
                   <strong>
-                    {tx(wallet?.balance ?? wallet?.wallet?.balance ?? 0)}
+                    {localDigits(
+                      String(wallet?.balance ?? wallet?.wallet?.balance ?? 0),
+                      language,
+                    )}
                   </strong>
                   <small>
                     {t("Cost follows your office service settings")}
                   </small>
+                  {/* P2-6: one summary card — the top-up CTA sits at the
+                      top with the balance it affects. */}
+                  <a className="text-button" href="#billing-topup">
+                    {choose({ bn: "টপ-আপ করুন ↓", en: "Top up ↓" })}
+                  </a>
                 </div>
                 <div className="stat">
-                  <span>{t("PAYMENT ENVIRONMENT")}</span>
-                  <strong>{t("Sandbox")}</strong>
-                  <small>{t("Engineering fixture prices only")}</small>
+                  {/* FULL-UIUX-01 (B16/P0-4): the second stat is the office's
+                      subscription standing — the "Sandbox" environment
+                      headline is gone from the billing surface. */}
+                  <span>
+                    {choose({ bn: "সাবস্ক্রিপশন", en: "SUBSCRIPTION" })}
+                  </span>
+                  <strong>
+                    {billing?.subscription
+                      ? billing.subscription.status === "ACTIVE"
+                        ? choose({ bn: "সক্রিয়", en: "Active" })
+                        : billing.subscription.status === "PAST_DUE"
+                          ? choose({ bn: "বকেয়া আছে", en: "Past due" })
+                          : billing.subscription.status === "EXPIRED"
+                            ? choose({ bn: "মেয়াদ শেষ", en: "Expired" })
+                            : billing.subscription.status === "CANCELLED"
+                              ? choose({ bn: "বাতিল", en: "Cancelled" })
+                              : choose({ bn: "নথিভুক্ত অবস্থা", en: "Recorded status" })
+                      : choose({ bn: "নেই", en: "None" })}
+                  </strong>
+                  <small>
+                    {billing?.subscription
+                      ? tx(
+                          (billing?.plans || []).find(
+                            (plan: any) =>
+                              plan.id === billing.subscription.planId,
+                          )?.name ||
+                            billing?.currentPlan?.name ||
+                            "",
+                        ) ||
+                        choose({
+                          bn: "নিচে বিস্তারিত দেখুন",
+                          en: "See details below",
+                        })
+                      : choose({
+                          bn: "সক্রিয় সাবস্ক্রিপশন নেই",
+                          en: "No active subscription",
+                        })}
+                  </small>
                 </div>
               </div>
               <PointsWallet>
                 <RechargeRequests />
               </PointsWallet>
               <OfficeRefunds />
-              <section className="panel">
+              <section className="panel" id="billing-topup">
                 <h2>{t("Subscription and top-up")}</h2>
-                {billing?.subscription ? (
-                  <dl className="billing-summary">
-                    <div>
-                      <dt>{choose({ bn: "পরিকল্পনা", en: "Plan" })}</dt>
-                      <dd>
-                        {tx(
-                          (billing?.plans || []).find(
-                            (plan: any) =>
-                              plan.id === billing.subscription.planId,
-                          )?.name ||
-                            billing?.currentPlan?.name ||
-                            "—",
-                        )}
-                      </dd>
-                    </div>
-                    <div>
-                      <dt>{t("Status")}</dt>
-                      <dd>{tx(billing.subscription.status || "—")}</dd>
-                    </div>
-                    <div>
-                      <dt>
-                        {choose({ bn: "ক্রেডিট ব্যালান্স", en: "Credit balance" })}
-                      </dt>
-                      <dd>
-                        {tx(wallet?.balance ?? wallet?.wallet?.balance ?? 0)}
-                      </dd>
-                    </div>
-                  </dl>
-                ) : (
+                {/* P2-6: plan / status / balance live ONCE, in the summary
+                    card at the top of this page — not repeated here. */}
+                {!billing?.subscription && (
                   <p className="hint">
                     {choose({
                       bn: "কোনো সক্রিয় সাবস্ক্রিপশন নেই",
@@ -2159,11 +3223,16 @@ export function WorkspaceApp({
                             : {}),
                         });
                         setBilling(await api("/billing"));
-                        setMessage("Sandbox top-up order created.");
+                        setMessage(
+                          choose({
+                            bn: "১০ ক্রেডিটের টপ-আপ অর্ডার তৈরি হয়েছে।",
+                            en: "10-credit top-up order created.",
+                          }),
+                        );
                       })
                     }
                   >
-                    {t("Create 10-credit top-up ")}
+                    {choose({ bn: "১০ ক্রেডিট টপ-আপ করুন", en: "Create 10-credit top-up" })}
                   </button>
                   {tx(
                     (billing?.plans || []).map((plan: any) => (
@@ -2180,13 +3249,18 @@ export function WorkspaceApp({
                                 : {}),
                             });
                             setBilling(await api("/billing"));
-                            setMessage("Subscription order created.");
+                            setMessage(
+                              choose({
+                                bn: "সাবস্ক্রিপশন অর্ডার তৈরি হয়েছে।",
+                                en: "Subscription order created.",
+                              }),
+                            );
                           })
                         }
                       >
-                        {t("Renew ")}
-                        {tx(plan.name)}
-                        {t(" plan ")}
+                        {choose({ bn: "নবায়ন: ", en: "Renew " })}
+                        {planNameText(plan.name)}
+                        {choose({ bn: " প্ল্যান", en: " plan" })}
                       </button>
                     )),
                   )}
@@ -2206,7 +3280,13 @@ export function WorkspaceApp({
                         (billing?.orders || []).map((o: any) => (
                           <tr key={o.id}>
                             <td>{tx(o.id.slice(0, 8))}</td>
-                            <td>{tx(o.kind)}</td>
+                            <td>
+                              {o.kind === "topup"
+                                ? choose({ bn: "টপ-আপ", en: "Top-up" })
+                                : o.kind === "subscription"
+                                  ? choose({ bn: "সাবস্ক্রিপশন", en: "Subscription" })
+                                  : tx(o.kind)}
+                            </td>
                             <td>
                               {tx(o.amountMinor ?? o.amount_minor)}
                               {tx(
@@ -2216,7 +3296,17 @@ export function WorkspaceApp({
                               )}
                             </td>
                             <td>
-                              {tx(o.status)}
+                              {o.status === "SETTLED"
+                                ? choose({ bn: "নিষ্পত্তি হয়েছে", en: "Settled" })
+                                : o.status === "PENDING"
+                                  ? choose({ bn: "অপেক্ষমাণ", en: "Pending" })
+                                  : o.status === "CANCELLED"
+                                    ? choose({ bn: "বাতিল", en: "Cancelled" })
+                                    : o.status === "EXPIRED"
+                                      ? choose({ bn: "মেয়াদ শেষ", en: "Expired" })
+                                      : o.status === "FAILED"
+                                        ? choose({ bn: "ব্যর্থ", en: "Failed" })
+                                        : choose({ bn: "নথিভুক্ত অবস্থা", en: "Recorded status" })}
                               {tx(" ")}
                               {tx(
                                 o.status !== "SETTLED" &&
@@ -2232,18 +3322,32 @@ export function WorkspaceApp({
                                         );
                                         await refresh();
                                         setMessage(
-                                          "Verified sandbox settlement processed. Replay cannot grant credits twice.",
+                                          choose({
+                                            bn: "পেমেন্ট নিষ্পত্তি সম্পন্ন হয়েছে। একই অর্ডারে পুনরায় নিষ্পত্তি করলে দুইবার ক্রেডিট যোগ হবে না।",
+                                            en: "Payment settled. Settling the same order again cannot grant credits twice.",
+                                          }),
                                         );
                                       })
                                     }
                                   >
-                                    {t("Settle payment")}
+                                    {choose({ bn: "পেমেন্ট নিষ্পত্তি করুন", en: "Settle payment" })}
                                   </button>
                                 ),
                               )}
                             </td>
                           </tr>
                         )),
+                      )}
+                      {/* P2-6: in-body empty row (see ledger). */}
+                      {!(billing?.orders || []).length && (
+                        <tr>
+                          <td colSpan={4} className="empty-cell">
+                            {choose({
+                              bn: "এখনো কোনো অর্ডার নেই — টপ-আপ বা সাবস্ক্রিপশন অর্ডার তৈরি করলে এখানে দেখা যাবে।",
+                              en: "No orders yet — top-up and subscription orders will appear here.",
+                            })}
+                          </td>
+                        </tr>
                       )}
                     </tbody>
                   </table>
@@ -2270,17 +3374,33 @@ export function WorkspaceApp({
                       {tx(
                         (wallet?.ledger || []).map((l: any) => (
                           <tr key={l.id}>
-                            <td>{tx(l.kind)}</td>
-                            <td>{tx(l.delta)}</td>
-                            <td>{tx(l.reason)}</td>
-                            <td>{tx(l.createdAt || l.created_at)}</td>
+                            <td>{choose(ledgerKindMeta(l.kind))}</td>
+                            <td>{localDigits(String(l.delta ?? 0), language)}</td>
+                            <td>{ledgerReasonText(l.reason)}</td>
+                            <td>
+                              {formatDateTime(l.createdAt || l.created_at, language)}
+                            </td>
                           </tr>
                         )),
+                      )}
+                      {/* P2-6: the empty state lives INSIDE the table
+                          body, not as a card floating below the header. */}
+                      {!(wallet?.ledger || []).length && (
+                        <tr>
+                          <td colSpan={4} className="empty-cell">
+                            {choose({
+                              bn: "খতিয়ানে এখনো কোনো এন্ট্রি নেই — ক্রেডিট যোগ বা খরচ হলে প্রতিটি এন্ট্রি এখানে থাকবে।",
+                              en: "No ledger entries yet — every credit addition or charge will be listed here.",
+                            })}
+                          </td>
+                        </tr>
                       )}
                     </tbody>
                   </table>
                 </div>
               </section>
+              {/* P2-6: sections with no data do not render at all. */}
+              {(billing?.invoices || []).length > 0 && (
               <section className="panel">
                 <h2>{t("Invoices")}</h2>
                 <div className="table-wrap">
@@ -2317,6 +3437,7 @@ export function WorkspaceApp({
                   </table>
                 </div>
               </section>
+              )}
             </>
           ),
         )}
@@ -2330,6 +3451,17 @@ export function WorkspaceApp({
             )}
           {tx(page === "admin" && role === "admin" && <AdminWorkspace />)}
           {tx(page === "security" && <AccountSecurity />)}
+          {/* FULL-UIUX-01: the staff guide opens as a themed in-workspace
+              page (the accordion), not a trip out to the public shell. */}
+          {tx(
+            page === "guide" && (
+              <React.Suspense
+                fallback={<p role="status">{t("Loading…")}</p>}
+              >
+                <UserGuide />
+              </React.Suspense>
+            ),
+          )}
           {tx(
             [
               "profile",
@@ -2338,21 +3470,24 @@ export function WorkspaceApp({
               "reports",
               "support",
             ].includes(page) && (
-              <AdditionalWorkspace page={page} session={session} />
+              <AdditionalWorkspace
+                page={page}
+                session={session}
+                onOpenApplication={(id) => void run(() => openApplication(id))}
+              />
             ),
           )}
           {tx(
             page === "owner" && (
-              <>
-                {/* Phase 3D: the owner console is organised into the billing plan
-                    §3.9 sections with a jump nav. Everything stays on one page —
-                    the per-office subscription panel lives on each office card
-                    (Offices section), so no control is hidden behind a tab.
-                    Phase 3E: Coupons and Notices now join the nav (§3.9 order:
-                    Pricing · Coupons · Notices · Permissions · Audit).
-                    Demand list (§3.6, owner-approved 18 Nov): the Registration
-                    demand section sits right after Offices — it is the demand
-                    side of onboarding. */}
+              <div className="owner-console">
+                {/* OWNER-REDESIGN-01: the owner console is a sectioned console —
+                    a sticky sub-navigation (vertical on desktop, horizontal tab
+                    bar on mobile) with exactly ONE section visible at a time,
+                    chosen by state; the links keep their #owner-* hrefs so the
+                    hash, reloads and deep links agree with the visible section.
+                    Branding + witness types moved out of Overview into their
+                    own Settings section. Every control, field, validation and
+                    action is unchanged — presentation only. */}
                 <nav
                   className="owner-nav"
                   aria-label={choose({
@@ -2360,44 +3495,106 @@ export function WorkspaceApp({
                     en: "Platform management sections",
                   })}
                 >
-                  <a href="#owner-overview">
-                    {choose({ bn: "সারসংক্ষেপ", en: "Overview" })}
-                  </a>
-                  <a href="#owner-offices">
-                    {choose({ bn: "অফিসসমূহ", en: "Offices" })}
-                  </a>
-                  <a href="#owner-demand">
-                    {choose({ bn: "নিবন্ধনের চাহিদা", en: "Registration demand" })}
-                  </a>
-                  <a href="#owner-subscriptions">
-                    {choose({ bn: "সাবস্ক্রিপশন", en: "Subscriptions" })}
-                  </a>
-                  <a href="#owner-pricing">
-                    {choose({ bn: "মূল্য নির্ধারণ", en: "Pricing" })}
-                  </a>
-                  <a href="#owner-coupons">
-                    {choose({ bn: "কুপন", en: "Coupons" })}
-                  </a>
-                  <a href="#owner-notices">
-                    {choose({ bn: "নোটিশ", en: "Notices" })}
-                  </a>
-                  <a href="#owner-permissions">
-                    {choose({ bn: "অনুমতি", en: "Permissions" })}
-                  </a>
-                  <a href="#owner-audit">{choose({ bn: "অডিট", en: "Audit" })}</a>
+                  {/* REFINEMENT-02 P1-11: the owner nav now speaks the
+                      workspace sidebar language — grouped sections with
+                      icons and the shared item geometry, not a pill stack. */}
+                  {(
+                    [
+                      {
+                        title: { bn: "প্ল্যাটফর্ম", en: "Platform" },
+                        items: [
+                          ["overview", "dashboard", { bn: "সারসংক্ষেপ", en: "Overview" }],
+                          ["offices", "home", { bn: "অফিসসমূহ", en: "Offices" }],
+                          ["demand", "applications", { bn: "নিবন্ধনের চাহিদা", en: "Registration demand" }],
+                        ],
+                      },
+                      {
+                        title: { bn: "ব্যবসা", en: "Business" },
+                        items: [
+                          ["subscriptions", "billing", { bn: "সাবস্ক্রিপশন", en: "Subscriptions" }],
+                          ["pricing", "payments", { bn: "মূল্য নির্ধারণ", en: "Pricing" }],
+                          ["coupons", "reports", { bn: "কুপন", en: "Coupons" }],
+                        ],
+                      },
+                      {
+                        title: { bn: "সিস্টেম", en: "System" },
+                        items: [
+                          ["notices", "notifications", { bn: "নোটিশ", en: "Notices" }],
+                          ["permissions", "security", { bn: "অনুমতি", en: "Permissions" }],
+                          ["audit", "search", { bn: "অডিট", en: "Audit" }],
+                          ["settings", "admin", { bn: "সেটিংস", en: "Settings" }],
+                        ],
+                      },
+                    ] as const
+                  ).map((group) => (
+                    <div className="ws-nav-group" key={group.title.en}>
+                      <span className="ws-nav-group-title">{choose(group.title)}</span>
+                      {group.items.map(([key, icon, text]) => (
+                        <a
+                          key={key}
+                          href={`#owner-${key}`}
+                          aria-current={ownerSection === key ? "page" : undefined}
+                          onClick={() => setOwnerSection(key)}
+                        >
+                          <NavIcon name={icon} />
+                          <span>{choose(text)}</span>
+                        </a>
+                      ))}
+                    </div>
+                  ))}
                 </nav>
+                <div className="owner-content">
+                {ownerSection === "overview" && (
                 <section className="owner-section" id="owner-overview">
                   <h2>{choose({ bn: "সারসংক্ষেপ", en: "Overview" })}</h2>
+                  {/* P1-11: overview KPIs use the shared StatCard, like
+                      every other dashboard in the product. */}
+                  <div className="kpi-grid">
+                    <StatCard
+                      label={choose({ bn: "মোট অফিস", en: "Offices" })}
+                      value={localDigits(String(tenants.length), language)}
+                      context={choose({ bn: "নিবন্ধিত অফিস", en: "Registered offices" })}
+                      icon={<NavIcon name="home" />}
+                    />
+                    <StatCard
+                      label={choose({ bn: "সক্রিয় সাবস্ক্রিপশন", en: "Active subscriptions" })}
+                      value={localDigits(
+                        String(
+                          tenants.filter((t) => t.subscription?.status === "ACTIVE").length,
+                        ),
+                        language,
+                      )}
+                      context={choose({ bn: "চলমান মেয়াদসহ অফিস", en: "Offices in a running term" })}
+                      icon={<NavIcon name="billing" />}
+                    />
+                    {/* WS4 (Phase 3 remainder), integrated at BUNDLE-06 merge:
+                        total credits across all office wallets, from the
+                        already-loaded tenants list — no extra fetch. */}
+                    <StatCard
+                      label={choose({ bn: "মোট ক্রেডিট", en: "Total credits" })}
+                      value={localDigits(
+                        String(
+                          tenants.reduce(
+                            (sum, t) => sum + (Number(t.balance ?? t.walletBalance) || 0),
+                            0,
+                          ),
+                        ),
+                        language,
+                      )}
+                      context={choose({ bn: "সব অফিসের ব্যালান্সের যোগফল", en: "Sum of all office balances" })}
+                      icon={<NavIcon name="payments" />}
+                    />
+                    <OwnerSettledRevenueCard />
+                  </div>
                   <OwnerOperations />
-                  <OwnerBranding />
-                  <OwnerWitnessTypes />
                 </section>
+                )}
+                {ownerSection === "offices" && (
                 <section className="owner-section" id="owner-offices">
                   <h2>{choose({ bn: "অফিসসমূহ", en: "Offices" })}</h2>
-                  <OwnerOnboarding onSaved={refresh} />
-                  <OwnerInclusionRequests />
+                  {/* FULL-UIUX-01 (C34/P2-10): the offices section is list-first — the office register leads, onboarding and requests follow. */}
                   <section className="panel">
-              <h2>{t("Tenant credit management")}</h2>
+              <h3>{t("Tenant credit management")}</h3>
               <p>
                 {t(
                   "Owner adjustments require a reason and append a compensating ledger entry. Official approval authority belongs to assigned tenant officials. ",
@@ -2406,47 +3603,63 @@ export function WorkspaceApp({
               {tx(
                 tenants.map((officeTenant) => (
                   <div className="tenant-card" key={officeTenant.id}>
-                    <h3>{tx(recordName(officeTenant))}</h3>
-                    <p>
-                      {tx(officeTenant.status)}
-                      {t(" · Credits:")}
-                      {tx(" ")}
-                      {tx(
-                        officeTenant.balance ??
-                          officeTenant.walletBalance ??
-                          "see ledger",
-                      )}
-                    </p>
-                    <button
-                      className={
-                        officeTenant.status === "ACTIVE"
-                          ? "danger"
-                          : "secondary"
-                      }
-                      disabled={busy}
-                      onClick={() =>
-                        run(async () => {
-                          await api(
-                            `/owner/tenants/${officeTenant.id}`,
-                            "PATCH",
-                            {
-                              status:
-                                officeTenant.status === "ACTIVE"
-                                  ? "SUSPENDED"
-                                  : "ACTIVE",
-                            },
-                          );
-                          await refresh();
-                          setMessage("Tenant status updated.");
-                        })
-                      }
-                    >
-                      {tx(
-                        officeTenant.status === "ACTIVE"
-                          ? "Suspend office"
-                          : "Activate office",
-                      )}
-                    </button>
+                    <div className="office-card-head">
+                      <h3>
+                        {tx(recordName(officeTenant))}
+                        <StatusBadge tone={statusTone(officeTenant.status)}>
+                          {officeTenant.status === "ACTIVE"
+                            ? choose({ bn: "সক্রিয়", en: "Active" })
+                            : officeTenant.status === "SUSPENDED"
+                              ? choose({ bn: "স্থগিত", en: "Suspended" })
+                              : choose({ bn: "নথিভুক্ত অবস্থা", en: "Recorded status" })}
+                        </StatusBadge>
+                      </h3>
+                      <button
+                        className={
+                          officeTenant.status === "ACTIVE" ? "danger" : undefined
+                        }
+                        disabled={busy}
+                        onClick={() =>
+                          run(async () => {
+                            await api(
+                              `/owner/tenants/${officeTenant.id}`,
+                              "PATCH",
+                              {
+                                status:
+                                  officeTenant.status === "ACTIVE"
+                                    ? "SUSPENDED"
+                                    : "ACTIVE",
+                              },
+                            );
+                            await refresh();
+                            setMessage(
+                              choose({
+                                bn: "অফিসের অবস্থা হালনাগাদ হয়েছে।",
+                                en: "Tenant status updated.",
+                              }),
+                            );
+                          })
+                        }
+                      >
+                        {tx(
+                          officeTenant.status === "ACTIVE"
+                            ? "Suspend office"
+                            : "Activate office",
+                        )}
+                      </button>
+                    </div>
+                    <div className="labelled-fields">
+                      <div className="labelled-field">
+                        <span className="field-label">{t("Credits")}</span>
+                        <span className="field-value">
+                          {tx(
+                            officeTenant.balance ??
+                              officeTenant.walletBalance ??
+                              "see ledger",
+                          )}
+                        </span>
+                      </div>
+                    </div>
                     <form
                       onSubmit={(e) => {
                         e.preventDefault();
@@ -2461,7 +3674,12 @@ export function WorkspaceApp({
                             },
                           );
                           await refresh();
-                          setMessage("Audited compensating entry added.");
+                          setMessage(
+                            choose({
+                              bn: "অডিটসহ ক্ষতিপূরণমূলক এন্ট্রি যোগ হয়েছে।",
+                              en: "Audited compensating entry added.",
+                            }),
+                          );
                         });
                       }}
                     >
@@ -2498,12 +3716,18 @@ export function WorkspaceApp({
                 )),
               )}
                   </section>
+                  <OwnerOnboarding onSaved={refresh} />
+                  <OwnerInclusionRequests />
                   <OwnerRecharges />
                 </section>
+                )}
+                {ownerSection === "demand" && (
                 <section className="owner-section" id="owner-demand">
                   <h2>{choose({ bn: "নিবন্ধনের চাহিদা", en: "Registration demand" })}</h2>
                   <OwnerDemand />
                 </section>
+                )}
+                {ownerSection === "subscriptions" && (
                 <section className="owner-section" id="owner-subscriptions">
                   <h2>{choose({ bn: "সাবস্ক্রিপশন", en: "Subscriptions" })}</h2>
                   <p className="hint">
@@ -2515,27 +3739,46 @@ export function WorkspaceApp({
                   <OwnerPlans />
                   <OwnerPendingOrders />
                 </section>
+                )}
+                {ownerSection === "pricing" && (
                 <section className="owner-section" id="owner-pricing">
                   <h2>{choose({ bn: "মূল্য নির্ধারণ", en: "Pricing" })}</h2>
                   <OwnerPricing />
                 </section>
+                )}
+                {ownerSection === "coupons" && (
                 <section className="owner-section" id="owner-coupons">
                   <h2>{choose({ bn: "কুপন", en: "Coupons" })}</h2>
                   <OwnerCoupons />
                 </section>
+                )}
+                {ownerSection === "notices" && (
                 <section className="owner-section" id="owner-notices">
                   <h2>{choose({ bn: "নোটিশ", en: "Notices" })}</h2>
                   <OwnerNotices />
                 </section>
+                )}
+                {ownerSection === "permissions" && (
                 <section className="owner-section" id="owner-permissions">
                   <h2>{choose({ bn: "অনুমতি", en: "Permissions" })}</h2>
                   <OwnerAccountRequests />
                 </section>
+                )}
+                {ownerSection === "audit" && (
                 <section className="owner-section" id="owner-audit">
                   <h2>{choose({ bn: "অডিট", en: "Audit" })}</h2>
                   <OwnerAudit />
                 </section>
-              </>
+                )}
+                {ownerSection === "settings" && (
+                <section className="owner-section" id="owner-settings">
+                  <h2>{choose({ bn: "সেটিংস", en: "Settings" })}</h2>
+                  <OwnerBranding />
+                  <OwnerWitnessTypes />
+                </section>
+                )}
+                </div>
+              </div>
             ),
           )}
         </AsyncPanel>
@@ -2543,6 +3786,86 @@ export function WorkspaceApp({
           {branding.name} · {choose({ bn: branding.taglineBn, en: branding.taglineEn })}
         </footer>
       </main>
+      {/* FULL-UIUX-01 (B27/P1-12): the phone workspace gets a bottom tab
+          bar — the role's top destinations (the pending tab carries the
+          queue count) plus a "আরও" sheet with every page. The desktop
+          #workspace-jump select is deleted outright. */}
+      {phoneLayout && (
+        <>
+          {tabSheet && (
+            <div
+              className="ws-tab-sheet"
+              role="dialog"
+              aria-label={choose({ bn: "সব পৃষ্ঠা", en: "All pages" })}
+            >
+              {visiblePages.map((p) => (
+                <button
+                  key={p}
+                  type="button"
+                  data-page={p}
+                  aria-current={page === p ? "page" : undefined}
+                  onClick={() => {
+                    setTabSheet(false);
+                    nav(p);
+                  }}
+                >
+                  <NavIcon name={p} />
+                  <span>{choose({ bn: localized[p], en: labels[p] })}</span>
+                </button>
+              ))}
+            </div>
+          )}
+          <nav
+            className="ws-tabbar"
+            aria-label={choose({ bn: "প্রধান পৃষ্ঠা", en: "Main pages" })}
+          >
+            {["home", "pending", "applications", "services", "citizens", "profile"]
+              .filter((p) => visiblePages.includes(p))
+              .slice(0, 4)
+              .map((p) => (
+                <button
+                  key={p}
+                  type="button"
+                  data-tab={p}
+                  aria-current={page === p ? "page" : undefined}
+                  onClick={() => {
+                    setTabSheet(false);
+                    nav(p);
+                  }}
+                >
+                  <NavIcon name={p} />
+                  <span>
+                    {p === "home"
+                      ? choose({ bn: "হোম", en: "Home" })
+                      : p === "pending"
+                        ? choose({ bn: "অপেক্ষমাণ", en: "Pending" })
+                        : p === "applications"
+                          ? choose({ bn: "আবেদন", en: "Applications" })
+                          : p === "services"
+                            ? choose({ bn: "সেবা", en: "Services" })
+                            : p === "citizens"
+                              ? choose({ bn: "নাগরিক", en: "Citizens" })
+                              : choose({ bn: "প্রোফাইল", en: "Profile" })}
+                  </span>
+                  {p === "pending" && pendingBadge ? (
+                    <span className="ws-nav-badge">
+                      {localDigits(String(pendingBadge), language)}
+                    </span>
+                  ) : null}
+                </button>
+              ))}
+            <button
+              type="button"
+              data-tab="more"
+              aria-expanded={tabSheet}
+              onClick={() => setTabSheet(!tabSheet)}
+            >
+              <NavIcon name="more" />
+              <span>{choose({ bn: "আরও", en: "More" })}</span>
+            </button>
+          </nav>
+        </>
+      )}
     </div>
   );
 }

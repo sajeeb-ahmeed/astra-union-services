@@ -19,7 +19,7 @@ process.env.DEMO_SETTLE_ENABLED = "true";
 type Session = { cookie: string; csrf: string; user: any };
 const sessions: Record<string, Session> = {};
 const run = randomUUID().slice(0, 8),
-  password = "Synthetic-Gateway-Pass!";
+  password = "Synth-Gateway-P1!";
 const admin = new pg.Pool({ connectionString: adminConnectionString });
 let server: ReturnType<typeof app.listen>,
   base: string,

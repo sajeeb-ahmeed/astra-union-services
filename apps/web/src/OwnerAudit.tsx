@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { api } from "./api.js";
 import { choose, useLanguage } from "./i18n.js";
+import { EmptyState } from "./OwnerUi.js";
 
 const label = (bn: string, en: string) => choose({ bn, en });
 
@@ -49,7 +50,13 @@ export function OwnerAudit() {
       )}
       {rows === null && !error && <p role="status">{label("লোড হচ্ছে…", "Loading…")}</p>}
       {rows !== null && rows.length === 0 && (
-        <p>{label("এখনো কোনো প্ল্যাটফর্ম সেটিংস পরিবর্তন হয়নি।", "No platform settings have been changed yet.")}</p>
+        <EmptyState
+          title={label("এখনো কোনো প্ল্যাটফর্ম সেটিংস পরিবর্তন হয়নি।", "No platform settings have been changed yet.")}
+          hint={label(
+            "ফি প্রদানকারী বা ব্র্যান্ডিং বদলালেই এখানে ইতিহাস জমা হবে।",
+            "Fee-payer and branding changes will be recorded here.",
+          )}
+        />
       )}
       {rows !== null && rows.length > 0 && (
         <div className="table-wrap">

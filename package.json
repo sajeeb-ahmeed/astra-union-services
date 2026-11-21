@@ -12,7 +12,7 @@
     "dev:api": "tsx watch apps/api/src/server.ts",
     "dev:web": "vite --config apps/web/vite.config.ts",
     "prebuild": "node scripts/decode-assets.mjs",
-    "build": "tsc --noEmit && vite build --config apps/web/vite.config.ts && node scripts/compress-assets.mjs",
+    "build": "tsc --noEmit && vite build --config apps/web/vite.config.ts && node scripts/compress-assets.mjs && npm run build:seo",
     "typecheck": "tsc --noEmit",
     "db:migrate": "tsx scripts/migrate.ts",
     "db:seed": "node scripts/decode-assets.mjs && tsx scripts/seed.ts",
@@ -31,7 +31,10 @@
     "scanner:run": "tsx scripts/scanner/run.ts",
     "db:bootstrap-cpanel": "tsx scripts/bootstrap-cpanel.ts",
     "db:migrate-cpanel": "tsx scripts/migrate-cpanel.ts",
-    "db:initialize-cpanel": "npm run db:bootstrap-cpanel && npm run db:migrate-cpanel && tsx scripts/initialize.ts"
+    "db:initialize-cpanel": "npm run db:bootstrap-cpanel && npm run db:migrate-cpanel && tsx scripts/initialize.ts",
+    "build:seo": "node --import tsx apps/web/scripts/prerender-public.mjs",
+    "build:api": "tsc -p packages/shared-schemas/tsconfig.build.json && tsc -p apps/api/tsconfig.build.json",
+    "db:backup:offsite": "node scripts/backup/offsite-backup.mjs"
   },
   "dependencies": {
     "@react-pdf/renderer": "^4.9.0",

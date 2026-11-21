@@ -1,0 +1,205 @@
+/* FULL-UIUX-01: sample certificate visual + trust strip (BD plan §3/§6). */
+.sample-cert {
+  position: relative;
+  background: #fff;
+  border: 1px solid var(--du-line, #dde7da);
+  border-radius: 14px;
+  box-shadow: 0 24px 48px rgb(3 40 20 / 28%);
+  padding: 22px 24px;
+  color: var(--du-ink, #1d2b22);
+  overflow: hidden;
+  transform: rotate(1.2deg);
+}
+.sample-cert.is-compact {
+  transform: none;
+  box-shadow: 0 10px 24px rgb(3 40 20 / 14%);
+  padding: 16px 18px;
+}
+/* REFINEMENT-02 P1-1: the full variant is a raster of the real certificate
+   template; the compact variant is a cropped detail (number strip + QR). */
+.sample-cert-doc {
+  padding: 10px;
+}
+.sample-cert-doc-img {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: 8px;
+}
+.sample-cert-chip-overlay {
+  position: absolute;
+  top: 18px;
+  inset-inline-end: 18px;
+  z-index: 1;
+}
+.sample-cert-detail {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.sample-cert-detail .sample-cert-chip {
+  align-self: flex-start;
+  margin-inline-start: 0;
+}
+.sample-cert-detail-number {
+  display: block;
+  width: 100%;
+  height: auto;
+  border: 1px solid var(--du-line, #dde7da);
+  border-radius: 8px;
+}
+.sample-cert-detail-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.sample-cert-detail-qr {
+  width: 76px;
+  height: auto;
+  flex: none;
+  border: 1px solid var(--du-line, #dde7da);
+  border-radius: 8px;
+}
+.sample-cert-detail-row p {
+  margin: 0;
+  font-size: 14px;
+  color: var(--du-muted, #43584a);
+}
+.sample-cert-watermark {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-size: 64px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  color: rgb(4 89 44 / 7%);
+  transform: rotate(-14deg);
+  pointer-events: none;
+  user-select: none;
+}
+.sample-cert-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.sample-cert-head img {
+  border-radius: 8px;
+}
+.sample-cert-head strong {
+  display: block;
+  font-size: 16.5px;
+  color: var(--du-green-800, #03451f);
+}
+.sample-cert-head small {
+  color: var(--du-muted, #43584a);
+}
+.sample-cert-chip {
+  margin-inline-start: auto;
+  flex: none;
+  font-size: 11.5px;
+  font-weight: 700;
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: var(--du-warn-bg, #fff6df);
+  color: var(--du-warn-ink, #6d4d00);
+  border: 1px solid #e7d194;
+}
+.sample-cert-title {
+  text-align: center;
+  font-size: 21px;
+  margin: 16px 0 12px;
+  color: var(--du-green-800, #03451f);
+}
+.sample-cert-number {
+  display: flex;
+  gap: 3px;
+  justify-content: center;
+  margin-bottom: 14px;
+}
+.sample-cert-number span {
+  width: 19px;
+  height: 26px;
+  display: grid;
+  place-items: center;
+  border: 1px solid #b9cdc0;
+  border-radius: 4px;
+  font-weight: 700;
+  font-size: 13.5px;
+  background: #fbfdfb;
+}
+.sample-cert.is-compact .sample-cert-number span {
+  width: 15px;
+  height: 21px;
+  font-size: 11px;
+}
+/* P0-1: the full-size digit strip is 16×19px + 15×3px gaps + 48px
+   padding = 397px of min-content — wider than a 360px viewport, which
+   stretched the hero grid track. Shrink the tiles below 420px so the
+   whole certificate fits a 328px column (16×15 + 15×2 + 32 = 302px). */
+@media (max-width: 420px) {
+  .sample-cert {
+    padding: 18px 16px;
+  }
+  .sample-cert-number {
+    gap: 2px;
+  }
+  .sample-cert-number span {
+    width: 15px;
+    height: 21px;
+    font-size: 11px;
+  }
+}
+.sample-cert-lines {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  margin-bottom: 16px;
+}
+.sample-cert-lines span {
+  height: 7px;
+  border-radius: 99px;
+  background: #e3ece4;
+}
+.sample-cert-foot {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+}
+.sample-cert-qr {
+  border: 1px solid var(--du-line, #dde7da);
+  border-radius: 8px;
+  padding: 4px;
+  line-height: 0;
+}
+.sample-cert-sign {
+  text-align: center;
+}
+.sample-cert-sign-line {
+  display: block;
+  width: 110px;
+  border-bottom: 1.5px solid #9db8a6;
+  margin-bottom: 4px;
+  height: 18px;
+}
+
+.trust-strip {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 22px;
+}
+.trust-strip li {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-weight: 600;
+  font-size: 14.5px;
+}
+.trust-strip li svg {
+  color: var(--du-green-600, #0b7040);
+  flex: none;
+}

@@ -30,7 +30,11 @@ async function start() {
   await ready();
 }
 async function login(page: Page, role: string, tenant = "alpha") {
-  await page.goto(origin);
+  // REFINEMENT-02 P2-1(a) CONTRACT CHANGE (intentional): the home page no
+  // longer embeds the sign-in form (compact CTA card instead), so sign-in
+  // starts on the split-screen /login page — the same entry every other
+  // browser suite uses.
+  await page.goto(`${origin}/login`);
   await page
     .getByLabel("Email", { exact: true })
     .fill(
@@ -52,43 +56,90 @@ async function nav(page: Page, name: string) {
   void bn;
   await goToWorkspacePage(page, name);
 }
-async function openById(page: Page, id: string) {
+async function openById(page: Page, reference: string) {
   await nav(page, "Applications");
-  const row = page.getByRole("row").filter({ hasText: id.slice(0, 8) });
-  await row.getByRole("button", { name: "Open application" }).click();
+  // FULL-UIUX-01: rows are identified by the application's 16-digit public
+  // reference (RefChip) — truncated UUIDs are never rendered — and the row
+  // action is named "Open".
+  const row = page.getByRole("row").filter({ hasText: reference });
+  await row.getByRole("button", { name: "Open", exact: true }).click();
+  // The detail view's back button (the sidebar also carries an
+  // "All applications" entry in the UDC navigation).
   await page
-    .getByText(`APPLICATION ${id.slice(0, 8)}`, { exact: true })
+    .getByRole("button", { name: "← All applications", exact: true })
     .waitFor();
 }
 // UIUX-FIX-01: applications start from the catalog and run through the guided flow; drafts are
 // saved from the flow's review step. completeFees walks the fees step like the flow tests do.
+// FULL-UIUX-01: catalog entries are ServiceCards named by category + name.
+const serviceNames: Record<string, string> = {
+  "45": "Permanent resident certificate",
+};
 function catalogTile(page: Page, serviceNo: string) {
-  return page.locator(".catalog .service").filter({
-    has: page.locator(`.service-number:text-is("${serviceNo}")`),
+  return page.locator("button.svc-card", {
+    hasText: serviceNames[serviceNo],
   });
 }
 async function completeFees(page: Page) {
-  const next = page.getByRole("button", { name: "Next: review and submit" });
+  const next = page.getByRole("button", {
+    name: "Next: review and submit",
+    exact: true,
+  });
+  const draftButton = page.getByRole("button", {
+    name: "Save as draft only",
+    exact: true,
+  });
+  const language = page.locator("#order-language");
+  // The fees step settles asynchronously: the office's fee settings load
+  // first, then the step either shows the order panel (language select) or —
+  // when the office has no fee policy for the service (FULL-UIUX-01 FE S8) —
+  // is skipped straight to the review step. Wait for either outcome instead
+  // of racing the loading state.
+  for (let i = 0; i < 80; i++) {
+    if (await draftButton.isVisible().catch(() => false)) return;
+    if (await language.isVisible().catch(() => false)) break;
+    await page.waitForTimeout(250);
+  }
+  if (await draftButton.isVisible().catch(() => false)) return;
   try {
     await page.waitForFunction(
-      () => !(document.querySelector(".ax-flow-actions button:last-child") as HTMLButtonElement)?.disabled,
+      () =>
+        !(
+          document.querySelector(
+            ".ax-flow-actions button:last-child",
+          ) as HTMLButtonElement
+        )?.disabled,
       undefined,
       { timeout: 8000 },
     );
-    return next;
+    await next.click();
+    return;
   } catch {}
-  const language = page.locator("#order-language");
-  if (!(await language.inputValue())) await language.selectOption("bn");
+  if (await language.count()) {
+    if (!(await language.inputValue())) await language.selectOption("bn");
+  }
   const review = page.getByRole("button", { name: "Review fees" });
   if (await review.count()) await review.click();
   const accept = page.locator(".ax-flow input[type=checkbox]").last();
   await accept.waitFor();
   await accept.check();
   await page.waitForFunction(
-    () => !(document.querySelector(".ax-flow-actions button:last-child") as HTMLButtonElement)?.disabled,
+    () =>
+      !(
+        document.querySelector(
+          ".ax-flow-actions button:last-child",
+        ) as HTMLButtonElement
+      )?.disabled,
   );
-  return next;
+  await next.click();
 }
+// FULL-UIUX-01: the transition confirmation banner is a full sentence in
+// the reader's language (actionDone), not "<action> completed.".
+const actionDoneText: Record<string, string> = {
+  "Submit application": "Application submitted.",
+  "Request correction": "Correction requested.",
+  "Resubmit application": "Application resubmitted.",
+};
 async function action(page: Page, text: string) {
   const response = page.waitForResponse(
     (r) => r.url().includes("/transition") && r.request().method() === "POST",
@@ -96,7 +147,12 @@ async function action(page: Page, text: string) {
   await page.getByRole("button", { name: text, exact: true }).click();
   const result = await response;
   assert.equal(result.status(), 200, await result.text());
-  await page.getByText(`${text} completed.`, { exact: true }).waitFor();
+  // The same sentence also appears as a timeline entry heading on the
+  // detail page — assert the confirmation banner (role=status) itself.
+  await page
+    .getByRole("status")
+    .filter({ hasText: actionDoneText[text] })
+    .waitFor();
 }
 let browser: Browser;
 test(
@@ -137,10 +193,9 @@ test(
       await login(citizen, "citizen");
       await nav(citizen, "Service catalog");
       await catalogTile(citizen, "45").click();
-      await citizen.locator(".ax-citizen input").first().check();
-      await citizen
-        .getByRole("button", { name: "Next: application form", exact: true })
-        .click();
+      // FULL-UIUX-01 (UX M14): a signed-in citizen applying for themselves
+      // skips the citizen step — their own record is pre-selected and the
+      // flow opens directly on the application form.
       await fillApplicationForm(citizen, demoPayloads[45]);
       await citizen
         .getByLabel("Purpose (English)", { exact: false })
@@ -148,7 +203,7 @@ test(
       await citizen
         .getByRole("button", { name: "Next: fees and delivery", exact: true })
         .click();
-      await (await completeFees(citizen)).click();
+      await completeFees(citizen);
       const createdResponse = citizen.waitForResponse(
         (r) =>
           r.url().endsWith("/applications") && r.request().method() === "POST",
@@ -163,11 +218,13 @@ test(
         .getByRole("button", { name: "Open application", exact: true })
         .click();
       await citizen
-        .getByText(`APPLICATION ${application.id.slice(0, 8)}`, { exact: true })
+        .locator(".ax-refchip")
+        .filter({ hasText: application.reference })
+        .first()
         .waitFor();
       await action(citizen, "Submit application");
       await login(staff, "staff");
-      await openById(staff, application.id);
+      await openById(staff, application.reference);
       assert.equal(
         await staff
           .getByRole("button", { name: "Approve and issue certificate", exact: true })
@@ -183,7 +240,7 @@ test(
         fullPage: true,
       });
       await login(reviewer, "reviewer");
-      await openById(reviewer, application.id);
+      await openById(reviewer, application.reference);
       // Phase W: the Secretary (reviewer) is view-only — no decision buttons.
       assert.equal(
         await reviewer
@@ -201,13 +258,13 @@ test(
         0,
       );
       await login(approver, "approver");
-      await openById(approver, application.id);
+      await openById(approver, application.reference);
       await approver
         .getByLabel("Decision or revocation reason", { exact: true })
         .fill("Clarify the synthetic demonstration purpose.");
       await action(approver, "Request correction");
       await citizen.reload();
-      await openById(citizen, application.id);
+      await openById(citizen, application.reference);
       await citizen
         .getByLabel("Purpose (English)", { exact: false })
         .fill("Corrected browser acceptance purpose");
@@ -223,7 +280,7 @@ test(
         .waitFor();
       await action(citizen, "Resubmit application");
       await approver.reload();
-      await openById(approver, application.id);
+      await openById(approver, application.reference);
       const before = await approver.evaluate(
         async () => await (await fetch("/api/v1/wallet")).json(),
       );
@@ -292,7 +349,9 @@ test(
       await anonymous.addInitScript(() => { if (!localStorage.getItem("astra.language")) localStorage.setItem("astra.language", "en"); });
       const verify = await anonymous.newPage();
       await verify.goto(certificate.verificationUrl);
-      await verify.getByText("ISSUED", { exact: true }).waitFor();
+      // FULL-UIUX-01 (B16): the public result uses the shared status badge
+      // language ("Certificate issued"), never the raw enum.
+      await verify.getByText("Certificate issued", { exact: true }).waitFor();
       assert.equal(
         await verify.getByText("Karim Uddin", { exact: true }).count(),
         0,
@@ -351,7 +410,7 @@ test(
       );
       await nav(page, "Service catalog");
       await page
-        .getByRole("button", { name: /02.*Family certificate/ })
+        .locator("button.svc-card", { hasText: "Family certificate" })
         .click();
       await page.locator(".ax-citizen input").first().check();
       await page
@@ -362,14 +421,14 @@ test(
       await page
         .getByRole("button", { name: "Next: fees and delivery", exact: true })
         .click();
-      // The flow surfaces validation as its error summary plus invalid fieldsets.
+      // The flow surfaces validation as its error summary plus invalid groups (P2-10: repeatables render as [role="group"], not fieldsets).
       await page.locator(".ax-flow .error-summary").waitFor();
-      assert.ok(await page.locator('fieldset[aria-invalid="true"]').count());
+      assert.ok(await page.locator('[role="group"][aria-invalid="true"]').count());
       await fillApplicationForm(page, demoPayloads[2]);
       await page
         .getByRole("button", { name: "Next: fees and delivery", exact: true })
         .click();
-      await (await completeFees(page)).click();
+      await completeFees(page);
       const familyResponse = page.waitForResponse(
         (r) =>
           r.url().endsWith("/applications") && r.request().method() === "POST",
@@ -382,7 +441,9 @@ test(
         .getByText("The application is saved as a draft; it is not submitted yet.", { exact: true })
         .waitFor();
       await nav(page, "Service catalog");
-      await page.getByRole("button", { name: /42.*Trade license/ }).click();
+      await page
+        .locator("button.svc-card", { hasText: "Trade license" })
+        .click();
       await page.locator(".ax-citizen input").first().check();
       await page
         .getByRole("button", { name: "Next: application form", exact: true })
@@ -410,7 +471,7 @@ test(
       await page
         .getByRole("button", { name: "Next: fees and delivery", exact: true })
         .click();
-      await (await completeFees(page)).click();
+      await completeFees(page);
       const tradeResponse = page.waitForResponse(
         (r) =>
           r.url().endsWith("/applications") && r.request().method() === "POST",
@@ -466,7 +527,7 @@ test(
       assert.equal((await settle).status(), 200);
       await page
         .getByText(
-          "Verified sandbox settlement processed. Replay cannot grant credits twice.",
+          "Payment settled. Settling the same order again cannot grant credits twice.",
           { exact: true },
         )
         .waitFor();
@@ -528,11 +589,13 @@ test(
       await login(page, "staff");
       await nav(page, "Citizens");
       for (const [key, value] of Object.entries({ nameBn: "নমুনা নাগরিক", nameEn: "Browser Registered Citizen", dateOfBirth: "1994-01-01", addressBn: "নমুনা গ্রাম", addressEn: "Sample village" })) await page.locator(`#citizen-${key}`).fill(value);
+      await page.getByRole("button", { name: "Continue", exact: true }).click(); // B-4: P2-7 stepper — advance to the next registration step
       const union = JSON.parse(fs.readFileSync("data/geo/unions.json", "utf8")).find((row: any) => row.upazilaCode === "upa-001");
       for (const [level, code] of [["division", "div-01"], ["district", "dis-01"], ["upazila", "upa-001"], ["union", union.code], ["ward", `${union.code}-w01`]]) {
         await page.locator(`#citizen-geo-${level} option[value="${code}"]`).waitFor({ state: "attached" });
         await page.locator(`#citizen-geo-${level}`).selectOption(code);
       }
+      await page.getByRole("button", { name: "Continue", exact: true }).click(); // B-4: P2-7 stepper — advance to the details step
       const registered = page.waitForResponse(
         (r) => r.url().endsWith("/citizens") && r.request().method() === "POST",
       );
@@ -551,7 +614,9 @@ test(
       await page
         .getByLabel("Search within your tenant", { exact: true })
         .fill(citizen.syntheticReference);
-      await page.getByText(citizen.id.slice(0, 8), { exact: true }).waitFor();
+      // FULL-UIUX-01 (C31/P2-7): the citizens list shows the citizen's own
+      // 16-digit reference, never a truncated UUID.
+      await page.getByText(citizen.syntheticReference, { exact: true }).waitFor();
       // Phase 5: server-generated citizen references used the public format
       // (dddddd-dddddd-dddddd), not the old REF-<uuid>. CERTNO-01: references
       // are now a plain 16-digit number (Dhaka date + 8 random digits).
@@ -577,17 +642,22 @@ test(
       assert.equal(duplicate.status(), 409);
       await signOut(page);
       await login(page, "owner");
-      await page
-        .getByRole("navigation")
-        .getByRole("button", { name: /Platform management/ })
-        .click();
+      // FULL-UIUX-01: the platform owner lands directly on the owner
+      // console; on that page the workspace sidebar collapses to the brand
+      // strip, so navigation runs through the console's own section nav.
+      await page.locator(".owner-nav").waitFor();
+      // Role boundary: the owner's workspace nav offers no office-workspace
+      // pages (Applications/Citizens) at all.
       assert.equal(
-        await page
-          .getByRole("navigation")
-          .getByRole("button", { name: /Applications|Citizens/ })
-          .count(),
+        await page.locator('nav.ws-nav button[data-page="applications"]').count(),
         0,
       );
+      assert.equal(
+        await page.locator('nav.ws-nav button[data-page="citizens"]').count(),
+        0,
+      );
+      // OWNER-REDESIGN-01: office cards live in the Offices section (one section at a time).
+      await page.locator('.owner-nav a[href="#owner-offices"]').click();
       const tenant = page
         .locator(".tenant-card")
         .filter({ hasText: "Alpha Union" });

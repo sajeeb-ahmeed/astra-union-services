@@ -11118,7 +11118,7 @@
     {
       "service_no": 42,
       "name_bn": "ট্রেড লাইসেন্স",
-      "name_en": "Trade Licence",
+      "name_en": "Trade License",
       "category_en": "Licensing",
       "initial_form_path_pattern": "/portal/udcUser/application/additional-information/create/{user_track_id}/{certificate_id}",
       "initial_form_family": "specialist_additional_information",

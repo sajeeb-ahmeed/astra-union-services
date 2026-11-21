@@ -29,7 +29,7 @@ test(
     const browser = await browserInstance();
     // A separate office keeps the shared demo offices free of test coupons.
     const slug = `coupon-browser-${Date.now()}`;
-    const adminPassword = randomBytes(18).toString("base64url");
+    const adminPassword = randomBytes(12).toString("base64url");
     const owner = await browser.newContext();
     const login = await owner.request.post(`${origin}/api/v1/auth/login`, {
       data: { email: "owner@astra.demo.test", password: "Demo-Phase1!" },

@@ -14,18 +14,19 @@
   }
 }
 
-.du-topline {
-  background: var(--du-green-800);
-  color: #fff;
+/* BUNDLE06-R5 C3: the separate dark welcome strip is merged into the
+   header row — two bars total (brand row + nav row) at every width. */
+.du-header-welcome {
+  color: var(--du-muted);
   font-size: 14px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
-.du-topline .du-container {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  min-height: 38px;
-  padding-block: 6px;
+@media (max-width: 767px) {
+  .du-header-welcome {
+    display: none;
+  }
 }
 .du-header {
   position: sticky;
@@ -348,6 +349,14 @@
   border-color: var(--du-green-600);
   color: var(--du-green-700);
   background: var(--du-green-50);
+}
+/* FULL-UIUX-01 C39: the current registration step is visibly active —
+   a filled pill, not indistinguishable from the steps around it. */
+.du-reg-progress li[aria-current="step"] {
+  border-color: var(--du-green-700);
+  background: var(--du-green-700);
+  color: #fff;
+  box-shadow: 0 2px 8px rgb(4 89 44 / 25%);
 }
 
 /* Phase UX: branded loading state + skeleton shimmer */

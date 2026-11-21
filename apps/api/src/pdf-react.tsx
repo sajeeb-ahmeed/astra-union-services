@@ -1905,7 +1905,7 @@ function tradeLicenceBody(ctx: DocContext, base: CertFamily) {
         presentHead: "Owner's/Proprietor's Present Address",
         permanentHead: "Owner's/Proprietor's Permanent Address",
         schedule: "Model Tax Schedule 2013 Serial No",
-        feeHead: "Trade Licence Fee (New/Renewal)",
+        feeHead: "Trade License Fee (New/Renewal)",
         fees: ["New", "Renewal", "Surcharge", "Amendment Fee", "Signboard Fee", "Taxes on Profession & Trades", "VAT", "Arrear"],
         total: "Total",
         addrSub: ["Holding No", "Road No", "Village/Moholla", "Post Office", "Post Code", "Police Station", "Upazila", "District", "Division", "Country"],
@@ -2177,7 +2177,7 @@ function TradeIssueRow({ ctx, base }: { ctx: DocContext; base: CertFamily }) {
       </View>
       <View style={{ flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "flex-end" }}>
         <Text style={{ marginRight: 6, fontSize: 10.5, fontWeight: 700 }}>
-          <Runs segs={[seg(bn ? "ট্রেড লাইসেন্স নং:" : "Trade Licence No:")]} base={base} bold />
+          <Runs segs={[seg(bn ? "ট্রেড লাইসেন্স নং:" : "Trade License No:")]} base={base} bold />
         </Text>
         <NumberDisplay number={ctx.input.number} bn={bn} base={base} />
       </View>

@@ -12,7 +12,7 @@ process.env.NODE_ENV = "test";
 process.env.DEMO_SETTLE_ENABLED = "true";
 const admin = new pg.Pool({ connectionString: adminConnectionString });
 // Test-only credentials are generated per run so no password-like literal sits in the repository.
-const password = randomBytes(18).toString("base64url");
+const password = randomBytes(12).toString("base64url");
 const storePassword = randomBytes(12).toString("hex");
 const run = randomUUID().slice(0, 8);
 let server: ReturnType<typeof app.listen>, base: string, officeId: string, slug: string, citizenId: string;

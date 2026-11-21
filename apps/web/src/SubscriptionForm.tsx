@@ -36,7 +36,7 @@ export function SubscriptionForm() {
             id="ax-subscribe-email"
             name="email"
             type="email"
-            placeholder={t("you@example.test")}
+            placeholder={t("ইমেইল ঠিকানা / Email address")}
             required
           />
           <button disabled={working}>{t("Save subscription")}</button>

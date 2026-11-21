@@ -35,26 +35,57 @@ async function nav(page: Page, name: RegExp) {
 }
 // UIUX-FIX-01: applications run through the guided flow; drafts are saved from its review step.
 async function completeFees(page: Page) {
-  const next = page.getByRole("button", { name: "Next: review and submit" });
+  const next = page.getByRole("button", {
+    name: "Next: review and submit",
+    exact: true,
+  });
+  const draftButton = page.getByRole("button", {
+    name: "Save as draft only",
+    exact: true,
+  });
+  const language = page.locator("#order-language");
+  // The fees step settles asynchronously: the office's fee settings load
+  // first, then the step either shows the order panel (language select) or —
+  // when the office has no fee policy for the service (FULL-UIUX-01 FE S8) —
+  // is skipped straight to the review step. Wait for either outcome instead
+  // of racing the loading state.
+  for (let i = 0; i < 80; i++) {
+    if (await draftButton.isVisible().catch(() => false)) return;
+    if (await language.isVisible().catch(() => false)) break;
+    await page.waitForTimeout(250);
+  }
+  if (await draftButton.isVisible().catch(() => false)) return;
   try {
     await page.waitForFunction(
-      () => !(document.querySelector(".ax-flow-actions button:last-child") as HTMLButtonElement)?.disabled,
+      () =>
+        !(
+          document.querySelector(
+            ".ax-flow-actions button:last-child",
+          ) as HTMLButtonElement
+        )?.disabled,
       undefined,
       { timeout: 8000 },
     );
-    return next;
+    await next.click();
+    return;
   } catch {}
-  const language = page.locator("#order-language");
-  if (!(await language.inputValue())) await language.selectOption("bn");
+  if (await language.count()) {
+    if (!(await language.inputValue())) await language.selectOption("bn");
+  }
   const review = page.getByRole("button", { name: "Review fees" });
   if (await review.count()) await review.click();
   const accept = page.locator(".ax-flow input[type=checkbox]").last();
   await accept.waitFor();
   await accept.check();
   await page.waitForFunction(
-    () => !(document.querySelector(".ax-flow-actions button:last-child") as HTMLButtonElement)?.disabled,
+    () =>
+      !(
+        document.querySelector(
+          ".ax-flow-actions button:last-child",
+        ) as HTMLButtonElement
+      )?.disabled,
   );
-  return next;
+  await next.click();
 }
 async function request(
   page: Page,
@@ -86,32 +117,41 @@ test(
     page.on("pageerror", (e) => errors.push(e.message));
     try {
       await page.goto(origin);
+      // FULL-UIUX-01: "/" is the redesigned public home (hero + popular
+      // services subset); the full 47-service catalogue lives on /services.
       await page
-        .getByRole("heading", { name: "Choose the service you need" })
+        .getByRole("heading", { name: "Your union's certificates, now online" })
         .waitFor();
       fs.mkdirSync("execution/screenshots", { recursive: true });
       await page.screenshot({
         path: "execution/screenshots/expanded-home-desktop.png",
         fullPage: true,
       });
-      // Phase 1: "/" is the new home (47 tiles); its navigation uses links into the legacy pages.
-      assert.equal(await page.locator(".ax-tile").count(), 47);
+      // The home grid is a popular-services subset of the catalogue
+      // (ServiceCards render as links on the public home).
+      await page.locator(".svc-card").first().waitFor();
+      const homeCards = await page.locator(".svc-card").count();
+      assert.ok(homeCards >= 1 && homeCards < 47, `home popular grid should be a subset, saw ${homeCards}`);
       await page
         .getByRole("navigation", { name: "Public navigation" })
         .getByRole("link", { name: "Services", exact: true })
         .click();
       await page.waitForURL(/\/services$/);
-      await page.locator(".public-service").first().waitFor();
-      assert.equal(await page.locator(".public-service").count(), 47);
+      // Public grids render ServiceCards as links (href variant); the
+      // workspace catalogue renders the same component as buttons.
+      await page.locator(".svc-card").first().waitFor();
+      assert.equal(await page.locator(".svc-card").count(), 47);
       await page
         .getByLabel("Search public services", { exact: true })
         .fill("Family certificate");
-      assert.equal(await page.locator(".public-service").count(), 1);
-      await page.locator(".public-service").click();
-      await page.getByRole("region", { name: "Service information" }).waitFor();
+      assert.equal(await page.locator(".svc-card").count(), 1);
+      await page.locator(".svc-card").click();
+      await page
+        .locator(".service-detail h1", { hasText: "Family certificate" })
+        .waitFor();
       await page
         .getByRole("navigation", { name: "Public navigation" })
-        .getByRole("button", { name: "Help", exact: true })
+        .getByRole("button", { name: "Help & FAQ", exact: true })
         .click();
       await page
         .getByText("How do I apply?", { exact: true })
@@ -214,7 +254,7 @@ test(
         .getByRole("button", { name: "View office", exact: true })
         .click();
       await page.getByRole("region", { name: "Office details" }).waitFor();
-      assert.equal(await page.locator(".service-chips span").count(), 47);
+      assert.equal(await page.locator(".service-chips > a").count(), 47);
       await page.screenshot({
         path: "execution/screenshots/expanded-directory.png",
         fullPage: true,
@@ -222,7 +262,7 @@ test(
       await page.setViewportSize({ width: 390, height: 844 });
       await page.goto(origin);
       await page
-        .getByRole("heading", { name: "Choose the service you need" })
+        .getByRole("heading", { name: "Your union's certificates, now online" })
         .waitFor();
       assert.equal(
         await page.evaluate(
@@ -259,7 +299,10 @@ test(
       password = "Demo-Browser-2026!";
     try {
       await login(page, "owner@astra.demo.test");
-      await nav(page, /Platform management/);
+      // FULL-UIUX-01: the owner lands directly on the owner console.
+      await page.locator(".owner-nav").waitFor();
+      // OWNER-REDESIGN-01: the onboarding form lives in the Offices section.
+      await page.locator('.owner-nav a[href="#owner-offices"]').click();
       for (const [label, value] of Object.entries({
         "Unique office slug": `browser-office-${unique}`,
         "Office name (Bangla)": "নমুনা ব্রাউজার পরিষদ",
@@ -282,6 +325,11 @@ test(
       await signOut(page);
       await login(page, adminEmail, password);
       await nav(page, /Office administration/);
+      // FULL-UIUX-01: the admin workspace opens on fee policies; staff
+      // accounts live behind their own tab.
+      await page
+        .getByRole("tab", { name: "Staff accounts", exact: true })
+        .click();
       await page.getByLabel("Staff email", { exact: true }).fill(approverEmail);
       await page
         .getByLabel("Staff display name", { exact: true })
@@ -315,15 +363,15 @@ test(
       await recoveryPage.goto(recovery.recoveryUrl);
       await recoveryPage
         .getByLabel("New password", { exact: true })
-        .fill("Recovered-Browser-2026!");
+        .fill("Rec-Browser-2026!");
       await recoveryPage
         .getByLabel("Confirm new password", { exact: true })
-        .fill("Recovered-Browser-2026!");
+        .fill("Rec-Browser-2026!");
       await recoveryPage
         .getByRole("button", { name: "Reset password", exact: true })
         .click();
       await recoveryPage.getByText(/Password reset completed/).waitFor();
-      await login(recoveryPage, approverEmail, "Recovered-Browser-2026!");
+      await login(recoveryPage, approverEmail, "Rec-Browser-2026!");
       await recoveryContext.close();
       await page
         .getByRole("button", { name: "Dismiss recovery link", exact: true })
@@ -437,7 +485,7 @@ test(
         .waitFor();
       await publicPage.reload();
       await publicPage
-        .getByRole("heading", { name: "Published notices", exact: true })
+        .getByRole("heading", { name: "Notices", exact: true })
         .waitFor();
       assert.equal(
         await publicPage
@@ -529,7 +577,7 @@ test(
             geography: { divisionCode: "div-01", districtCode: "dis-01", upazilaCode: "upa-001", unionCode: union.code },
             adminEmail: `admin@signup-union-${unique}.test`,
             adminName: "Signup Union Admin",
-            adminPassword: "Signup-union-admin!",
+            adminPassword: "Signup-Union-Ad1!",
           },
         });
         assert.equal(created.status(), 201, await created.text());
@@ -540,6 +588,8 @@ test(
         await page.locator(`#signup-geo-${level} option[value="${code}"]`).waitFor({ state: "attached" });
         await page.locator(`#signup-geo-${level}`).selectOption(code);
       }
+      // BUNDLE06-R5 C4: registration is a stepper — advance area → office.
+      await page.getByRole("button", { name: "Continue", exact: true }).click();
       const officeOption = page.locator("#signup-office option").filter({ hasText: officeName });
       await officeOption.waitFor({ state: "attached" });
       const officeId = await officeOption.getAttribute("value");
@@ -547,6 +597,7 @@ test(
       await page
         .getByLabel("Select office", { exact: true })
         .selectOption(officeId);
+      await page.getByRole("button", { name: "Continue", exact: true }).click();
       for (const [label, value] of Object.entries({
         "Email address": email,
         "Choose password": password,
@@ -558,6 +609,9 @@ test(
         "Address (English)": "Synthetic Village",
       }))
         await page.getByLabel(label, { exact: true }).fill(value);
+      // BUNDLE06-R5 C4: account step → mobile-check step, where the
+      // "Create account" button lives.
+      await page.getByRole("button", { name: "Continue", exact: true }).click();
       await page
         .getByRole("button", { name: "Create account", exact: true })
         .click();
@@ -566,16 +620,16 @@ test(
         .waitFor();
       await login(page, email, password);
       await nav(page, /Service catalog|সেবার তালিকা/);
-      await page.getByRole("button", { name: /^01.*/ }).click();
-      await page.locator(".ax-citizen input").first().check();
       await page
-        .getByRole("button", { name: "Next: application form", exact: true })
+        .locator("button.svc-card", { hasText: "Holding tax" })
         .click();
+      // FULL-UIUX-01 (UX M14): a signed-in citizen applying for themselves
+      // skips the citizen step — the flow opens on the application form.
       await fillApplicationForm(page, demoPayloads[1]);
       await page
         .getByRole("button", { name: "Next: fees and delivery", exact: true })
         .click();
-      await (await completeFees(page)).click();
+      await completeFees(page);
       const saved = page.waitForResponse(
         (r) =>
           r.url().endsWith("/applications") && r.request().method() === "POST",
@@ -600,7 +654,7 @@ test(
       await page.getByLabel("Current password", { exact: true }).fill(password);
       await page
         .getByLabel("New password", { exact: true })
-        .fill("Changed-Browser-2026!");
+        .fill("Changed-Browser-1!");
       await page
         .getByRole("button", { name: "Update password", exact: true })
         .click();
@@ -610,7 +664,7 @@ test(
         })
         .waitFor();
       await signOut(page);
-      await login(page, email, "Changed-Browser-2026!");
+      await login(page, email, "Changed-Browser-1!");
       await page.screenshot({
         path: "execution/screenshots/expanded-citizen-mobile.png",
         fullPage: true,
@@ -687,14 +741,13 @@ test(
       assert.equal(issued.status, 200, JSON.stringify(issued.data));
       const before = await request(approver, "/wallet");
       await nav(staff, /Applications/);
+      // FULL-UIUX-01: the exact lookup lives in the collapsed filters
+      // details and takes the application's 16-digit public reference;
+      // submitting it opens the record directly.
+      await staff.locator("details.app-more-filters > summary").click();
+      await staff.locator("#application-reference").fill(source.reference);
       await staff
-        .getByLabel("Search applications", { exact: true })
-        .fill(source.id);
-      const row = staff
-        .getByRole("row")
-        .filter({ hasText: source.id.slice(0, 8) });
-      await row
-        .getByRole("button", { name: "Open application", exact: true })
+        .getByRole("button", { name: "Find record", exact: true })
         .click();
       await staff
         .getByRole("button", {
@@ -720,7 +773,9 @@ test(
         })
         .waitFor();
       assert.notEqual(renewal.id, source.id);
-      await staff.getByText(/Renewal lineage:/).waitFor();
+      await staff
+        .getByText(/This is a renewal application\. Source certificate number:/)
+        .waitFor();
       assert.equal(
         (await request(approver, "/wallet")).data.balance,
         before.data.balance,
@@ -740,7 +795,8 @@ test(
         .click();
       const submitted=await submittedResponse;assert.equal(submitted.status(),200,await submitted.text());
       await staff
-        .getByText("Submit application completed.", { exact: true })
+        .getByRole("status")
+        .filter({ hasText: "Application submitted." })
         .waitFor();
       await publicPage.goto(`${origin}/tracking`);
       await publicPage
@@ -750,7 +806,9 @@ test(
         .locator("#public-content")
         .getByRole("button", { name: "Track application", exact: true })
         .click();
-      await publicPage.getByText("SUBMITTED", { exact: true }).waitFor();
+      // FULL-UIUX-01 (B16): the public result uses the shared status badge
+      // language, never the raw enum.
+      await publicPage.getByText("Submitted", { exact: true }).waitFor();
       assert.equal(
         await publicPage.getByText(citizens[0].nameEn, { exact: true }).count(),
         0,

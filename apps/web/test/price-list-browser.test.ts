@@ -35,7 +35,7 @@ test(
     const stamp = Date.now();
     const slug = `price-browser-${stamp}`;
     const nameEn = `Price List Browser Office ${stamp}`;
-    const adminPassword = randomBytes(18).toString("base64url");
+    const adminPassword = randomBytes(12).toString("base64url");
     const owner = await browser.newContext();
     const ownerCsrf = await signIn(owner.request, "owner@astra.demo.test", "Demo-Phase1!");
     const created = await owner.request.post(`${origin}/api/v1/owner/tenants`, {
@@ -86,7 +86,7 @@ test(
       const list = details.locator(".price-list");
       await list.getByRole("heading", { name: "Service price list", exact: true }).waitFor();
       const rows = list.locator("tbody tr");
-      assert.equal(await rows.count(), await details.locator(".service-chips span").count());
+      assert.equal(await rows.count(), await details.locator(".service-chips > a").count());
       const priced = rows.filter({ hasText: "৳15.75" });
       assert.equal(await priced.count(), 1, "service 45 shows statutory + processing = ৳15.75");
       const cells = await priced.locator("td").allInnerTexts();

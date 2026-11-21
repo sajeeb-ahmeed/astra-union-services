@@ -49,7 +49,7 @@ test(
     const stamp = Date.now();
     const slug = `content-browser-${stamp}`;
     const nameEn = `Service Content Browser Office ${stamp}`;
-    const adminPassword = randomBytes(18).toString("base64url");
+    const adminPassword = randomBytes(12).toString("base64url");
     const owner = await browser.newContext();
     const ownerCsrf = await signIn(owner.request, "owner@astra.demo.test", "Demo-Phase1!");
     const created = await owner.request.post(`${origin}/api/v1/owner/tenants`, {
@@ -95,9 +95,12 @@ test(
     });
     try {
       await page.goto(`${origin}/services?service=45`);
-      const detail = page.locator(".service-information");
+      const detail = page.locator(".service-detail");
       await detail.getByRole("heading", { name: "Permanent resident certificate", exact: true }).waitFor();
-      assert.equal(await detail.locator(".service-category-label").innerText(), "Identity and citizenship");
+      assert.ok(
+        (await detail.locator(".eyebrow").innerText()).includes("Identity and citizenship"),
+        "the category leads the detail page eyebrow",
+      );
       const info = detail.locator(".service-office-info");
       const mine = info.locator(".service-office-entry").filter({ hasText: nameEn });
       await mine.waitFor();
@@ -111,12 +114,13 @@ test(
         ["Copy of the national identity card", "Recent photograph"],
         "the published documents are listed exactly",
       );
-      // A seeded office that never published states that plainly instead of showing invented values.
-      const alpha = info.locator(".service-office-entry").filter({ hasText: "Alpha Union" });
+      // A seeded office that never published collapses to a one-line muted
+      // row (REFINEMENT-02 P1-6) instead of showing invented values.
+      const alpha = info.locator(".service-office-unpublished").filter({ hasText: "Alpha Union" });
       await alpha.waitFor();
       const alphaText = await alpha.innerText();
       assert.ok(
-        alphaText.includes("This office has not yet published the fee, time and required documents for this service."),
+        alphaText.includes("Has not yet published its fee, time and documents"),
         alphaText,
       );
       assert.ok(!alphaText.includes("৳"), "no fee is invented for an unpublished office");
@@ -150,7 +154,7 @@ test(
     });
     try {
       await page.goto(`${origin}/services`);
-      const cards = page.locator(".public-service");
+      const cards = page.locator(".public-service-grid .svc-card");
       await cards.first().waitFor();
       assert.equal(await cards.count(), 47);
       assert.ok((await page.locator('[role="status"]').first().innerText()).includes("47 services found"));
@@ -165,10 +169,14 @@ test(
       const names = await cards.locator("strong").allInnerTexts();
       assert.ok(names.includes("Permanent resident certificate"), names.join(", "));
       assert.ok(!names.includes("Holding tax"), "another category's service is filtered out");
+      const eyebrows = await cards.locator(".svc-card-category").allInnerTexts();
+      // REFINEMENT-02 P1-7 (test-expectation update): the card eyebrow now
+      // carries the service number — "Service {no} · {category}" — and
+      // renders in uppercase by design.
       assert.deepEqual(
-        await cards.locator("small").allInnerTexts(),
-        Array(identityCount).fill("Identity and citizenship"),
-        "every visible card carries the selected category label",
+        eyebrows.map((text) => Number(text.match(/^SERVICE (\d+) · IDENTITY AND CITIZENSHIP$/)?.[1])),
+        catalog.filter((s) => s.category_en === "Identity and citizenship").map((s) => s.service_no),
+        "every visible card eyebrow carries its service number and the selected category label",
       );
       await page
         .locator(".service-category-filters")

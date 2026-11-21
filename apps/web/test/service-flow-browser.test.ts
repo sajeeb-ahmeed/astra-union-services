@@ -4,6 +4,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { chromium, type Browser, type Page } from "playwright";
 import { fillApplicationForm } from "./fixtures/fill-form.js";
+import { goToWorkspacePage } from "./fixtures/workspace-nav.js";
 import { demoPayloads } from "@astra/shared-schemas";
 const origin = "http://127.0.0.1:5173";
 async function browserInstance(): Promise<Browser> {
@@ -23,35 +24,47 @@ async function browserInstance(): Promise<Browser> {
 }
 async function signIn(page: Page, query: string) {
   await page.addInitScript(() => localStorage.setItem("astra.language", "en"));
-  await page.goto(`${origin}/${query}`);
+  await page.goto(`${origin}/login${query}`); // B-3: sign-in lives at /login since P2-1(a) removed the embedded home form
   await page.getByLabel("Email", { exact: true }).fill("staff@alpha.local.test");
   await page.getByLabel("Password", { exact: true }).fill("Demo-Phase1!");
   await page.locator(".login-form").getByRole("button", { name: "Sign in", exact: true }).click();
   await page.getByRole("button", { name: "Sign out", exact: true }).waitFor();
 }
 const stepHeading = (page: Page) => page.locator("#ax-flow-step-heading");
-/** Fees step: without an office fee policy "Next" enables once settings load; with one, quote and accept. */
-async function completeFees(page: Page) {
-  const next = page.getByRole("button", { name: "Next: review and submit" });
-  try {
+/** Entry: the dashboard's task opens the service catalog; its ServiceCard starts the flow. */
+async function startFlow(page: Page, serviceNo: number) {
+  await page.getByRole("button", { name: /Start an application/ }).click();
+  await page.locator("#service-search").waitFor();
+  await page.locator(`.catalog .svc-card[data-service="${serviceNo}"]`).click();
+}
+/** Fees step: rendered only when the office configured a fee policy for the
+ * service; with none (the seeded alpha office) the flow auto-skips it
+ * (feeStepEmpty), so this completes the quote/acceptance when the step
+ * renders and otherwise just confirms the review step. */
+async function advanceToReview(page: Page) {
+  await Promise.race([
+    page.locator("#order-language").waitFor(),
+    page
+      .getByRole("button", { name: "Save as draft only", exact: true })
+      .waitFor(),
+  ]).catch(() => {});
+  if (await page.locator("#order-language").count()) {
+    const language = page.locator("#order-language");
+    if (!(await language.inputValue())) await language.selectOption("bn");
+    await page.getByRole("button", { name: "Review fees" }).click();
+    const accept = page.locator(".order-panel input[type=checkbox]");
+    await accept.waitFor();
+    await accept.check();
     await page.waitForFunction(
       () => !(document.querySelector(".ax-flow-actions button:last-child") as HTMLButtonElement)?.disabled,
-      undefined,
-      { timeout: 8000 },
     );
-    return next;
-  } catch {}
-  const language = page.locator("#order-language");
-  if (!(await language.inputValue())) await language.selectOption("bn");
-  const review = page.getByRole("button", { name: "Review fees" });
-  if (await review.count()) await review.click();
-  const accept = page.locator(".ax-flow input[type=checkbox]").last();
-  await accept.waitFor();
-  await accept.check();
-  await page.waitForFunction(
-    () => !(document.querySelector(".ax-flow-actions button:last-child") as HTMLButtonElement)?.disabled,
-  );
-  return next;
+    await page
+      .getByRole("button", { name: "Next: review and submit" })
+      .click();
+  }
+  await page
+    .getByRole("button", { name: "Save as draft only", exact: true })
+    .waitFor();
 }
 
 test(
@@ -64,7 +77,7 @@ test(
       const errors: string[] = [];
       page.on("pageerror", (error) => errors.push(error.message));
       await signIn(page, "");
-      await page.locator('.ax-dashboard .ax-tile[data-service="45"]').click();
+      await startFlow(page, 45);
 
       // Step 1: citizen.
       await stepHeading(page).getByText("Citizen", { exact: true }).waitFor();
@@ -82,19 +95,18 @@ test(
       await fillApplicationForm(page, demoPayloads[45]);
       await page.getByRole("button", { name: "Next: fees and delivery" }).click();
 
-      // Step 3: fees. Offices with a fee policy need a language, a quote and acceptance.
-      await stepHeading(page).getByText("Fees and delivery", { exact: true }).waitFor();
-      await completeFees(page);
+      // Step 3: fees. Alpha has no fee policy for this service, so the
+      // flow auto-skips the fees step and lands on the review step.
+      await advanceToReview(page);
       fs.mkdirSync("execution/screenshots", { recursive: true });
-      await page.screenshot({ path: "execution/screenshots/phase1-service-flow-fees.png", fullPage: true });
 
-      // Back navigation keeps the entered form data.
+      // Back navigation keeps the entered form data. With the fees step
+      // skipped, the review step's back button returns to the form.
       await page.getByRole("button", { name: "← Application form" }).click();
       await stepHeading(page).getByText("Application form", { exact: true }).waitFor();
       assert.equal(await page.locator(".ax-flow .error-summary").count(), 0);
       await page.getByRole("button", { name: "Next: fees and delivery" }).click();
-      await stepHeading(page).getByText("Fees and delivery", { exact: true }).waitFor();
-      await (await completeFees(page)).click();
+      await advanceToReview(page);
 
       // Step 4: review, then submit.
       await stepHeading(page).getByText("Review and submit", { exact: true }).waitFor();
@@ -115,7 +127,7 @@ test(
       // CERTNO-01: the done screen shows the public application reference
       // (16 digits), not the internal application UUID.
       await stepHeading(page).getByText("Done", { exact: true }).waitFor();
-      const reference = (await page.locator(".ax-flow-reference").textContent())!.trim();
+      const reference = (await page.locator(".ax-refchip code").textContent())!.trim();
       assert.match(reference, /^\d{16}$/);
       assert.equal(reference, createdApplication.reference);
       const stored = await page.evaluate(
@@ -125,11 +137,15 @@ test(
       assert.equal(stored, "SUBMITTED");
       await page.screenshot({ path: "execution/screenshots/phase1-service-flow-done.png", fullPage: true });
       await page.getByRole("button", { name: "Open application" }).click();
-      await page.getByText(createdApplication.id.slice(0, 8)).first().waitFor();
+      await page.locator(".application-guidance").waitFor();
+      assert.equal(
+        (await page.locator(".ax-refchip code").first().textContent())!.trim(),
+        createdApplication.reference,
+      );
 
       // Registering a new citizen from the flow returns to it at the form, with that citizen chosen.
-      await page.getByRole("navigation", { name: "Workspace navigation" }).getByRole("button", { name: "Dashboard" }).click();
-      await page.locator('.ax-dashboard .ax-tile[data-service="42"]').click();
+      await goToWorkspacePage(page, "home");
+      await startFlow(page, 42);
       await stepHeading(page).getByText("Citizen", { exact: true }).waitFor();
       await page.getByRole("button", { name: "Register a new citizen", exact: true }).click();
       const name = `Flow Browser Citizen ${Date.now()}`;
@@ -138,6 +154,7 @@ test(
       await page.getByLabel("Date of birth", { exact: true }).fill("1993-04-05");
       await page.getByLabel("Address (Bangla)", { exact: true }).fill("নমুনা পরীক্ষার গ্রাম");
       await page.getByLabel("Address (English)", { exact: true }).fill("Synthetic Flow Village");
+      await page.getByRole("button", { name: "Continue", exact: true }).click(); // B-4: P2-7 stepper — advance to the next registration step
       const union = JSON.parse(fs.readFileSync("data/geo/unions.json", "utf8")).find(
         (row: any) => row.upazilaCode === "upa-001",
       );
@@ -151,6 +168,7 @@ test(
         await page.locator(`#citizen-geo-${level} option[value="${code}"]`).waitFor({ state: "attached" });
         await page.locator(`#citizen-geo-${level}`).selectOption(code);
       }
+      await page.getByRole("button", { name: "Continue", exact: true }).click(); // B-4: P2-7 stepper — advance to the details step
       const registered = page.waitForResponse(
         (r) => r.url().endsWith("/citizens") && r.request().method() === "POST",
       );
@@ -163,7 +181,7 @@ test(
       // Mobile: the stepper collapses and the page does not scroll sideways.
       const mobile = await browser.newPage({ viewport: { width: 390, height: 844 } });
       await signIn(mobile, "");
-      await mobile.locator('.ax-dashboard .ax-tile[data-service="45"]').click();
+      await startFlow(mobile, 45);
       await mobile.locator(".ax-citizen").first().waitFor();
       assert.equal(
         await mobile.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1),
@@ -185,7 +203,7 @@ test(
     try {
       const page = await browser.newPage({ viewport: { width: 1366, height: 900 } });
       await signIn(page, "");
-      await page.locator('.ax-dashboard .ax-tile[data-service="23"]').click();
+      await startFlow(page, 23);
       await stepHeading(page).getByText("Citizen", { exact: true }).waitFor();
       await page.locator(".ax-citizen").first().waitFor();
       await page.locator(".ax-citizen input").first().check();
@@ -203,7 +221,9 @@ test(
         "the other-person group stays hidden while its toggle is off",
       );
       await page.getByRole("button", { name: "Next: fees and delivery" }).click();
-      await stepHeading(page).getByText("Fees and delivery", { exact: true }).waitFor();
+      // No fee policy for this service either: the fees step auto-skips
+      // and the review step proves the form advanced.
+      await stepHeading(page).getByText("Review and submit", { exact: true }).waitFor();
 
       // Back on the form, selecting the group reveals it and its required
       // fields are enforced again.
@@ -214,7 +234,8 @@ test(
       await page.getByRole("button", { name: "Next: fees and delivery" }).click();
       const summary = page.locator(".ax-flow .error-summary");
       await summary.waitFor();
-      assert.match((await summary.textContent()) ?? "", /other_person_name/);
+      // The summary names fields by their labels, not their paths.
+      assert.match((await summary.textContent()) ?? "", /Other person name: This field is required\./);
     } finally {
       await browser.close();
     }
@@ -229,7 +250,7 @@ test(
     try {
       const page = await browser.newPage({ viewport: { width: 1366, height: 900 } });
       await signIn(page, "");
-      await page.locator('.ax-dashboard .ax-tile[data-service="45"]').click();
+      await startFlow(page, 45);
       await stepHeading(page).getByText("Citizen", { exact: true }).waitFor();
       await page.locator(".ax-citizen").first().waitFor();
       await page.locator(".ax-citizen input").first().check();
@@ -247,8 +268,7 @@ test(
       assert.equal(await date.inputValue(), "2020-03-04");
 
       await page.getByRole("button", { name: "Next: fees and delivery" }).click();
-      await stepHeading(page).getByText("Fees and delivery", { exact: true }).waitFor();
-      await (await completeFees(page)).click();
+      await advanceToReview(page);
 
       // The review step shows the service-specific details that were
       // entered, not only the generic summary.

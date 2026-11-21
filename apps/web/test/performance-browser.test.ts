@@ -239,7 +239,7 @@ test(
       .fill("performance@example.test");
     await page
       .getByLabel("Password", { exact: true })
-      .fill("Synthetic-test-only!");
+      .fill("Synthetic-Test-1!");
     assert.equal(
       requests.some((url) => url.endsWith(workspacePath)),
       false,

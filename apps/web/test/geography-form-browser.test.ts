@@ -47,7 +47,11 @@ test(
       await goToWorkspacePage(page, "services");
       // UIUX-FIX-01: the catalog launches the guided flow; the form (with its geography
       // cascades) lives on the flow's form step after the citizen step.
-      await page.locator("button.service", { hasText: /^36/ }).click();
+      // FULL-UIUX-01: catalog entries are ServiceCards named by category +
+      // service name (service 36 = No objection certificate).
+      await page
+        .locator("button.svc-card", { hasText: "No objection certificate" })
+        .click();
       await page.locator(".ax-citizen input").first().check();
       await page
         .getByRole("button", { name: "Next: application form", exact: true })

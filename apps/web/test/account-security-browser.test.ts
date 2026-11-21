@@ -30,7 +30,7 @@ test(
     const errors: string[] = [];
     page.on("pageerror", (error) => errors.push(error.message));
     const email = `session-browser-${Date.now()}@example.test`;
-    const password = "Session-browser-original-2026!";
+    const password = "Session-Browser1!";
     try {
       const setupLogin = await admin.request.post(
         `${origin}/api/v1/auth/login`,

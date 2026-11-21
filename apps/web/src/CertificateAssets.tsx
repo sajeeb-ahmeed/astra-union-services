@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { api } from "./api.js";
-import { choose } from "./i18n.js";
+import { choose, useLanguage } from "./i18n.js";
+import { UploadField, assetActionMeta } from "./ui/kit.js";
+import { formatDateTime, localDigits } from "./ui/fmt.js";
 
 type AssetKind = "LOGO" | "SEAL" | "SIGNATURE";
 type AssetItem = {
@@ -68,6 +70,7 @@ const readFile = (file: File) =>
  */
 export function CertificateAssetsSettings() {
   const pick = (text: { bn: string; en: string }) => choose(text);
+  const [language] = useLanguage();
   const [items, setItems] = useState<AssetItem[]>([]);
   const [files, setFiles] = useState<Partial<Record<AssetKind, File>>>({});
   const [reasons, setReasons] = useState<Partial<Record<AssetKind, string>>>({});
@@ -122,7 +125,7 @@ export function CertificateAssetsSettings() {
 
   return (
     <section className="panel">
-      <h2>{pick({ bn: "সনদে ব্যবহৃত ছবি", en: "Certificate assets" })}</h2>
+      <h2>{pick({ bn: "সনদে ব্যবহৃত ছবি", en: "Certificate images" })}</h2>
       <p>
         {pick({
           bn: "অফিসের লোগো, সিল এবং চেয়ারম্যানের স্বাক্ষরের ছবি একবার এখানে আপলোড করুন। এরপর এই অফিসের প্রতিটি সনদে এগুলো নিজে থেকে ছাপা হবে। আগের সংস্করণগুলো ইতিহাসে থেকে যায়, আর ইতিমধ্যে ইস্যু করা সনদ কখনো বদলায় না।",
@@ -155,7 +158,7 @@ export function CertificateAssetsSettings() {
                 <p className="hint">
                   {pick({ bn: "সংস্করণ", en: "Version" })} {item.current.version} ·{" "}
                   {Math.max(1, Math.round(item.current.byteLength / 1024))} KB ·{" "}
-                  {new Date(item.current.uploadedAt).toLocaleString()}
+                  {formatDateTime(item.current.uploadedAt, language)}
                 </p>
               </div>
             ) : (
@@ -164,16 +167,22 @@ export function CertificateAssetsSettings() {
               </p>
             )}
             <div className="form-grid">
-              <label>
-                {pick({ bn: "নতুন ছবি (PNG/JPEG, সর্বোচ্চ ২ MB)", en: "New image (PNG/JPEG, max 2 MB)" })}
-                <input
-                  type="file"
+              <div className="field">
+                {/* FULL-UIUX-01 (C38): the shared UploadField replaces the
+                    last native file input in the workspace. */}
+                <UploadField
+                  id={`cert-asset-${item.kind}`}
+                  label={pick({ bn: "নতুন ছবি (PNG/JPEG, সর্বোচ্চ ২ MB)", en: "New image (PNG/JPEG, max 2 MB)" })}
                   accept="image/png,image/jpeg"
-                  onChange={(e) =>
-                    setFiles((prev) => ({ ...prev, [item.kind]: e.target.files?.[0] }))
+                  fileName={files[item.kind]?.name ?? null}
+                  onPick={(f) =>
+                    setFiles((prev) => ({ ...prev, [item.kind]: f ?? undefined }))
+                  }
+                  onClear={() =>
+                    setFiles((prev) => ({ ...prev, [item.kind]: undefined }))
                   }
                 />
-              </label>
+              </div>
               {item.current && (
                 <label>
                   {pick({ bn: "বদলানোর কারণ (বাধ্যতামূলক)", en: "Reason for replacing (required)" })}
@@ -197,8 +206,9 @@ export function CertificateAssetsSettings() {
               <ul className="cert-asset-history">
                 {item.history.map((h) => (
                   <li key={h.version}>
-                    v{h.version} · {h.action} · {h.changedByName} ·{" "}
-                    {new Date(h.createdAt).toLocaleString()}
+                    v{localDigits(h.version, language)} ·{" "}
+                    {pick(assetActionMeta(h.action))} · {h.changedByName} ·{" "}
+                    {formatDateTime(h.createdAt, language)}
                     {h.reason ? ` — ${h.reason}` : ""}
                   </li>
                 ))}

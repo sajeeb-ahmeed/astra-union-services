@@ -101,11 +101,11 @@ test("operational labels switch languages and private upload accept rules render
     attachments: [{ description: "Demo evidence" }],
   };
   const html = render(schema, payload);
-  // One nested fieldset for the attachment rows and one per geography selector.
+  // One fieldset per geography selector; the attachment rows render as a
+  // [role="group"] div since P2-10, not a nested fieldset.
   assert.equal(
     (html.match(/<fieldset\b/g) ?? []).length,
     schema.sections.length +
-      1 +
       flattenFields(schema).filter((field) => field.type === "geography")
         .length,
   );
@@ -223,15 +223,15 @@ test("field errors link bilingual error content to the exact nested input", () =
   assert.ok(controls(bengali).find((item) => item.id === control.id)?.attributes.includes(`aria-describedby="${control.id}-error"`));
 });
 
-test("repeatable group errors are focusable and programmatically linked to their fieldset", () => {
+test("repeatable group errors are focusable and programmatically linked to their group", () => {
   const schema = getServiceSchema(2);
   const payload = { ...demoPayloads[2], members: [] };
   const issues = validateForm(schema, payload).issues;
   const html = render(schema, payload, issues);
-  const group = [...html.matchAll(/<fieldset\b([^>]*)>/g)]
+  const group = [...html.matchAll(/<div\b([^>]*)>/g)]
     .map((match) => match[1])
-    .find((attributes) => /id="[^"]*-members"/.test(attributes));
-  assert.ok(group, "Repeatable fieldset must have a stable ID");
+    .find((attributes) => /role="group"/.test(attributes) && /id="[^"]*-members"/.test(attributes));
+  assert.ok(group, "Repeatable group must have a stable ID");
   const groupId = group.match(/id="([^"]*)"/)![1];
   assert.ok(group.includes('aria-invalid="true"'));
   assert.ok(group.includes(`aria-describedby="${groupId}-error"`));
@@ -275,7 +275,7 @@ test("saved private handles render fail-closed status without disabling readonly
   assert.ok(html.includes("Checking document safety status"));
   assert.ok(!html.includes("Download document"));
   assert.ok(controls(html).every(control => control.attributes.includes('disabled=""')));
-  const group = [...html.matchAll(/<fieldset\b([^>]*)>/g)].find(match => /id="[^"]*-attachments"/.test(match[1]));
+  const group = [...html.matchAll(/<div\b([^>]*)>/g)].find(match => /role="group"/.test(match[1]) && /id="[^"]*-attachments"/.test(match[1]));
   assert.ok(group);
   assert.ok(!group[1].includes('disabled=""'), "Readonly edit controls stay individually disabled while status remains accessible");
   const refresh = html.match(/<button\b([^>]*)>Refresh status<\/button>/);
