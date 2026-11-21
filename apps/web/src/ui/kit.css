@@ -37,6 +37,9 @@
   font-size: 32px;
   line-height: 1.15;
   color: var(--ax-green-700);
+  /* DESIGN-PHASE-C: KPI figures align on a tabular grid. */
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
 }
 .ax-stat span {
   font-size: var(--ax-text-sm);
@@ -256,6 +259,8 @@ button[aria-busy="true"]::after,
   place-items: center;
   background: var(--ax-green-50);
   color: var(--ax-green-600);
+  /* DESIGN-PHASE-C: a hairline ring lifts the mark off the dashed ground. */
+  box-shadow: inset 0 0 0 1px var(--ax-green-100), var(--du-shadow-rest);
 }
 .ax-empty-state h3 {
   margin: 0;
@@ -509,6 +514,8 @@ button[aria-busy="true"]::after,
   padding: var(--ax-space-3) var(--ax-space-4);
   color: var(--ax-ink);
   text-decoration: none;
+  /* DESIGN-PHASE-C: resting depth (was box-shadow: none at rest). */
+  box-shadow: var(--du-shadow-rest);
   transition: border-color var(--du-transition), box-shadow var(--du-transition),
     transform var(--du-transition);
 }
@@ -527,8 +534,8 @@ a.svc-card:focus-visible,
 button.svc-card:focus-visible {
   background: var(--ax-green-50);
   border-color: var(--ax-green-600);
-  box-shadow: var(--ax-shadow);
-  transform: translateY(-1px);
+  box-shadow: var(--du-shadow-raised);
+  transform: translateY(-2px);
 }
 .svc-card.svc-tile {
   flex-direction: column;
@@ -650,6 +657,8 @@ button.svc-card:focus-visible {
 /* StatCard context line + icon (programme 12). */
 .ax-stat {
   position: relative;
+  /* DESIGN-PHASE-C: stat cards join the resting-depth system. */
+  box-shadow: var(--du-shadow-rest);
 }
 .ax-stat-icon {
   position: absolute;
@@ -658,12 +667,42 @@ button.svc-card:focus-visible {
   color: var(--ax-green-600);
   display: grid;
   place-items: center;
+  /* DESIGN-PHASE-C: the icon sits in a tinted chip, not floating bare. */
+  width: 34px;
+  height: 34px;
+  background: var(--ax-green-50);
+  border-radius: 10px;
+}
+.ax-stat-icon svg {
+  width: 19px;
+  height: 19px;
 }
 .ax-stat-context {
   color: var(--ax-muted);
   font-size: 12.5px;
 }
 
+
+/* DESIGN-PHASE-C: one mount motion. Surfaces opt in per component; the
+   reduced-motion guard keeps it still for anyone who asks. */
+@keyframes du-rise {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.du-rise {
+  animation: du-rise var(--du-motion-med) both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .du-rise {
+    animation: none;
+  }
+}
 
 /* FULL-UIUX-01: the label/value summary grid is a SHARED pattern (it began
    in the flow's read-only summary); security sessions and other summary

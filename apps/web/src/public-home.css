@@ -551,3 +551,61 @@
     padding: 34px 0;
   }
 }
+
+/* ------------------------------------------------------------------ */
+/* DESIGN-PHASE-C (home): display type, depth, motion, tap targets.    */
+/* ------------------------------------------------------------------ */
+/* The global BN heading rule (style.css) sets line-height 1.55, which
+   at the 40px display size leaves the two hero lines floating apart
+   (measured 62px line box). Bengali conjuncts still clear at 1.42. */
+html[lang="bn"] .home-hero h1 {
+  line-height: 1.42;
+}
+@media (min-width: 1280px) {
+  .home-hero h1 {
+    font-size: 44px;
+  }
+}
+/* The sample certificate already tilts; give the hero column the mount
+   motion and a deeper rest shadow so it sits IN the stage, not on it. */
+.home-hero-visual {
+  animation: du-rise var(--du-motion-med) both;
+}
+.home-hero-visual .sample-cert {
+  box-shadow: 0 30px 60px rgb(3 40 20 / 34%);
+}
+@media (prefers-reduced-motion: reduce) {
+  .home-hero-visual {
+    animation: none;
+  }
+}
+/* Category chips join the 44px tap-target floor (were 40px). */
+.home-category-chip {
+  min-height: 44px;
+  transition: border-color var(--du-motion-fast), background-color var(--du-motion-fast);
+}
+/* The verify band's sample card takes the raised depth so the band's
+   two halves carry equal visual weight. */
+.home-verify .sample-cert {
+  box-shadow: var(--du-shadow-raised);
+}
+/* FAQ: opening a question gets a ground shift + a soft answer rise
+   instead of the native details snap. */
+.home-faq-item summary {
+  transition: background-color var(--du-motion-fast);
+}
+.home-faq-item summary:hover {
+  background: var(--du-green-50);
+}
+.home-faq-item[open ] summary {
+  background: var(--du-green-50);
+  border-bottom: 1px solid var(--du-line);
+}
+.home-faq-item[open ] p {
+  animation: du-rise var(--du-motion-med) both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .home-faq-item[open ] p {
+    animation: none;
+  }
+}

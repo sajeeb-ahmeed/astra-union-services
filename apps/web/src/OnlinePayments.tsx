@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { api, ApiError } from "./api.js";
 import { choose, useLanguage } from "./i18n.js";
-import { EmptyState } from "./ui/kit.js";
+import { EmptyState, SkeletonRows } from "./ui/kit.js";
 import { localDigits } from "./ui/fmt.js";
 import { money } from "./ApplicationOrder.js";
 import { ApplicationRefunds } from "./Refunds.js";
@@ -89,6 +89,35 @@ function todayDhaka() {
     month: "2-digit",
     day: "2-digit",
   }).format(new Date());
+}
+/* DESIGN-PHASE-C: the register's status line becomes a real badge — the
+   tone is the same language every other surface uses (ok = settled,
+   warn = waiting, danger = failed/mismatch, info = refunded/ready). */
+function paymentStatusTone(status: string): "ok" | "info" | "warn" | "danger" | "neutral" {
+  switch (status) {
+    case "PAID":
+    case "COLLECTED":
+    case "MATCHED":
+    case "NOT_REQUIRED":
+      return "ok";
+    case "READY":
+    case "REFUNDED":
+      return "info";
+    case "FAILED":
+    case "ERROR":
+    case "MISMATCH":
+      return "danger";
+    case "PENDING":
+    case "CREATE_PENDING":
+    case "EXECUTE_PENDING":
+    case "VERIFYING":
+    case "CREATE_UNKNOWN":
+    case "REFUND_PENDING":
+    case "REVIEW_REQUIRED":
+      return "warn";
+    default:
+      return "neutral";
+  }
 }
 function statusLabel(status: string) {
   const names: Record<string, Message> = {
@@ -722,9 +751,9 @@ export function PaymentsWorkspace({ role }: { role: string }) {
       </section>
       <section className="panel">
         {!loaded && (
-          <p role="status">
-            {label("পেমেন্টের তথ্য লোড হচ্ছে…", "Loading payment records…")}
-          </p>
+          <div role="status">
+            <SkeletonRows rows={4} />
+          </div>
         )}
         {loaded && section === "register" && (
           <>
@@ -772,7 +801,9 @@ export function PaymentsWorkspace({ role }: { role: string }) {
                         {payment.environment === "LIVE"
                           ? label("লাইভ", "Live")
                           : label("পরীক্ষামূলক", "Test")}
-                        <small>{statusLabel(payment.status)}</small>
+                        <span className={`ax-status tone-${paymentStatusTone(payment.status)}`}>
+                          {statusLabel(payment.status)}
+                        </span>
                         {payment.paymentStatus === "REVIEW_REQUIRED" && (
                           <span className="status">
                             {label(
@@ -836,6 +867,9 @@ export function PaymentsWorkspace({ role }: { role: string }) {
               </table>
             </div>
             )}
+            {/* DESIGN-PHASE-C: no pagination bar on an empty register —
+                "Page 1 · 0 records" with two dead buttons is clutter. */}
+            {total > 0 && (
             <div className="actions">
               <button
                 className="secondary"
@@ -856,6 +890,7 @@ export function PaymentsWorkspace({ role }: { role: string }) {
                 {label("পরের পৃষ্ঠা", "Next page")}
               </button>
             </div>
+            )}
           </>
         )}
         {loaded && section === "reconciliation" && reconciliation && (

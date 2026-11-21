@@ -345,3 +345,143 @@
 .kpi-card {
   height: 100%;
 }
+
+/* ------------------------------------------------------------------ */
+/* DESIGN-PHASE-C (owner): control-panel hierarchy — KPI values go ink  */
+/* (a control panel reads numbers, not decoration), operations alerts   */
+/* become tone rows, tenant cards gain a facts band + glance table.     */
+/* ------------------------------------------------------------------ */
+/* Overview StatCards: label = micro-uppercase muted, value = ink
+   tabular figures, context = quiet. The green that used to colour every
+   number now only marks status and links. */
+.owner-console #owner-overview .ax-stat strong {
+  color: var(--du-ink);
+  font-size: 34px;
+}
+.owner-console #owner-overview .ax-stat-label {
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--du-muted);
+}
+.owner-console #owner-overview .ax-stat-context {
+  font-size: 13px;
+}
+.owner-console #owner-overview .ax-stat {
+  transition: border-color var(--du-motion-fast), box-shadow var(--du-motion-fast);
+}
+.owner-console #owner-overview .ax-stat:hover {
+  border-color: var(--du-green-600);
+  box-shadow: var(--du-shadow-raised);
+}
+/* Operations KPIs (scanner/recharge/requests): same ink-value hierarchy. */
+.owner-console .kpi-card .kpi-value {
+  color: var(--astra-ink, #1d2b21);
+  font-variant-numeric: tabular-nums;
+}
+.owner-console .kpi-card .kpi-label {
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--astra-muted, #64766b);
+}
+.owner-console .kpi-card {
+  box-shadow: var(--du-shadow-rest);
+  transition: border-color var(--du-motion-fast), box-shadow var(--du-motion-fast);
+}
+.owner-console .kpi-card:hover {
+  border-color: var(--du-green-600);
+  box-shadow: var(--du-shadow-raised);
+}
+/* Operations alerts: from two identical pale strips to tone rows with a
+   left bar and a status mark, so "all clear" reads calm and a real alert
+   reads urgent at a glance. */
+.owner-console .operations-alerts {
+  list-style: none;
+  margin: 12px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+.owner-console .operations-alerts li {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  border: 1px solid var(--du-line);
+  border-inline-start: 4px solid var(--du-green-600);
+  background: var(--du-green-50);
+  color: var(--du-green-800);
+  font-weight: 600;
+}
+.owner-console .operations-alerts li::before {
+  content: "✓";
+  flex: none;
+  font-weight: 700;
+}
+.owner-console .operations-alerts li.error {
+  background: var(--du-error-bg);
+  border-color: #eec5bf;
+  border-inline-start-color: var(--du-red);
+  color: var(--du-error-ink);
+}
+.owner-console .operations-alerts li.error::before {
+  content: "!";
+}
+.owner-console .owner-operations > p.notice {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  border: 1px solid var(--du-line);
+  border-inline-start: 4px solid var(--du-green-600);
+  background: var(--du-green-50);
+  color: var(--du-green-800);
+  font-weight: 600;
+}
+.owner-console .owner-operations > p.notice::before {
+  content: "✓";
+  flex: none;
+  font-weight: 700;
+}
+/* Tenant cards: a ruled header and a tinted facts band so the credit /
+   subscription facts read as one record instead of loose labels. */
+.owner-console .office-card-head {
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--du-line);
+}
+.owner-console .tenant-card {
+  box-shadow: var(--du-shadow-rest);
+}
+.owner-console .tenant-card .labelled-fields {
+  background: #f6f8f4;
+  border: 1px solid var(--du-line);
+  border-radius: 10px;
+  padding: 12px 16px;
+}
+.owner-console .tenant-card .labelled-fields .field-value {
+  font-variant-numeric: tabular-nums;
+}
+/* Tenant glance table (offices section): the register at a glance. */
+.owner-glance {
+  margin: 0 0 18px;
+}
+.owner-glance .table-wrap {
+  margin-top: 10px;
+}
+.owner-glance td {
+  vertical-align: middle;
+}
+.owner-glance td:first-child {
+  font-weight: 700;
+  color: var(--astra-ink, #1d2b21);
+}
+.owner-glance .num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}

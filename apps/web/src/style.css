@@ -1758,3 +1758,134 @@ legend {
   }
   .table-wrap thead th { background: var(--du-surface, #ffffff); }
 }
+
+/* ------------------------------------------------------------------ */
+/* DESIGN-PHASE-C (core): resting depth for panels + the payments      */
+/* workspace pass (segmented tabs, gateway banner, register clarity).  */
+/* ------------------------------------------------------------------ */
+.panel {
+  box-shadow: var(--du-shadow-rest);
+}
+
+/* Payments: the two section switches were a filled button + an outline
+   button — a primary action and a secondary action, not a tab system.
+   They now sit in one segmented track; aria-selected carries the state. */
+.payments-workspace .tabs {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 4px;
+  margin-top: 6px;
+  background: var(--du-green-50);
+  border: 1px solid var(--du-line);
+  border-radius: 12px;
+}
+.payments-workspace .tabs [role="tab"] {
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--du-muted);
+  font-weight: 600;
+  padding: 9px 18px;
+  min-height: 44px;
+  transition: background-color var(--du-motion-fast), color var(--du-motion-fast),
+    box-shadow var(--du-motion-fast);
+}
+.payments-workspace .tabs [role="tab"]:hover {
+  color: var(--du-green-800);
+  background: rgb(255 255 255 / 55%);
+}
+.payments-workspace .tabs [role="tab"][aria-selected="true"] {
+  background: var(--du-surface);
+  color: var(--du-green-800);
+  border-color: var(--du-line);
+  box-shadow: var(--du-shadow-rest);
+}
+/* The merchant-state notice becomes a true warning banner: amber
+   tokens, a border, and a status dot — it must never read as body text. */
+.payment-gateway-notice {
+  background: var(--du-warn-bg);
+  border: 1px solid #e7cf8f;
+  border-radius: var(--du-radius-panel);
+  padding: 16px 18px;
+  color: var(--du-warn-ink);
+}
+.payment-gateway-notice strong {
+  color: var(--du-warn-ink);
+}
+.payment-gateway-notice p {
+  color: inherit;
+}
+/* Register: references read as data (mono, muted, one line smaller than
+   the name above them); amounts align on tabular figures. */
+.payments-workspace .payment-reference {
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  font-size: 12px;
+  color: var(--du-muted);
+  letter-spacing: 0.01em;
+}
+.payments-workspace .table-wrap td {
+  font-variant-numeric: tabular-nums;
+}
+/* Filters: the two labelled controls share one baseline row. */
+.payments-workspace .form-grid {
+  align-items: end;
+  margin-top: 14px;
+}
+.payments-workspace .form-grid label {
+  margin: 0;
+}
+/* A failed lookup was one plain line of body text under the H1 — no
+   error treatment, no way back. It now renders as an error panel with
+   an icon and a retry action (markup: main.tsx CertificateVerification). */
+.verify-result-error {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  background: var(--du-error-bg);
+  border: 1px solid #eec5bf;
+  border-radius: var(--du-radius-panel);
+  padding: 16px 18px;
+  margin-top: 6px;
+}
+.verify-result-error svg {
+  flex: none;
+  color: var(--du-error-ink);
+  margin-top: 1px;
+}
+.verify-result-error p {
+  margin: 0 0 10px;
+  color: var(--du-error-ink);
+  font-weight: 600;
+}
+.verify-result-error .button {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  text-decoration: none;
+}
+.verify-checking {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--du-muted);
+  font-weight: 600;
+}
+/* The verify side visual takes the raised depth, matching the panel. */
+.public-tool-visual .sample-cert {
+  box-shadow: var(--du-shadow-raised);
+}
+
+/* The pagination row becomes a quiet footer bar, not three loose
+   controls floating under the table. */
+.payments-workspace .actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--du-line);
+  color: var(--du-muted);
+  font-size: 14px;
+}

@@ -744,3 +744,13 @@
   min-height: 44px;
   text-decoration: none;
 }
+
+/* ------------------------------------------------------------------ */
+/* DESIGN-PHASE-C (portal): detail readability. */
+/* ------------------------------------------------------------------ */
+/* NOTE (21 Nov, verified by live probe): the BEFORE detail-page "small
+   line-height 1.15" measurement was the FOOTER brand tagline
+   (.brand-lockup-tag, single line — 1.15 is fine there), not detail
+   content: `.service-detail small` matches zero elements, so no rule is
+   added for it. The verify rules moved to style.css (see there) because
+   /verify never loads this chunk. */

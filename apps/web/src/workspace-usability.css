@@ -183,6 +183,7 @@
     width: 100%;
   }
   .application-filter-tools {
+
     align-items: flex-start;
   }
   .application-guidance {
@@ -221,5 +222,43 @@
 @media (max-width: 767px) {
   .table-wrap.responsive-table {
     display: none;
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* DESIGN-PHASE-C (workspace): step alignment + panel mount motion.    */
+/* ------------------------------------------------------------------ */
+@media (min-width: 768px) {
+  /* The three "how an application moves forward" titles share one row;
+     when the third wraps to two lines the number must stay glued to the
+     first line and every bottom bar must sit on the same baseline. */
+  .intake-steps li {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    line-height: 1.45;
+  }
+  .intake-steps li span {
+    flex: none;
+    display: grid;
+    place-items: center;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: var(--ax-green-100);
+    color: var(--ax-green-800);
+    font-size: 13px;
+    font-weight: 700;
+    margin: 1px 0 0;
+  }
+}
+/* Workspace panels rise softly on mount — the Linear/Stripe cue that a
+   new page has landed. Reduced-motion users get the instant version. */
+.shell main .panel {
+  animation: du-rise var(--du-motion-med) both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .shell main .panel {
+    animation: none;
   }
 }

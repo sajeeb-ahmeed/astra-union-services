@@ -75,6 +75,15 @@
   --ax-text-lg: 18px;
   --ax-text-xl: 28px;
 
+  /* DESIGN-PHASE-C: depth + motion tokens. The surfaces were flat at rest
+     (measured box-shadow: none on cards/panels) — one resting shadow and
+     one raised shadow, both in the brand's green-ink tint, give the
+     Stripe/Linear depth cue without a new visual direction. */
+  --du-shadow-rest: 0 1px 2px rgb(20 53 40 / 5%), 0 1px 3px rgb(20 53 40 / 4%);
+  --du-shadow-raised: 0 2px 4px rgb(20 53 40 / 6%), 0 10px 24px rgb(20 53 40 / 9%);
+  --du-motion-fast: 140ms ease;
+  --du-motion-med: 220ms cubic-bezier(0.22, 0.61, 0.36, 1);
+
   /* Responsive bands (Phase UX): phone ≤767px, tablet 768–1279px, desktop ≥1280px.
      CSS custom properties cannot be used in media queries; these values are the
      single documented source — media queries in du-*.css use 767px / 1280px. */

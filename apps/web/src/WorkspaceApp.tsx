@@ -3593,6 +3593,90 @@ export function WorkspaceApp({
                 <section className="owner-section" id="owner-offices">
                   <h2>{choose({ bn: "অফিসসমূহ", en: "Offices" })}</h2>
                   {/* FULL-UIUX-01 (C34/P2-10): the offices section is list-first — the office register leads, onboarding and requests follow. */}
+                  {/* DESIGN-PHASE-C: the register itself — one row per office
+                      (status, plan, subscription, credits, expiry) so the
+                      owner reads the whole platform before opening a card. */}
+                  <section className="panel owner-glance" aria-labelledby="owner-glance-title">
+                    <h3 id="owner-glance-title">
+                      {choose({ bn: "এক নজরে অফিসসমূহ", en: "Offices at a glance" })}
+                    </h3>
+                    <div className="table-wrap">
+                      <table>
+                        <thead>
+                          <tr>
+                            <th>{choose({ bn: "অফিস", en: "Office" })}</th>
+                            <th>{choose({ bn: "অবস্থা", en: "Status" })}</th>
+                            <th>{choose({ bn: "প্ল্যান", en: "Plan" })}</th>
+                            <th>{choose({ bn: "সাবস্ক্রিপশন", en: "Subscription" })}</th>
+                            <th className="num">{choose({ bn: "ক্রেডিট", en: "Credits" })}</th>
+                            <th>{choose({ bn: "মেয়াদ", en: "Valid until" })}</th>
+                            <th className="num">{choose({ bn: "বাকি সময়", en: "Time left" })}</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {tenants.map((officeTenant) => {
+                            const sub = officeTenant.subscription;
+                            const validTime = sub?.validUntil
+                              ? new Date(String(sub.validUntil)).getTime()
+                              : Number.NaN;
+                            const days = Number.isNaN(validTime)
+                              ? null
+                              : Math.ceil((validTime - Date.now()) / 86_400_000);
+                            return (
+                              <tr key={officeTenant.id}>
+                                <td>{tx(recordName(officeTenant))}</td>
+                                <td>
+                                  <StatusBadge tone={statusTone(officeTenant.status)}>
+                                    {officeTenant.status === "ACTIVE"
+                                      ? choose({ bn: "সক্রিয়", en: "Active" })
+                                      : officeTenant.status === "SUSPENDED"
+                                        ? choose({ bn: "স্থগিত", en: "Suspended" })
+                                        : choose({ bn: "নথিভুক্ত অবস্থা", en: "Recorded status" })}
+                                  </StatusBadge>
+                                </td>
+                                <td>{sub ? sub.planId : "—"}</td>
+                                <td>
+                                  {sub ? (
+                                    <StatusBadge tone={statusTone(sub.status)}>
+                                      {sub.status === "ACTIVE"
+                                        ? choose({ bn: "সক্রিয়", en: "Active" })
+                                        : sub.status === "SUSPENDED"
+                                          ? choose({ bn: "স্থগিত", en: "Suspended" })
+                                          : choose({ bn: "মেয়াদোত্তীর্ণ", en: "Expired" })}
+                                    </StatusBadge>
+                                  ) : (
+                                    "—"
+                                  )}
+                                </td>
+                                <td className="num">
+                                  {localDigits(
+                                    String(Number(officeTenant.balance ?? officeTenant.walletBalance) || 0),
+                                    language,
+                                  )}
+                                </td>
+                                <td>
+                                  {sub?.validUntil ? formatDate(sub.validUntil, language) : "—"}
+                                </td>
+                                <td className="num">
+                                  {days === null
+                                    ? "—"
+                                    : days >= 0
+                                      ? choose({
+                                          bn: `${localDigits(String(days), language)} দিন বাকি`,
+                                          en: `${days} days left`,
+                                        })
+                                      : choose({
+                                          bn: `${localDigits(String(-days), language)} দিন আগে শেষ`,
+                                          en: `${-days} days past expiry`,
+                                        })}
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  </section>
                   <section className="panel">
               <h3>{t("Tenant credit management")}</h3>
               <p>

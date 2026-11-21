@@ -143,12 +143,36 @@ function CertificateVerification({
                   })}
                 </p>
               </>
+            ) : publicError ? (
+              /* DESIGN-PHASE-C: a failed lookup is an error panel with a
+                 retry action — it was one plain line of body text with no
+                 way back to the form. */
+              <div className="verify-result-error" role="alert">
+                <svg
+                  viewBox="0 0 24 24"
+                  width="22"
+                  height="22"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.8"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden="true"
+                >
+                  <path d="M12 3 2.5 20h19L12 3Z" />
+                  <path d="M12 10v4" />
+                  <circle cx="12" cy="17" r="0.5" fill="currentColor" />
+                </svg>
+                <div>
+                  <p>{tx(publicError)}</p>
+                  <a className="button secondary" href="/verify">
+                    {choose({ bn: "আরেকটি সনদ যাচাই করুন", en: "Check another certificate" })}
+                  </a>
+                </div>
+              </div>
             ) : (
-              <p role="alert">
-                {tx(
-                  publicError ||
-                    choose({ bn: "সনদ যাচাই করা হচ্ছে…", en: "Checking certificate…" }),
-                )}
+              <p role="status" className="verify-checking">
+                {choose({ bn: "সনদ যাচাই করা হচ্ছে…", en: "Checking certificate…" })}
               </p>
             ),
           )}
