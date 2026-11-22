@@ -15,7 +15,7 @@ import { isPlaceholderEmail, sendEmail } from "../src/mailer.js";
 
 process.env.NODE_ENV = "test";
 const admin = new pg.Pool({ connectionString: adminConnectionString });
-let server: ReturnType<typeof app.listen>, base: string, alphaId: string, mappedId: string;
+let server: ReturnType<typeof app.listen>, base: string, officeId: string, mappedId: string;
 type Session = { cookie: string; csrf: string };
 const run = randomUUID().slice(0, 8);
 const PASSWORD = "Short-Signup-2026!";
@@ -71,8 +71,30 @@ before(async () => {
   server = app.listen(0, "127.0.0.1");
   await new Promise<void>((resolve) => server.once("listening", resolve));
   base = `http://127.0.0.1:${(server.address() as any).port}`;
-  alphaId = (await admin.query("SELECT id FROM tenants WHERE slug='alpha'")).rows[0]?.id;
-  assert.ok(alphaId, "the alpha demo office exists");
+  // A dedicated office: short-signup citizens have deferred profile items, and
+  // leaving them in the shared demo office would change what other suites see
+  // first in its citizen lists (browser.test picks the first citizen).
+  const owner = await loginWith({ email: "owner@astra.demo.test", password: "Demo-Phase1!" });
+  const office = await req(
+    "POST",
+    "/owner/tenants",
+    {
+      slug: `short-plain-${run}`,
+      nameBn: "সংক্ষিপ্ত নিবন্ধন অফিস",
+      nameEn: `Short signup office ${run}`,
+      division: "Test Division",
+      district: "Test District",
+      upazila: "Test Upazila",
+      officeType: "UNION",
+      adminEmail: `admin@short-plain-${run}.test`,
+      adminName: "Short Signup Admin",
+      adminPassword: "Short-Office-Ad1!",
+    },
+    owner,
+  );
+  assert.equal(office.status, 201, JSON.stringify(office.body));
+  officeId = office.body.id ?? office.body.tenant?.id;
+  assert.ok(officeId, "the dedicated test office exists");
   // A geography-mapped union office (Debidwar union uni-0001, the listed test union).
   mappedId = (
     await admin.query(
@@ -93,7 +115,7 @@ after(async () => {
 
 test("REG-UX 1: a Bangla name, mobile and password create an account; deferred items stay NULL; the mobile signs in", async () => {
   const mobile = nextMobile();
-  const r = await req("POST", "/auth/signup", { tenantId: alphaId, name: "রহিমা খাতুন", mobile, password: PASSWORD });
+  const r = await req("POST", "/auth/signup", { tenantId: officeId, name: "রহিমা খাতুন", mobile, password: PASSWORD });
   assert.equal(r.status, 201, JSON.stringify(r.body));
   assert.equal(r.body.registered, true);
   const row = await citizenRowFor(mobile);
@@ -117,7 +139,7 @@ test("REG-UX 2: a Latin name lands in the English column; an optional email sign
   const mobile = nextMobile();
   const email = `short-${run}-latin@example.test`;
   const r = await req("POST", "/auth/signup", {
-    tenantId: alphaId,
+    tenantId: officeId,
     name: "Karim Uddin",
     mobile,
     password: PASSWORD,
@@ -134,18 +156,18 @@ test("REG-UX 2: a Latin name lands in the English column; an optional email sign
 
 test("REG-UX 3: an empty email string means 'not given'", async () => {
   const mobile = nextMobile();
-  const r = await req("POST", "/auth/signup", { tenantId: alphaId, name: "Empty Email", mobile, password: PASSWORD, email: "" });
+  const r = await req("POST", "/auth/signup", { tenantId: officeId, name: "Empty Email", mobile, password: PASSWORD, email: "" });
   assert.equal(r.status, 201, JSON.stringify(r.body));
   assert.ok(isPlaceholderEmail((await citizenRowFor(mobile)).user_email));
 });
 
 test("REG-UX 4: a taken email is named at the email field with a sign-in remedy; nothing is created", async () => {
   const email = `short-${run}-dup@example.test`;
-  const first = await req("POST", "/auth/signup", { tenantId: alphaId, name: "First Owner", mobile: nextMobile(), password: PASSWORD, email });
+  const first = await req("POST", "/auth/signup", { tenantId: officeId, name: "First Owner", mobile: nextMobile(), password: PASSWORD, email });
   assert.equal(first.status, 201, JSON.stringify(first.body));
   const users = (await admin.query("SELECT count(*)::int n FROM platform_users")).rows[0].n;
   const secondMobile = nextMobile();
-  const dup = await req("POST", "/auth/signup", { tenantId: alphaId, name: "Second Person", mobile: secondMobile, password: PASSWORD, email });
+  const dup = await req("POST", "/auth/signup", { tenantId: officeId, name: "Second Person", mobile: secondMobile, password: PASSWORD, email });
   assert.equal(dup.status, 409, JSON.stringify(dup.body));
   assert.equal(dup.body.error.code, "EMAIL_TAKEN");
   assert.equal(dup.body.error.field, "email");
@@ -158,7 +180,7 @@ test("REG-UX 4: a taken email is named at the email field with a sign-in remedy;
     email,
     password: PASSWORD,
     displayName: "Full Shape",
-    tenantId: alphaId,
+    tenantId: officeId,
     nameBn: "পূর্ণ রূপ",
     nameEn: "Full Shape",
     dateOfBirth: "1990-01-01",
@@ -172,8 +194,8 @@ test("REG-UX 4: a taken email is named at the email field with a sign-in remedy;
 
 test("REG-UX 5: a mobile that already has an account is refused at the mobile field", async () => {
   const mobile = nextMobile();
-  assert.equal((await req("POST", "/auth/signup", { tenantId: alphaId, name: "Mobile Owner", mobile, password: PASSWORD })).status, 201);
-  const dup = await req("POST", "/auth/signup", { tenantId: alphaId, name: "Someone Else", mobile, password: PASSWORD });
+  assert.equal((await req("POST", "/auth/signup", { tenantId: officeId, name: "Mobile Owner", mobile, password: PASSWORD })).status, 201);
+  const dup = await req("POST", "/auth/signup", { tenantId: officeId, name: "Someone Else", mobile, password: PASSWORD });
   assert.equal(dup.status, 409, JSON.stringify(dup.body));
   assert.equal(dup.body.error.code, "IDENTIFIER_TAKEN");
   assert.equal(dup.body.error.field, "mobile");
@@ -181,24 +203,24 @@ test("REG-UX 5: a mobile that already has an account is refused at the mobile fi
 });
 
 test("REG-UX 6: field errors point at their field (invalid mobile, short name, weak password)", async () => {
-  const badMobile = await req("POST", "/auth/signup", { tenantId: alphaId, name: "Bad Mobile", mobile: "12345", password: PASSWORD });
+  const badMobile = await req("POST", "/auth/signup", { tenantId: officeId, name: "Bad Mobile", mobile: "12345", password: PASSWORD });
   assert.equal(badMobile.status, 422, JSON.stringify(badMobile.body));
   assert.equal(badMobile.body.error.code, "IDENTIFIER_INVALID");
   assert.equal(badMobile.body.error.field, "mobile");
-  const shortName = await req("POST", "/auth/signup", { tenantId: alphaId, name: "A", mobile: nextMobile(), password: PASSWORD });
+  const shortName = await req("POST", "/auth/signup", { tenantId: officeId, name: "A", mobile: nextMobile(), password: PASSWORD });
   assert.equal(shortName.status, 422, JSON.stringify(shortName.body));
   assert.ok(shortName.body.error.issues.some((i: any) => i.path === "name" && /নাম/.test(i.message)));
-  const weak = await req("POST", "/auth/signup", { tenantId: alphaId, name: "Weak Password", mobile: nextMobile(), password: "123" });
+  const weak = await req("POST", "/auth/signup", { tenantId: officeId, name: "Weak Password", mobile: nextMobile(), password: "123" });
   assert.equal(weak.status, 422);
   assert.ok(weak.body.error.issues.some((i: any) => i.path === "password"));
   // Unknown keys are refused (strict shape), so a typo never silently drops data.
-  const extra = await req("POST", "/auth/signup", { tenantId: alphaId, name: "Extra Key", mobile: nextMobile(), password: PASSWORD, nid: "1" });
+  const extra = await req("POST", "/auth/signup", { tenantId: officeId, name: "Extra Key", mobile: nextMobile(), password: PASSWORD, nid: "1" });
   assert.equal(extra.status, 422);
 });
 
 test("REG-UX 7: the first application asks for the deferred items only; fill-only completion then lets it through", async () => {
   const mobile = nextMobile();
-  assert.equal((await req("POST", "/auth/signup", { tenantId: alphaId, name: "আবেদনকারী নাগরিক", mobile, password: PASSWORD })).status, 201);
+  assert.equal((await req("POST", "/auth/signup", { tenantId: officeId, name: "আবেদনকারী নাগরিক", mobile, password: PASSWORD })).status, 201);
   const session = await loginMobile(mobile);
   const me = await ownCitizen(session);
   const blocked = await req("POST", "/applications", { citizenId: me.id, serviceNo: 45, payload: demoPayloads[45] }, session);
@@ -259,7 +281,7 @@ test("REG-UX 8: at a mapped office the area derives from the office; the ward is
 test("REG-UX 9: an optional photo at signup becomes the profile photo; a bad image is refused", async () => {
   const mobile = nextMobile();
   const r = await req("POST", "/auth/signup", {
-    tenantId: alphaId,
+    tenantId: officeId,
     name: "Photo Citizen",
     mobile,
     password: PASSWORD,
@@ -272,7 +294,7 @@ test("REG-UX 9: an optional photo at signup becomes the profile photo; a bad ima
   assert.equal(image.status, 200);
   assert.equal(image.headers.get("content-type"), "image/png");
   const bad = await req("POST", "/auth/signup", {
-    tenantId: alphaId,
+    tenantId: officeId,
     name: "Bad Photo",
     mobile: nextMobile(),
     password: PASSWORD,
