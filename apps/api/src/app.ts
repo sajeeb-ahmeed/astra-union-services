@@ -8,6 +8,7 @@ import {
   getCatalogPreviewSchema,
   validateForm,
   citizenProfileCompleteness,
+  applicationProfileGaps,
   completenessLabels,
 } from "@astra/shared-schemas";
 import { pool, transaction, audit, type DB } from "./db.js";
@@ -552,6 +553,9 @@ app.get(
         // Phase 7: whether online subscription/credit order payment is configured.
         orderPayments: await orderPaymentsEnabled(),
       },
+      // REG-UX Phase 1 (K3): the office the signup screen preselects, as a default
+      // the citizen can change — configured, never hard-coded. A public slug only.
+      signup: { defaultOffice: process.env.DEFAULT_SIGNUP_OFFICE_SLUG?.trim() || null },
     });
   }),
 );
@@ -922,6 +926,103 @@ app.patch(
       await reachableCitizen(db, a, id, "id");
       const row = await updateCitizenDetails(db, a.tenantId!, id, details);
       await audit(db, a.tenantId!, a.userId, "CITIZEN_DETAILS_UPDATED", id, { fields: Object.keys(details) });
+      return citizenRow(row);
+    });
+    res.json(item);
+  }),
+);
+/**
+ * REG-UX Phase 1 (§2.3): profile completion for a short-signup account. Fills the
+ * deferred items — second-script name, date of birth, permanent address and the
+ * citizen's own ward — and only where the value is still empty (fill-only): a value
+ * already on record is never rewritten here, so data a certificate may already carry
+ * cannot be changed through this path.
+ */
+const profileCompletionInput = z
+  .object({
+    nameBn: z.string().trim().min(2, "নাম কমপক্ষে ২ অক্ষরের হতে হবে। / Name must be at least 2 characters.").max(120),
+    nameEn: z.string().trim().min(2, "Name must be at least 2 characters. / নাম কমপক্ষে ২ অক্ষরের হতে হবে।").max(120),
+    dateOfBirth: z
+      .string()
+      .regex(/^\d{4}-\d{2}-\d{2}$/, "জন্ম তারিখ দিন। / Enter a date of birth.")
+      .refine(
+        (v) =>
+          Number.isFinite(Date.parse(v)) &&
+          new Date(v).toISOString().slice(0, 10) === v &&
+          v <= new Date().toISOString().slice(0, 10) &&
+          v >= "1900-01-01",
+        "জন্ম তারিখ আজকের বা তার আগের হতে হবে। / Date of birth must be today or earlier.",
+      ),
+    addressBn: z.string().trim().min(4, "ঠিকানা কমপক্ষে ৪ অক্ষরের হতে হবে। / Address must be at least 4 characters.").max(500),
+    addressEn: z.string().trim().min(4, "Address must be at least 4 characters. / ঠিকানা কমপক্ষে ৪ অক্ষরের হতে হবে।").max(500),
+    geography: geographyInput,
+  })
+  .partial()
+  .strict();
+app.patch(
+  "/api/v1/citizens/:id/profile",
+  wrap(async (req, res) => {
+    const a = roles(req, ["staff", "admin", "citizen"]);
+    const id = uuid.parse(req.params.id);
+    const input = profileCompletionInput.parse(req.body);
+    const item = await transaction(tenant(req), async (db) => {
+      const current = await reachableCitizen(db, a, id, "*");
+      const office = (
+        await db.query("SELECT * FROM tenants WHERE id=$1", [a.tenantId])
+      ).rows[0];
+      const sets: string[] = [];
+      const values: unknown[] = [];
+      const fill = (column: string, value: unknown) => {
+        if (value === undefined) return;
+        if (current[column] !== null && current[column] !== undefined && current[column] !== "")
+          throw new ApiError(
+            409,
+            "PROFILE_VALUE_PRESENT",
+            "এই তথ্যটি আগে থেকেই আছে; পরিবর্তনের জন্য অফিসে যোগাযোগ করুন। / This value is already on record; contact the office to change it.",
+            undefined,
+            column,
+          );
+        values.push(value);
+        sets.push(column + "=$" + (values.length + 2));
+      };
+      fill("full_name_bn", input.nameBn);
+      fill("full_name_en", input.nameEn);
+      fill("date_of_birth", input.dateOfBirth);
+      fill("address_bn", input.addressBn);
+      fill("address_en", input.addressEn);
+      if (input.geography) {
+        if (current.ward_code)
+          throw new ApiError(
+            409,
+            "PROFILE_VALUE_PRESENT",
+            "ওয়ার্ড আগে থেকেই দেওয়া আছে। / The ward is already on record.",
+            undefined,
+            "geography",
+          );
+        await validateGeography(db, input.geography, "citizen");
+        validateOfficeJurisdiction(office, input.geography);
+        const [division, district, upazila, union, ward] = geographyValues(input.geography);
+        for (const [column, value] of [
+          ["division_code", division],
+          ["district_code", district],
+          ["upazila_code", upazila],
+          ["union_code", union],
+          ["ward_code", ward],
+        ] as const) {
+          values.push(value);
+          sets.push(column + "=$" + (values.length + 2));
+        }
+      }
+      if (!sets.length) return citizenRow(current);
+      const row = (
+        await db.query(
+          "UPDATE citizens SET " + sets.join(",") + " WHERE tenant_id=$1 AND id=$2 RETURNING *",
+          [a.tenantId, id, ...values],
+        )
+      ).rows[0];
+      await audit(db, a.tenantId!, a.userId, "CITIZEN_PROFILE_COMPLETED", id, {
+        fields: Object.keys(input),
+      });
       return citizenRow(row);
     });
     res.json(item);
@@ -1338,6 +1439,26 @@ app.post(
         )
       ).rows[0];
       if (!citizen) fail(404, "NOT_FOUND", "Citizen not found.");
+      // REG-UX Phase 1 (§2.3): a short-signup profile is completed at the first
+      // application, not at signup. Only the deferred items are required here; the
+      // full-profile issuance gate (require_complete_profile) is unchanged.
+      const officeGeo = (
+        await db.query("SELECT division_code FROM tenants WHERE id=$1", [a.tenantId])
+      ).rows[0];
+      const gaps = applicationProfileGaps(citizenRow(citizen), {
+        geographyRequired: !!officeGeo?.division_code,
+      });
+      if (gaps.length)
+        throw new ApiError(
+          409,
+          "PROFILE_INCOMPLETE",
+          "আবেদনের আগে প্রোফাইলের বাকি তথ্য দিন: " +
+            gaps.map((item) => completenessLabels[item].bn).join(", ") +
+            " / Complete your profile before applying: " +
+            gaps.map((item) => completenessLabels[item].en).join(", ") +
+            ".",
+          { missing: gaps },
+        );
       const schemaVersion = getServiceSchema(
         z.number().int().min(1).max(47).parse(data.serviceNo),
       ).version;
@@ -3025,6 +3146,7 @@ app.use(
           code,
           message,
           ...(issues ? { issues } : {}),
+          ...(error instanceof ApiError && error.field ? { field: error.field } : {}),
           ...(errorId ? { errorId } : {}),
         },
       });
