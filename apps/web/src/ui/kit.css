@@ -74,7 +74,7 @@
   transform: translateY(-1px);
 }
 .ax-tile:focus-visible {
-  outline: 3px solid var(--du-focus, #04592c);
+  outline: 3px solid var(--du-focus, #1f7d5e);
   outline-offset: 2px;
 }
 .ax-tile-number {
@@ -420,12 +420,17 @@ button[aria-busy="true"]::after,
 }
 
 /* FULL-UIUX-01: the one application-status badge (fixed colour semantics). */
+/* PP-1 (L8): outline pills — a 1.5px border in the status colour on white,
+   Prottoyon's anchors where states correspond (submitted green, approved
+   purple, rejected red); Astra's other states keep their tone colours. */
 .ax-status {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 3px 11px;
+  padding: 2px 11px;
   border-radius: 999px;
+  border: 1.5px solid currentColor;
+  background: #fff;
   font-size: 12.5px;
   font-weight: 700;
   line-height: 1.5;
@@ -440,24 +445,22 @@ button[aria-busy="true"]::after,
   flex: none;
 }
 .ax-status.tone-ok {
-  background: #e2f1e4;
-  color: #04592c;
+  color: #1a6b51;
+}
+.ax-status.tone-approved {
+  color: var(--du-purple-ink);
 }
 .ax-status.tone-info {
-  background: #e3ecf7;
   color: #00356e;
 }
 .ax-status.tone-warn {
-  background: #fff3d6;
-  color: #6d4d00;
+  color: #7a5600;
 }
 .ax-status.tone-danger {
-  background: #fdecea;
-  color: #9b2c1f;
+  color: #b3261e;
 }
 .ax-status.tone-neutral {
-  background: #eef1ee;
-  color: #43584a;
+  color: #4f5f55;
 }
 
 /* Legacy .status spans are aligned to the same language by tone-less
@@ -520,7 +523,7 @@ button[aria-busy="true"]::after,
     transform var(--du-transition);
 }
 /* P0-3: ServiceCard interactive states, in tokens (see ui/tokens.css).
-   The global `button:hover { background: #03451f }` (style.css) used to
+   The global `button:hover { background: #175f48 }` (style.css) used to
    win on `button.svc-card` because this rule set border/shadow/
    transform but no background — dark card, dark title/category, 1.x:1.
    Hover and keyboard focus now deepen the LIGHT tint and darken the
@@ -534,7 +537,8 @@ a.svc-card:focus-visible,
 button.svc-card:focus-visible {
   background: var(--ax-green-50);
   border-color: var(--ax-green-600);
-  box-shadow: var(--du-shadow-raised);
+  /* PP-1 (L9): the purple underline marks the tile under the pointer. */
+  box-shadow: inset 0 -3px 0 var(--du-purple-accent), var(--du-shadow-raised);
   transform: translateY(-2px);
 }
 .svc-card.svc-tile {
@@ -593,7 +597,7 @@ button.svc-card:focus-visible {
   color: var(--ax-muted);
 }
 /* Category tints — soft ground, deep ink icon. */
-.cat-tint-0 { background: #e2f1e4; color: #04592c; }
+.cat-tint-0 { background: #e2f1e4; color: #1f7d5e; }
 .cat-tint-1 { background: #fdeef2; color: #8c2d4a; }
 .cat-tint-2 { background: #e3ecf7; color: #00356e; }
 .cat-tint-3 { background: #e8f3ee; color: #0b5c46; }

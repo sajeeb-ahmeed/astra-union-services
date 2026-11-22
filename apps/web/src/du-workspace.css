@@ -139,7 +139,12 @@
   background: var(--du-sidebar-active-bg);
   color: var(--du-sidebar-active-ink);
   font-weight: 700;
-  box-shadow: inset 3px 0 0 var(--du-green-700);
+  box-shadow: inset 3px 0 0 var(--du-sidebar-active-edge);
+}
+/* PP-1 (L3): icons on the solid-green active row turn white with the text. */
+.shell > aside nav button[aria-current="page"] svg,
+.shell > aside .ax-sidebar-nav .ax-sidebar-item[aria-current="page"] svg {
+  color: var(--du-sidebar-active-ink);
 }
 .shell > aside .ax-sidebar-nav .ax-sidebar-item {
   flex-direction: row;
@@ -713,4 +718,31 @@ tr.ax-row-new td {
   margin: 0;
   font-size: 16.5px;
   font-weight: 600;
+}
+
+/* PP-1 (parity L6): a panel's heading row is a solid chrome-green title bar
+   with white text (white on #1f7d5e = 5.0:1). An inset bar, not full-bleed,
+   so it holds at every panel padding. Controls in the bar switch to their
+   on-dark form: links and text buttons white, secondary buttons stay white
+   pills, primary actions become white with green text. */
+.shell .panel > .section-heading {
+  background: var(--du-green-700);
+  color: #fff;
+  padding: 10px 16px;
+  border-radius: 8px;
+  margin-bottom: 16px;
+}
+.shell .panel > .section-heading :is(h1, h2, h3) {
+  color: #fff;
+  margin: 0;
+}
+.shell .panel > .section-heading :is(.eyebrow, .hint, p, small) {
+  color: #e2f3ec;
+}
+.shell .panel > .section-heading :is(a, .text-button) {
+  color: #fff;
+}
+.shell .panel > .section-heading button:where(:not(.secondary, .text-button, .danger)) {
+  background: #fff;
+  color: var(--du-green-800);
 }
