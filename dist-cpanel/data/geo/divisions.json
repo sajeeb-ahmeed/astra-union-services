@@ -1,0 +1,42 @@
+[
+  {
+    "code": "div-01",
+    "nameEn": "Dhaka",
+    "nameBn": "ঢাকা"
+  },
+  {
+    "code": "div-02",
+    "nameEn": "Chattogram",
+    "nameBn": "চট্টগ্রাম"
+  },
+  {
+    "code": "div-03",
+    "nameEn": "Rajshahi",
+    "nameBn": "রাজশাহী"
+  },
+  {
+    "code": "div-04",
+    "nameEn": "Khulna",
+    "nameBn": "খুলনা"
+  },
+  {
+    "code": "div-05",
+    "nameEn": "Barishal",
+    "nameBn": "বরিশাল"
+  },
+  {
+    "code": "div-06",
+    "nameEn": "Sylhet",
+    "nameBn": "সিলেট"
+  },
+  {
+    "code": "div-07",
+    "nameEn": "Rangpur",
+    "nameBn": "রংপুর"
+  },
+  {
+    "code": "div-08",
+    "nameEn": "Mymensingh",
+    "nameBn": "ময়মনসিংহ"
+  }
+]

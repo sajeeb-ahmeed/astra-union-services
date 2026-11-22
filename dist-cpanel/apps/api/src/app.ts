@@ -33,6 +33,7 @@ import { paymentsRouter, publicPaymentsRouter } from "./payments.js";
 import {
   attachmentsRouter,
   attachmentScannerRouter,
+  decodeUpload,
   validateAttachmentReferences,
 } from "./attachments.js";
 import { mfaRouter, publicMfaRouter, passwordLogin, sendLogin } from "./mfa.js";
@@ -46,9 +47,42 @@ import {
   duplicateNumberError,
   type CitizenDetails,
 } from "./citizen-data.js";
-import { pointsRouter, chargeIssuancePoints } from "./points.js";
+import {
+  applicationReferenceExists,
+  citizenReferenceExists,
+  mintReference,
+  parseReferenceInput,
+  referenceDigits,
+} from "./references.js";
+import { dhakaDateStamp } from "./dhaka.js";
+import { randomEightDigits } from "./references.js";
+import { pointsRouter } from "./points.js";
+import { billingRouter, brandingRouter, settleApplicationFee } from "./billing.js";
+import {
+  couponsRouter,
+  publicCouponsRouter,
+  platformCouponCode,
+  platformCouponDiscount,
+  recordCouponRedemption,
+} from "./coupons.js";
+import { noticesRouter, publicNoticesRouter } from "./notices.js";
+import { demandRouter } from "./demand.js";
+import {
+  certificateAssetsRouter,
+  resolveCertificateAssets,
+} from "./certificate-assets.js";
+import { assertCertificateGates } from "./cert-gates.js";
+import { applySubscriptionAction } from "./subscriptions.js";
 import { rechargeRouter } from "./recharge.js";
 import { merchantRouter } from "./gateways.js";
+import { applyOrderSettlement } from "./order-settlement.js";
+import {
+  orderPaymentsRouter,
+  publicOrderPaymentsRouter,
+  orderRefundsRouter,
+  ownerOrderRefundsRouter,
+  orderPaymentsEnabled,
+} from "./order-payments.js";
 import { merchantSecretsAvailable } from "./sslcommerz.js";
 import { refundsRouter } from "./refunds.js";
 import { ownerInclusionRouter, publicInclusionRouter } from "./office-inclusion.js";
@@ -60,6 +94,8 @@ import { publicEmailRouter, emailRouter } from "./email-verification.js";
 import {
   notifyCertificateIssued,
   notifyApplicationRejected,
+  notifyCertificateRevoked,
+  notifyCorrectionRequired,
 } from "./status-notifications.js";
 import {
   ownerOfficeRegistrationRouter,
@@ -139,6 +175,22 @@ function roles(req: Req, allowed: string[]) {
   return a;
 }
 const staffRead = ["staff", "admin", "reviewer", "approver"];
+/**
+ * Phase 5 (5B): free-text search input is normalized before it reaches ILIKE — Bengali digits fold
+ * to ASCII, surrounding whitespace is trimmed and internal runs collapse to one space. Without
+ * this, a pasted name with stray or doubled spaces silently matched nothing.
+ * Security Audit 01, F8: LIKE metacharacters (\, %, _) are escaped last, so a typed
+ * "%" or "_" matches literally instead of widening the pattern. PostgreSQL's LIKE
+ * uses the backslash as its default escape character, and the escaped value is
+ * always sent as a bound parameter. The result is used only as an ILIKE pattern
+ * (and as referenceDigits input, which ignores non-digits).
+ */
+const normalizeSearchQuery = (raw: string): string =>
+  raw
+    .replace(/[০-৯]/g, (d) => String(d.charCodeAt(0) - 0x09e6))
+    .trim()
+    .replace(/\s+/g, " ")
+    .replace(/[\\%_]/g, (c) => `\\${c}`);
 async function authorization(db: DB, a: Auth, no: number) {
   const current = await db.query(
     "SELECT 1 FROM approval_authorizations aa JOIN staff_memberships m ON m.tenant_id=aa.tenant_id AND m.user_id=aa.user_id JOIN platform_users u ON u.id=m.user_id JOIN tenants t ON t.id=m.tenant_id WHERE aa.tenant_id=$1 AND aa.user_id=$2 AND aa.service_no=$3 AND aa.active AND m.active AND m.role='approver' AND u.active AND t.status='ACTIVE' FOR SHARE OF aa,m,u,t",
@@ -148,7 +200,7 @@ async function authorization(db: DB, a: Auth, no: number) {
     fail(
       403,
       "APPROVAL_AUTHORITY_REQUIRED",
-      "An active service-specific demonstration approval authorization is required.",
+      "An active service-specific approval authorization is required.",
     );
 }
 async function loadApplication(db: DB, id: string, a: Auth, lock = false) {
@@ -197,6 +249,22 @@ async function validatePayload(
       "SCHEMA_UNAVAILABLE",
       "Operational schema version is unavailable.",
     );
+  // F-7: the order step records the citizen's certificate-language choice on
+  // the payload for every service (ServiceFlow onLanguageChange), but only
+  // some form schemas define a delivery_language field. The rest carry the
+  // choice on the order snapshot instead (orders.validateLanguage only
+  // requires agreement when the payload has the key, and issuance falls back
+  // to the snapshot). Drop the key for schema-less services before strict
+  // validation so the UI's own submission is not rejected as unknown_field.
+  if (
+    payload &&
+    typeof payload === "object" &&
+    Object.hasOwn(payload, "delivery_language") &&
+    !stored.schema_json.sections?.some((section: any) =>
+      section.fields?.some((field: any) => field.id === "delivery_language"),
+    )
+  )
+    delete payload.delivery_language;
   const validation = validateForm(stored.schema_json, payload);
   if (!validation.valid)
     throw new ApiError(
@@ -290,49 +358,146 @@ async function settle(body: any, bodyHash: string) {
         "INSERT INTO payment_events(event_id,tenant_id,order_id,body_hash) VALUES($1,$2,$3,$4)",
         [data.eventId, data.tenantId, order.id, bodyHash],
       );
+      if (order.status === "CANCELLED")
+        fail(
+          409,
+          "ORDER_CANCELLED",
+          "This payment order was cancelled by the platform owner.",
+        );
       if (order.status === "SETTLED")
         return { settled: true, replayed: true, orderId: order.id };
-      await db.query(
-        "INSERT INTO credit_ledger(tenant_id,delta,kind,idempotency_key,actor_id,reason,balance_after) VALUES($1,$2,$3,$4,$5,$6,0)",
-        [
-          data.tenantId,
-          order.credits,
-          order.kind === "subscription" ? "PLAN_GRANT" : "TOPUP",
-          `payment:${order.id}`,
-          order.created_by,
-          "Verified synthetic sandbox settlement",
-        ],
-      );
-      if (order.kind === "subscription") {
-        const plan = (
-          await db.query("SELECT * FROM subscription_plans WHERE id=$1", [
-            order.plan_id,
-          ])
-        ).rows[0];
+      await applyOrderSettlement(db, order, order.created_by, "SANDBOX_PAYMENT_SETTLED", {
+        credits: order.credits,
+      });
+      return { settled: true, replayed: false, orderId: order.id };
+    },
+    true,
+  );
+}
+/**
+ * Phase 3A: owner manual settlement. Mirrors the webhook's idempotency
+ * discipline — a deterministic `manual:<order>` payment event whose hash binds
+ * the settling owner — then runs the exact same applyOrderSettlement effects,
+ * so a manual settle grants credits and activates the subscription exactly
+ * once, and a repeat call replays without touching state.
+ */
+async function settleOrderManually(
+  orderId: string,
+  tenantId: string,
+  owner: Auth,
+  reason: string,
+) {
+  return transaction(
+    tenantId,
+    async (db) => {
+      const order = (
         await db.query(
-          "INSERT INTO tenant_subscriptions(tenant_id,plan_id,valid_until,status) VALUES($1,$2,now()+($3::int*interval '1 day'),'ACTIVE') ON CONFLICT(tenant_id) DO UPDATE SET plan_id=excluded.plan_id,valid_until=greatest(tenant_subscriptions.valid_until,now())+($3::int*interval '1 day'),status='ACTIVE'",
-          [data.tenantId, plan.id, plan.duration_days],
+          "SELECT * FROM payment_orders WHERE id=$1 AND tenant_id=$2 FOR UPDATE",
+          [orderId, tenantId],
+        )
+      ).rows[0];
+      if (!order) fail(404, "ORDER_NOT_FOUND", "Payment order not found.");
+      if (order.status === "CANCELLED")
+        fail(
+          409,
+          "ORDER_CANCELLED",
+          "This payment order was cancelled and can no longer be settled.",
         );
+      const eventId = `manual:${order.id}`,
+        bodyHash = digest(
+          JSON.stringify({
+            manual: true,
+            orderId: order.id,
+            tenantId,
+            actorId: owner.userId,
+          }),
+        );
+      const prior = (
+        await db.query("SELECT * FROM payment_events WHERE event_id=$1", [
+          eventId,
+        ])
+      ).rows[0];
+      if (prior) {
+        if (prior.body_hash !== bodyHash || prior.order_id !== order.id)
+          fail(
+            409,
+            "EVENT_REUSE",
+            "Payment event was already used with different content.",
+          );
+        return { settled: true, replayed: true, orderId: order.id };
       }
-      await db.query("UPDATE payment_orders SET status='SETTLED' WHERE id=$1", [
-        order.id,
-      ]);
       await db.query(
-        "INSERT INTO invoices(tenant_id,order_id,amount_minor,currency) VALUES($1,$2,$3,$4)",
-        [data.tenantId, order.id, order.amount_minor, order.currency],
+        "INSERT INTO payment_events(event_id,tenant_id,order_id,body_hash) VALUES($1,$2,$3,$4)",
+        [eventId, tenantId, order.id, bodyHash],
       );
-      await audit(
+      if (order.status === "SETTLED")
+        return { settled: true, replayed: true, orderId: order.id };
+      await applyOrderSettlement(
         db,
-        data.tenantId,
-        order.created_by,
-        "SANDBOX_PAYMENT_SETTLED",
-        order.id,
-        { credits: order.credits },
+        order,
+        owner.userId,
+        "PAYMENT_ORDER_MANUALLY_SETTLED",
+        { credits: order.credits, reason, manual: true },
       );
       return { settled: true, replayed: false, orderId: order.id };
     },
     true,
   );
+}
+async function cancelOrderManually(
+  orderId: string,
+  tenantId: string,
+  owner: Auth,
+  reason: string,
+) {
+  return transaction(
+    tenantId,
+    async (db) => {
+      const order = (
+        await db.query(
+          "SELECT * FROM payment_orders WHERE id=$1 AND tenant_id=$2 FOR UPDATE",
+          [orderId, tenantId],
+        )
+      ).rows[0];
+      if (!order) fail(404, "ORDER_NOT_FOUND", "Payment order not found.");
+      if (order.status === "SETTLED")
+        fail(
+          409,
+          "ORDER_ALREADY_SETTLED",
+          "A settled payment order cannot be cancelled.",
+        );
+      if (order.status === "CANCELLED")
+        return { cancelled: true, replayed: true, orderId: order.id };
+      await db.query("UPDATE payment_orders SET status='CANCELLED' WHERE id=$1", [
+        order.id,
+      ]);
+      await audit(db, tenantId, owner.userId, "PAYMENT_ORDER_CANCELLED", order.id, {
+        reason,
+      });
+      return { cancelled: true, replayed: false, orderId: order.id };
+    },
+    true,
+  );
+}
+/**
+ * Owner endpoints act across offices while payment_orders sits behind
+ * per-tenant RLS, so locate an order's office the same way GET
+ * /owner/tenants enumerates offices: one tenant transaction at a time.
+ */
+async function locateOrderTenant(orderId: string): Promise<string | null> {
+  const tenants = (await pool.query("SELECT id FROM tenants ORDER BY slug"))
+    .rows;
+  for (const t of tenants) {
+    const found = await transaction(t.id, async (db) =>
+      (
+        await db.query("SELECT tenant_id FROM payment_orders WHERE id=$1", [
+          orderId,
+        ])
+      ).rows[0],
+    );
+    if (found) return t.id;
+  }
+  return null;
 }
 app.post(
   "/api/v1/billing/webhook",
@@ -357,11 +522,15 @@ app.use(express.json({ limit: "3mb" }));
 app.use("/api/v1", attachmentScannerRouter);
 app.use("/api/v1", otpRouter);
 app.use("/api/v1", publicEmailRouter);
+app.use("/api/v1", brandingRouter);
+app.use("/api/v1", publicCouponsRouter);
+app.use("/api/v1", publicNoticesRouter);
 app.use("/api/v1", publicOfficeRegistrationRouter);
 app.use("/api/v1", publicManagementRouter);
 app.use("/api/v1", geographyRouter);
 app.use("/api/v1", publicToolsRouter);
 app.use("/api/v1", publicPaymentsRouter);
+app.use("/api/v1", publicOrderPaymentsRouter);
 app.use("/api/v1", publicInclusionRouter);
 app.use("/api/v1", publicWitnessRouter);
 app.get(
@@ -380,6 +549,8 @@ app.get(
         officeMerchantCredentials: merchantSecretsAvailable(),
         // Phase X: whether outbound email (verification + status notifications) is configured.
         emailDelivery: emailAvailable(),
+        // Phase 7: whether online subscription/credit order payment is configured.
+        orderPayments: await orderPaymentsEnabled(),
       },
     });
   }),
@@ -440,15 +611,58 @@ app.get(
       .trim()
       .replace(/[০-৯]/g, (d) => String("০১২৩৪৫৬৭৮৯".indexOf(d)))
       .toUpperCase();
-    if (!/^[A-Z0-9][A-Z0-9-]{3,79}$/.test(number))
+    if (!/^[A-Z0-9][A-Z0-9 -]{3,79}$/.test(number))
       fail(404, "NOT_FOUND", "Verification record not found.");
-    const record = (
-      await pool.query("SELECT * FROM public_verify_by_number($1)", [number])
-    ).rows[0];
+    // CERTNO-01: the printed 16-digit number may be typed plain, grouped with
+    // spaces/hyphens, or in Bengali digits (folded above). Try the exact form
+    // first (legacy numbers keep their hyphens), then the plain-digit form.
+    const candidates = [number];
+    const digitsOnly = number.replace(/\D/g, "");
+    if (digitsOnly.length === 16) {
+      candidates.push(digitsOnly, `DEMO-${digitsOnly}`);
+    }
+    let record: any;
+    let matched = "";
+    for (const candidate of candidates) {
+      record = (
+        await pool.query("SELECT * FROM public_verify_by_number($1)", [candidate])
+      ).rows[0];
+      if (record) {
+        matched = candidate;
+        break;
+      }
+    }
     if (!record) fail(404, "NOT_FOUND", "Verification record not found.");
-    res.json(camelRow(record));
+    // QA-06: a demo-mode number must never verify as a real document, and the
+    // verifier gets a masked holder name to compare against the paper.
+    const holder = (
+      await pool.query("SELECT * FROM public_verify_holder_by_number($1)", [
+        matched,
+      ])
+    ).rows[0];
+    res.json({
+      ...camelRow(record),
+      demo: Boolean(record.demo) || matched.startsWith("DEMO-"),
+      holderMaskedBn: holder ? maskName(holder.name_bn) : null,
+      holderMaskedEn: holder ? maskName(holder.name_en) : null,
+    });
   }),
 );
+/** QA-06: "রহিম উদ্দিন" -> "র**ম উ***ন": first and last grapheme of each word,
+ * so a verifier can match the paper without the full name being published. */
+function maskName(name: unknown): string | null {
+  if (typeof name !== "string" || !name.trim()) return null;
+  const seg = new Intl.Segmenter(undefined, { granularity: "grapheme" });
+  return name
+    .trim()
+    .split(/\s+/)
+    .map((word) => {
+      const g = [...seg.segment(word)].map((s) => s.segment);
+      if (g.length <= 2) return g[0] + "*".repeat(g.length - 1);
+      return g[0] + "*".repeat(g.length - 2) + g[g.length - 1];
+    })
+    .join(" ");
+}
 const loginAttempts = new Map<string, { count: number; expires: number }>();
 const identifierAttempts = new Map<string, { count: number; expires: number }>();
 app.post(
@@ -592,6 +806,11 @@ app.use("/api/v1", ownerOfficeRegistrationRouter);
 app.use("/api/v1", protectedToolsRouter);
 app.use("/api/v1", ordersRouter);
 app.use("/api/v1", pointsRouter);
+app.use("/api/v1", billingRouter);
+app.use("/api/v1", couponsRouter);
+app.use("/api/v1", noticesRouter);
+app.use("/api/v1", demandRouter);
+app.use("/api/v1", certificateAssetsRouter);
 app.use("/api/v1", rechargeRouter);
 app.use("/api/v1", merchantRouter);
 app.use("/api/v1", refundsRouter);
@@ -599,6 +818,9 @@ app.use("/api/v1", ownerInclusionRouter);
 app.use("/api/v1", ownerWitnessRouter);
 app.use("/api/v1", operationsRouter);
 app.use("/api/v1", paymentsRouter);
+app.use("/api/v1", orderPaymentsRouter);
+app.use("/api/v1", orderRefundsRouter);
+app.use("/api/v1", ownerOrderRefundsRouter);
 app.use("/api/v1", attachmentsRouter);
 app.get(
   "/api/v1/auth/me",
@@ -751,6 +973,75 @@ app.put(
     res.json(item);
   }),
 );
+/**
+ * CERTNO-01: the citizen's optional photo, stored on the citizen record
+ * (migration 051) and printed on certificates only when present. The upload is
+ * validated by the attachments pipeline's decoder (magic bytes + 2 MiB cap),
+ * restricted to PNG/JPEG like the office certificate assets.
+ */
+app.put(
+  "/api/v1/citizens/:id/photo",
+  wrap(async (req, res) => {
+    const a = roles(req, ["staff", "admin", "citizen"]);
+    const id = uuid.parse(req.params.id);
+    const input = z
+      .object({
+        mimeType: z.enum(["image/png", "image/jpeg"]),
+        base64: z.string().min(1).max(3_000_000),
+      })
+      .strict()
+      .parse(req.body);
+    const bytes = decodeUpload(input);
+    const item = await transaction(tenant(req), async (db) => {
+      await reachableCitizen(db, a, id, "id");
+      const row = (
+        await db.query(
+          "UPDATE citizens SET photo=$3,photo_mime=$4,photo_updated_at=now() WHERE tenant_id=$1 AND id=$2 RETURNING *",
+          [a.tenantId, id, bytes, input.mimeType],
+        )
+      ).rows[0];
+      await audit(db, a.tenantId!, a.userId, "CITIZEN_PHOTO_UPDATED", id, {
+        mimeType: input.mimeType,
+        bytes: bytes.length,
+      });
+      return citizenRow(row);
+    });
+    res.json(item);
+  }),
+);
+app.delete(
+  "/api/v1/citizens/:id/photo",
+  wrap(async (req, res) => {
+    const a = roles(req, ["staff", "admin", "citizen"]);
+    const id = uuid.parse(req.params.id);
+    const item = await transaction(tenant(req), async (db) => {
+      await reachableCitizen(db, a, id, "id");
+      const row = (
+        await db.query(
+          "UPDATE citizens SET photo=NULL,photo_mime=NULL,photo_updated_at=NULL WHERE tenant_id=$1 AND id=$2 RETURNING *",
+          [a.tenantId, id],
+        )
+      ).rows[0];
+      await audit(db, a.tenantId!, a.userId, "CITIZEN_PHOTO_REMOVED", id, {});
+      return citizenRow(row);
+    });
+    res.json(item);
+  }),
+);
+app.get(
+  "/api/v1/citizens/:id/photo/image",
+  wrap(async (req, res) => {
+    const a = roles(req, [...staffRead, "citizen"]);
+    const id = uuid.parse(req.params.id);
+    const photo = await transaction(tenant(req), async (db) => {
+      const r = await reachableCitizen(db, a, id, "photo,photo_mime");
+      if (!r.photo) fail(404, "NOT_FOUND", "This citizen has no photo.");
+      return r;
+    });
+    res.setHeader("Cache-Control", "no-store");
+    res.type(photo.photo_mime).send(Buffer.from(photo.photo));
+  }),
+);
 app.get(
   "/api/v1/citizens/:id/identity",
   wrap(async (req, res) => {
@@ -773,13 +1064,19 @@ app.get(
   "/api/v1/citizens",
   wrap(async (req, res) => {
     const a = roles(req, [...staffRead, "citizen"]);
-    const q = String(req.query.q ?? "").slice(0, 100);
+    // Phase 5 (5B): the query is normalized (whitespace/Bengali digits) and matches the Bangla
+    // name, the English name, the reference and the contact mobile. The reference also matches in
+    // digits-only form, so the grouped Phase 5 reference can be pasted with or without hyphens.
+    const q = normalizeSearchQuery(String(req.query.q ?? "").slice(0, 100));
+    const digits = referenceDigits(q);
     const { items, total } = await transaction(tenant(req), async (db) => {
-      const filter = `WHERE tenant_id=$1 ${a.role === "citizen" ? "AND user_id=$2" : ""} AND (full_name_bn ILIKE ${a.role === "citizen" ? "$3" : "$2"} OR full_name_en ILIKE ${a.role === "citizen" ? "$3" : "$2"} OR synthetic_reference ILIKE ${a.role === "citizen" ? "$3" : "$2"})`;
+      const nameParam = a.role === "citizen" ? "$3" : "$2";
+      const digitsParam = a.role === "citizen" ? "$4" : "$3";
+      const filter = `WHERE tenant_id=$1 ${a.role === "citizen" ? "AND user_id=$2" : ""} AND (full_name_bn ILIKE ${nameParam} OR full_name_en ILIKE ${nameParam} OR synthetic_reference ILIKE ${nameParam} OR contact_mobile ILIKE ${nameParam} OR (${digitsParam}::text IS NOT NULL AND replace(synthetic_reference,'-','') ILIKE ${digitsParam}))`;
       const params =
         a.role === "citizen"
-          ? [a.tenantId, a.userId, `%${q}%`]
-          : [a.tenantId, `%${q}%`];
+          ? [a.tenantId, a.userId, `%${q}%`, digits ? `%${digits}%` : null]
+          : [a.tenantId, `%${q}%`, digits ? `%${digits}%` : null];
       return {
         items: (
           await db.query(
@@ -812,12 +1109,19 @@ app.post(
               Number.isFinite(Date.parse(value)) &&
               new Date(value).toISOString().slice(0, 10) === value,
             "A valid ISO calendar date is required.",
+          )
+          // QA-16: no future or implausible birth dates.
+          .refine(
+            (value) =>
+              value <= new Date().toISOString().slice(0, 10) &&
+              value >= "1900-01-01",
+            "জন্ম তারিখ আজকের বা তার আগের হতে হবে। / Date of birth must be today or earlier.",
           ),
         addressBn: z.string().min(4).max(500),
         addressEn: z.string().min(4).max(500),
         syntheticReference: z
           .string()
-          .regex(/^DEMO-[A-Za-z0-9-]{3,50}$/)
+          .regex(/^REF-[A-Za-z0-9-]{3,50}$/)
           .optional(),
         geography: geographyInput.optional(),
         presentAddress: presentAddressInput.optional(),
@@ -844,11 +1148,19 @@ app.post(
         (await db.query("SELECT 1 FROM citizens WHERE user_id=$1", [a.userId]))
           .rowCount
       )
-        fail(409, "PROFILE_EXISTS", "This demo account already has a profile.");
+        fail(409, "PROFILE_EXISTS", "This account already has a profile.");
+      // CERTNO-01: a citizen created without an explicit reference gets the new 16-digit
+      // public reference (Asia/Dhaka registration date + 8 random digits, uniqueness-checked).
+      // Caller-supplied REF-… references and all previously issued references are unchanged.
+      const citizenId = randomUUID();
+      const syntheticReference =
+        data.syntheticReference ??
+        (await mintReference(citizenReferenceExists(db, a.tenantId!)));
       const r = (
         await db.query(
-          "INSERT INTO citizens(tenant_id,user_id,full_name_bn,full_name_en,date_of_birth,address_bn,address_en,synthetic_reference,division_code,district_code,upazila_code,union_code,ward_code,present_same_as_permanent,present_address_bn,present_address_en,present_division_code,present_district_code,present_upazila_code,present_union_code,present_ward_code) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21) RETURNING *",
+          "INSERT INTO citizens(id,tenant_id,user_id,full_name_bn,full_name_en,date_of_birth,address_bn,address_en,synthetic_reference,division_code,district_code,upazila_code,union_code,ward_code,present_same_as_permanent,present_address_bn,present_address_en,present_division_code,present_district_code,present_upazila_code,present_union_code,present_ward_code) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22) RETURNING *",
           [
+            citizenId,
             a.tenantId,
             a.role === "citizen" ? a.userId : null,
             data.nameBn,
@@ -856,7 +1168,7 @@ app.post(
             data.dateOfBirth,
             data.addressBn,
             data.addressEn,
-            data.syntheticReference ?? `DEMO-${randomUUID()}`,
+            syntheticReference,
             ...geographyValues(data.geography),
             ...(await presentAddressValues(db, data.presentAddress)),
           ],
@@ -897,7 +1209,12 @@ app.get(
       .max(100)
       .default(100)
       .parse(req.query.pageSize);
-    const search = z.string().max(100).default("").parse(req.query.q);
+    // Phase 5 (5B/5C): same query normalization as the citizen search, and the Phase 5
+    // application reference matches in grouped or digits-only form.
+    const search = normalizeSearchQuery(
+      z.string().max(100).default("").parse(req.query.q),
+    );
+    const searchDigits = referenceDigits(search);
     const state = req.query.state
       ? z
           .enum([
@@ -921,17 +1238,29 @@ app.get(
     const range = dateRange.parse({ from: req.query.from, to: req.query.to });
     const renewalOnly = req.query.renewal === "true";
     const result = await transaction(tenant(req), async (db) => {
-      const values = [
+      const values: unknown[] = [
         a.tenantId,
         state,
         no,
         a.role === "citizen" ? a.userId : null,
         `%${search}%`,
+        searchDigits ? `%${searchDigits}%` : null,
       ];
-      const from = `FROM applications a JOIN citizens c ON c.id=a.citizen_id AND c.tenant_id=a.tenant_id WHERE a.tenant_id=$1 AND ($2::text IS NULL OR a.state=$2) AND ($3::int IS NULL OR a.service_no=$3) AND ($4::uuid IS NULL OR c.user_id=$4) AND (a.id::text ILIKE $5 OR c.full_name_bn ILIKE $5 OR c.full_name_en ILIKE $5 OR c.synthetic_reference ILIKE $5 OR c.contact_mobile ILIKE $5)${range.from ? ` AND (a.created_at AT TIME ZONE 'Asia/Dhaka')::date >= '${range.from}'::date` : ""}${range.to ? ` AND (a.created_at AT TIME ZONE 'Asia/Dhaka')::date <= '${range.to}'::date` : ""}${renewalOnly ? " AND EXISTS(SELECT 1 FROM renewal_links l WHERE l.tenant_id=a.tenant_id AND l.application_id=a.id)" : ""}`;
+      // Security Audit 01, F7: the (already Zod-validated) range bounds are bound
+      // as parameters like every other value, never interpolated into the SQL text.
+      let rangeFilter = "";
+      if (range.from) {
+        values.push(range.from);
+        rangeFilter += ` AND (a.created_at AT TIME ZONE 'Asia/Dhaka')::date >= $${values.length}::date`;
+      }
+      if (range.to) {
+        values.push(range.to);
+        rangeFilter += ` AND (a.created_at AT TIME ZONE 'Asia/Dhaka')::date <= $${values.length}::date`;
+      }
+      const from = `FROM applications a JOIN citizens c ON c.id=a.citizen_id AND c.tenant_id=a.tenant_id WHERE a.tenant_id=$1 AND ($2::text IS NULL OR a.state=$2) AND ($3::int IS NULL OR a.service_no=$3) AND ($4::uuid IS NULL OR c.user_id=$4) AND (a.id::text ILIKE $5 OR a.reference ILIKE $5 OR ($6::text IS NOT NULL AND replace(a.reference,'-','') ILIKE $6) OR c.full_name_bn ILIKE $5 OR c.full_name_en ILIKE $5 OR c.synthetic_reference ILIKE $5 OR ($6::text IS NOT NULL AND replace(c.synthetic_reference,'-','') ILIKE $6) OR c.contact_mobile ILIKE $5)${rangeFilter}${renewalOnly ? " AND EXISTS(SELECT 1 FROM renewal_links l WHERE l.tenant_id=a.tenant_id AND l.application_id=a.id)" : ""}`;
       const items = (
         await db.query(
-          `SELECT a.*,EXISTS(SELECT 1 FROM renewal_links l WHERE l.tenant_id=a.tenant_id AND l.application_id=a.id) AS is_renewal ${from} ORDER BY a.updated_at DESC,a.id LIMIT $6 OFFSET $7`,
+          `SELECT a.*,EXISTS(SELECT 1 FROM renewal_links l WHERE l.tenant_id=a.tenant_id AND l.application_id=a.id) AS is_renewal ${from} ORDER BY a.updated_at DESC,a.id LIMIT $${values.length + 1} OFFSET $${values.length + 2}`,
           [...values, pageSize, (page - 1) * pageSize],
         )
       ).rows.map(camelRow);
@@ -941,6 +1270,49 @@ app.get(
       return { items, total, page, pageSize };
     });
     res.json(result);
+  }),
+);
+app.get(
+  "/api/v1/applications/counts",
+  wrap(async (req, res) => {
+    // CHAIRMAN-DASH-01: per-state application counts for the caller's own office,
+    // feeding the Pending applications queue. Office roles only — a citizen never
+    // sees office-wide figures. The tenant transaction applies forced RLS, and the
+    // explicit tenant predicate keeps the count scoped even if policies change.
+    // CORRECTION_REQUIRED is deliberately NOT part of either pending group: after a
+    // correction request the next move is the citizen's, not the office's.
+    const a = roles(req, staffRead);
+    const counts = await transaction(tenant(req), async (db) => {
+      const rows = (
+        await db.query(
+          "SELECT state, count(*)::int AS count FROM applications WHERE tenant_id=$1 GROUP BY state",
+          [a.tenantId],
+        )
+      ).rows as { state: string; count: number }[];
+      const byState: Record<string, number> = {
+        DRAFT: 0,
+        SUBMITTED: 0,
+        UNDER_REVIEW: 0,
+        CORRECTION_REQUIRED: 0,
+        RESUBMITTED: 0,
+        APPROVED: 0,
+        ISSUED: 0,
+        REJECTED: 0,
+        CANCELLED: 0,
+        REVOKED: 0,
+      };
+      for (const row of rows) byState[row.state] = row.count;
+      return byState;
+    });
+    res.json({
+      counts,
+      awaitingReview:
+        counts.SUBMITTED + counts.RESUBMITTED + counts.UNDER_REVIEW,
+      // ISSUANCE_PENDING is not a state in the current state machine (migration
+      // 001 CHECK); it is counted defensively should it ever be introduced.
+      awaitingIssuance:
+        counts.APPROVED + (counts.ISSUANCE_PENDING ?? 0),
+    });
   }),
 );
 app.post(
@@ -1002,9 +1374,14 @@ app.post(
         data.order,
         data.payload,
       );
+      // CERTNO-01: every new application carries the public 16-digit reference
+      // (Asia/Dhaka submission date + 8 random digits, uniqueness-checked). The UUID id
+      // remains the internal key; previously created applications keep their reference
+      // (or NULL) and stay reachable by UUID.
+      const reference = await mintReference(applicationReferenceExists(db));
       const r = (
         await db.query(
-          "INSERT INTO applications(tenant_id,citizen_id,service_no,schema_version,schema_hash,created_by,order_mode) VALUES($1,$2,$3,$6,$4,$5,$7) RETURNING *",
+          "INSERT INTO applications(tenant_id,citizen_id,service_no,schema_version,schema_hash,created_by,order_mode,reference) VALUES($1,$2,$3,$6,$4,$5,$7,$8) RETURNING *",
           [
             a.tenantId,
             data.citizenId,
@@ -1013,6 +1390,7 @@ app.post(
             a.userId,
             schemaVersion,
             order ? "POLICY" : "LEGACY",
+            reference,
           ],
         )
       ).rows[0];
@@ -1051,15 +1429,23 @@ app.get(
         "Provide an exact application or certificate reference.",
       );
     const result = await transaction(tenant(req), async (db) => {
+      // Phase 5 (5C): the Phase 5 public reference resolves here too, typed grouped or as
+      // plain digits; UUID ids and certificate numbers keep working unchanged.
+      const publicReference = parseReferenceInput(input.data);
       const row = (
         await db.query(
           `SELECT a.id,a.service_no,a.state,cert.id certificate_id,cert.number certificate_number,cert.status certificate_status
            FROM applications a
            JOIN citizens c ON c.id=a.citizen_id AND c.tenant_id=a.tenant_id
            LEFT JOIN certificates cert ON cert.application_id=a.id AND cert.tenant_id=a.tenant_id
-           WHERE a.tenant_id=$1 AND (a.id::text=lower($2) OR upper(cert.number)=upper($2))
+           WHERE a.tenant_id=$1 AND (a.id::text=lower($2) OR upper(cert.number)=upper($2) OR ($4::text IS NOT NULL AND a.reference=$4))
              AND ($3::uuid IS NULL OR c.user_id=$3)`,
-          [a.tenantId, input.data, a.role === "citizen" ? a.userId : null],
+          [
+            a.tenantId,
+            input.data,
+            a.role === "citizen" ? a.userId : null,
+            publicReference,
+          ],
         )
       ).rows[0];
       if (!row) fail(404, "NOT_FOUND", "Application not found.");
@@ -1129,6 +1515,17 @@ app.get(
             )
           ).rows[0],
         ),
+        // QA-14: tell the approver UI whether this user may decide this
+        // service, so it can hide decision buttons instead of letting the
+        // click fail with APPROVAL_AUTHORITY_REQUIRED.
+        canApprove:
+          a.role === "approver" &&
+          (
+            await db.query(
+              "SELECT 1 FROM approval_authorizations WHERE tenant_id=$1 AND user_id=$2 AND service_no=$3 AND active",
+              [a.tenantId, a.userId, r.service_no],
+            )
+          ).rowCount! > 0,
       };
     });
     res.json(result);
@@ -1261,9 +1658,12 @@ app.post(
             [parent.service_no, schemaVersion],
           )
         ).rows[0];
+        // CERTNO-01: a renewal is a new application and gets its own fresh 16-digit
+        // public reference (Asia/Dhaka submission date + 8 random digits).
+        const renewalReference = await mintReference(applicationReferenceExists(db));
         const child = (
           await db.query(
-            "INSERT INTO applications(tenant_id,citizen_id,service_no,schema_version,schema_hash,created_by,order_mode) VALUES($1,$2,$3,$6,$4,$5,$7) RETURNING *",
+            "INSERT INTO applications(tenant_id,citizen_id,service_no,schema_version,schema_hash,created_by,order_mode,reference) VALUES($1,$2,$3,$6,$4,$5,$7,$8) RETURNING *",
             [
               a.tenantId,
               parent.citizen_id,
@@ -1272,6 +1672,7 @@ app.post(
               a.userId,
               schemaVersion,
               order ? "POLICY" : "LEGACY",
+              renewalReference,
             ],
           )
         ).rows[0];
@@ -1368,9 +1769,14 @@ app.patch(
  * Chairman (approver) verifies the submitted application himself: his approval IS the issuance —
  * one action that approves and issues atomically. The separate POST /issue endpoint remains only
  * as the completion path for applications whose approval was recorded while an issuance gate was
- * closed (fee not yet collected, insufficient credits/points, inactive subscription, incomplete
- * profile, disabled service, revoked renewal source). Those gates keep the exact failure semantics
- * the old two-step flow had: the decision stands, nothing is issued or charged.
+ * closed (order payment outstanding, incomplete profile, disabled service, revoked renewal
+ * source). Those gates keep the exact failure semantics the old two-step flow had: the decision
+ * stands, nothing is issued.
+ *
+ * Phase 3B (billing model, 18 Nov 2026): issuance no longer touches money at all. The platform
+ * fee is settled once at the application's first submit (see billing.ts), so the old issuance
+ * gates SUBSCRIPTION_INACTIVE / INSUFFICIENT_CREDITS / POINTS_INSUFFICIENT are gone: an active
+ * subscription is not required to issue, and neither wallet is debited here.
  */
 const DECISION_STATES = ["SUBMITTED", "RESUBMITTED", "UNDER_REVIEW"];
 const APPROVE_STATES = [...DECISION_STATES, "APPROVED"];
@@ -1378,10 +1784,12 @@ const ISSUANCE_GATE_CODES = new Set([
   "ORDER_PAYMENT_REQUIRED",
   "PROFILE_INCOMPLETE",
   "RENEWAL_SOURCE_INVALID",
-  "INSUFFICIENT_CREDITS",
-  "SUBSCRIPTION_INACTIVE",
-  "POINTS_INSUFFICIENT",
   "SERVICE_DISABLED",
+  // CERT-REFINE-01 gates (cert-gates.ts): the approval is recorded and the
+  // issuance completes later via /issue once the blocker is resolved.
+  "SIGNATURE_MISSING",
+  "AMOUNTS_REQUIRED",
+  "LANGUAGE_VALUE_MISSING",
 ]);
 async function prepareIssuance(
   a: Auth,
@@ -1439,6 +1847,19 @@ async function prepareIssuance(
         [a.userId, a.tenantId],
       )
     ).rows[0];
+    // CERT-REFINE-02 (R2-03): Bangla certificates print the approver's
+    // Bangla name; when it is missing the document falls back to the Latin
+    // name. In official mode that is a data defect — warn loudly at
+    // issuance/render time so the office completes the profile.
+    if (
+      process.env.ISSUANCE_MODE === "official" &&
+      issuerRow &&
+      !String(issuerRow.name_bn ?? "").trim()
+    ) {
+      console.warn(
+        `[CERT-REFINE-02 R2-03] approver ${a.userId} (tenant ${a.tenantId}) has no Bangla name (name_bn) — Bangla certificates will fall back to the Latin name "${issuerRow.display_name}".`,
+      );
+    }
     const orderRow = (
       await db.query(
         "SELECT total_minor,certificate_language FROM application_order_snapshots WHERE application_id=$1",
@@ -1486,6 +1907,17 @@ async function prepareIssuance(
       identity,
       citizenGeography: await citizenAddressParts(db, citizen, tenant),
       officeGeography: await officeAddressParts(db, tenant),
+      // CERTASSETS-01: the office's uploaded profile artwork (logo, seal,
+      // signature) resolved inside this tenant transaction; Template v7
+      // prefers it over the legacy filesystem drop-ins.
+      assets: await resolveCertificateAssets(db, a.tenantId!),
+      // CERTNO-01: the citizen's optional photo (migration 051), as a data URL
+      // for the templates. NULL photo → null here → the templates print
+      // nothing at all in the photo position.
+      citizenPhoto:
+        citizen.photo && citizen.photo_mime
+          ? `data:${citizen.photo_mime};base64,${Buffer.from(citizen.photo).toString("base64")}`
+          : null,
     };
     return {
       r,
@@ -1530,6 +1962,7 @@ async function finalizeIssuance(
     number: string;
     verificationUrl: string;
     pdf: Buffer;
+    pdfEn: Buffer;
   },
   opts: {
     states: string[];
@@ -1563,38 +1996,19 @@ async function finalizeIssuance(
         )
       ).rows[0].payload;
       await validateAttachmentReferences(db, currentPayload, r.citizen_id, true);
-      if (
-        !(
-          await db.query(
-            "SELECT 1 FROM tenant_subscriptions WHERE tenant_id=$1 AND status='ACTIVE' AND valid_until>now() FOR UPDATE",
-            [a.tenantId],
-          )
-        ).rowCount
-      )
-        fail(
-          402,
-          "SUBSCRIPTION_INACTIVE",
-          "An active tenant subscription is required. Application is retained.",
-        );
-      const cost = (
+      // Phase 3B: no money moves at issuance — the fee was settled at submit (billing.ts) and
+      // no subscription is required here. The only money-adjacent gate left is that the office
+      // still offers the service at all.
+      const config = (
         await db.query(
           "SELECT credit_cost FROM tenant_service_configuration WHERE tenant_id=$1 AND service_no=$2 AND enabled",
           [a.tenantId, r.service_no],
         )
-      ).rows[0]?.credit_cost;
-      if (!cost) fail(422, "SERVICE_DISABLED", "Service is disabled.");
-      const wallet = (
-        await db.query("SELECT balance FROM lock_tenant_wallet()")
       ).rows[0];
-      if (!wallet || wallet.balance < cost)
-        fail(
-          402,
-          "INSUFFICIENT_CREDITS",
-          "Insufficient tenant credits. Approved application is retained.",
-        );
+      if (!config) fail(422, "SERVICE_DISABLED", "Service is disabled.");
       const c = (
         await db.query(
-          "INSERT INTO certificates(id,tenant_id,application_id,number,service_no,token_hash,pdf,issued_by,template_version) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING *",
+          "INSERT INTO certificates(id,tenant_id,application_id,number,service_no,token_hash,pdf,pdf_en,issued_by,template_version) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING *",
           [
             meta.certId,
             a.tenantId,
@@ -1603,17 +2017,15 @@ async function finalizeIssuance(
             r.service_no,
             digest(meta.token),
             meta.pdf,
+            meta.pdfEn,
             a.userId,
             DEMO_TEMPLATE_VERSION,
           ],
         )
       ).rows[0];
-      await db.query(
-        "INSERT INTO credit_ledger(tenant_id,delta,kind,idempotency_key,certificate_id,actor_id,reason,balance_after) VALUES($1,$2,'ISSUANCE',$3,$4,$5,'DEMO certificate issuance',0)",
-        [a.tenantId, -cost, `issuance:${c.id}`, c.id, a.userId],
-      );
-      // Phase 5a: the owner-set point price, deducted once in the same transaction (402 keeps it approved).
-      await chargeIssuancePoints(db, a.tenantId!, r.service_no, c.id, a.userId);
+      // Phase 3B: the issuance-time credit debit and point deduction are retired — the
+      // application's fee was settled once at submit. The injected failure point keeps its
+      // historical name; it still proves the whole issuance transaction rolls back.
       if (
         process.env.NODE_ENV === "test" &&
         opts.testFailure === "after-debit"
@@ -1665,11 +2077,111 @@ async function recordApprovalOnGate(a: Auth, id: string) {
  * carries no demo wording of any kind) the number is the plain year + the
  * unguessable certificate fragment, as printed on Template v7 documents.
  */
-function newCertificateNumber(certId: string): string {
-  const fragment = certId.slice(0, 18).toUpperCase();
-  return process.env.ISSUANCE_MODE === "official"
-    ? `${new Date().getFullYear()}-${fragment}`
-    : `DEMO-${new Date().getFullYear()}-${fragment}`;
+/**
+ * CERTNO-01: the certificate number is 16 digits — the Asia/Dhaka issue date
+ * (YYYYMMDD) followed by 8 random digits — stored as 16 consecutive digits.
+ * Uniqueness is enforced by certificates_number_key; issuance retries with a
+ * fresh number when the insert reports a collision (see issueWithFreshNumber).
+ * Test/demo mode keeps the DEMO- marker so a sandbox document can never be
+ * mistaken for an official one. Existing records keep their numbers — nothing
+ * renumbers.
+ */
+function newCertificateNumber(): string {
+  const digits = `${dhakaDateStamp()}${randomEightDigits()}`;
+  return process.env.ISSUANCE_MODE === "official" ? digits : `DEMO-${digits}`;
+}
+
+/**
+ * CERTNO-01 bilingual issuance: ONE issuance, ONE number, ONE QR — the Bangla
+ * render is stored in certificates.pdf and the English render in
+ * certificates.pdf_en. The payload's own delivery_language is overridden per
+ * render so both languages are always produced.
+ */
+async function renderCertificatePair(
+  prepared: any,
+  number: string,
+  verificationUrl: string,
+) {
+  const base = {
+    number,
+    verificationUrl,
+    tenant: prepared.tenant,
+    service: prepared.service,
+    citizen: prepared.citizen,
+    schema: prepared.schema,
+    geographyNames: prepared.geographyNames,
+    renewalNumber: prepared.renewal,
+    ...prepared.pdfExtras,
+  };
+  const pdf = await generatePdf({
+    ...base,
+    payload: { ...prepared.payload, delivery_language: "bn" },
+  });
+  const pdfEn = await generatePdf({
+    ...base,
+    payload: { ...prepared.payload, delivery_language: "en" },
+  });
+  return { pdf, pdfEn };
+}
+
+/**
+ * Run `fn` until it succeeds, retrying ONLY a certificate-number collision
+ * (PostgreSQL 23505 on certificates_number_key). Exported for the CERTNO-01
+ * collision test, which drives it with synthetic 23505 failures.
+ */
+export async function retryOnCertificateNumberCollision<T>(
+  fn: (attempt: number) => Promise<T>,
+  maxAttempts = 5,
+): Promise<T> {
+  for (let attempt = 0; ; attempt++) {
+    try {
+      return await fn(attempt);
+    } catch (error: any) {
+      if (
+        error?.code === "23505" &&
+        error?.constraint === "certificates_number_key" &&
+        attempt < maxAttempts - 1
+      )
+        continue;
+      throw error;
+    }
+  }
+}
+
+/**
+ * Mint a number, render both languages and finalise; on a number collision
+ * regenerate the number and re-render — the number is printed on the
+ * document, so a retry must render again. Any other failure propagates.
+ */
+async function issueWithFreshNumber(
+  a: Auth,
+  id: string,
+  prepared: any,
+  opts: {
+    states: string[];
+    stateMessage: string;
+    recordApproval: boolean;
+    testFailure?: string | null;
+  },
+) {
+  const certId = randomUUID(),
+    token = randomToken();
+  const verificationUrl = `${publicOrigin}/verify/${token}`;
+  return retryOnCertificateNumberCollision(async () => {
+    const number = newCertificateNumber();
+    const { pdf, pdfEn } = await renderCertificatePair(
+      prepared,
+      number,
+      verificationUrl,
+    );
+    const certificate = await finalizeIssuance(
+      a,
+      id,
+      { certId, token, number, verificationUrl, pdf, pdfEn },
+      opts,
+    );
+    return { certificate, number };
+  });
 }
 async function approveAndIssue(req: Req, a: Auth, id: string) {
   try {
@@ -1686,33 +2198,13 @@ async function approveAndIssue(req: Req, a: Auth, id: string) {
       return { ...application, certificate: certificateRow(prepared.existing) };
     }
     assertProfileComplete(prepared);
-    const certId = randomUUID(),
-      token = randomToken(),
-      number = newCertificateNumber(certId);
-    const verificationUrl = `${publicOrigin}/verify/${token}`;
-    const pdf = await generatePdf({
-      number,
-      verificationUrl,
-      tenant: prepared.tenant,
-      service: prepared.service,
-      citizen: prepared.citizen,
-      payload: prepared.payload,
-      schema: prepared.schema,
-      geographyNames: prepared.geographyNames,
-      renewalNumber: prepared.renewal,
-      ...prepared.pdfExtras,
+    assertCertificateGates(prepared);
+    const { certificate, number } = await issueWithFreshNumber(a, id, prepared, {
+      states: APPROVE_STATES,
+      stateMessage: "Approval requires a submitted application.",
+      recordApproval: true,
+      testFailure: req.header("X-Test-Failure"),
     });
-    const certificate = await finalizeIssuance(
-      a,
-      id,
-      { certId, token, number, verificationUrl, pdf },
-      {
-        states: APPROVE_STATES,
-        stateMessage: "Approval requires a submitted application.",
-        recordApproval: true,
-        testFailure: req.header("X-Test-Failure"),
-      },
-    );
     const application = await transaction(a.tenantId!, async (db) =>
       camelRow(await loadApplication(db, id, a)),
     );
@@ -1846,6 +2338,13 @@ app.post(
         ).rows[0].payload;
         await validateAttachmentReferences(db, payload, r.citizen_id, true);
       }
+      // Phase 3B: the application's fee is settled inside this same transaction, at its
+      // first successful submit only. If the fee cannot be taken (insufficient office
+      // credit, or citizen-pays with no payment rail yet) settleApplicationFee throws and
+      // the whole submit rolls back — the application stays a draft, nothing is charged.
+      // Resubmits never reach this: the fee is settled once per application (billing.ts).
+      if (data.action === "submit")
+        await settleApplicationFee(db, r.tenant_id, r, a.userId);
       const updated = (
         await db.query(
           "UPDATE applications SET state=$2,updated_at=now(),approved_by=CASE WHEN $2='APPROVED' THEN $3 ELSE approved_by END,approved_version=CASE WHEN $2='APPROVED' THEN latest_version ELSE approved_version END WHERE id=$1 RETURNING *",
@@ -1870,12 +2369,24 @@ app.post(
           "INSERT INTO outbox_events(tenant_id,kind,resource_id,detail) VALUES($1,'APPLICATION_REJECTED',$2,$3)",
           [a.tenantId, r.id, data.reason],
         );
+      // QA-08: the citizen also hears about a correction request, with the reason.
+      else if (data.action === "request_correction")
+        await db.query(
+          "INSERT INTO outbox_events(tenant_id,kind,resource_id,detail) VALUES($1,'APPLICATION_CORRECTION_REQUIRED',$2,$3)",
+          [a.tenantId, r.id, data.reason],
+        );
       return camelRow(updated);
     });
     // Phase X: a rejection also reaches the citizen by email and status SMS (the in-app
     // notification with the reason was written inside the transaction above).
     if (data.action === "reject")
       await notifyApplicationRejected({
+        tenantId: a.tenantId!,
+        applicationId: String(req.params.id),
+        reason: data.reason!,
+      });
+    else if (data.action === "request_correction")
+      await notifyCorrectionRequired({
         tenantId: a.tenantId!,
         applicationId: String(req.params.id),
         reason: data.reason!,
@@ -1905,26 +2416,11 @@ app.post(
       return;
     }
     assertProfileComplete(prepared);
-    const certId = randomUUID(),
-      token = randomToken(),
-      number = newCertificateNumber(certId);
-    const verificationUrl = `${publicOrigin}/verify/${token}`;
-    const pdf = await generatePdf({
-      number,
-      verificationUrl,
-      tenant: prepared.tenant,
-      service: prepared.service,
-      citizen: prepared.citizen,
-      payload: prepared.payload,
-      schema: prepared.schema,
-      geographyNames: prepared.geographyNames,
-      renewalNumber: prepared.renewal,
-      ...prepared.pdfExtras,
-    });
-    const result = await finalizeIssuance(
+    assertCertificateGates(prepared);
+    const { certificate: result, number } = await issueWithFreshNumber(
       a,
       id,
-      { certId, token, number, verificationUrl, pdf },
+      prepared,
       {
         states: ["APPROVED"],
         stateMessage: "Current payload requires final approval.",
@@ -1954,15 +2450,48 @@ app.get(
       ).rows[0];
       if (!c) fail(404, "NOT_FOUND", "Certificate not found.");
       await loadApplication(db, c.application_id, a);
-      return c;
+      // QA-12: a revoked certificate must not keep circulating as a clean PDF.
+      // The holder can no longer download it; office staff keep access for records.
+      if (c.status === "REVOKED" && a.role === "citizen")
+        fail(
+          410,
+          "CERTIFICATE_REVOKED",
+          "এই সনদটি প্রত্যাহার করা হয়েছে এবং আর ডাউনলোড করা যাবে না। / This certificate has been revoked and can no longer be downloaded.",
+        );
+      // CERTNO-01: the default download keeps the established behaviour —
+      // the language the citizen ordered (the order snapshot's
+      // certificate_language), Bangla when there is no snapshot.
+      const snapshot = (
+        await db.query(
+          "SELECT certificate_language FROM application_order_snapshots WHERE application_id=$1",
+          [c.application_id],
+        )
+      ).rows[0];
+      return { ...c, orderedLanguage: snapshot?.certificate_language ?? null };
     });
+    // CERTNO-01: both language versions are stored at issuance (pdf = Bangla,
+    // pdf_en = English, one number). ?lang=bn / ?lang=en picks a version
+    // explicitly; without it, the ordered language is served. Certificates
+    // issued before bilingual storage have no second render — an explicit
+    // request for it answers LANGUAGE_VERSION_UNAVAILABLE instead of
+    // fabricating one, and the default keeps serving the stored document.
+    const lang = String(req.query.lang ?? "").toLowerCase();
+    if (lang && lang !== "bn" && lang !== "en")
+      fail(400, "INPUT_INVALID", "Language must be bn or en.");
+    if (lang === "en" && !cert.pdf_en)
+      fail(
+        404,
+        "LANGUAGE_VERSION_UNAVAILABLE",
+        "This certificate was issued before bilingual storage; no English version exists.",
+      );
+    const english = lang ? lang === "en" : cert.orderedLanguage === "en" && !!cert.pdf_en;
     res
       .type("application/pdf")
       .setHeader(
         "Content-Disposition",
-        `inline; filename="${cert.number}.pdf"`,
+        `inline; filename="${cert.number}${english ? "-en" : ""}.pdf"`,
       );
-    res.send(cert.pdf);
+    res.send(english ? cert.pdf_en : cert.pdf);
   }),
 );
 app.post(
@@ -1973,6 +2502,7 @@ app.post(
       .object({ reason: z.string().trim().min(3).max(500) })
       .strict()
       .parse(req.body);
+    let revokedNow: { applicationId: string; number: string } | undefined;
     const result = await transaction(tenant(req), async (db) => {
       const c = (
         await db.query(
@@ -1995,8 +2525,21 @@ app.post(
         [r.id],
       );
       await event(db, r, a, "revoke", "REVOKED", data.reason);
+      // QA-08: the holder sees the revocation (with the reason) in the in-app feed.
+      await db.query(
+        "INSERT INTO outbox_events(tenant_id,kind,resource_id,detail) VALUES($1,'CERTIFICATE_REVOKED',$2,$3)",
+        [a.tenantId, c.id, data.reason],
+      );
+      revokedNow = { applicationId: r.id, number: c.number };
       return certificateRow(revised);
     });
+    if (revokedNow)
+      await notifyCertificateRevoked({
+        tenantId: a.tenantId!,
+        applicationId: revokedNow.applicationId,
+        certificateNumber: revokedNow.number,
+        reason: data.reason,
+      });
     res.json(result);
   }),
 );
@@ -2034,18 +2577,31 @@ app.get(
   "/api/v1/billing",
   wrap(async (req, res) => {
     roles(req, ["admin", "finance"]);
-    const result = await transaction(tenant(req), async (db) => ({
+    const result = await transaction(tenant(req), async (db) => {
+      const subscription = (
+        await db.query("SELECT * FROM tenant_subscriptions WHERE tenant_id=$1", [
+          tenant(req),
+        ])
+      ).rows[0];
+      return {
+      // Phase 3C: offices are offered only plans currently on sale; their own
+      // current plan rides along separately so its name still renders after
+      // the owner hides it (existing subscriptions are unaffected by hiding).
       plans: (
-        await db.query("SELECT * FROM subscription_plans ORDER BY id")
+        await db.query(
+          "SELECT * FROM subscription_plans WHERE on_sale ORDER BY sort_order, id",
+        )
       ).rows.map(camelRow),
-      subscription: camelRow(
-        (
-          await db.query(
-            "SELECT * FROM tenant_subscriptions WHERE tenant_id=$1",
-            [tenant(req)],
+      currentPlan: subscription
+        ? camelRow(
+            (
+              await db.query("SELECT * FROM subscription_plans WHERE id=$1", [
+                subscription.plan_id,
+              ])
+            ).rows[0],
           )
-        ).rows[0],
-      ),
+        : null,
+      subscription: camelRow(subscription),
       orders: (
         await db.query(
           "SELECT * FROM payment_orders WHERE tenant_id=$1 ORDER BY created_at DESC",
@@ -2061,7 +2617,8 @@ app.get(
       sandbox: true,
       demoSettleEnabled: demoSettleEnabled(),
       governmentFees: "NOT_CONFIGURED_SEPARATE_ACCOUNTING",
-    }));
+      };
+    });
     res.json(result);
   }),
 );
@@ -2074,6 +2631,8 @@ app.post(
         kind: z.enum(["topup", "subscription"]),
         planId: z.string().max(50).optional(),
         credits: z.number().int().min(1).max(100).optional(),
+        // Phase 3E (§3.7): an owner coupon code, redeemed against this order.
+        couponCode: platformCouponCode.optional(),
       })
       .strict()
       .parse(req.body);
@@ -2084,20 +2643,51 @@ app.post(
       if (data.kind === "subscription") {
         const plan = (
           await db.query("SELECT * FROM subscription_plans WHERE id=$1", [
-            data.planId ?? "demo-monthly",
+            data.planId ?? "standard-monthly",
           ])
         ).rows[0];
         if (!plan) fail(422, "PLAN_INVALID", "Plan not found.");
+        if (!plan.on_sale)
+          fail(
+            422,
+            "PLAN_NOT_ON_SALE",
+            "This plan is not available for new orders. / এই প্ল্যানটি নতুন অর্ডারের জন্য উপলব্ধ নয়।",
+          );
         credits = plan.grant_credits;
         planId = plan.id;
         amountMinor = plan.price_minor;
       } else credits = data.credits ?? 10;
       // Engineering fixtures have zero monetary value. No live price or gateway contract is implied.
+      const order = (
+        await db.query(
+          "INSERT INTO payment_orders(tenant_id,kind,plan_id,credits,amount_minor,currency,created_by) VALUES($1,$2,$3,$4,$5,'BDT',$6) RETURNING *",
+          [a.tenantId, data.kind, planId, credits, amountMinor, a.userId],
+        )
+      ).rows[0];
+      if (!data.couponCode) return camelRow(order);
+      // Phase 3E (§3.7): redeem the owner coupon against this order, inside the same
+      // transaction — any validation failure rolls the order back with it. The stored
+      // amount_minor becomes the net payable amount; the redemption row and the
+      // order's coupon_code/discount_minor are the §3.7 record of the redemption.
+      const discount = await platformCouponDiscount(db, {
+        code: data.couponCode,
+        tenantId: tenant(req),
+        kind: data.kind,
+        planId,
+        amountMinor,
+      });
+      await recordCouponRedemption(db, {
+        code: data.couponCode,
+        tenantId: tenant(req),
+        orderId: order.id,
+        discountMinor: discount,
+        actorId: a.userId,
+      });
       return camelRow(
         (
           await db.query(
-            "INSERT INTO payment_orders(tenant_id,kind,plan_id,credits,amount_minor,currency,created_by) VALUES($1,$2,$3,$4,$5,'BDT',$6) RETURNING *",
-            [a.tenantId, data.kind, planId, credits, amountMinor, a.userId],
+            "UPDATE payment_orders SET amount_minor=$2, coupon_code=$3, discount_minor=$4 WHERE id=$1 RETURNING *",
+            [order.id, amountMinor - discount, data.couponCode, discount],
           )
         ).rows[0],
       );
@@ -2113,10 +2703,11 @@ app.post(
 export const demoSettleEnabled = () => process.env.DEMO_SETTLE_ENABLED === "true";
 /**
  * Issuance mode gate: "demo" unless ISSUANCE_MODE is exactly "official".
- * In official mode the health endpoint reports OFFICIAL and the certificate
- * template drops its DEMO branding (the factual not-a-government-document
- * honesty lines stay in both modes). Read per call, like demoSettleEnabled,
- * so tests and operators can flip it via the environment alone. Activation
+ * In official mode the health endpoint reports OFFICIAL. Certificate
+ * templates carry no demo branding or disclaimer lines in ANY mode (owner
+ * purge, 17 Nov 2026); the mode gates only emblem/seal artwork and the
+ * certificate-number prefix. Read per call, like demoSettleEnabled, so
+ * tests and operators can flip it via the environment alone. Activation
  * is the owner's decision; the default is always demo.
  */
 export const issuanceMode = () =>
@@ -2180,7 +2771,12 @@ app.get(
       }));
       items.push({ ...camelRow(t), ...wallet });
     }
-    res.json({ items });
+    // Phase 3A: the plan catalogue rides along so the owner UI can offer plan
+    // choices for subscription actions without a second round-trip.
+    const plans = (
+      await pool.query("SELECT * FROM subscription_plans ORDER BY id")
+    ).rows.map(camelRow);
+    res.json({ items, plans });
   }),
 );
 app.post(
@@ -2237,6 +2833,118 @@ app.post(
     res.status(201).json(result);
   }),
 );
+app.post(
+  "/api/v1/owner/tenants/:id/subscription",
+  wrap(async (req, res) => {
+    const a = roles(req, ["owner"]);
+    const id = uuid.parse(req.params.id);
+    const data = z
+      .object({
+        action: z.enum([
+          "activate",
+          "extend",
+          "set_expiry",
+          "suspend",
+          "change_plan",
+        ]),
+        planId: z.string().min(1).max(50).optional(),
+        days: z.number().int().min(1).max(3650).optional(),
+        validUntil: z.string().datetime({ offset: true }).optional(),
+        status: z.enum(["ACTIVE", "EXPIRED", "SUSPENDED"]).optional(),
+        grantCredits: z.boolean().optional(),
+        reason: z.string().trim().min(8).max(500),
+      })
+      .strict()
+      .refine((v) => v.action !== "change_plan" || !!v.planId, {
+        message: "planId is required to change the plan.",
+      })
+      .refine((v) => v.action !== "set_expiry" || !!v.validUntil, {
+        message: "validUntil is required to set the expiry.",
+      })
+      .parse(req.body);
+    if (!(await pool.query("SELECT 1 FROM tenants WHERE id=$1", [id])).rowCount)
+      fail(404, "NOT_FOUND", "Tenant not found.");
+    const result = await transaction(
+      id,
+      async (db) => {
+        const { before, after, creditsGranted } = await applySubscriptionAction(
+          db,
+          id,
+          a.userId,
+          data,
+        );
+        return {
+          subscription: camelRow(after),
+          previous: camelRow(before),
+          creditsGranted,
+        };
+      },
+      true,
+    );
+    res.status(201).json(result);
+  }),
+);
+app.get(
+  "/api/v1/owner/payment-orders",
+  wrap(async (req, res) => {
+    roles(req, ["owner"]);
+    const status = z
+      .enum(["PENDING", "SETTLED", "CANCELLED", "ALL"])
+      .default("PENDING")
+      .parse(req.query.status ?? undefined);
+    const tenants = (await pool.query("SELECT * FROM tenants ORDER BY slug"))
+      .rows;
+    const items: any[] = [];
+    for (const t of tenants) {
+      const orders = await transaction(t.id, async (db) =>
+        (
+          await db.query(
+            status === "ALL"
+              ? "SELECT * FROM payment_orders WHERE tenant_id=$1 ORDER BY created_at DESC"
+              : "SELECT * FROM payment_orders WHERE tenant_id=$1 AND status=$2 ORDER BY created_at DESC",
+            status === "ALL" ? [t.id] : [t.id, status],
+          )
+        ).rows.map((o) => ({
+          ...camelRow(o),
+          tenantSlug: t.slug,
+          tenantNameBn: t.name_bn,
+          tenantNameEn: t.name_en,
+        })),
+      );
+      items.push(...orders);
+    }
+    items.sort((x, y) =>
+      String(y.createdAt).localeCompare(String(x.createdAt)),
+    );
+    res.json({ items });
+  }),
+);
+const ownerOrderDecision = () =>
+  z
+    .object({ reason: z.string().trim().min(8).max(500) })
+    .strict();
+app.post(
+  "/api/v1/owner/payment-orders/:id/settle",
+  wrap(async (req, res) => {
+    const a = roles(req, ["owner"]);
+    const id = uuid.parse(req.params.id);
+    const data = ownerOrderDecision().parse(req.body);
+    const tenantId = await locateOrderTenant(id);
+    if (!tenantId) fail(404, "ORDER_NOT_FOUND", "Payment order not found.");
+    res.json(await settleOrderManually(id, tenantId!, a, data.reason));
+  }),
+);
+app.post(
+  "/api/v1/owner/payment-orders/:id/cancel",
+  wrap(async (req, res) => {
+    const a = roles(req, ["owner"]);
+    const id = uuid.parse(req.params.id);
+    const data = ownerOrderDecision().parse(req.body);
+    const tenantId = await locateOrderTenant(id);
+    if (!tenantId) fail(404, "ORDER_NOT_FOUND", "Payment order not found.");
+    res.json(await cancelOrderManually(id, tenantId!, a, data.reason));
+  }),
+);
 app.use("/api/v1", (_req, res) =>
   res
     .status(404)
@@ -2258,7 +2966,11 @@ app.use(
             ? 409
             : error.type === "entity.too.large"
               ? 413
-              : 500;
+              : // Security Audit 01, F2: a body the JSON parser rejected is a
+                // client error (400 INPUT_INVALID), not a server failure.
+                error.type === "entity.parse.failed"
+                ? 400
+                : 500;
     const code =
       error instanceof ApiError
         ? error.code
@@ -2268,25 +2980,52 @@ app.use(
             ? "DUPLICATE"
             : status === 413
               ? "UPLOAD_SIZE"
-              : "INTERNAL_ERROR";
+              : status === 400
+                ? "INPUT_INVALID"
+                : "INTERNAL_ERROR";
+    // QA-03: every server failure gets a short reference that is logged with the
+    // full error and returned to the user, so a report can be traced. Only the
+    // method and path are logged (never the query string or body, which can
+    // carry personal data).
+    const errorId =
+      status >= 500 ? randomUUID().replace(/-/g, "").slice(0, 10) : undefined;
+    if (errorId)
+      console.error(
+        `[api-error ${errorId}] ${req.method} ${req.path} ->`,
+        error,
+      );
+    // QA-17: generic messages are bilingual so the Bangla UI never shows a
+    // bare English sentence.
     const message =
       error instanceof ApiError
         ? error.message
         : error instanceof z.ZodError
-          ? "Input validation failed."
+          ? "তথ্য সঠিক নয় — চিহ্নিত ঘরগুলো দেখুন। / Input validation failed."
           : status === 409
-            ? "A duplicate record already exists."
+            ? "একই তথ্য আগে থেকেই আছে। / A duplicate record already exists."
             : status === 413
-              ? "Request body exceeds the allowed size."
-              : "The operation could not be completed.";
+              ? "ফাইল বা তথ্য অনুমোদিত আকারের চেয়ে বড়। / Request body exceeds the allowed size."
+              : status === 400
+                ? "তথ্য সঠিক নয় — চিহ্নিত ঘরগুলো দেখুন। / Input validation failed."
+                : `কাজটি সম্পন্ন করা যায়নি। সহায়তার জন্য এই রেফারেন্স দিন: ${errorId} / The operation could not be completed (ref ${errorId}).`;
+    // QA-17: a ZodError now also returns its field issues, so the UI can point
+    // at the exact field instead of only "Input validation failed."
+    const issues =
+      error instanceof ApiError && error.issues
+        ? error.issues
+        : error instanceof z.ZodError
+          ? error.issues.map((i) => ({
+              path: i.path.join("."),
+              message: i.message,
+            }))
+          : undefined;
     const send = () =>
       res.status(status).json({
         error: {
           code,
           message,
-          ...(error instanceof ApiError && error.issues
-            ? { issues: error.issues }
-            : {}),
+          ...(issues ? { issues } : {}),
+          ...(errorId ? { errorId } : {}),
         },
       });
     if (req.auth?.tenantId && [403, 404].includes(status)) {

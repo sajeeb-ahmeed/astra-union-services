@@ -5,10 +5,12 @@ import { pool, transaction, audit } from "./db.js";
 import {
   hashPassword,
   checkPassword,
+  isCommonPassword,
   randomToken,
   digest,
 } from "./security.js";
-import { camelRow, fail } from "./models.js";
+import { ApiError, camelRow, fail } from "./models.js";
+import { applySubscriptionAction } from "./subscriptions.js";
 import { consumeSignupOtp } from "./otp.js";
 import { emailAvailable } from "./mailer.js";
 import {
@@ -20,6 +22,8 @@ import {
   identifierHint,
   normalizeIdentifier,
 } from "./identifiers.js";
+import { citizenReferenceExists, mintReference } from "./references.js";
+import { recordRegistrationDemand } from "./demand.js";
 import type { Auth } from "./app.js";
 import {
   lockAccount,
@@ -69,7 +73,18 @@ const roleInput = z.enum([
   "finance",
   "citizen",
 ]);
-const password = z.string().min(12).max(200);
+// Security Audit 01, F5: every password set/change point in this module (signup,
+// staff create, tenant create, recovery consume, password change) shares this
+// schema, so the common-password blocklist refine covers all of them at once.
+// FORM-UX (owner directive 19 Nov): every password a user sets is 6–18
+// characters — one rule everywhere, so no form can disagree with the API.
+const password = z
+  .string()
+  .min(6, "Password must be at least 6 characters.")
+  .max(64, "Password must be at most 64 characters.") // QA-09: was 18; long passphrases and password-manager passwords must work
+  .refine((value) => !isCommonPassword(value), {
+    message: "This password is too common. Choose a less predictable password.",
+  });
 const email = z
   .string()
   .email()
@@ -311,6 +326,58 @@ managementRouter.patch(
     res.json(item);
   }),
 );
+// PROFILE-DYNAMIC (owner requirement, 20 Nov 2026): the office name printed on
+// certificates is part of the chairman's own office identity. The full office
+// editor above stays admin-only (it also moves geography and office type),
+// but the NAME must be fixable by the chairman (approver) from his own
+// profile — he is the one whose certificates carry it. This name-only path
+// mirrors the certificate-assets actor rule (admin + approver, own tenant)
+// and lands in the same OFFICE_UPDATED audit stream.
+managementRouter.get(
+  "/office/name",
+  wrap(async (req, res) => {
+    const a = role(req, ["admin", "approver"]);
+    const t = (
+      await pool.query(
+        "SELECT slug,name_bn,name_en FROM tenants WHERE id=$1",
+        [a.tenantId],
+      )
+    ).rows[0];
+    if (!t) fail(404, "NOT_FOUND", "Office not found.");
+    res.json({ slug: t.slug, nameBn: t.name_bn, nameEn: t.name_en });
+  }),
+);
+managementRouter.patch(
+  "/office/name",
+  wrap(async (req, res) => {
+    const a = role(req, ["admin", "approver"]);
+    const d = z
+      .object({
+        nameBn: z.string().trim().min(2).max(150).optional(),
+        nameEn: z.string().trim().min(2).max(150).optional(),
+      })
+      .strict()
+      .refine((v) => v.nameBn !== undefined || v.nameEn !== undefined, {
+        message: "Provide at least one office name.",
+      })
+      .parse(req.body);
+    const item = await transaction(a.tenantId!, async (db) => {
+      const r = (
+        await db.query(
+          "UPDATE tenants SET name_bn=coalesce($2,name_bn),name_en=coalesce($3,name_en) WHERE id=$1 RETURNING *",
+          [a.tenantId, d.nameBn ?? null, d.nameEn ?? null],
+        )
+      ).rows[0];
+      if (!r) fail(404, "NOT_FOUND", "Office not found.");
+      await audit(db, a.tenantId!, a.userId, "OFFICE_UPDATED", a.tenantId, {
+        ...d,
+        via: "office-profile",
+      });
+      return officeRow(r);
+    });
+    res.json(item);
+  }),
+);
 // Phase 3b: the office admin turns the citizen profile completeness gate on or off for certificate issuance.
 managementRouter.put(
   "/admin/office/profile-completeness",
@@ -399,10 +466,12 @@ publicManagementRouter.get(
           // Phase 4a: each enabled service with the office's current published price list entry, if any.
           `SELECT s.service_no,s.name_bn,s.name_en,s.readiness,c.credit_cost,
              p.version AS policy_version,p.statutory_fee_minor,p.processing_fee_minor,p.emergency_surcharge_minor,
-             p.office_collection_fee_minor,p.digital_copy_fee_minor,p.delivery_modes,p.urgencies,p.charter_days
+             p.office_collection_fee_minor,p.digital_copy_fee_minor,p.delivery_modes,p.urgencies,p.charter_days,
+             p.required_documents
            FROM service_catalog s JOIN tenant_service_configuration c USING(service_no)
            LEFT JOIN LATERAL (SELECT * FROM service_order_policies o WHERE o.tenant_id=c.tenant_id AND o.service_no=c.service_no ORDER BY o.version DESC LIMIT 1) p ON true
-           WHERE c.enabled ORDER BY s.service_no`,
+           WHERE c.enabled AND c.tenant_id=$1 ORDER BY s.service_no`,
+          [office.id],
         )
       ).rows.map(camelRow),
     );
@@ -428,6 +497,26 @@ publicManagementRouter.get(
       ).rows.map((r) => ({ name: r.display_name, postBn: r.post_bn, postEn: r.post_en, services: r.services })),
     );
     res.json({ office: officeRow(office), services, notices, officers });
+  }),
+);
+// Phase 6: public per-service view across participating offices — for each ACTIVE office that offers
+// the service, its current published fee policy (fees, citizen-charter time, required documents).
+// Offices without a published policy are returned with policyVersion null; no values are inferred.
+publicManagementRouter.get(
+  "/services/:no/office-info",
+  wrap(async (req, res) => {
+    const no = z.coerce.number().int().min(1).max(47).parse(req.params.no);
+    const service = (
+      await pool.query(
+        "SELECT service_no,name_bn,name_en,category FROM service_catalog WHERE service_no=$1",
+        [no],
+      )
+    ).rows[0];
+    if (!service) fail(404, "NOT_FOUND", "Service not found.");
+    const offices = (
+      await pool.query("SELECT * FROM public_service_office_info($1)", [no])
+    ).rows.map(camelRow);
+    res.json({ service: camelRow(service), offices });
   }),
 );
 publicManagementRouter.get(
@@ -477,12 +566,18 @@ publicManagementRouter.post(
             (v) =>
               Number.isFinite(Date.parse(v)) &&
               new Date(v).toISOString().slice(0, 10) === v,
+          )
+          // QA-16: the browser blocked future dates but the API accepted them.
+          .refine(
+            (v) =>
+              v <= new Date().toISOString().slice(0, 10) && v >= "1900-01-01",
+            "জন্ম তারিখ আজকের বা তার আগের হতে হবে। / Date of birth must be today or earlier.",
           ),
         addressBn: z.string().min(4).max(500),
         addressEn: z.string().min(4).max(500),
         syntheticReference: z
           .string()
-          .regex(/^DEMO-[A-Za-z0-9-]{3,50}$/)
+          .regex(/^REF-[A-Za-z0-9-]{3,50}$/)
           .optional(),
         geography: geographyInput.optional(),
         presentAddress: presentAddressInput.optional(),
@@ -501,7 +596,8 @@ publicManagementRouter.post(
     // Phase X: when email delivery is configured, a verification token is created inside the
     // registration transaction and the message is sent only after it commits.
     const verification: { current: { token: string; email: string } | null } = { current: null };
-    await transaction(d.tenantId, async (db) => {
+    try {
+      await transaction(d.tenantId, async (db) => {
       const office = (
         await db.query(
           "SELECT * FROM tenants WHERE id=$1 AND status='ACTIVE' FOR SHARE",
@@ -518,6 +614,31 @@ publicManagementRouter.post(
       if (d.geography) {
         await validateGeography(db, d.geography, "citizen");
         validateOfficeJurisdiction(office, d.geography);
+        // Phase 3E (§3.6): the citizen's union must be listed on the platform — an
+        // ACTIVE office serves it (a union office for that union, or an upazila-wide
+        // office with no union of its own) — otherwise registration cannot proceed.
+        // Signups without geography (legacy callers) make no union claim and are
+        // unchanged; the office-jurisdiction check above still binds mapped offices.
+        if (d.geography.unionCode) {
+          const listed = (
+            await db.query(
+              `SELECT 1 FROM tenants WHERE status='ACTIVE' AND division_code=$1 AND district_code=$2 AND upazila_code=$3
+               AND (union_code=$4 OR union_code IS NULL) LIMIT 1`,
+              [
+                d.geography.divisionCode,
+                d.geography.districtCode,
+                d.geography.upazilaCode,
+                d.geography.unionCode,
+              ],
+            )
+          ).rowCount;
+          if (!listed)
+            fail(
+              422,
+              "UNION_NOT_LISTED",
+              "এই ইউনিয়ন এখনো DigitalUnion-এ যুক্ত হয়নি। / This union has not joined DigitalUnion yet, so registration is not available for it.",
+            );
+        }
       }
       const user = (
         await db.query(
@@ -529,9 +650,18 @@ publicManagementRouter.post(
         "INSERT INTO staff_memberships(user_id,tenant_id,role) VALUES($1,$2,'citizen')",
         [user.id, d.tenantId],
       );
+      // CERTNO-01: self-registration mints the new 16-digit public reference when the
+      // caller did not supply one (Asia/Dhaka registration date + 8 random digits,
+      // uniqueness-checked). Caller-supplied REF-… references and previously issued
+      // references are unchanged.
+      const citizenId = randomUUID();
+      const syntheticReference =
+        d.syntheticReference ??
+        (await mintReference(citizenReferenceExists(db, d.tenantId)));
       await db.query(
-        "INSERT INTO citizens(tenant_id,user_id,full_name_bn,full_name_en,date_of_birth,address_bn,address_en,synthetic_reference,division_code,district_code,upazila_code,union_code,ward_code,present_same_as_permanent,present_address_bn,present_address_en,present_division_code,present_district_code,present_upazila_code,present_union_code,present_ward_code) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21)",
+        "INSERT INTO citizens(id,tenant_id,user_id,full_name_bn,full_name_en,date_of_birth,address_bn,address_en,synthetic_reference,division_code,district_code,upazila_code,union_code,ward_code,present_same_as_permanent,present_address_bn,present_address_en,present_division_code,present_district_code,present_upazila_code,present_union_code,present_ward_code) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22)",
         [
+          citizenId,
           d.tenantId,
           user.id,
           d.nameBn,
@@ -539,7 +669,7 @@ publicManagementRouter.post(
           d.dateOfBirth,
           d.addressBn,
           d.addressEn,
-          d.syntheticReference ?? `DEMO-${randomUUID()}`,
+          syntheticReference,
           ...geographyValues(d.geography),
           ...(await presentAddressValues(db, d.presentAddress)),
         ],
@@ -559,7 +689,25 @@ publicManagementRouter.post(
         verification.current = { token: issued.token, email: d.email };
       }
       await audit(db, d.tenantId, user.id, "DEMO_SELF_REGISTRATION", user.id);
-    });
+      });
+    } catch (error) {
+      // Demand list (§3.6, owner-approved 18 Nov 08:01): a signup refused only because
+      // its union is not listed is captured for the owner — after the transaction has
+      // rolled back, in the failure-isolated write of demand.ts, so the response the
+      // gate produced is exactly the one returned, capture or no capture.
+      if (
+        error instanceof ApiError &&
+        error.code === "UNION_NOT_LISTED" &&
+        d.geography?.unionCode
+      )
+        await recordRegistrationDemand({
+          nameBn: d.nameBn,
+          nameEn: d.nameEn,
+          phone: mobile,
+          geography: d.geography,
+        });
+      throw error;
+    }
     // Verification never gates the account: it is reported honestly as sent, failed or
     // unavailable (no mail provider configured), and sign-in works in every case.
     let emailVerification: "sent" | "failed" | "unavailable" = "unavailable";
@@ -569,7 +717,14 @@ publicManagementRouter.post(
         : "failed";
     res.status(201).json({
       registered: true,
-      verificationState: "SYNTHETIC_DEMO",
+      // BUNDLE06-R5 D1: demo wording is internal vocabulary — in OFFICIAL
+      // mode citizens must never see "SYNTHETIC_DEMO" in an API response.
+      // The citizens.verification_state column keeps its stored value; only
+      // this citizen-facing response label changes with the issuance mode.
+      verificationState:
+        process.env.ISSUANCE_MODE === "official"
+          ? "UNVERIFIED"
+          : "SYNTHETIC_DEMO",
       geography: d.geography ?? null,
       emailVerification,
     });
@@ -866,7 +1021,7 @@ managementRouter.put(
       const r = (
         await db.query(
           "INSERT INTO approval_authorizations(tenant_id,user_id,service_no,active,authority_note) VALUES($1,$2,$3,$4,$5) ON CONFLICT(tenant_id,user_id,service_no) DO UPDATE SET active=excluded.active,authority_note=excluded.authority_note RETURNING *",
-          [a.tenantId, id, no, d.active, `DEMO ONLY: ${d.authorityNote}`],
+          [a.tenantId, id, no, d.active, d.authorityNote],
         )
       ).rows[0];
       await audit(
@@ -1010,6 +1165,18 @@ managementRouter.post(
           adminEmail: email,
           adminName: z.string().min(2).max(120),
           adminPassword: password,
+          // Phase 3A: office creation is the owner's approval moment (there is
+          // no pending-office queue), so the owner may activate the new
+          // office's subscription in the same step instead of leaving it
+          // EXPIRED for a second action.
+          activateSubscription: z
+            .object({
+              planId: z.string().min(1).max(50).optional(),
+              days: z.number().int().min(1).max(3650).optional(),
+              grantCredits: z.boolean().optional(),
+            })
+            .strict()
+            .optional(),
         })
         .strict()
         .parse(req.body),
@@ -1026,7 +1193,7 @@ managementRouter.post(
         );
       const t = (
         await db.query(
-          "INSERT INTO tenants(id,slug,name_bn,name_en,division,district,upazila,office_type,division_code,district_code,upazila_code,union_code,ward_code,demo) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,true) RETURNING *",
+          "INSERT INTO tenants(id,slug,name_bn,name_en,division,district,upazila,office_type,division_code,district_code,upazila_code,union_code,ward_code,demo) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,false) RETURNING *",
           [
             id,
             d.slug,
@@ -1052,14 +1219,22 @@ managementRouter.post(
       );
       await db.query("INSERT INTO tenant_wallets(tenant_id) VALUES($1)", [id]);
       await db.query(
-        "INSERT INTO tenant_subscriptions(tenant_id,plan_id,valid_until,status) VALUES($1,'demo-monthly',now(),'EXPIRED')",
+        "INSERT INTO tenant_subscriptions(tenant_id,plan_id,valid_until,status,plan_duration_days,plan_grant_credits,plan_allowance_limit) SELECT $1,id,now(),'EXPIRED',duration_days,grant_credits,monthly_allowance_limit FROM subscription_plans WHERE id='standard-monthly'",
         [id],
       );
+      if (d.activateSubscription)
+        await applySubscriptionAction(db, id, a.userId, {
+          action: "activate",
+          planId: d.activateSubscription.planId,
+          days: d.activateSubscription.days,
+          grantCredits: d.activateSubscription.grantCredits,
+          reason: "Subscription activated on office approval",
+        });
       await db.query(
         "INSERT INTO tenant_service_configuration(tenant_id,service_no) SELECT $1,service_no FROM service_catalog",
         [id],
       );
-      await audit(db, id, a.userId, "TENANT_CREATED", id, { demo: true });
+      await audit(db, id, a.userId, "TENANT_CREATED", id, { demo: false });
       return officeRow(t);
     });
     res.status(201).json(item);

@@ -1,0 +1,661 @@
+{
+  "release": "catalog-47-v2",
+  "sentinel": "c8cc5d107ecb8b2710a4648c209765bd32ca321804ffb24f320b82506800ec6a",
+  "latest": [
+    {
+      "serviceNo": 1,
+      "version": 2
+    },
+    {
+      "serviceNo": 2,
+      "version": 2
+    },
+    {
+      "serviceNo": 3,
+      "version": 2
+    },
+    {
+      "serviceNo": 4,
+      "version": 2
+    },
+    {
+      "serviceNo": 5,
+      "version": 2
+    },
+    {
+      "serviceNo": 6,
+      "version": 2
+    },
+    {
+      "serviceNo": 7,
+      "version": 2
+    },
+    {
+      "serviceNo": 8,
+      "version": 2
+    },
+    {
+      "serviceNo": 9,
+      "version": 2
+    },
+    {
+      "serviceNo": 10,
+      "version": 2
+    },
+    {
+      "serviceNo": 11,
+      "version": 2
+    },
+    {
+      "serviceNo": 12,
+      "version": 2
+    },
+    {
+      "serviceNo": 13,
+      "version": 2
+    },
+    {
+      "serviceNo": 14,
+      "version": 2
+    },
+    {
+      "serviceNo": 15,
+      "version": 2
+    },
+    {
+      "serviceNo": 16,
+      "version": 2
+    },
+    {
+      "serviceNo": 17,
+      "version": 2
+    },
+    {
+      "serviceNo": 18,
+      "version": 2
+    },
+    {
+      "serviceNo": 19,
+      "version": 2
+    },
+    {
+      "serviceNo": 20,
+      "version": 2
+    },
+    {
+      "serviceNo": 21,
+      "version": 2
+    },
+    {
+      "serviceNo": 22,
+      "version": 2
+    },
+    {
+      "serviceNo": 23,
+      "version": 2
+    },
+    {
+      "serviceNo": 24,
+      "version": 2
+    },
+    {
+      "serviceNo": 25,
+      "version": 2
+    },
+    {
+      "serviceNo": 26,
+      "version": 2
+    },
+    {
+      "serviceNo": 27,
+      "version": 2
+    },
+    {
+      "serviceNo": 28,
+      "version": 2
+    },
+    {
+      "serviceNo": 29,
+      "version": 2
+    },
+    {
+      "serviceNo": 30,
+      "version": 2
+    },
+    {
+      "serviceNo": 31,
+      "version": 2
+    },
+    {
+      "serviceNo": 32,
+      "version": 2
+    },
+    {
+      "serviceNo": 33,
+      "version": 2
+    },
+    {
+      "serviceNo": 34,
+      "version": 2
+    },
+    {
+      "serviceNo": 35,
+      "version": 2
+    },
+    {
+      "serviceNo": 36,
+      "version": 2
+    },
+    {
+      "serviceNo": 37,
+      "version": 2
+    },
+    {
+      "serviceNo": 38,
+      "version": 2
+    },
+    {
+      "serviceNo": 39,
+      "version": 2
+    },
+    {
+      "serviceNo": 40,
+      "version": 2
+    },
+    {
+      "serviceNo": 41,
+      "version": 2
+    },
+    {
+      "serviceNo": 42,
+      "version": 2
+    },
+    {
+      "serviceNo": 43,
+      "version": 2
+    },
+    {
+      "serviceNo": 44,
+      "version": 2
+    },
+    {
+      "serviceNo": 45,
+      "version": 1
+    },
+    {
+      "serviceNo": 46,
+      "version": 2
+    },
+    {
+      "serviceNo": 47,
+      "version": 2
+    }
+  ],
+  "versions": [
+    {
+      "serviceNo": 1,
+      "version": 1,
+      "sha256": "192cb3ecaf0570ef29233a55204806b0f2b1bf652a363da4cc7ae1a09bd126c9"
+    },
+    {
+      "serviceNo": 1,
+      "version": 2,
+      "sha256": "6265716fa1fcb534ad9c01f231d9f4a974f6c4bfd3ef6ae2397de335ab36a559"
+    },
+    {
+      "serviceNo": 2,
+      "version": 1,
+      "sha256": "95978990b6c480e8a7fa5cbe38095a597771eaea02b6f3cfef1329975019b6fe"
+    },
+    {
+      "serviceNo": 2,
+      "version": 2,
+      "sha256": "2cb074bf14a1758d2dbdaf475da8b4e1be29f1d87f0e6bc26eb418f284f9148e"
+    },
+    {
+      "serviceNo": 3,
+      "version": 1,
+      "sha256": "a366631e31e020eb5dc4ae1a1764fadd7796b0dcabe7d5329407087d2778eda2"
+    },
+    {
+      "serviceNo": 3,
+      "version": 2,
+      "sha256": "764a2a6ff10c973f24132e44c69037ecc40b7af3c9e9485ff5e653715203e9c8"
+    },
+    {
+      "serviceNo": 4,
+      "version": 1,
+      "sha256": "e452171adfe8d093a9d121ba45f82b37affff62280bab25cf7b98d435551e20d"
+    },
+    {
+      "serviceNo": 4,
+      "version": 2,
+      "sha256": "25c49f4d288ec1d08923874f7331821a47755d825b8945a7f9c3f671c8992949"
+    },
+    {
+      "serviceNo": 5,
+      "version": 1,
+      "sha256": "26a81c73b3f69cb4ce29abe39ecf1c12d221c5a9f568afe281179d053900abb5"
+    },
+    {
+      "serviceNo": 5,
+      "version": 2,
+      "sha256": "1635bf5883924994683d12db7aaa67f7ae855314dc1d4a8a447bc64b7b25d0b2"
+    },
+    {
+      "serviceNo": 6,
+      "version": 1,
+      "sha256": "f979aeab81806d2bb18cb02f9dba9439739ff15dbadd446d7aa752aab477cf47"
+    },
+    {
+      "serviceNo": 6,
+      "version": 2,
+      "sha256": "5e56f597d550c09762e0f574e5352c62417845b00a57eb7b16a0014b4ce83c1a"
+    },
+    {
+      "serviceNo": 7,
+      "version": 1,
+      "sha256": "1eaf243efd9111db9bfc2f48a58681aa6c9471af1dc4167604ad5a4f5a033cd2"
+    },
+    {
+      "serviceNo": 7,
+      "version": 2,
+      "sha256": "e9c508ae94c942e4a9d7721e4829728f440c37dc4a2b3895a3f13058aee8bc47"
+    },
+    {
+      "serviceNo": 8,
+      "version": 1,
+      "sha256": "e9c526418457b26cac2968cf740d99061df3976a549a5d6010bb04cbf5cf1b5e"
+    },
+    {
+      "serviceNo": 8,
+      "version": 2,
+      "sha256": "2bb9d57ceafde53e7ce4dfe6110368029aa904db69496b0c58466bf640e53656"
+    },
+    {
+      "serviceNo": 9,
+      "version": 1,
+      "sha256": "640d4c84b05065761e4a294e2940df316537b22fca78ccf949c6a1029c1c92a1"
+    },
+    {
+      "serviceNo": 9,
+      "version": 2,
+      "sha256": "a21b3a3e7cf8fe9d85880a626c7bd65d06160534aa727e32ba34a6cede38f870"
+    },
+    {
+      "serviceNo": 10,
+      "version": 1,
+      "sha256": "fc94dc5b6624e9ee69aadf71482d25ac4bf71714c6596fe237d1d6a4607b8350"
+    },
+    {
+      "serviceNo": 10,
+      "version": 2,
+      "sha256": "97be702c3279c02be828cef9872fc190a08737dfb7857580ffd9c8d3913dbcd9"
+    },
+    {
+      "serviceNo": 11,
+      "version": 1,
+      "sha256": "baec5591be519edcc40362849ffb0cbcaa4288a4d41ff91396684099ab00d9e7"
+    },
+    {
+      "serviceNo": 11,
+      "version": 2,
+      "sha256": "ca40468964396b253a83a098d3bc9a843b785c7307727973f9fbd917a0784c38"
+    },
+    {
+      "serviceNo": 12,
+      "version": 1,
+      "sha256": "f59ebc4a16e3ae4900be29caef1e6dab51d99aba50420ff45e7dfd757c9c8c9b"
+    },
+    {
+      "serviceNo": 12,
+      "version": 2,
+      "sha256": "ab6d6b9fe65d292047977f99a91bea0edce25b626ae73741ae08ed87e61d3601"
+    },
+    {
+      "serviceNo": 13,
+      "version": 1,
+      "sha256": "835e8f7ff8bd372699b949f034352ef514f4814b53c35f1e14f66f12772c98ad"
+    },
+    {
+      "serviceNo": 13,
+      "version": 2,
+      "sha256": "492363038c3148266f76d7f4764201ca56eb0740ea7ea3f8576373c1a86d5a94"
+    },
+    {
+      "serviceNo": 14,
+      "version": 1,
+      "sha256": "b4a8b670824ce6070ba24afb0628153a64f891a061b85a69dc0c93d500b2543e"
+    },
+    {
+      "serviceNo": 14,
+      "version": 2,
+      "sha256": "71b831ab24bbf54f927493476469a65858310621df8f7b55becdfff190dc2b56"
+    },
+    {
+      "serviceNo": 15,
+      "version": 1,
+      "sha256": "dc1b00ccbd5563f03b29a235cb086a330dc025cf1b7a4b68e08ee3313cb6b545"
+    },
+    {
+      "serviceNo": 15,
+      "version": 2,
+      "sha256": "f27e8f6715986cf88ee0c99e7d3c256d73ef945c323b3cdccfe7aeb89e288e03"
+    },
+    {
+      "serviceNo": 16,
+      "version": 1,
+      "sha256": "dd82fdf3c3338c51e05f24ec8b3e18b0d6165d9cc0627d633c3476b836a2a471"
+    },
+    {
+      "serviceNo": 16,
+      "version": 2,
+      "sha256": "2eedd3f7d94936a0391c4a640fa9fa6375514012c15bdf04b8129c3eb36f07bb"
+    },
+    {
+      "serviceNo": 17,
+      "version": 1,
+      "sha256": "127c6dfc92ac3e8d4504061e4bcd7ecca5a130b2a7b2f77a503cb19863026bb6"
+    },
+    {
+      "serviceNo": 17,
+      "version": 2,
+      "sha256": "3a04e62f1865afaf0c086c07e64b97bfbc2911fffd4b4187b029e3844e94b098"
+    },
+    {
+      "serviceNo": 18,
+      "version": 1,
+      "sha256": "b42ab756bb317a7aebeb6dc0dba2f64eaf280fd51e274ffe78c599906b06575e"
+    },
+    {
+      "serviceNo": 18,
+      "version": 2,
+      "sha256": "32fb26020017c193de486c0edd068d11a08ecc8ff986ebc27e2281db94029fa0"
+    },
+    {
+      "serviceNo": 19,
+      "version": 1,
+      "sha256": "a6d22141d6e8a594eff4fe4d4a819beedb56e660c77c897fb943e0a210db9175"
+    },
+    {
+      "serviceNo": 19,
+      "version": 2,
+      "sha256": "9aa390f2f3df2ebffa13f26901896beadd3344582863029e35e91ca9bc47c4df"
+    },
+    {
+      "serviceNo": 20,
+      "version": 1,
+      "sha256": "5cc567e1fee1e8009b0eb10d8e0bd418c54f282375130a7ff1324c854483ab9d"
+    },
+    {
+      "serviceNo": 20,
+      "version": 2,
+      "sha256": "8fc2870c25ae8d639af656b55fa76ba7193b61a1d3b3f41a28d01d83ef57701b"
+    },
+    {
+      "serviceNo": 21,
+      "version": 1,
+      "sha256": "f33863ea68117192bebba4012eefc026c06b4ea3be0654e1f44252348deb70b4"
+    },
+    {
+      "serviceNo": 21,
+      "version": 2,
+      "sha256": "0695d1882f8fa4e8a1b18e56400e69a2ad0183574f11066d8009083c5d5171dd"
+    },
+    {
+      "serviceNo": 22,
+      "version": 1,
+      "sha256": "c818918e674a9bcce3c8219376d2378544c9d913fb9cfe92924792c9f640985c"
+    },
+    {
+      "serviceNo": 22,
+      "version": 2,
+      "sha256": "fa10574afa1c340be9b96351f811b276f923ca5b6ac8abb2c63107d84a7c64f0"
+    },
+    {
+      "serviceNo": 23,
+      "version": 1,
+      "sha256": "2633803e7f926cd3d8e2e45b7f851fb403033fdbfc7ab41e2401ed5edc0facb6"
+    },
+    {
+      "serviceNo": 23,
+      "version": 2,
+      "sha256": "9e7f9e4b2d43c169c2a4ab934589a4c9a4b6244e69aedc6988cd3d8ffbb340dd"
+    },
+    {
+      "serviceNo": 24,
+      "version": 1,
+      "sha256": "7dad46da51ca3a9470a0a22eee8961b95f4e8dd065ae4bb9133dce82843bad5e"
+    },
+    {
+      "serviceNo": 24,
+      "version": 2,
+      "sha256": "802c772d0c2243b5a0236abff64d1a68329825882c59efe61bea5e9a4dac87c4"
+    },
+    {
+      "serviceNo": 25,
+      "version": 1,
+      "sha256": "48e6da4228e358e1c9511e6715968076b00c4084b072dcb48ae48e70e445dc9e"
+    },
+    {
+      "serviceNo": 25,
+      "version": 2,
+      "sha256": "cf5366a839dd973116e0f2684211d1736670acd2c6a010f32a160cab112b4162"
+    },
+    {
+      "serviceNo": 26,
+      "version": 1,
+      "sha256": "3bf12ed194eefb5d4f4cd7fc4c0461455f39c5264a688cde1b7a40b904c482ab"
+    },
+    {
+      "serviceNo": 26,
+      "version": 2,
+      "sha256": "c6b9ff6a13050ed0c0d7e0a6512ebbd00115c445fe88889ee65830ec7de6f95a"
+    },
+    {
+      "serviceNo": 27,
+      "version": 1,
+      "sha256": "cc6ac6dc2d3ebf499033724230f769deb72bc99b8a13e9cb5ea216cda9adff97"
+    },
+    {
+      "serviceNo": 27,
+      "version": 2,
+      "sha256": "8bab6c0d1b3d253b1927f11aeae05f3fdbb3a702bbbf0fe143bd5f0ece858492"
+    },
+    {
+      "serviceNo": 28,
+      "version": 1,
+      "sha256": "cc54cb2d463af601bc0be3ad4ec2f0bc012a94b45bb37d53431005c527deba26"
+    },
+    {
+      "serviceNo": 28,
+      "version": 2,
+      "sha256": "01455a66c6d2186261dd04666f8b4e9c871801a7a284fee2a6a19ad34cf87c8a"
+    },
+    {
+      "serviceNo": 29,
+      "version": 1,
+      "sha256": "5ebf95e191cb9d924697d634eb522b62a0ed05b72c376afd302b8986536836da"
+    },
+    {
+      "serviceNo": 29,
+      "version": 2,
+      "sha256": "e17be7655f7f9e0b7bab94f8b2c0d7c3ee27437f49730763d3b0527f556063df"
+    },
+    {
+      "serviceNo": 30,
+      "version": 1,
+      "sha256": "36c24399aa74a35e77bf51104660cb3eaa730aa589fffc995d218c496191a471"
+    },
+    {
+      "serviceNo": 30,
+      "version": 2,
+      "sha256": "3b98dcdc3a2060601156f3eb0534f30516079d1104a5dd158569e4854feca909"
+    },
+    {
+      "serviceNo": 31,
+      "version": 1,
+      "sha256": "bfd5f60bd0446b16766173b1257c4c7d0cfdef76d185d4d45d2dff651398c275"
+    },
+    {
+      "serviceNo": 31,
+      "version": 2,
+      "sha256": "722be33f99de1a3fc15d15da7ecacd9aabceac19815d6612c25436eadde9bca9"
+    },
+    {
+      "serviceNo": 32,
+      "version": 1,
+      "sha256": "fda5739b87ceacbf2dc418c80b3a77b1f0b10382f38ac1716f4b218377fcd476"
+    },
+    {
+      "serviceNo": 32,
+      "version": 2,
+      "sha256": "b9f94ab762095e85e3ab5884ae0ff5ccfac6e87f9d242576e91c9e0bd41242f8"
+    },
+    {
+      "serviceNo": 33,
+      "version": 1,
+      "sha256": "77bdaa8a262d5cdfb6a47201484e60c459d1bba96df78b2adc54be9eba1fb056"
+    },
+    {
+      "serviceNo": 33,
+      "version": 2,
+      "sha256": "269382d96243426cc403ff19843e8836603e9d4083a8166c1e6699dd6c0a3fcd"
+    },
+    {
+      "serviceNo": 34,
+      "version": 1,
+      "sha256": "ee4cc8d8be6718c9864fd3fea02cbf2ea90acbce1facdb227939db07514947b1"
+    },
+    {
+      "serviceNo": 34,
+      "version": 2,
+      "sha256": "adc6d93c7a38b4ddb4058e01a62c487428e2e18a2aae68aad828c0ca6e14bedf"
+    },
+    {
+      "serviceNo": 35,
+      "version": 1,
+      "sha256": "cf7dc8a8bdecfa43a8bbcff5f6987b499a3a8cb73c811bcb8ecb2827fba0fa59"
+    },
+    {
+      "serviceNo": 35,
+      "version": 2,
+      "sha256": "b59957d3448438b4a929f7839a41e5bd467ac10d4d7784798a87e7c374c405a8"
+    },
+    {
+      "serviceNo": 36,
+      "version": 1,
+      "sha256": "b7eef9814f61b86fb4eada50528a343c2a821041629868696548be9b0104d5e5"
+    },
+    {
+      "serviceNo": 36,
+      "version": 2,
+      "sha256": "0b8fa92139854a8097acdd60fcc734e640289aa1ea28082b539e0cd7983431f3"
+    },
+    {
+      "serviceNo": 37,
+      "version": 1,
+      "sha256": "00652ec405334fdad4f3bbe63f466f80d5eb59468a0ee1f3b88859ebda74b49e"
+    },
+    {
+      "serviceNo": 37,
+      "version": 2,
+      "sha256": "e641e51710c75bc3513e0863b6f5c941d1bdf0a60fa45905c0fdfffc4a21fb78"
+    },
+    {
+      "serviceNo": 38,
+      "version": 1,
+      "sha256": "80fce3b2bfd97ac63ad9a6f12b908d7e8e1deb4f7d1f98180099be1d29abb578"
+    },
+    {
+      "serviceNo": 38,
+      "version": 2,
+      "sha256": "779c8e0576b229648f68028332aad957d74e9ed424b5aabce6b599739e163ea6"
+    },
+    {
+      "serviceNo": 39,
+      "version": 1,
+      "sha256": "0095fb9beb9ed973af09dbb8944c0b0a2372c4edb118471cee5d45fb9645a227"
+    },
+    {
+      "serviceNo": 39,
+      "version": 2,
+      "sha256": "072efbc3d27a1de7b67d75da0ee77db253f6d3c8a8caeadba0248b050c0a3bce"
+    },
+    {
+      "serviceNo": 40,
+      "version": 1,
+      "sha256": "ae634ee9437e6d3db38536ea769fd82f7638a41c16638a371c55cbab81323daf"
+    },
+    {
+      "serviceNo": 40,
+      "version": 2,
+      "sha256": "c15bd06f1b166c7a0a67cb9c99b8169d9265393053adfc013869357b293a27b8"
+    },
+    {
+      "serviceNo": 41,
+      "version": 1,
+      "sha256": "1207382213fcfc910bbc13cf08c7585b48cb959e8d71bb3050e819c0179e98cc"
+    },
+    {
+      "serviceNo": 41,
+      "version": 2,
+      "sha256": "1da317c160b549c8d3d3f4a44c6f681ec93c09842e1a8a02fcb7253e6e996117"
+    },
+    {
+      "serviceNo": 42,
+      "version": 1,
+      "sha256": "26727b11c3395c2bdd8b85b21d03e95d9d6dfdbe1eb07c43c5ee28a219eea27e"
+    },
+    {
+      "serviceNo": 42,
+      "version": 2,
+      "sha256": "8b0831dda5eb2a97f90e6cbdb8de8c36fffd220291bf11c4c7b78e73bde16063"
+    },
+    {
+      "serviceNo": 43,
+      "version": 1,
+      "sha256": "21a1fca61df79b17bcb0d96ba7e3147a6b29d99a2de62982b12504b1393d6341"
+    },
+    {
+      "serviceNo": 43,
+      "version": 2,
+      "sha256": "772fb54a131dd8638e3520f86d6efcb269b289131496dfe84498d2ef9eecc6e7"
+    },
+    {
+      "serviceNo": 44,
+      "version": 1,
+      "sha256": "cbc77a1249a4c8f72479a73b3a639e9d4170872a1a5379f5edcf922ea06f5742"
+    },
+    {
+      "serviceNo": 44,
+      "version": 2,
+      "sha256": "d04cc8431c03ae0cba7095b7c59dddb1ea31b7a8c0b9db446660fb54dfbc31a1"
+    },
+    {
+      "serviceNo": 45,
+      "version": 1,
+      "sha256": "08a5c79610a800ab76ca19729f613819d13bf6cc50d48ca342df346cec67d4aa"
+    },
+    {
+      "serviceNo": 46,
+      "version": 1,
+      "sha256": "91e48574bbc55eabff7664264c387ffaefcd6c7a6573b606cd9f821bfe35a1c7"
+    },
+    {
+      "serviceNo": 46,
+      "version": 2,
+      "sha256": "6e68a20020f18ec03b4f1c9aa0b3a386157c734610bfd947eaa6a0b7cd375512"
+    },
+    {
+      "serviceNo": 47,
+      "version": 1,
+      "sha256": "c4f6ee75692825c04e19361e910e5cdd7117976bb11e5610998837fc049ff6f1"
+    },
+    {
+      "serviceNo": 47,
+      "version": 2,
+      "sha256": "c7916369f9ada449445284a8843635a97bae67e7c0cbba6bb2f778ec4063ac32"
+    }
+  ]
+}

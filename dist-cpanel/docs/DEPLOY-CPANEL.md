@@ -89,18 +89,20 @@ template instructs. The critical ones:
 - `IDENTIFIER_SECRET`, `CITIZEN_DATA_KEY`, `MERCHANT_SECRET_KEY` — the
   last two **exactly 64 hex characters**; the server treats unset/invalid
   keys as "feature not enabled" (503), so double-check them here.
-- `OTP_PROVIDER=log` — **do not leave this unset.** In production an unset
-  `OTP_PROVIDER` disables mobile OTP entirely: the OTP endpoints answer
-  `503 OTP_UNAVAILABLE` and citizens cannot verify a mobile number at
-  sign-up. The `log` provider writes each code to the server log only (no
-  SMS reaches a handset); replace it when a real SMS provider is integrated.
-- `EMAIL_PROVIDER=log` — **do not leave this unset either.** In production an
-  unset `EMAIL_PROVIDER` disables email entirely: registration completes
-  without a verification message and no issuance/rejection email is sent
+- `OTP_PROVIDER` — **leave this unset in production** (Security Audit 01,
+  F1). An unset `OTP_PROVIDER` disables mobile OTP entirely: the OTP
+  endpoints answer `503 OTP_UNAVAILABLE` and citizens cannot verify a mobile
+  number at sign-up. Never set `OTP_PROVIDER=log` here: `log` is a
+  local-development provider that delivers no SMS to any handset. Set a real
+  provider value when a real SMS provider is integrated. The server prints a
+  boot warning while any log provider is active in production.
+- `EMAIL_PROVIDER=smtp` — set this with the `SMTP_*` values for real
+  delivery through the owner's mail account. In production an unset
+  `EMAIL_PROVIDER` disables email entirely: registration completes without a
+  verification message and no issuance/rejection email is sent
   (`/api/v1/auth/email/status` reports `available:false`; health reports
-  `emailDelivery:false`). The `log` provider writes each message to the
-  server log only; set `EMAIL_PROVIDER=smtp` with the `SMTP_*` values for
-  real delivery through the owner's mail account.
+  `emailDelivery:false`). Never set `EMAIL_PROVIDER=log` in production
+  (Audit 01, F1): the log provider delivers nothing.
 
 ## 5. Initialise the database (once)
 
