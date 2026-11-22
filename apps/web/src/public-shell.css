@@ -146,7 +146,7 @@
 .ax-subscribe label {
   display: block;
   font-weight: 600;
-  color: var(--du-green-800, #03451f);
+  color: var(--du-green-800, #175f48);
   margin-bottom: var(--ax-space-2);
 }
 .ax-subscribe-row {
@@ -163,19 +163,19 @@
 }
 .ax-subscribe-row button {
   border-radius: var(--ax-radius-sm);
-  background: var(--du-green-700, #04592c);
-  border-color: var(--du-green-700, #04592c);
+  background: var(--du-green-700, #1f7d5e);
+  border-color: var(--du-green-700, #1f7d5e);
   color: #fff;
 }
 .ax-subscribe-row button:hover {
-  background: var(--du-green-800, #03451f);
+  background: var(--du-green-800, #175f48);
 }
 .ax-subscribe small {
   color: var(--du-muted, #43584a);
   margin-top: var(--ax-space-1);
 }
 .ax-subscribe p {
-  color: var(--du-green-800, #03451f);
+  color: var(--du-green-800, #175f48);
 }
 /* REFINEMENT-02 P0-5: on mobile the subscribe row was squeezed into a
    half-width footer cell and the input collapsed to a sliver beside the

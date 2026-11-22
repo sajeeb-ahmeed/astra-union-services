@@ -475,7 +475,7 @@
   line-height: 1.65;
 }
 .service-note {
-  border-left: 4px solid var(--accent, #04592c);
+  border-left: 4px solid var(--accent, #1f7d5e);
   background: var(--surface-muted, #f4f6f4);
   padding: 10px 14px;
   line-height: 1.6;

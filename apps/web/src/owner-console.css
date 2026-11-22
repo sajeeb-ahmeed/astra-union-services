@@ -163,7 +163,7 @@
 .status-badge.tone-ok {
   background: #e7f4ec;
   border-color: #9cc7a8;
-  color: #04592c;
+  color: #1f7d5e;
 }
 .status-badge.tone-warn {
   background: #fdf3d7;
@@ -196,7 +196,7 @@
   margin: 0;
   padding: 0;
   flex: none;
-  accent-color: var(--du-green-700, #04592c);
+  accent-color: var(--du-green-700, #1f7d5e);
 }
 .owner-console .radio-label,
 .owner-console .checkbox-label,
@@ -299,7 +299,7 @@
   text-align: left;
 }
 .owner-empty-mark {
-  color: var(--du-green-700, #04592c);
+  color: var(--du-green-700, #1f7d5e);
   opacity: 0.6;
   margin-bottom: 4px;
 }

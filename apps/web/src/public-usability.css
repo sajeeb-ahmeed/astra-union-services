@@ -12,13 +12,13 @@
   padding: 16px;
   text-align: left;
   background: #fff;
-  color: #04592c;
+  color: #1f7d5e;
   border: 1px solid #d4e2db;
   white-space: normal;
 }
 .public-site .public-quick-task:hover {
   background: #edf5f0;
-  border-color: #04592c;
+  border-color: #1f7d5e;
 }
 .public-quick-task strong {
   font-size: 16px;
@@ -49,7 +49,7 @@
   scroll-margin-top: 20px;
 }
 .service-information:focus-visible {
-  outline: 3px solid var(--du-focus, #04592c);
+  outline: 3px solid var(--du-focus, #1f7d5e);
   outline-offset: 4px;
 }
 /* FULL-UIUX-01 A10: the password control rules are context-free — the same
@@ -88,7 +88,7 @@
 }
 .password-control .password-toggle:hover {
   background: var(--du-green-50, #eef6f0);
-  color: var(--du-green-800, #04592c);
+  color: var(--du-green-800, #1f7d5e);
 }
 @media (max-width: 767px) {
   .public-quick-tasks {
