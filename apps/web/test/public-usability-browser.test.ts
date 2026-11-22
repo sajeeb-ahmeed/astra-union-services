@@ -49,8 +49,8 @@ test(
       await banglaNav.getByRole("link", { name: "আবেদনের অবস্থা", exact: true }).waitFor();
       // The rail panels are gone; on the Bangla home the verify band
       // carries both the verification heading and the tracking cross-link.
-      await page.locator("#home-verify-heading").getByText("সনদ যাচাই — যে কেউ, যেকোনো সময়").waitFor();
-      await page.getByRole("link", { name: "আবেদনের অবস্থা দেখতে চান? →", exact: true }).waitFor();
+      await page.locator("#home-verify-heading").getByText("একটি সনদ যাচাই করুন").waitFor();
+      await page.getByRole("link", { name: "আবেদন ট্র্যাক করুন", exact: true }).waitFor();
       assert.equal(
         await page.evaluate(
           () => document.documentElement.scrollWidth <= innerWidth + 1,
@@ -59,7 +59,7 @@ test(
       );
       fs.mkdirSync("execution/screenshots", { recursive: true });
       await page
-        .locator(".home-hero")
+        .locator(".hx-hero")
         .screenshot({
           path: "execution/screenshots/usability-public-home-bn.png",
         });
@@ -112,6 +112,9 @@ test(
         .getByRole("button", { name: "← All services", exact: true })
         .click();
       await page.waitForURL(/\/services$/);
+      await page.waitForFunction(
+        () => document.activeElement?.id === "public-service-search",
+      );
       assert.equal(
         await search.evaluate((element) => document.activeElement === element),
         true,

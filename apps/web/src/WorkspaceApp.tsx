@@ -385,6 +385,7 @@ export function WorkspaceApp({
   ),
     [message, setMessage] = useState(""),
     [errorMessage, setErrorMessage] = useState(""),
+    [actionError, setActionError] = useState(""),
     [busy, setBusy] = useState(false);
   const [catalog, setCatalog] = useState<any[]>([]),
     [citizens, setCitizens] = useState<any[]>([]),
@@ -627,7 +628,13 @@ export function WorkspaceApp({
         "UNDER_REVIEW",
         "RESUBMITTED",
         "APPROVED",
-        "ISSUANCE_PENDING",
+        // ISSUANCE_PENDING is deliberately NOT requested: it is not a
+        // state in the current state machine (the API's state enum
+        // dropped it — see the /applications/counts note in app.ts), so
+        // the request always failed 422 INPUT_INVALID and only added a
+        // browser console error on every citizen-home load. Its count
+        // could only ever be 0, and the totals below already read it
+        // with ?? 0, so no displayed number changes.
         "ISSUED",
       ];
       const entries = await Promise.all(
@@ -801,12 +808,14 @@ export function WorkspaceApp({
       ? renewalLanguageChoice.language
       : detailPayload.delivery_language;
   async function openApplication(id: string, push = true) {
+    setActionError("");
     setDetail(await api(`/applications/${id}`));
     setPage("applications");
     setReason("");
     if (push) writeRoute(`#/applications/${id}`);
   }
   function closeDetail() {
+    setActionError("");
     setDetail(null);
     writeRoute(applicationsHash());
   }
@@ -824,10 +833,26 @@ export function WorkspaceApp({
     };
     if (confirmText[action] && !window.confirm(choose(confirmText[action])))
       return;
-    await api(`/applications/${application.id}/transition`, "POST", {
-      action,
-      ...(reason.trim() ? { reason: reason.trim() } : {}),
-    });
+    setActionError("");
+    try {
+      await api(`/applications/${application.id}/transition`, "POST", {
+        action,
+        ...(reason.trim() ? { reason: reason.trim() } : {}),
+      });
+    } catch (e) {
+      // F2 (FULL-LIVE-QA-R5 finding, 21 Nov): a rejected transition —
+      // e.g. 409 ATTACHMENT_NOT_READY when a supporting document is
+      // still unscanned — used to surface only in the workspace's top
+      // banner, far from the detail view where the action was taken;
+      // at the button itself the click appeared to do nothing while
+      // the application stayed DRAFT. Keep the failure with the
+      // application instead: the detail view renders the server's own
+      // message beside its actions (see .detail-action-error below),
+      // and the status keeps reading the server state — never an
+      // optimistic SUBMITTED.
+      setActionError((e as Error).message);
+      return;
+    }
     await openApplication(application.id);
     await refresh();
     setMessage(choose(actionDone[action] ?? actionText[action] ?? { bn: "সম্পন্ন হয়েছে।", en: "Done." }));
@@ -2734,6 +2759,14 @@ export function WorkspaceApp({
                   );
                 })()}
                 {!approver && <div id="application-actions" tabIndex={-1} />}
+                {actionError && (
+                  <div
+                    role="alert"
+                    className="notice message error detail-action-error"
+                  >
+                    {tx(actionError)}
+                  </div>
+                )}
                 <div className="actions">
                   {tx(
                     (staff || role === "citizen") &&

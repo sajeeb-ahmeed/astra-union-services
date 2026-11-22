@@ -21,6 +21,9 @@ import { closePdfBrowser } from "../src/pdf.js";
 //  - Fix 2: migration 001's CHECK(demo) forced every tenant to demo=true, so the
 //    public verify payload could never truthfully report a production office.
 //    Migration 041 drops the CHECK; demo provisioning stays explicit.
+//    (Verify semantics were later tightened by QA-06 in PR #55: a DEMO-
+//    prefixed certificate number always verifies as demo:true, whatever the
+//    tenant flag says. Fix 2's verify assertion pins that newer contract.)
 // The PDF text assertions use the system pdftotext (poppler) — the same tool
 // the repo's live-verification drivers use to prove certificate content.
 // These tests exercise the sandbox settlement route, off unless enabled.
@@ -230,9 +233,11 @@ test("integration fix 3: an EN trade licence order issues an English licence whe
     "the Bangla statute line does not render on an EN order",
   );
 
-  // The same certificate verifies publicly; offices created through the
-  // owner API are onboarded demo=false, so verify reports demo:false here
-  // (fix 2's explicit-flag contrast comes next).
+  // The same certificate verifies publicly. The tenant's demo flag is false
+  // (owner-API onboarding), but this test server issues in demo mode, so the
+  // certificate number is DEMO- prefixed — and per QA-06 (PR #55) a demo-mode
+  // number must never verify as a real document, so verify reports demo:true
+  // here regardless of the tenant flag.
   const byNumber = await request(
     "GET",
     `/verify/by-number/${encodeURIComponent(certificateNumber)}`,
@@ -241,13 +246,25 @@ test("integration fix 3: an EN trade licence order issues an English licence whe
   );
   assert.equal(byNumber.status, 200, JSON.stringify(byNumber.body));
   assert.equal(byNumber.body.status, "ISSUED");
-  assert.equal(byNumber.body.demo, false);
+  assert.ok(
+    certificateNumber.startsWith("DEMO-"),
+    "premise: the test server issues demo-mode numbers",
+  );
+  assert.equal(
+    byNumber.body.demo,
+    true,
+    "a DEMO- prefixed number verifies as demo:true (QA-06), even for a demo=false tenant",
+  );
 });
 
-test("integration fix 2: a production tenant can be onboarded demo=false and verify reports it truthfully", async () => {
+test("integration fix 2: a production tenant can be onboarded demo=false; verify still flags its demo-mode numbers", async () => {
   // The onboarding step migration 041 enables: before it, this UPDATE was
   // rejected by tenants_demo_check (proven live in Phase Z, PHASEZ-LIVE J4).
   await admin.query("UPDATE tenants SET demo=false WHERE id=$1", [office.id]);
+  const flag = (
+    await admin.query("SELECT demo FROM tenants WHERE id=$1", [office.id])
+  ).rows[0];
+  assert.equal(flag.demo, false, "migration 041: the tenant flag itself is now false");
   const byNumber = await request(
     "GET",
     `/verify/by-number/${encodeURIComponent(certificateNumber)}`,
@@ -256,5 +273,15 @@ test("integration fix 2: a production tenant can be onboarded demo=false and ver
   );
   assert.equal(byNumber.status, 200, JSON.stringify(byNumber.body));
   assert.equal(byNumber.body.status, "ISSUED");
-  assert.equal(byNumber.body.demo, false, "the verify payload now reports the production tenant truthfully");
+  // QA-06 (PR #55): verify reports demo:true for a DEMO- prefixed number even
+  // when the issuing tenant's flag is false — a demo-mode number must never
+  // verify as a real document. (Before PR #55 this asserted demo:false; the
+  // semantics changed deliberately and this test now pins the new contract.
+  // On production, official-mode issuance mints plain numbers, so the clause
+  // does not fire there.)
+  assert.equal(
+    byNumber.body.demo,
+    true,
+    "a DEMO- prefixed number verifies as demo:true (QA-06) even when the tenant flag is false",
+  );
 });

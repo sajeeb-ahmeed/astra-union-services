@@ -816,6 +816,21 @@ export function PublicPortal({
       active = false;
     };
   }, [page, serviceNo]);
+  // CI #236 FAIL-2: returning to the catalog restores focus to the search.
+  // The catalog view commits with serviceNo === null; focus the search then.
+  // The ref guard keeps the initial page load (previous serviceNo null) from
+  // stealing focus — only a return from an open service detail focuses.
+  const previousServiceNoRef = useRef<number | null>(null);
+  useEffect(() => {
+    if (
+      page === "services" &&
+      serviceNo === null &&
+      previousServiceNoRef.current !== null
+    ) {
+      document.getElementById("public-service-search")?.focus();
+    }
+    previousServiceNoRef.current = serviceNo;
+  }, [page, serviceNo]);
   function clearServiceSearch() {
     setSearch("");
     setCategory("");
@@ -969,14 +984,8 @@ export function PublicPortal({
     setServiceNo(null);
     history.pushState({}, "", "/services");
     window.scrollTo(0, 0);
-    // The search input only exists once the services view has committed;
-    // focusing synchronously here finds nothing. Defer past the commit
-    // (first frame + a tick) so focus really returns to the search.
-    requestAnimationFrame(() => {
-      setTimeout(() => {
-        document.getElementById("public-service-search")?.focus();
-      }, 0);
-    });
+    // Focus is restored by the catalog-commit effect below, which runs
+    // once the services view has committed (no frame-deferred timer).
   }
   // SEO P10: open an office at its own URL, /offices/<slug>; the effect
   // below loads its detail from the public API.

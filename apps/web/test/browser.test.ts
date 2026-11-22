@@ -284,6 +284,12 @@ test(
       const before = await approver.evaluate(
         async () => await (await fetch("/api/v1/wallet")).json(),
       );
+      // QA-13 (PR #55): approving first asks window.confirm
+      // (WorkspaceApp.tsx transition()). With no dialog handler
+      // registered Playwright auto-dismisses it, the confirm reads as
+      // "Cancel" and the transition POST is never sent — accept the
+      // dialog explicitly so the approval below can run.
+      approver.on("dialog", (dialog) => void dialog.accept());
       // Phase W: one click — the Chairman's approval issues the certificate.
       const issuedResponse = approver.waitForResponse(
         (r) =>
@@ -349,9 +355,10 @@ test(
       await anonymous.addInitScript(() => { if (!localStorage.getItem("astra.language")) localStorage.setItem("astra.language", "en"); });
       const verify = await anonymous.newPage();
       await verify.goto(certificate.verificationUrl);
-      // FULL-UIUX-01 (B16): the public result uses the shared status badge
-      // language ("Certificate issued"), never the raw enum.
-      await verify.getByText("Certificate issued", { exact: true }).waitFor();
+      // HOME-REDESIGN-01: the public verify page answers with a verdict
+      // sentence, not the old status badge — and this stack issues
+      // DEMO-mode certificates, so the correct verdict is the demo one.
+      await verify.getByText("This is a demo certificate", { exact: true }).waitFor();
       assert.equal(
         await verify.getByText("Karim Uddin", { exact: true }).count(),
         0,

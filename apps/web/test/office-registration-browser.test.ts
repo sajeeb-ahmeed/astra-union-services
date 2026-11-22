@@ -41,7 +41,7 @@ test(
       page.on("pageerror", (error) => errors.push(error.message));
       await page.addInitScript(() => localStorage.setItem("astra.language", "en"));
       await page.goto(origin);
-      await page.getByRole("link", { name: "Office staff? Request an account →" }).click();
+      await page.getByRole("link", { name: "Request to add your office" }).click();
       await page.waitForURL(`${origin}/register-office`);
 
       const office = page.locator("#office-reg-office");

@@ -10865,7 +10865,7 @@
     {
       "service_no": 41,
       "name_bn": "প্রিমিসেস লাইসেন্স",
-      "name_en": "Premises Licence",
+      "name_en": "Premises License",
       "category_en": "Licensing",
       "initial_form_path_pattern": "/portal/udcUser/application/additional-information/create/{user_track_id}/{certificate_id}",
       "initial_form_family": "specialist_additional_information",
@@ -12522,7 +12522,7 @@
     {
       "service_no": 46,
       "name_bn": "যানবাহন লাইসেন্স",
-      "name_en": "Vehicle Licence",
+      "name_en": "Vehicle License",
       "category_en": "Licensing",
       "initial_form_path_pattern": "/portal/udcUser/application/additional-information/create/{user_track_id}/{certificate_id}",
       "initial_form_family": "specialist_additional_information",

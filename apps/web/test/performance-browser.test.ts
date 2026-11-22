@@ -131,17 +131,52 @@ async function mockApi(page: Page, initiallySignedIn = false) {
   });
 }
 
-test("performance: compact public service names exactly match all 47 canonical reference rows", () => {
+test("performance: compact public service catalog keeps its own 47-row contract", () => {
+  // FAIL-1 decision (owner, 21 Nov 2026, Option A): the compact catalog's
+  // sentence-case names are canonical for the public site, so this test no
+  // longer deep-equals the Title Case reference rows. It pins the compact
+  // catalog's own contract instead: the same 47 services in the same order,
+  // Bangla names and categories identical to the canonical reference, English
+  // names in sentence case (never the Title Case reference name), a
+  // document_count on every row, and the slim file budget.
+  const canonicalByNo = new Map(
+    reference.services.map((row) => [row.service_no, row]),
+  );
   assert.equal(publicCatalog.length, 47);
   assert.deepEqual(
-    publicCatalog,
-    reference.services.map(({ service_no, name_bn, name_en, category_en }) => ({
-      service_no,
-      name_bn,
-      name_en,
-      category_en,
-    })),
+    publicCatalog.map((row) => row.service_no),
+    reference.services.map((row) => row.service_no),
   );
+  for (const row of publicCatalog) {
+    assert.deepEqual(Object.keys(row).sort(), [
+      "category_en",
+      "document_count",
+      "name_bn",
+      "name_en",
+      "service_no",
+    ]);
+    const canonical = canonicalByNo.get(row.service_no)!;
+    assert.equal(row.name_bn, canonical.name_bn);
+    assert.equal(row.category_en, canonical.category_en);
+    assert.ok(
+      Number.isInteger(row.document_count) && row.document_count >= 0,
+      `service ${row.service_no} document_count must be a non-negative integer`,
+    );
+    const words = row.name_en.split(" ");
+    assert.ok(
+      /^[A-Z]/.test(row.name_en),
+      `service ${row.service_no} name must start capitalised`,
+    );
+    assert.ok(
+      words.length === 1 || words.some((word) => /^[a-z]/.test(word)),
+      `service ${row.service_no} name must be sentence case, not Title Case`,
+    );
+    assert.notEqual(row.name_en, canonical.name_en);
+  }
+  // Owner spelling decision (21 Nov 2026): American "License" for services
+  // 41 and 46, matching service 42 "Trade License".
+  assert.equal(publicCatalog[40].name_en, "Premises license");
+  assert.equal(publicCatalog[45].name_en, "Vehicle license");
   assert.ok(
     fs.statSync("apps/web/src/public-service-catalog.json").size < 16000,
   );

@@ -127,11 +127,13 @@ test(
         path: "execution/screenshots/expanded-home-desktop.png",
         fullPage: true,
       });
-      // The home grid is a popular-services subset of the catalogue
-      // (ServiceCards render as links on the public home).
-      await page.locator(".svc-card").first().waitFor();
-      const homeCards = await page.locator(".svc-card").count();
-      assert.ok(homeCards >= 1 && homeCards < 47, `home popular grid should be a subset, saw ${homeCards}`);
+      // HOME-REDESIGN-02: the home directory renders services as
+      // .hsd-tile links (HomeServiceDirectory) — the first 18 at rest,
+      // the rest behind its "Show all" button; .svc-card grids live
+      // only on /services (asserted just below).
+      await page.locator(".hsd-tile").first().waitFor();
+      const homeTiles = await page.locator(".hsd-tile").count();
+      assert.equal(homeTiles, 18, `home directory should show the first 18 services at rest, saw ${homeTiles}`);
       await page
         .getByRole("navigation", { name: "Public navigation" })
         .getByRole("link", { name: "Services", exact: true })
