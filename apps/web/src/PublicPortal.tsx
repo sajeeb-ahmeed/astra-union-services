@@ -1,4 +1,4 @@
-import { MobileOtpField, type VerifiedMobile } from "./MobileOtpField.js";
+import { ShortSignupForm, type ShortSignupResult } from "./ShortSignup.js";
 import { t, tx, choose, useLanguage } from "./i18n.js";
 import { SiteFooter, SiteHeader } from "./PublicShell.js";
 import { GlobalNoticeBanner } from "./GlobalNotices.js";
@@ -45,11 +45,6 @@ import {
   readGeography,
 } from "./GeographyFields.js";
 import { LanguageSwitcher } from "./i18n.js";
-import {
-  PresentAddressFields,
-  emptyPresentAddress,
-  presentAddressPayload,
-} from "./PresentAddressFields.js";
 
 /* FULL-UIUX-01 (A1/P0-2): page names ARE the one shell's nav labels —
    PUBLIC_NAV in PublicShell.tsx is the single vocabulary. */
@@ -504,52 +499,68 @@ export function PublicPortal({
       initial === "notices" ? initialFilters.q || "" : "",
     ),
     [faqSearch, setFaqSearch] = useState("");
-  const [signupSearch, setSignupSearch] = useState("");
   const [signupGeography, setSignupGeography] = useState(emptyGeography);
   const [signupOfficeLoading, setSignupOfficeLoading] = useState(false);
   const [signupOfficeError, setSignupOfficeError] = useState("");
   const [signupOfficeRetry, setSignupOfficeRetry] = useState(0);
-  const [signupOffices, setSignupOffices] = useState<any[]>([]),
-    [registered, setRegistered] = useState(false);
-  // Phase X: what happened to the registration verification email ("sent" | "failed" | "unavailable").
-  const [signupEmailVerification, setSignupEmailVerification] = useState<string | null>(null);
-  const [registration, setRegistration] = useState({
-    email: "",
-    password: "",
-    displayName: "",
-    tenantId: "",
-    nameBn: "",
-    nameEn: "",
-    dateOfBirth: "",
-    addressBn: "",
-    addressEn: "",
-  });
-  const [signupPresentAddress, setSignupPresentAddress] = useState(
-    emptyPresentAddress(),
-  );
-  // Phase 2c: an optional mobile number, accepted only after its one-time code is confirmed.
-  const [signupMobile, setSignupMobile] = useState<VerifiedMobile | null>(null);
-  // BUNDLE06-R5 C4: the registration form is a stepper matching its
-  // progress chips — one section at a time, validated per step. All field
-  // state lives in the component, so moving between steps loses nothing.
-  const [regStep, setRegStep] = useState(0);
-  const signupFormRef = useRef<HTMLFormElement | null>(null);
-  function advanceRegStep() {
-    // Native validation first (only the mounted step's controls exist,
-    // so reportValidity checks exactly this step's fields).
-    if (signupFormRef.current && !signupFormRef.current.reportValidity())
-      return;
-    if (regStep === 0 && !signupGeography.wardCode) {
-      setError("Choose your complete administrative area to continue.");
-      return;
+  const [signupOffices, setSignupOffices] = useState<any[]>([]);
+  // REG-UX Phase 1: one-screen signup. The office is preselected as a DEFAULT
+  // (K3 — never a hard-code): ?office=<slug>, else the server's configured
+  // default (DEFAULT_SIGNUP_OFFICE_SLUG), else the only listed office. The area
+  // cascade appears only when the citizen chooses "Change".
+  const [registration, setRegistration] = useState({ tenantId: "" });
+  const [signupOfficeLabel, setSignupOfficeLabel] = useState("");
+  const [signupDefaultLoading, setSignupDefaultLoading] = useState(false);
+  const [changingOffice, setChangingOffice] = useState(false);
+  const [registeredAs, setRegisteredAs] = useState<ShortSignupResult | null>(null);
+  const defaultOfficeTried = useRef(false);
+  function rememberLoginPrefill(type: "email" | "mobile", identifier: string) {
+    try {
+      sessionStorage.setItem("du.loginPrefill", JSON.stringify({ type, identifier }));
+      dispatchEvent(new Event("du:login-prefill"));
+    } catch {
+      /* storage unavailable: the sign-in form simply starts empty */
     }
-    if (regStep === 1 && !registration.tenantId) {
-      setError("Choose your registration office to continue.");
-      return;
-    }
-    setError("");
-    setRegStep((step) => Math.min(3, step + 1));
   }
+  function adoptSignupOffice(o: any) {
+    setRegistration({ tenantId: o.id });
+    setSignupOffices([o]);
+    setSignupGeography(readGeography(o.geography));
+    setSignupOfficeLabel(
+      choose({ bn: value(o, "nameBn", "name_bn"), en: value(o, "nameEn", "name_en") }),
+    );
+  }
+  useEffect(() => {
+    if (page !== "register" || registration.tenantId || defaultOfficeTried.current) return;
+    defaultOfficeTried.current = true;
+    let active = true;
+    setSignupDefaultLoading(true);
+    const wanted = new URLSearchParams(location.search).get("office") ?? "";
+    Promise.all([
+      api("/health").catch(() => null),
+      api("/offices?pageSize=100"),
+    ])
+      .then(([health, list]) => {
+        if (!active) return;
+        const offices = items(list);
+        const slug = wanted || health?.signup?.defaultOffice || "";
+        const pick =
+          (slug && offices.find((o: any) => o.slug === slug)) ||
+          (offices.length === 1 ? offices[0] : null);
+        if (pick) adoptSignupOffice(pick);
+        else setChangingOffice(true);
+      })
+      .catch(() => {
+        if (active) setChangingOffice(true);
+      })
+      .finally(() => {
+        if (active) setSignupDefaultLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [page]);
   // Phase 6b: the FAQ text loads only when the help page opens, keeping the public start-up bundle small.
   const [faq, setFaq] = useState<{ id: string; q: { bn: string; en: string }; a: { bn: string; en: string } }[]>([]);
   useEffect(() => {
@@ -721,7 +732,7 @@ export function PublicPortal({
     const timer = window.setTimeout(() => {
       const query = new URLSearchParams({
         pageSize: "100",
-        q: signupSearch,
+        q: "",
         ...geographyPayload({ ...signupGeography, wardCode: "" }),
       });
       api(`/offices?${query}`)
@@ -753,7 +764,6 @@ export function PublicPortal({
   }, [
     page,
     signupGeography.unionCode,
-    signupSearch,
     signupOfficeRetry,
   ]);
   // BUNDLE06-R5 C5: the office detail renders each service exactly once —
@@ -1758,14 +1768,9 @@ export function PublicPortal({
                           )}
                           <button
                             onClick={() => {
-                              setRegistration({
-                                ...registration,
-                                tenantId: office.office.id,
-                              });
-                              setSignupOffices([office.office]);
-                              setSignupGeography(
-                                readGeography(office.office.geography),
-                              );
+                              defaultOfficeTried.current = true;
+                              adoptSignupOffice(office.office);
+                              setChangingOffice(false);
                               nav("register");
                             }}
                           >
@@ -1860,510 +1865,148 @@ export function PublicPortal({
               )}
               {tx(
                 page === "register" && (
-                  <section className="panel registration-panel">
+                  <section className="panel registration-panel du-short-registration">
                     <header className="registration-heading">
-                      <span className="eyebrow">{t("CITIZEN ACCOUNT")}</span>
-                      <h1>{t("নাগরিক নিবন্ধন / Create your account")}</h1>
+                      <span className="eyebrow">{choose({ bn: "নাগরিক অ্যাকাউন্ট", en: "CITIZEN ACCOUNT" })}</span>
+                      <h1>{choose({ bn: "নাগরিক নিবন্ধন", en: "Create your account" })}</h1>
                       <p>
-                        {t(
-                          "আপনার এলাকা ও সেবাদানকারী অফিস নির্বাচন করে শুরু করুন। Choose your area and participating office to get started. ",
-                        )}
+                        {choose({
+                          bn: "নাম, মোবাইল নম্বর ও একটি পাসওয়ার্ড — এক মিনিটেই অ্যাকাউন্ট।",
+                          en: "Your name, mobile number and a password — an account in under a minute.",
+                        })}
                       </p>
                     </header>
-                    {tx(
-                      registered ? (
-                        <div role="status" className="registration-success">
-                          <h2>{t("নিবন্ধন সম্পন্ন / Account created")}</h2>
-                          <p>
-                            {t(
-                              "You can now sign in with your email and password.",
-                            )}
-                          </p>
-                          {tx(
-                            signupEmailVerification === "sent" ? (
-                              <p>
-                                {t(
-                                  "আপনার ইমেইলে একটি যাচাইকরণ লিংক পাঠানো হয়েছে। লিংকটি খুলে ইমেইল যাচাই করুন — যাচাই ঐচ্ছিক, এখনই সাইন ইন করা যাবে। / A verification link has been sent to your email. Open it to verify your address — verification is optional and you can sign in right away.",
-                                )}
-                              </p>
-                            ) : signupEmailVerification === "unavailable" ? (
-                              <p>
-                                {t(
-                                  "এই সার্ভারে ইমেইল যাচাইকরণ চালু নেই, তাই কোনো যাচাইকরণ বার্তা পাঠানো হয়নি। / Email verification is not enabled on this server, so no verification message was sent.",
-                                )}
-                              </p>
-                            ) : signupEmailVerification === "failed" ? (
-                              <p>
-                                {t(
-                                  "যাচাইকরণ ইমেইলটি পাঠানো যায়নি। সাইন ইন করে আবার পাঠানোর চেষ্টা করা যাবে। / The verification email could not be sent. You can ask for a new one after signing in.",
-                                )}
-                              </p>
-                            ) : null,
-                          )}
-                          <button onClick={() => nav("login")}>
-                            {t("Go to sign in")}
-                          </button>
-                        </div>
-                      ) : (
-                        <form
-                          ref={signupFormRef}
-                          onSubmit={async (e) => {
-                            e.preventDefault();
-                            // BUNDLE06-R5 C4: Enter/Continue on an early
-                            // step advances the stepper; only the last
-                            // step submits (same pattern as the workspace
-                            // citizen registration, P2-7).
-                            if (regStep < 3) {
-                              advanceRegStep();
-                              return;
-                            }
-                            if (
-                              !signupGeography.wardCode ||
-                              !registration.tenantId
-                            ) {
-                              setError(
-                                "Choose your complete administrative area and registration office.",
-                              );
-                              return;
-                            }
-                            setWorking(true);
-                            setError("");
-                            try {
-                              const result = await api("/auth/signup", "POST", {
-                                ...registration,
-                                geography: geographyPayload(signupGeography),
-                                presentAddress:
-                                  presentAddressPayload(signupPresentAddress),
-                                ...(signupMobile ?? {}),
-                              });
-                              setSignupEmailVerification(
-                                typeof result?.emailVerification === "string"
-                                  ? result.emailVerification
-                                  : null,
-                              );
-                              setRegistration((previous) => ({
-                                ...previous,
-                                password: "",
-                              }));
-                              setRegistered(true);
-                            } catch (e) {
-                              setError((e as Error).message);
-                            } finally {
-                              setWorking(false);
-                            }
+                    {registeredAs ? (
+                      <div role="status" className="registration-success">
+                        <h2>{choose({ bn: "নিবন্ধন সম্পন্ন", en: "Account created" })}</h2>
+                        <p>
+                          {registeredAs.signInWith === "mobile"
+                            ? choose({
+                                bn: "এখন আপনার মোবাইল নম্বর ও পাসওয়ার্ড দিয়ে সাইন ইন করুন।",
+                                en: "Sign in now with your mobile number and password.",
+                              })
+                            : choose({
+                                bn: "এখন আপনার ইমেইল (অথবা মোবাইল নম্বর) ও পাসওয়ার্ড দিয়ে সাইন ইন করুন।",
+                                en: "Sign in now with your email (or mobile number) and password.",
+                              })}
+                        </p>
+                        <p className="hint">
+                          {choose({
+                            bn: "সেবার জন্য আবেদন করার সময় বাকি তথ্য (জন্ম তারিখ, ঠিকানা) চাওয়া হবে — এখন নয়।",
+                            en: "The rest of your details (date of birth, address) are asked when you apply for a service — not now.",
+                          })}
+                        </p>
+                        <button
+                          onClick={() => {
+                            rememberLoginPrefill(registeredAs.signInWith, registeredAs.identifier);
+                            nav("login");
                           }}
                         >
-                          {(() => {
-                            const steps = [
-                              {
-                                done: !!signupGeography.wardCode,
-                                bn: "এলাকা",
-                                en: "Area",
-                              },
-                              {
-                                done: !!registration.tenantId,
-                                bn: "অফিস",
-                                en: "Office",
-                              },
-                              {
-                                done: !!(
-                                  registration.nameBn &&
-                                  registration.nameEn &&
-                                  registration.dateOfBirth &&
-                                  registration.email &&
-                                  registration.password
-                                ),
-                                bn: "অ্যাকাউন্টের তথ্য",
-                                en: "Account details",
-                              },
-                              {
-                                done: !!signupMobile,
-                                optional: true,
-                                bn: "মোবাইল যাচাই (ঐচ্ছিক)",
-                                en: "Mobile check (optional)",
-                              },
-                            ];
-                            // FULL-UIUX-01: exactly ONE step is "current".
-                            // BUNDLE06-R5 C4: with the stepper, the current
-                            // chip is the step on screen (regStep); completed
-                            // steps keep their "done" tick.
-                            return (
-                              <ol
-                                className="du-reg-progress"
-                                aria-label={choose({
-                                  bn: "নিবন্ধনের অগ্রগতি",
-                                  en: "Registration progress",
-                                })}
-                              >
-                                {steps.map((step, i) => (
-                                  <li
-                                    key={step.en}
-                                    className={step.done ? "done" : undefined}
-                                    aria-current={i === regStep ? "step" : undefined}
-                                  >
-                                    {step.done ? "✓ " : ""}
-                                    {choose({ bn: step.bn, en: step.en })}
-                                  </li>
-                                ))}
-                              </ol>
-                            );
-                          })()}
-                          {regStep === 0 && (
+                          {choose({ bn: "সাইন ইন করুন", en: "Go to sign in" })}
+                        </button>
+                      </div>
+                    ) : (
+                      <ShortSignupForm
+                        tenantId={registration.tenantId}
+                        officeLabel={signupOfficeLabel}
+                        officeLoading={signupDefaultLoading}
+                        changingOffice={changingOffice}
+                        onChangeOffice={setChangingOffice}
+                        choose={choose}
+                        onRegistered={setRegisteredAs}
+                        onSignIn={(identifier) => {
+                          if (identifier)
+                            rememberLoginPrefill(identifier.includes("@") ? "email" : "mobile", identifier);
+                          nav("login");
+                        }}
+                        officeSelector={
                           <>
-                          <div className="registration-step">
-                            <span className="step-number">{t("1")}</span>
-                            <div>
-                              <h2>{t("আপনার এলাকা / Your area")}</h2>
-                              <p>
-                                {t(
-                                  "Select each area in order. Changing an area clears the selections below it. ",
+                            <p className="hint">
+                              {choose({
+                                bn: "ক্রমানুসারে এলাকা বেছে নিন, তারপর অফিস। শুধু তালিকাভুক্ত অফিসেই নিবন্ধন করা যায়।",
+                                en: "Select each area in order, then the office. Registration is available only at a listed office.",
+                              })}
+                            </p>
+                            <GeographyFields
+                              prefix="signup-geo"
+                              value={signupGeography}
+                              onChange={(next) => {
+                                setSignupGeography(next);
+                                if (next.unionCode !== signupGeography.unionCode) {
+                                  setSignupOffices([]);
+                                  setSignupOfficeError("");
+                                  setRegistration((previous) => ({ ...previous, tenantId: "" }));
+                                }
+                              }}
+                              showCoverage
+                            />
+                            {signupGeography.unionCode ? (
+                              <div className="registration-office">
+                                {signupOfficeLoading && (
+                                  <p role="status" className="hint">
+                                    {choose({ bn: "অফিস খোঁজা হচ্ছে…", en: "Finding offices…" })}
+                                  </p>
                                 )}
-                              </p>
-                            </div>
-                          </div>
-                          <GeographyFields
-                            prefix="signup-geo"
-                            value={signupGeography}
-                            onChange={(next) => {
-                              setSignupGeography(next);
-                              if (
-                                next.unionCode !== signupGeography.unionCode
-                              ) {
-                                setSignupOffices([]);
-                                setSignupOfficeError("");
-                                setRegistration((previous) => ({
-                                  ...previous,
-                                  tenantId: "",
-                                }));
-                              }
-                            }}
-                            required
-                            showCoverage
-                          />
-                          </>
-                          )}
-                          {regStep === 1 && (
-                          <>
-                          <div className="registration-step">
-                            <span className="step-number">{t("2")}</span>
-                            <div>
-                              <h2>{t("সেবাদানকারী অফিস / Your office")}</h2>
-                              <p>
-                                {t(
-                                  "Geographic locations and participating offices are separate. Registration is available only at an office listed here. ",
+                                {signupOfficeError && (
+                                  <p role="alert" className="notice error">
+                                    {signupOfficeError}{" "}
+                                    <button
+                                      type="button"
+                                      className="text-button"
+                                      onClick={() => setSignupOfficeRetry((v) => v + 1)}
+                                    >
+                                      {choose({ bn: "আবার খুঁজুন", en: "Retry office search" })}
+                                    </button>
+                                  </p>
                                 )}
-                              </p>
-                            </div>
-                          </div>
-                          <div className="registration-office">
-                            {tx(
-                              signupGeography.unionCode ? (
-                                <>
-                                  <label htmlFor="signup-office-search">
-                                    {t("অফিস খুঁজুন / Search office name ")}
-                                  </label>
-                                  <input
-                                    id="signup-office-search"
-                                    value={signupSearch}
-                                    onChange={(e) => {
-                                      setSignupSearch(e.target.value);
-                                      setRegistration((previous) => ({
-                                        ...previous,
-                                        tenantId: "",
-                                      }));
-                                    }}
-                                    placeholder={t("Office name (optional)")}
-                                  />
-                                  {tx(
-                                    signupOfficeLoading && (
-                                      <p role="status" className="hint">
-                                        {t(
-                                          "অফিস খোঁজা হচ্ছে / Finding offices… ",
-                                        )}
-                                      </p>
-                                    ),
-                                  )}
-                                  {tx(
-                                    signupOfficeError && (
-                                      <p role="alert" className="notice error">
-                                        {tx(signupOfficeError)}
-                                        {tx(" ")}
-                                        <button
-                                          type="button"
-                                          className="text-button"
-                                          onClick={() =>
-                                            setSignupOfficeRetry((v) => v + 1)
-                                          }
-                                        >
-                                          {t("Retry office search ")}
-                                        </button>
-                                      </p>
-                                    ),
-                                  )}
-                                  {tx(
-                                    !signupOfficeLoading &&
-                                      !signupOfficeError &&
-                                      !signupOffices.length && (
-                                        <p className="notice" role="status">
-                                          {tx(
-                                            // Phase 3E (§3.6): an unlisted union cannot register —
-                                            // there is no cross-area fallback office any more.
-                                            "এই ইউনিয়ন এখনো DigitalUnion-এ যুক্ত হয়নি / This union has not joined DigitalUnion yet.",
-                                          )}
-                                        </p>
-                                      ),
-                                  )}
-                                  <label htmlFor="signup-office">
-                                    {t("নিবন্ধনের অফিস / Select office ")}
-                                  </label>
-                                  <select
-                                    id="signup-office"
-                                    required
-                                    disabled={
-                                      signupOfficeLoading ||
-                                      !signupOffices.length
+                                {!signupOfficeLoading && !signupOfficeError && !signupOffices.length && (
+                                  <p className="notice" role="status">
+                                    {choose({
+                                      bn: "এই ইউনিয়ন এখনো DigitalUnion-এ যুক্ত হয়নি।",
+                                      en: "This union has not joined DigitalUnion yet.",
+                                    })}
+                                  </p>
+                                )}
+                                <label htmlFor="signup-office">
+                                  {choose({ bn: "নিবন্ধনের অফিস", en: "Select office" })}
+                                </label>
+                                <select
+                                  id="signup-office"
+                                  disabled={signupOfficeLoading || !signupOffices.length}
+                                  value={registration.tenantId}
+                                  onChange={(e) => {
+                                    const chosen = signupOffices.find((o) => o.id === e.target.value);
+                                    setRegistration({ ...registration, tenantId: e.target.value });
+                                    if (chosen) {
+                                      setSignupOfficeLabel(
+                                        choose({
+                                          bn: value(chosen, "nameBn", "name_bn"),
+                                          en: value(chosen, "nameEn", "name_en"),
+                                        }),
+                                      );
+                                      setChangingOffice(false);
                                     }
-                                    value={registration.tenantId}
-                                    onChange={(e) =>
-                                      setRegistration({
-                                        ...registration,
-                                        tenantId: e.target.value,
-                                      })
-                                    }
-                                  >
-                                    <option value="">
-                                      {t("Choose office")}
-                                    </option>
-                                    {tx(
-                                      signupOffices.map((o) => {
-                                        // BUNDLE06-R5 D2: the " — " suffix
-                                        // is the office's area (upazila,
-                                        // district) — shown only when the
-                                        // office carries one, never as a
-                                        // dangling separator.
-                                        const officeName = choose({
-                                          bn: value(o, "nameBn", "name_bn"),
-                                          en: value(o, "nameEn", "name_en"),
-                                        });
-                                        const area = [o.upazila, o.district]
-                                          .filter(Boolean)
-                                          .join(", ");
-                                        return (
-                                          <option key={o.id} value={o.id}>
-                                            {area
-                                              ? `${officeName} — ${area}`
-                                              : officeName}
-                                          </option>
-                                        );
-                                      }),
-                                    )}
-                                  </select>
-                                  {tx(
-                                    signupOffices.length >= 100 && (
-                                      <p className="hint">
-                                        {t(
-                                          "Showing the first 100 matches. Search by office name to narrow the list. ",
-                                        )}
-                                      </p>
-                                    ),
-                                  )}
-                                </>
-                              ) : (
-                                <EmptyState
-                                  title={t(
-                                    "আগে আপনার ইউনিয়ন নির্বাচন করুন / Select your union above to find participating offices. ",
-                                  )}
-                                />
-                              ),
-                            )}
-                          </div>
-                          </>
-                          )}
-                          {regStep === 2 && (
-                          <>
-                          <div className="registration-step">
-                            <span className="step-number">{t("3")}</span>
-                            <div>
-                              <h2>
-                                {t("অ্যাকাউন্টের তথ্য / Account details")}
-                              </h2>
-                              <p>
-                                {t(
-                                  "Your account reference is generated automatically. Choose a password of 6 to 18 characters. ",
-                                )}
-                              </p>
-                            </div>
-                          </div>
-                          <div className="form-grid">
-                            {tx(
-                              Object.entries(registration)
-                                .filter(([key]) => key !== "tenantId")
-                                .map(([key, val]) => (
-                                  <label key={key} htmlFor={`signup-${key}`}>
-                                    {tx(
-                                      (
-                                        {
-                                          email: "ইমেইল / Email address",
-                                          password:
-                                            "পাসওয়ার্ড / Choose password",
-                                          displayName:
-                                            "প্রদর্শিত নাম / Display name",
-                                          nameBn: "নাম (বাংলা) / Name (Bangla)",
-                                          nameEn:
-                                            "নাম (ইংরেজি) / Name (English)",
-                                          dateOfBirth:
-                                            "জন্ম তারিখ / Date of birth",
-                                          addressBn:
-                                            "গ্রাম, বাড়ি ও রাস্তা (বাংলা) / Address (Bangla)",
-                                          addressEn:
-                                            "গ্রাম, বাড়ি ও রাস্তা (ইংরেজি) / Address (English)",
-                                        } as Record<string, string>
-                                      )[key],
-                                    )}
-                                    <input
-                                      id={`signup-${key}`}
-                                      required
-                                      type={
-                                        key === "password"
-                                          ? "password"
-                                          : key === "email"
-                                            ? "email"
-                                            : key === "dateOfBirth"
-                                              ? "date"
-                                              : "text"
-                                      }
-                                      minLength={
-                                        key === "password"
-                                          ? 6
-                                          : key.startsWith("address")
-                                            ? 4
-                                            : key === "displayName" ||
-                                                key === "nameBn" ||
-                                                key === "nameEn"
-                                              ? 2
-                                              : undefined
-                                      }
-                                      maxLength={
-                                        key === "password"
-                                          ? 18
-                                          : key.startsWith("address")
-                                            ? 500
-                                            : key === "email"
-                                              ? 150
-                                              : 120
-                                      }
-                                      max={
-                                        key === "dateOfBirth"
-                                          ? new Date()
-                                              .toISOString()
-                                              .slice(0, 10)
-                                          : undefined
-                                      }
-                                      autoComplete={
-                                        key === "password"
-                                          ? "new-password"
-                                          : key === "email"
-                                            ? "email"
-                                            : "off"
-                                      }
-                                      value={val}
-                                      onChange={(e) =>
-                                        setRegistration({
-                                          ...registration,
-                                          [key]: e.target.value,
-                                        })
-                                      }
-                                    />
-                                  </label>
-                                )),
-                            )}
-                          </div>
-                          <PresentAddressFields
-                            prefix="signup-present"
-                            value={signupPresentAddress}
-                            onChange={setSignupPresentAddress}
-                          />
-                          </>
-                          )}
-                          {regStep === 3 && (
-                          <>
-                          <div className="registration-step">
-                            <span className="step-number">{t("4")}</span>
-                            <div>
-                              <h2>
-                                {t("মোবাইল যাচাই (ঐচ্ছিক) / Mobile check (optional)")}
-                              </h2>
-                              <p>
-                                {t(
-                                  "ঐচ্ছিক: এখনই একটি মোবাইল নম্বর যাচাই করুন, অথবা এড়িয়ে গিয়ে অ্যাকাউন্ট তৈরি করুন। / Optional: verify a mobile number now, or skip and create the account. ",
-                                )}
-                              </p>
-                            </div>
-                          </div>
-                          <MobileOtpField
-                            value={signupMobile}
-                            onChange={setSignupMobile}
-                          />
-                          <div className="registration-actions">
-                            <button
-                              type="button"
-                              className="secondary"
-                              disabled={working}
-                              onClick={() => setRegStep(2)}
-                            >
-                              {choose({ bn: "পেছনে", en: "Back" })}
-                            </button>
-                            <button
-                              disabled={
-                                working ||
-                                signupOfficeLoading ||
-                                !signupGeography.wardCode ||
-                                !registration.tenantId
-                              }
-                            >
-                              {tx(
-                                working
-                                  ? "Creating account…"
-                                  : "Create account",
-                              )}
-                            </button>
-                            <span>
-                              {t("Already registered?")}
-                              {tx(" ")}
-                              <button
-                                type="button"
-                                className="text-button"
-                                onClick={() => nav("login")}
-                              >
-                                {t("Sign in ")}
-                              </button>
-                            </span>
-                          </div>
-                          </>
-                          )}
-                          {regStep < 3 && (
-                            <div className="registration-nav">
-                              {regStep > 0 && (
-                                <button
-                                  type="button"
-                                  className="secondary"
-                                  onClick={() =>
-                                    setRegStep((step) => Math.max(0, step - 1))
-                                  }
+                                  }}
                                 >
-                                  {choose({ bn: "পেছনে", en: "Back" })}
-                                </button>
-                              )}
-                              <button
-                                type="button"
-                                onClick={advanceRegStep}
-                              >
-                                {choose({ bn: "এগিয়ে যান", en: "Continue" })}
-                              </button>
-                            </div>
-                          )}
-                        </form>
-                      ),
+                                  <option value="">{choose({ bn: "অফিস বেছে নিন", en: "Choose office" })}</option>
+                                  {signupOffices.map((o) => {
+                                    const officeName = choose({
+                                      bn: value(o, "nameBn", "name_bn"),
+                                      en: value(o, "nameEn", "name_en"),
+                                    });
+                                    const area = [o.upazila, o.district].filter(Boolean).join(", ");
+                                    return (
+                                      <option key={o.id} value={o.id}>
+                                        {area ? `${officeName} — ${area}` : officeName}
+                                      </option>
+                                    );
+                                  })}
+                                </select>
+                              </div>
+                            ) : null}
+                          </>
+                        }
+                      />
                     )}
                   </section>
                 ),

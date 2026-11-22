@@ -100,8 +100,18 @@ export const emailProviderIsLog = () => providerName === "log";
  * Deliver one message. Never throws: a mail failure must not fail the business action that
  * triggered the message (registration, issuance, rejection). Returns whether it was sent.
  */
+/**
+ * REG-UX Phase 1 (K2: email optional): an account created without an email holds
+ * an internal address on the reserved .invalid domain (RFC 2606). It is never shown
+ * and never mailed.
+ */
+export const PLACEHOLDER_EMAIL_DOMAIN = "no-email.digitalunion.invalid";
+export const placeholderEmail = (id: string) => "citizen-" + id + "@" + PLACEHOLDER_EMAIL_DOMAIN;
+export const isPlaceholderEmail = (address: string | null | undefined) =>
+  typeof address === "string" && address.toLowerCase().endsWith("@" + PLACEHOLDER_EMAIL_DOMAIN);
 export async function sendEmail(message: MailMessage): Promise<boolean> {
   if (!provider) return false;
+  if (isPlaceholderEmail(message.to)) return false;
   try {
     await provider.send(message);
     return true;

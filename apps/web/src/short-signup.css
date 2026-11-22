@@ -1,0 +1,148 @@
+/* REG-UX Phase 1 — one-screen signup. Tokens only (ui/tokens.css). */
+.du-short-registration {
+  max-width: 560px;
+  margin-inline: auto;
+}
+.du-short-signup {
+  display: grid;
+  gap: 18px;
+}
+.du-signup-office {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--du-green-100);
+  border-left: 4px solid var(--du-green-600);
+  border-radius: var(--du-radius-control);
+  background: var(--du-green-50);
+}
+.du-signup-office-label {
+  color: var(--du-muted);
+  font-size: var(--du-text-sm);
+  flex-basis: 100%;
+}
+.du-signup-office-name {
+  color: var(--du-green-800);
+  font-size: 1.05rem;
+  margin-right: auto;
+}
+.du-signup-office-picker {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+  border: 1px dashed var(--du-line);
+  border-radius: var(--du-radius-control);
+  background: var(--du-surface);
+}
+.du-signup-fields {
+  display: grid;
+  gap: 16px;
+}
+.du-signup-fields > label,
+.du-signup-photo > label {
+  display: grid;
+  gap: 6px;
+  font-weight: 600;
+  color: var(--du-ink);
+}
+.du-signup-fields input:not([type="file"]) {
+  min-height: var(--du-control-h);
+  font-weight: 400;
+}
+.du-signup-fields input[aria-invalid="true"] {
+  border-color: var(--du-error-ink);
+  box-shadow: 0 0 0 1px var(--du-error-ink);
+}
+.du-signup-fields .hint {
+  font-weight: 400;
+  color: var(--du-muted);
+  font-size: var(--du-text-sm);
+}
+.du-optional {
+  font-weight: 400;
+  color: var(--du-muted);
+  font-size: var(--du-text-sm);
+}
+.du-field-error {
+  margin: 0;
+  padding: 8px 10px;
+  border-radius: var(--du-radius-control);
+  background: var(--du-error-bg);
+  color: var(--du-error-ink);
+  font-weight: 500;
+  font-size: var(--du-text-sm);
+}
+.du-field-error .text-button {
+  font-weight: 700;
+  text-decoration: underline;
+}
+.du-password-row {
+  display: flex;
+  gap: 8px;
+}
+.du-password-row input {
+  flex: 1;
+  min-width: 0;
+}
+.du-password-toggle {
+  min-height: var(--du-control-h);
+  min-width: 72px;
+  font-weight: 500;
+}
+.du-signup-photo {
+  display: grid;
+  gap: 8px;
+}
+.du-signup-photo-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+}
+.du-signup-photo-row > div {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+.du-signup-photo-row img,
+.du-signup-photo-empty {
+  width: 72px;
+  height: 88px;
+  flex: none;
+  border-radius: 8px;
+  object-fit: cover;
+  border: 1px solid var(--du-line);
+  background: var(--du-page);
+}
+.du-signup-photo-empty {
+  background:
+    radial-gradient(circle at 50% 38%, var(--du-line) 0 15px, transparent 16px),
+    radial-gradient(ellipse at 50% 100%, var(--du-line) 0 28px, transparent 29px),
+    var(--du-page);
+}
+.du-signup-photo input[type="file"] {
+  max-width: 100%;
+  font-size: var(--du-text-sm);
+}
+.du-signup-later {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: var(--du-radius-control);
+  background: var(--du-page);
+  color: var(--du-muted);
+}
+.du-short-signup .registration-actions > button[type="submit"] {
+  min-height: calc(var(--du-control-h) + 4px);
+  min-width: 200px;
+  font-size: 1.02rem;
+}
+@media (max-width: 560px) {
+  .du-short-signup .registration-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .du-short-signup .registration-actions > button[type="submit"] {
+    width: 100%;
+  }
+}

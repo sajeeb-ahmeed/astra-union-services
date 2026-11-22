@@ -7,7 +7,7 @@ import {
   type FormSchema,
   type ValidationIssue,
 } from "@astra/shared-schemas";
-import { api, items } from "./api.js";
+import { api, errorCode, items } from "./api.js";
 import { choose, recordName, useLanguage } from "./i18n.js";
 import { DynamicForm } from "./DynamicForm.js";
 import { ApplicationOrder, type IntakeOrderState } from "./ApplicationOrder.js";
@@ -15,6 +15,7 @@ import { chosenCitizenAddress } from "./PresentAddressFields.js";
 import { withoutOrderLanguage } from "./order-schema.js";
 import { ApplicationStatus, RefChip, Stepper } from "./ui/kit.js";
 import { SampleCertificate } from "./TrustVisual.js";
+import { ProfileCompletionCard, profileGapsFor } from "./ProfileCompletion.js";
 import "./service-flow.css";
 
 const steps = [
@@ -313,6 +314,9 @@ export function ServiceFlow({
       go(4);
     } catch (createError) {
       setError((createError as Error).message);
+      // REG-UX Phase 1: the server's application gate found deferred profile items
+      // missing — return to the form step, where the inline completion card shows.
+      if (errorCode(createError) === "PROFILE_INCOMPLETE") setStep(1);
     } finally {
       setBusy(false);
     }
@@ -408,7 +412,18 @@ export function ServiceFlow({
           </>
         )}
 
-        {step === 1 && (
+        {step === 1 && profileGapsFor(citizen).length > 0 && (
+          // REG-UX Phase 1: only the missing deferred items, inline, then the form.
+          <ProfileCompletionCard
+            citizen={citizen}
+            onSaved={(next) => {
+              setCitizen(next);
+              setError("");
+              onChanged();
+            }}
+          />
+        )}
+        {step === 1 && profileGapsFor(citizen).length === 0 && (
           <>
             <p className="ax-flow-muted">
               {choose({ bn: "আবেদনকারী: ", en: "Applicant: " })}

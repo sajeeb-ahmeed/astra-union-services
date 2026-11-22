@@ -162,3 +162,24 @@ export const items = (value: any): any[] =>
       value?.services ||
       value?.tenants ||
       [];
+
+/**
+ * REG-UX §4.3 (the F2 pattern): an API refusal mapped to the form fields it belongs
+ * to — `error.field` (a named field error such as EMAIL_TAKEN) and each zod issue's
+ * first path segment. Returns {} for errors that belong to no field (network, 5xx),
+ * which the caller shows as a page-level alert instead.
+ */
+export function fieldErrors(error: unknown): Record<string, string> {
+  const body = error instanceof ApiError ? error.details?.error : undefined;
+  if (!body) return {};
+  const out: Record<string, string> = {};
+  if (typeof body.field === "string") out[body.field] = String(body.message ?? "");
+  if (Array.isArray(body.issues))
+    for (const issue of body.issues) {
+      const key = String(issue?.path ?? "").split(".")[0];
+      if (key && !out[key]) out[key] = String(issue.message ?? "");
+    }
+  return out;
+}
+export const errorCode = (error: unknown): string | undefined =>
+  error instanceof ApiError ? error.details?.error?.code : undefined;
