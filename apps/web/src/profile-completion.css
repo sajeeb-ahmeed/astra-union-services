@@ -1,0 +1,61 @@
+/* REG-UX Phase 1 — inline profile completion in the apply flow. */
+.du-profile-completion {
+  display: grid;
+  gap: 16px;
+  padding: 18px;
+  border: 1px solid var(--du-green-100);
+  border-top: 4px solid var(--du-green-600);
+  border-radius: var(--du-radius-panel);
+  background: var(--du-surface);
+  box-shadow: var(--du-shadow-rest);
+}
+.du-profile-completion-head h4 {
+  margin: 0 0 4px;
+  color: var(--du-green-800);
+  font-size: var(--du-text-h3);
+}
+.du-profile-completion-head p {
+  margin: 0;
+  color: var(--du-muted);
+}
+.du-profile-completion-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+.du-profile-completion-grid label {
+  display: grid;
+  gap: 6px;
+  font-weight: 600;
+}
+.du-profile-completion-grid input {
+  min-height: var(--du-control-h);
+  font-weight: 400;
+}
+.du-profile-completion-grid input[aria-invalid="true"] {
+  border-color: var(--du-error-ink);
+}
+.du-profile-completion .du-span-2 {
+  grid-column: 1 / -1;
+}
+.du-profile-completion .du-field-error {
+  margin: 0;
+  padding: 8px 10px;
+  border-radius: var(--du-radius-control);
+  background: var(--du-error-bg);
+  color: var(--du-error-ink);
+  font-weight: 500;
+  font-size: var(--du-text-sm);
+}
+.du-profile-completion-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+@media (max-width: 640px) {
+  .du-profile-completion-grid {
+    grid-template-columns: 1fr;
+  }
+  .du-profile-completion-actions button {
+    width: 100%;
+  }
+}
