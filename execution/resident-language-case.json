@@ -7,23 +7,23 @@
     {
       "language": "bn",
       "artifact": "execution/resident-bn-demo.pdf",
-      "certificateId": "f41e25e8-f20c-4b2d-a4ce-d36795cc2c3b",
-      "applicationId": "07105106-b15b-45c4-b488-3044e5591c50",
-      "templateVersion": 4
+      "certificateId": "8ba83e7b-f031-4318-9c43-d866d850ecbc",
+      "applicationId": "7295c414-5b88-42d0-8351-2e1e85b36040",
+      "templateVersion": 7
     },
     {
       "language": "en",
       "artifact": "execution/resident-en-demo.pdf",
-      "certificateId": "c409338e-3e45-4f41-849a-d12bcdb3ab4e",
-      "applicationId": "9e920f40-ec73-4ad8-92d7-716d54aa0c8f",
-      "templateVersion": 4
+      "certificateId": "db349b51-e195-4a4f-a539-4df5d746ce72",
+      "applicationId": "d6d2a8cc-2e7a-48dc-9159-5a525fedb34f",
+      "templateVersion": 7
     },
     {
       "language": "bilingual",
       "artifact": "execution/resident-bilingual-demo.pdf",
-      "certificateId": "892ada95-7bd1-4a1a-9462-55394a4b56cd",
-      "applicationId": "3093293c-11d9-4dd5-83ed-85e6272f70e2",
-      "templateVersion": 4
+      "certificateId": "1f6b5dc1-4475-4fd4-adf4-c3c050a44382",
+      "applicationId": "52a4462a-6df1-4e78-90a4-54b3731f3ac8",
+      "templateVersion": 7
     }
   ]
 }
