@@ -585,38 +585,25 @@ test(
         assert.equal(created.status(), 201, await created.text());
         await setup.close();
       }
+      // REG-UX Phase 1: one-screen signup. With no configured default office and
+      // several listed, the "Change" picker opens by itself; choosing the office
+      // closes it and the three-field form remains.
       await page.goto(`${origin}/register`);
-      for (const [level, code] of [["division", "div-01"], ["district", "dis-01"], ["upazila", "upa-001"], ["union", union.code], ["ward", `${union.code}-w01`]]) {
+      for (const [level, code] of [["division", "div-01"], ["district", "dis-01"], ["upazila", "upa-001"], ["union", union.code]]) {
         await page.locator(`#signup-geo-${level} option[value="${code}"]`).waitFor({ state: "attached" });
         await page.locator(`#signup-geo-${level}`).selectOption(code);
       }
-      // BUNDLE06-R5 C4: registration is a stepper — advance area → office.
-      await page.getByRole("button", { name: "Continue", exact: true }).click();
       const officeOption = page.locator("#signup-office option").filter({ hasText: officeName });
       await officeOption.waitFor({ state: "attached" });
       const officeId = await officeOption.getAttribute("value");
       assert.ok(officeId);
-      await page
-        .getByLabel("Select office", { exact: true })
-        .selectOption(officeId);
-      await page.getByRole("button", { name: "Continue", exact: true }).click();
-      for (const [label, value] of Object.entries({
-        "Email address": email,
-        "Choose password": password,
-        "Display name": "Browser Citizen",
-        "Name (Bangla)": "নমুনা নাগরিক",
-        "Name (English)": "Browser Citizen",
-        "Date of birth": "1990-01-01",
-        "Address (Bangla)": "নমুনা গ্রাম",
-        "Address (English)": "Synthetic Village",
-      }))
-        await page.getByLabel(label, { exact: true }).fill(value);
-      // BUNDLE06-R5 C4: account step → mobile-check step, where the
-      // "Create account" button lives.
-      await page.getByRole("button", { name: "Continue", exact: true }).click();
-      await page
-        .getByRole("button", { name: "Create account", exact: true })
-        .click();
+      await page.locator("#signup-office").selectOption(officeId);
+      await page.locator(".du-signup-office-name").getByText(officeName).waitFor();
+      await page.locator("#signup-name").fill("Browser Citizen");
+      await page.locator("#signup-mobile").fill(`015${String(unique).slice(-8)}`);
+      await page.locator("#signup-password").fill(password);
+      await page.locator("#signup-email").fill(email);
+      await page.getByRole("button", { name: "Create account", exact: true }).click();
       await page
         .getByRole("heading", { name: "Account created", exact: true })
         .waitFor();
@@ -625,6 +612,19 @@ test(
       await page
         .locator("button.svc-card", { hasText: "Holding tax" })
         .click();
+      // The first application asks, inline, for only what signup deferred:
+      // the Bangla name, date of birth, permanent address and the ward.
+      await page.locator(".du-profile-completion").waitFor();
+      assert.equal(await page.locator("#pc-nameEn").count(), 0, "the English name from signup is not asked again");
+      await page.locator("#pc-nameBn").fill("নমুনা নাগরিক");
+      await page.locator("#pc-dateOfBirth").fill("1990-01-01");
+      await page.locator("#pc-addressBn").fill("নমুনা গ্রাম");
+      await page.locator("#pc-addressEn").fill("Synthetic Village");
+      await page.locator(`#pc-geo-ward option[value="${union.code}-w01"]`).waitFor({ state: "attached" });
+      await page.locator("#pc-geo-ward").selectOption(`${union.code}-w01`);
+      await page.screenshot({ path: "execution/screenshots/reg-ux-profile-completion-mobile.png", fullPage: true });
+      await page.getByRole("button", { name: "Save and continue to the form", exact: true }).click();
+      await page.locator(".du-profile-completion").waitFor({ state: "detached" });
       // FULL-UIUX-01 (UX M14): a signed-in citizen applying for themselves
       // skips the citizen step — the flow opens on the application form.
       await fillApplicationForm(page, demoPayloads[1]);

@@ -204,20 +204,21 @@ test("geography browser: mobile cascade uses parent IDs, clears descendants and 
     assert.equal(await page.locator("#signup-geo-division option:checked").innerText(), "ঢাকা");
     assert.equal(await page.locator("#signup-geo-ward").inputValue(), `${union.code}-w01`);
     await page.getByRole("group", { name: "Language / ভাষা" }).getByRole("button", { name: "English", exact: true }).click();
-    await page.getByRole("button", { name: "Continue", exact: true }).click();
+    // REG-UX Phase 1: one screen — the office picker sits under "Change" and
+    // closes once an office is chosen; the typed fields stay on the same screen.
     const officeOption = page.locator("#signup-office option").filter({ hasText: officeName });
     await officeOption.waitFor({ state: "attached" });
     await page.getByLabel("Select office", { exact: true }).selectOption((await officeOption.getAttribute("value"))!);
-    await page.getByRole("button", { name: "Continue", exact: true }).click();
-    await page.locator("#signup-displayName").fill("Preserve my draft");
+    await page.locator(".du-signup-office-name").getByText(officeName).waitFor();
+    await page.locator("#signup-name").fill("Preserve my draft");
     await page.getByRole("group", { name: "Language / ভাষা" }).getByRole("button", { name: "বাংলা", exact: true }).click();
     assert.equal(await page.locator("html").getAttribute("lang"), "bn");
-    assert.equal(await page.locator("#signup-displayName").inputValue(), "Preserve my draft");
+    assert.equal(await page.locator("#signup-name").inputValue(), "Preserve my draft");
     await page.getByRole("group", { name: "Language / ভাষা" }).getByRole("button", { name: "English", exact: true }).click();
-    assert.equal(await page.locator("#signup-displayName").inputValue(), "Preserve my draft");
-    // Back to the area step: changing the division still clears descendants.
-    await page.getByRole("button", { name: "Back", exact: true }).click();
-    await page.getByRole("button", { name: "Back", exact: true }).click();
+    assert.equal(await page.locator("#signup-name").inputValue(), "Preserve my draft");
+    // Reopen the picker: the chosen area is kept, and changing the division still clears descendants.
+    await page.getByRole("button", { name: "Change", exact: true }).click();
+    assert.equal(await page.locator("#signup-geo-ward").inputValue(), `${union.code}-w01`);
     await choose(page, "division", "div-06");
     for (const level of ["district", "upazila", "union", "ward"]) assert.equal(await page.locator(`#signup-geo-${level}`).inputValue(), "", `${level} must clear after changing division`);
     const gap = readSource("upazilas").find((row) => row.code === "upa-388")!;
@@ -256,7 +257,7 @@ test("geography browser: failed child lookup exposes retry and a retry retrieves
   } finally { await browser.close(); }
 });
 
-test("geography browser: mobile registration stores selected geography and server-generated reference", { timeout: 60000 }, async () => {
+test("geography browser: mobile registration derives the office's area and a server-generated reference", { timeout: 60000 }, async () => {
   const browser = await launch(), page = await browser.newPage({ viewport: { width: 390, height: 844 } });
   await page.addInitScript(() => { if (!localStorage.getItem("astra.language")) localStorage.setItem("astra.language", "en"); });
   const union = readSource("unions").find((row) => row.upazilaCode === "upa-001")!;
@@ -287,27 +288,24 @@ test("geography browser: mobile registration stores selected geography and serve
   }
   try {
     await page.goto(`${origin}/register`);
-    // BUNDLE06-R5 C4: the stepper only renders "Create account" on the
-    // final step, so the submit button is absent — not merely disabled —
-    // until the flow reaches it.
-    assert.equal(await page.getByRole("button", { name: "Create account", exact: true }).count(), 0);
-    for (const [level, code] of Object.entries(geo)) await choose(page, level.replace("Code", ""), code);
-    await page.getByRole("button", { name: "Continue", exact: true }).click();
+    // REG-UX Phase 1: one screen — "Create account" is there from the start.
+    await page.getByRole("button", { name: "Create account", exact: true }).waitFor();
+    const { wardCode: _ward, ...officeArea } = geo;
+    for (const [level, code] of Object.entries(officeArea)) await choose(page, level.replace("Code", ""), code);
     const option = page.locator("#signup-office option").filter({ hasText: officeName });
     await option.waitFor({ state: "attached" });
     const office = await option.getAttribute("value");
     assert.ok(office);
     await page.locator("#signup-office").selectOption(office);
-    await page.getByRole("button", { name: "Continue", exact: true }).click();
-    const fields = { email, password, displayName: "Geography Browser Citizen", nameBn: "অবস্থান পরীক্ষার নাগরিক", nameEn: "Geography Browser Citizen", dateOfBirth: "1994-01-12", addressBn: "নমুনা গ্রাম ও রাস্তা", addressEn: "Sample village and road" };
+    const fields = { name: "Geography Browser Citizen", mobile: `018${String(Date.now()).slice(-8)}`, password, email };
     for (const [field, value] of Object.entries(fields)) await page.locator(`#signup-${field}`).fill(value);
-    await page.getByRole("button", { name: "Continue", exact: true }).click();
     assert.equal(await page.locator("#signup-syntheticReference").count(), 0);
     const submitted = page.waitForResponse((response) => response.url().endsWith("/auth/signup") && response.request().method() === "POST");
     await page.getByRole("button", { name: "Create account", exact: true }).click();
     const response = await submitted;
     assert.equal(response.status(), 201, await response.text());
-    assert.deepEqual(response.request().postDataJSON().geography, geo);
+    // The short form makes no area claim: the area is the office's own; the ward is deferred.
+    assert.equal("geography" in response.request().postDataJSON(), false);
     await page.getByRole("heading", { name: "Account created", exact: true }).waitFor();
     const loggedIn = await page.request.post(`${origin}/api/v1/auth/login`, { data: { email, password } });
     assert.equal(loggedIn.status(), 200);
@@ -315,11 +313,11 @@ test("geography browser: mobile registration stores selected geography and serve
     const profile = await page.request.get(`${origin}/api/v1/profile`);
     assert.equal(profile.status(), 200);
     const saved = await profile.json();
-    assert.deepEqual(saved.geography, geo);
+    assert.deepEqual(saved.geography, officeArea);
     assert.equal("syntheticReference" in response.request().postDataJSON(), false);
     const citizens = await page.request.get(`${origin}/api/v1/citizens`);
     assert.equal(citizens.status(), 200);
-    const ownCitizen = (await citizens.json()).items.find((citizen: any) => citizen.nameEn === fields.nameEn);
+    const ownCitizen = (await citizens.json()).items.find((citizen: any) => citizen.nameEn === fields.name);
     assert.ok(ownCitizen);
     // CERTNO-01: server-generated citizen references use the 16-digit public
     // format (Dhaka date + 8 random digits), not the old REF-<uuid>.
@@ -367,18 +365,15 @@ test("language browser: preference persists across public pages and authenticate
     await owner.close();
     await page.goto(`${origin}/register`);
     for (const [level, code] of [["division", "div-01"], ["district", "dis-01"], ["upazila", "upa-001"], ["union", union.code], ["ward", `${union.code}-w01`]]) await choose(page, level, code);
-    await page.getByRole("button", { name: "Continue", exact: true }).click();
     const officeOption = page.locator("#signup-office option").filter({ hasText: officeName });
     await officeOption.waitFor({ state: "attached" });
     await page.getByLabel("Select office", { exact: true }).selectOption((await officeOption.getAttribute("value"))!);
-    await page.getByRole("button", { name: "Continue", exact: true }).click();
     await page.locator("#signup-email").fill("language-retention@example.test");
     await page.getByRole("group", { name: "Language / ভাষা" }).getByRole("button", { name: "বাংলা", exact: true }).click();
     assert.equal(await page.locator("#signup-email").inputValue(), "language-retention@example.test");
-    // Still in Bangla here (the page tour below asserts bn persists), so
-    // the Back button is labelled "পেছনে".
-    await page.getByRole("button", { name: "পেছনে", exact: true }).click();
-    await page.getByRole("button", { name: "পেছনে", exact: true }).click();
+    // Still in Bangla here (the page tour below asserts bn persists): reopen the
+    // office picker with its Bangla label; the chosen area is kept.
+    await page.getByRole("button", { name: "অন্য ইউনিয়নের হলে বদলান", exact: true }).click();
     assert.equal(await page.locator("#signup-geo-division").inputValue(), "div-01");
     for (const route of ["/services", "/offices", "/notices", "/help", "/verify", "/tracking", "/policies"]) {
       await page.goto(origin + route);
