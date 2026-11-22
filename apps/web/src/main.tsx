@@ -275,19 +275,48 @@ function CertificateVerification({
   );
 }
 
+function takeLoginPrefill(): { type: "email" | "mobile"; identifier: string } | null {
+  try {
+    const raw = sessionStorage.getItem("du.loginPrefill");
+    sessionStorage.removeItem("du.loginPrefill");
+    const parsed = raw ? JSON.parse(raw) : null;
+    return parsed && (parsed.type === "email" || parsed.type === "mobile") && typeof parsed.identifier === "string"
+      ? parsed
+      : null;
+  } catch {
+    return null;
+  }
+}
 function SignedOutPortal({
   onLogin,
 }: {
   onLogin: (session: any) => void;
 }) {
   useLanguage();
-  const [email, setEmail] = useState("");
+  // REG-UX Phase 1: the signup screen hands over how the new account signs in
+  // (mobile or email), so the citizen lands on a prefilled sign-in form.
+  // The form may already be mounted when signup finishes, so the handoff is also
+  // delivered as a "du:login-prefill" event (see rememberLoginPrefill).
+  const [loginPrefill] = useState(takeLoginPrefill);
+  const [email, setEmail] = useState(loginPrefill?.identifier ?? "");
+  useEffect(() => {
+    const apply = () => {
+      const next = takeLoginPrefill();
+      if (!next) return;
+      setIdentifierType(next.type);
+      setEmail(next.identifier);
+    };
+    addEventListener("du:login-prefill", apply);
+    return () => removeEventListener("du:login-prefill", apply);
+  }, []);
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   // Phase 2b: sign in with email (default, unchanged) or a mobile/NID/birth-registration number.
-  const [identifierType, setIdentifierType] = useState<"email" | "mobile" | "nid" | "birth_reg">("email");
+  const [identifierType, setIdentifierType] = useState<"email" | "mobile" | "nid" | "birth_reg">(
+    loginPrefill?.type ?? "email",
+  );
   const [challenge, setChallenge] = useState<MfaLoginChallenge | null>(null);
   const loginAttempt = useRef(0);
   const clearLoginSecrets = useCallback(() => {
