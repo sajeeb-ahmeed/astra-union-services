@@ -146,3 +146,14 @@
     width: 100%;
   }
 }
+/* One label line: text, required star or "(optional)" stay together. */
+.du-label-text {
+  display: inline;
+}
+.du-required {
+  color: var(--du-red);
+  margin-left: 2px;
+}
+.du-signup-photo > label {
+  display: block;
+}

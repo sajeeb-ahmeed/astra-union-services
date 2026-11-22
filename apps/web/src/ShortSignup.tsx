@@ -185,7 +185,9 @@ export function ShortSignupForm({
 
       <div className="du-signup-fields">
         <label htmlFor={"signup-name"}>
-          {choose({ bn: "আপনার নাম", en: "Your name" })} <span aria-hidden="true">*</span>
+          <span className="du-label-text">
+            {choose({ bn: "আপনার নাম", en: "Your name" })} <span className="du-required" aria-hidden="true">*</span>
+          </span>
           <input
             ref={refs.name}
             id={"signup-name"}
@@ -209,7 +211,9 @@ export function ShortSignupForm({
         </label>
 
         <label htmlFor={"signup-mobile"}>
-          {choose({ bn: "মোবাইল নম্বর", en: "Mobile number" })} <span aria-hidden="true">*</span>
+          <span className="du-label-text">
+            {choose({ bn: "মোবাইল নম্বর", en: "Mobile number" })} <span className="du-required" aria-hidden="true">*</span>
+          </span>
           <input
             ref={refs.mobile}
             id={"signup-mobile"}
@@ -235,7 +239,9 @@ export function ShortSignupForm({
         </label>
 
         <label htmlFor={"signup-password"}>
-          {choose({ bn: "পাসওয়ার্ড", en: "Password" })} <span aria-hidden="true">*</span>
+          <span className="du-label-text">
+            {choose({ bn: "পাসওয়ার্ড", en: "Password" })} <span className="du-required" aria-hidden="true">*</span>
+          </span>
           <span className="du-password-row">
             <input
               ref={refs.password}
@@ -268,8 +274,10 @@ export function ShortSignupForm({
         </label>
 
         <label htmlFor={"signup-email"}>
-          {choose({ bn: "ইমেইল", en: "Email" })}{" "}
-          <span className="du-optional">({choose({ bn: "ঐচ্ছিক", en: "optional" })})</span>
+          <span className="du-label-text">
+            {choose({ bn: "ইমেইল", en: "Email" })}{" "}
+            <span className="du-optional">({choose({ bn: "ঐচ্ছিক", en: "optional" })})</span>
+          </span>
           <input
             ref={refs.email}
             id={"signup-email"}
