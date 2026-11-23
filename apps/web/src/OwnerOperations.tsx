@@ -25,8 +25,44 @@ function alertText(a: any) {
   }
 }
 
+/** PORTAL-D: a waiting-queue figure that opens the screen where it is handled. */
+function QueueTile({
+  label: title,
+  value,
+  caption,
+  onOpen,
+}: {
+  label: string;
+  value: React.ReactNode;
+  caption: string;
+  onOpen?: () => void;
+}) {
+  const body = (
+    <>
+      <div className="kpi-label">{title}</div>
+      <div className="kpi-value">{value}</div>
+      <div className="kpi-caption">
+        {caption}
+        {onOpen && <span className="kpi-open"> · {choose({ bn: "খুলুন →", en: "Open →" })}</span>}
+      </div>
+    </>
+  );
+  return onOpen ? (
+    <button type="button" className="kpi-card kpi-link" onClick={onOpen}>
+      {body}
+    </button>
+  ) : (
+    <div className="kpi-card">{body}</div>
+  );
+}
+
 /** The owner's view of what needs attention across offices: scanner health and pending queues. */
-export function OwnerOperations() {
+export function OwnerOperations({
+  onOpen,
+}: {
+  /** PORTAL-D: open the owner section that handles a queue and scroll to its panel. */
+  onOpen?: (section: string, panelSelector: string) => void;
+} = {}) {
   useLanguage();
   const [data, setData] = useState<any>(null);
   const [error, setError] = useState("");
@@ -91,21 +127,24 @@ export function OwnerOperations() {
           </div>
           <div className="kpi-caption">{label("সর্বশেষ হার্টবিটের সময়", "Time of the latest heartbeat")}</div>
         </div>
-        <div className="kpi-card">
-          <div className="kpi-label">{label("রিচার্জের অনুরোধ", "Recharge requests")}</div>
-          <div className="kpi-value">{n(q.rechargesPending)}</div>
-          <div className="kpi-caption">{label("নিশ্চিত করার অপেক্ষায়", "Waiting for confirmation")}</div>
-        </div>
-        <div className="kpi-card">
-          <div className="kpi-label">{label("অফিস অ্যাকাউন্ট অনুরোধ", "Office account requests")}</div>
-          <div className="kpi-value">{n(q.officeAccountRequestsPending)}</div>
-          <div className="kpi-caption">{label("যাচাইয়ের অপেক্ষায়", "Waiting for verification")}</div>
-        </div>
-        <div className="kpi-card">
-          <div className="kpi-label">{label("অফিস যুক্ত করার অনুরোধ", "Office inclusion requests")}</div>
-          <div className="kpi-value">{n(q.officeInclusionRequestsOpen)}</div>
-          <div className="kpi-caption">{label("খোলা অনুরোধ", "Open requests")}</div>
-        </div>
+        <QueueTile
+          label={label("রিচার্জের অনুরোধ", "Recharge requests")}
+          value={n(q.rechargesPending)}
+          caption={label("নিশ্চিত করার অপেক্ষায়", "Waiting for confirmation")}
+          onOpen={onOpen && (() => onOpen("offices", ".owner-recharges"))}
+        />
+        <QueueTile
+          label={label("অফিস অ্যাকাউন্ট অনুরোধ", "Office account requests")}
+          value={n(q.officeAccountRequestsPending)}
+          caption={label("যাচাইয়ের অপেক্ষায়", "Waiting for verification")}
+          onOpen={onOpen && (() => onOpen("permissions", ".owner-requests"))}
+        />
+        <QueueTile
+          label={label("অফিস যুক্ত করার অনুরোধ", "Office inclusion requests")}
+          value={n(q.officeInclusionRequestsOpen)}
+          caption={label("খোলা অনুরোধ", "Open requests")}
+          onOpen={onOpen && (() => onOpen("offices", ".owner-inclusion"))}
+        />
         <div className="kpi-card">
           <div className="kpi-label">{label("ফি ফেরত (সিদ্ধান্তের অপেক্ষায় / চলমান)", "Refunds (to decide / in progress)")}</div>
           <div className="kpi-value">

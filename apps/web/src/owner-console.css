@@ -60,6 +60,12 @@
     flex-direction: column;
     flex-wrap: nowrap;
     margin: 0;
+    /* PORTAL-D: `.shell nav { max-height: 60vh; overflow: auto }` (the
+       workspace sidebar's rule) also caught this menu — at 900px tall it
+       was 540px for 591px of items, so "Settings" sat scrolled out of sight
+       inside the menu. Use the window's height; scroll only when short. */
+    max-height: calc(100vh - 32px);
+    overflow-y: auto;
   }
   .owner-console .owner-nav a {
     border-radius: 10px;
@@ -390,6 +396,36 @@
 .owner-console .kpi-card {
   box-shadow: var(--du-shadow-rest);
   transition: border-color var(--du-motion-fast), box-shadow var(--du-motion-fast);
+}
+/* PORTAL-D: a queue figure that opens its screen is a button that still
+   looks like the card (the global primary-button gradient must not win). */
+.owner-console button.kpi-card.kpi-link {
+  /* top-aligned like the plain cards (a button centres its content) */
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  align-items: stretch;
+  width: 100%;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  background: var(--du-surface, #fff);
+  border: 1px solid var(--astra-line, #d8e2da);
+  border-radius: 10px;
+  padding: 14px 16px;
+  cursor: pointer;
+}
+.owner-console button.kpi-card.kpi-link:hover {
+  background: var(--du-green-50);
+  border-color: var(--du-green-600);
+}
+.owner-console button.kpi-card.kpi-link:focus-visible {
+  outline: 3px solid var(--du-focus);
+  outline-offset: 2px;
+}
+.owner-console .kpi-open {
+  color: var(--du-green-700);
+  font-weight: 600;
 }
 .owner-console .kpi-card:hover {
   border-color: var(--du-green-600);
