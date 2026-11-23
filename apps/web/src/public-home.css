@@ -956,12 +956,34 @@ html[lang="bn"] .hx-hero h1 {
 .hx-hero-compact .hx-search {
   margin-bottom: 14px;
 }
-/* PORTAL-E: the banner holds text only (no carousel) — one column. */
+/* PORTAL-E2: the carousel is back as a banner beside the copy — narrower,
+   wider crop, a flatter frame to match the formal look. */
 .hx-hero-compact .hx-hero-grid {
-  grid-template-columns: minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 0.8fr);
 }
-.hx-hero-compact .hx-hero-copy {
-  max-width: 720px;
+.hx-hero-compact .hx-hero-visual {
+  max-width: 440px;
+  justify-self: end;
+  width: 100%;
+}
+.hx-hero-compact .hc {
+  padding: 8px;
+  border-radius: var(--du-radius-panel, 6px);
+  box-shadow: 0 6px 16px rgb(2 36 18 / 22%);
+}
+.hx-hero-compact .hc-viewport {
+  aspect-ratio: 16 / 8;
+  border-radius: var(--ax-radius, 4px);
+}
+/* Below tablet width the hero is one column and the carousel is dropped,
+   so the search and the services come first on a phone. */
+@media (max-width: 900px) {
+  .hx-hero-compact .hx-hero-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .hx-hero-compact .hx-hero-visual {
+    display: none;
+  }
 }
 
 .hp-layout {
