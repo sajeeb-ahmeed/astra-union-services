@@ -358,6 +358,20 @@ button.primary-strong:hover {
   }
 }
 
+/* PORTAL-C: whatever the browser scrolls into view (keyboard focus, an
+   anchor, "scroll into view") stops above the fixed tab bar, never under
+   it — and above the flow's sticky actions too. */
+@media (max-width: 767px) {
+  html:has(.ws-tabbar) {
+    scroll-padding-bottom: calc(72px + env(safe-area-inset-bottom, 0px));
+  }
+  /* In a service flow the sticky actions (up to three stacked buttons)
+     sit above the tab bar: together about 230px. */
+  html:has(.ws-tabbar):has(.ax-flow-actions) {
+    scroll-padding-bottom: calc(240px + env(safe-area-inset-bottom, 0px));
+  }
+}
+
 /* Mobile bottom tab bar + sheet (B27/P1-12). */
 .ws-tabbar {
   position: fixed;
@@ -692,6 +706,13 @@ tr.ax-row-new td {
   .detail-rail {
     position: static;
     order: -1;
+  }
+  /* PORTAL-C: whoever decides (the rail holds the decision-reason box)
+     reads the application first and decides after it — on a phone the
+     rail came first and the Chairman approved above details he had not
+     yet seen. Citizens and other viewers keep status-first. */
+  .detail-rail:has(#reason) {
+    order: 0;
   }
 }
 

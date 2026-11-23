@@ -545,6 +545,16 @@ function humanSignInError(error: unknown): string {
   return message;
 }
 
+/**
+ * PORTAL-C: the signed-in workspace lives at "/" (see onLogin). When that
+ * session ends — sign-out here or elsewhere — the same place shows the
+ * sign-in form again, in place and without navigation, as it did when the
+ * workspace sat on /login. Public pages (/verify, /tracking …) stay put.
+ */
+function showSignInAfterSession() {
+  if (location.pathname === "/") history.replaceState(history.state, "", "/login");
+}
+
 function SessionApp() {
   const [session, setSession] = useState<any>(null);
   const [loaded, setLoaded] = useState(false);
@@ -601,6 +611,7 @@ function SessionApp() {
           if (response.status === 401) clearSessionToken();
           if (!sessionRef.current) anonymousRef.current = true;
           if (sessionRef.current) {
+            showSignInAfterSession();
             sessionRef.current = null;
             setSession(null);
           }
@@ -651,6 +662,10 @@ function SessionApp() {
     return (
       <SignedOutPortal
         onLogin={(next) => {
+          // PORTAL-C: the workspace routes by hash; after signing in on
+          // /login (or /register) the address no longer says "login".
+          if (/^\/(login|register)\/?$/.test(location.pathname))
+            history.replaceState(history.state, "", `/${location.hash}`);
           anonymousRef.current = false;
           sessionRef.current = next;
           setSession(next);
@@ -663,6 +678,7 @@ function SessionApp() {
         key={`${session.user.id}:${session.user.tenantId ?? ""}`}
         session={session}
         onSignOut={() => {
+          showSignInAfterSession();
           sessionRef.current = null;
           setSession(null);
         }}

@@ -216,8 +216,11 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 12px;
+  gap: 8px 12px;
   width: 100%;
+  /* PORTAL-C: when the reference and the status pill do not fit on one
+     row, the pill moves to the next row instead of squeezing the number. */
+  flex-wrap: wrap;
 }
 @media (max-width: 767px) {
   .table-wrap.responsive-table {
