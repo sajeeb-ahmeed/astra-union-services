@@ -100,7 +100,9 @@ export function AdminWorkspace() {
   const [officeType, setOfficeType] = useState("UNION");
   // FULL-UIUX-01 (C35/P2-11): the default tab IS the first tab — the
   // panel no longer opens on a tab the header doesn't show first.
-  const [tab, setTab] = useState("order-policies"),
+  // PORTAL-D: tabs follow the order an office sets itself up in, starting
+  // with its profile (it used to open on the fee-policy form).
+  const [tab, setTab] = useState("office"),
     [office, setOffice] = useState<any>(null),
     [users, setUsers] = useState<any[]>([]),
     [accountTypes, setAccountTypes] = useState<any[]>([]),
@@ -152,36 +154,30 @@ export function AdminWorkspace() {
         {/* FULL-UIUX-01 (C35/P2-11): no second title duplicating the page
             H1 — the panel opens with its purpose line. */}
         <p>
-          {t(
-            "Manage your office's staff, service availability, explicit approval assignments and published notices. ",
-          )}
+          {choose({
+            bn: "অফিস চালু করার ধাপ অনুযায়ী সাজানো: অফিসের তথ্য, কর্মী ও তাদের অনুমোদনের ক্ষমতা, কোন সেবা চালু, ফি ও অনলাইন পেমেন্ট, সনদের ছবি, তারপর নোটিশ ও কুপন।",
+            en: "In the order an office sets itself up: its profile, staff and their approval authority, which services are on, fees and online payments, certificate images, then notices and coupons.",
+          })}
         </p>
         <div
           className="tabs"
           role="tablist"
           aria-label={t("Administration sections")}
         >
-          <button
-            role="tab"
-            aria-selected={tab === "order-policies"}
-            className={tab === "order-policies" ? "" : "secondary"}
-            onClick={() => setTab("order-policies")}
-          >
-            {choose({ bn: "আবেদন ফি নীতি", en: "Application fee policies" })}
-          </button>
           {tx(
             // FULL-UIUX-01 (B23/P1-13): every tab label has a Bangla form —
             // "Certificate assets" no longer renders as raw English jargon.
             (
               [
                 ["office", { bn: "অফিসের তথ্য", en: "Office profile" }],
-                ["cert-assets", { bn: "সনদে ব্যবহৃত ছবি", en: "Certificate images" }],
                 ["users", { bn: "কর্মীদের অ্যাকাউন্ট", en: "Staff accounts" }],
-                ["services", { bn: "সেবার সেটিংস", en: "Service settings" }],
                 ["authority", { bn: "অনুমোদনের ক্ষমতা", en: "Approval authority" }],
+                ["services", { bn: "সেবার সেটিংস", en: "Service settings" }],
+                ["order-policies", { bn: "আবেদন ফি নীতি", en: "Application fee policies" }],
+                ["payments", { bn: "অনলাইন পেমেন্ট", en: "Online payments" }],
+                ["cert-assets", { bn: "সনদে ব্যবহৃত ছবি", en: "Certificate images" }],
                 ["notices", { bn: "অফিসের নোটিশ", en: "Office notices" }],
                 ["coupons", { bn: "কুপন", en: "Coupons" }],
-                ["payments", { bn: "অনলাইন পেমেন্ট", en: "Online payments" }],
               ] as const
             ).map(([key, label]) => (
               <button

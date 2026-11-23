@@ -358,6 +358,40 @@ button.primary-strong:hover {
   }
 }
 
+/* PORTAL-D: every tab list reads as tabs, not as a row of buttons — the
+   segmented style the payments workspace already used. Before, the
+   selected tab was a full gradient primary button, the loudest thing on
+   the page, and the others looked like secondary actions. */
+.tabs[role="tablist"] {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 4px;
+  margin-top: 6px;
+  background: var(--du-green-50);
+  border: 1px solid var(--du-line);
+  border-radius: 12px;
+}
+.tabs[role="tablist"] [role="tab"] {
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--du-muted);
+  font-weight: 600;
+  padding: 9px 16px;
+  min-height: 44px;
+}
+.tabs[role="tablist"] [role="tab"]:hover {
+  color: var(--du-green-800);
+  background: rgb(255 255 255 / 55%);
+}
+.tabs[role="tablist"] [role="tab"][aria-selected="true"] {
+  background: var(--du-surface);
+  color: var(--du-green-800);
+  border-color: var(--du-line);
+  box-shadow: var(--du-shadow-rest, 0 1px 2px rgb(20 53 40 / 10%));
+}
+
 /* PORTAL-C: whatever the browser scrolls into view (keyboard focus, an
    anchor, "scroll into view") stops above the fixed tab bar, never under
    it — and above the flow's sticky actions too. */
