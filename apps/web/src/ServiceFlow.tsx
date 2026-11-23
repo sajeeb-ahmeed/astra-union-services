@@ -34,6 +34,37 @@ const presentValue = (value: unknown): boolean =>
   value !== null &&
   !(typeof value === "string" && value.trim() === "");
 
+/**
+ * PORTAL-B: form fields that ask again for what the citizen record already
+ * holds. The form opens with these filled (still editable), so nobody types
+ * the same address or parents' names twice.
+ */
+const CITIZEN_FIELD_SOURCES: Record<string, string> = {
+  permanent_address_bn: "addressBn",
+  permanent_address_en: "addressEn",
+  father_name_bn: "fatherNameBn",
+  father_name_en: "fatherNameEn",
+  mother_name_bn: "motherNameBn",
+  mother_name_en: "motherNameEn",
+  spouse_name_bn: "spouseNameBn",
+  spouse_name_en: "spouseNameEn",
+  date_of_birth: "dateOfBirth",
+};
+
+/** Starting values for a new application: top-level text/date fields only. */
+export function citizenFormDefaults(schema: FormSchema, citizen: any): Record<string, string> {
+  const defaults: Record<string, string> = {};
+  if (!citizen) return defaults;
+  for (const section of schema.sections)
+    for (const field of section.fields) {
+      const source = CITIZEN_FIELD_SOURCES[field.id];
+      if (!source || !["text", "textarea", "date"].includes(field.type)) continue;
+      const value = citizen[source];
+      if (typeof value === "string" && value.trim()) defaults[field.id] = value.trim();
+    }
+  return defaults;
+}
+
 /** Human-readable rendering of one entered value, for the review step. */
 function detailText(field: FieldDefinition, value: any): string | null {
   if (field.type === "repeatable") {
@@ -238,6 +269,17 @@ export function ServiceFlow({
   useEffect(() => {
     heading.current?.focus();
   }, [step]);
+  // PORTAL-B: a citizen applying for themselves starts from what their own
+  // record already holds. Staff intake keeps its blank form (Release 0.4,
+  // "citizen-first blank applications" — the intake tests pin it).
+  const formReady =
+    selfCitizen && step === 1 && !!citizen && profileGapsFor(citizen).length === 0;
+  useEffect(() => {
+    if (!formReady) return;
+    const defaults = citizenFormDefaults(formSchema, citizen);
+    if (!Object.keys(defaults).length) return;
+    setPayload((current) => (Object.keys(current).length ? current : defaults));
+  }, [formReady, citizen, formSchema]);
   useEffect(() => {
     let active = true;
     const timer = setTimeout(() => {
@@ -635,7 +677,9 @@ export function ServiceFlow({
                   go(1);
                 }}
               >
-                {choose({ bn: "একই নাগরিকের আরেকটি আবেদন", en: "Another application for this citizen" })}
+                {selfCitizen
+                  ? choose({ bn: "এই সেবায় আরেকটি আবেদন", en: "Another application for this service" })
+                  : choose({ bn: "একই নাগরিকের আরেকটি আবেদন", en: "Another application for this citizen" })}
               </button>
               <button type="button" className="secondary" onClick={onExit}>
                 {choose({ bn: "ড্যাশবোর্ড", en: "Dashboard" })}

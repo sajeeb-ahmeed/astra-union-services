@@ -365,12 +365,17 @@ function SignedOutPortal({
                   setShowPassword(false);
                   const attempt = ++loginAttempt.current;
                   run(async () => {
+                    // PORTAL-B: the default field takes an email OR a mobile
+                    // number — most citizens register with a mobile only.
+                    const mobile = identifierType === "email" ? bdMobile(email) : null;
                     const nextSession = await api(
                       "/auth/login",
                       "POST",
-                      identifierType === "email"
-                        ? { email, password }
-                        : { identifierType, identifier: email, password },
+                      mobile
+                        ? { identifierType: "mobile", identifier: mobile, password }
+                        : identifierType === "email"
+                          ? { email: email.trim(), password }
+                          : { identifierType, identifier: email, password },
                     );
                     setPassword("");
                     if (attempt !== loginAttempt.current) return;
@@ -404,14 +409,14 @@ function SignedOutPortal({
                     setEmail("");
                   }}
                 >
-                  <option value="email">{choose({ bn: "ইমেইল", en: "Email" })}</option>
+                  <option value="email">{choose({ bn: "ইমেইল বা মোবাইল", en: "Email or mobile" })}</option>
                   <option value="mobile">{choose({ bn: "মোবাইল নম্বর", en: "Mobile number" })}</option>
                   <option value="nid">{choose({ bn: "জাতীয় পরিচয়পত্র (NID)", en: "National ID (NID)" })}</option>
                   <option value="birth_reg">{choose({ bn: "জন্ম নিবন্ধন নম্বর", en: "Birth registration number" })}</option>
                 </select>
                 <label htmlFor="email">
                   {identifierType === "email"
-                    ? t("Email")
+                    ? choose({ bn: "ইমেইল বা মোবাইল নম্বর", en: "Email or mobile number" })
                     : choose(
                         {
                           mobile: { bn: "মোবাইল নম্বর", en: "Mobile number" },
@@ -422,8 +427,10 @@ function SignedOutPortal({
                 </label>
                 <input
                   id="email"
-                  type={identifierType === "email" ? "email" : "text"}
-                  inputMode={identifierType === "email" ? "email" : "numeric"}
+                  type="text"
+                  inputMode={identifierType === "email" ? "text" : "numeric"}
+                  autoCapitalize="none"
+                  spellCheck={false}
                   autoComplete="username"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
@@ -501,6 +508,20 @@ function SignedOutPortal({
       <PublicPortal onNavigate={clearLoginSecrets} login={loginForm} />
     </AsyncPanel>
   );
+}
+
+/**
+ * PORTAL-B: a Bangladeshi mobile number typed into the email-or-mobile
+ * field, as the 11-digit local form (01XXXXXXXXX) the account stores, or
+ * null. Accepts Bengali digits, spaces, dashes and a +88 / 88 prefix.
+ */
+function bdMobile(value: string): string | null {
+  const digits = value
+    .trim()
+    .replace(/[০-৯]/g, (d) => String("০১২৩৪৫৬৭৮৯".indexOf(d)))
+    .replace(/[\s-]/g, "");
+  const match = /^(?:\+?88)?(01\d{9})$/.exec(digits);
+  return match ? match[1] : null;
 }
 
 /**

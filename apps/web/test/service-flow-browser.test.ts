@@ -25,7 +25,7 @@ async function browserInstance(): Promise<Browser> {
 async function signIn(page: Page, query: string) {
   await page.addInitScript(() => localStorage.setItem("astra.language", "en"));
   await page.goto(`${origin}/login${query}`); // B-3: sign-in lives at /login since P2-1(a) removed the embedded home form
-  await page.getByLabel("Email", { exact: true }).fill("staff@alpha.local.test");
+  await page.getByLabel("Email or mobile number", { exact: true }).fill("staff@alpha.local.test");
   await page.getByLabel("Password", { exact: true }).fill("Demo-Phase1!");
   await page.locator(".login-form").getByRole("button", { name: "Sign in", exact: true }).click();
   await page.getByRole("button", { name: "Sign out", exact: true }).waitFor();

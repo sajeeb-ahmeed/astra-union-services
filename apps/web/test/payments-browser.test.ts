@@ -48,7 +48,7 @@ async function apiLogin(page: Page, role: string) {
 }
 async function login(page: Page, role: string) {
   await page.goto(`${origin}/login`);
-  await page.getByLabel("Email", { exact: true }).fill(email(role));
+  await page.getByLabel("Email or mobile number", { exact: true }).fill(email(role));
   await page.getByLabel("Password", { exact: true }).fill(password);
   await page
     .locator(".login-form")

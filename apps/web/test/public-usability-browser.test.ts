@@ -178,7 +178,7 @@ test(
       const form = page.locator(".login-form");
       const password = page.getByLabel("Password", { exact: true });
       await page
-        .getByLabel("Email", { exact: true })
+        .getByLabel("Email or mobile number", { exact: true })
         .fill("staff@alpha.local.test");
       await password.fill("Demo-Phase1!");
       const toggle = form.getByRole("button", {
@@ -211,7 +211,7 @@ test(
       assert.equal(await password.inputValue(), "");
       assert.equal(await password.getAttribute("type"), "password");
       assert.equal(
-        await page.getByLabel("Email", { exact: true }).inputValue(),
+        await page.getByLabel("Email or mobile number", { exact: true }).inputValue(),
         "",
       );
       assert.equal(

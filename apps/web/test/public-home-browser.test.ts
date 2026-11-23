@@ -64,7 +64,7 @@ test(
       // (/login) inside .hx-hero-ctas — still with no credential fields
       // on the home itself. The footer subscribe form is still present.
       const heroCtas = page.locator(".hx-hero-ctas");
-      assert.equal(await heroCtas.getByLabel("Email", { exact: true }).count(), 0);
+      assert.equal(await heroCtas.getByLabel("Email or mobile number", { exact: true }).count(), 0);
       assert.equal(await heroCtas.getByLabel("Password", { exact: true }).count(), 0);
       const signInLink = heroCtas.getByRole("link", { name: "Sign in", exact: true });
       assert.equal(await signInLink.count(), 1);

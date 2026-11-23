@@ -13,7 +13,7 @@
  * password field when the account was not created.
  */
 import React, { useEffect, useId, useRef, useState } from "react";
-import { api, errorCode, fieldErrors } from "./api.js";
+import { adoptSession, api, errorCode, fieldErrors } from "./api.js";
 import "./short-signup.css";
 
 type Photo = { mimeType: "image/png" | "image/jpeg"; base64: string; preview: string };
@@ -141,11 +141,31 @@ export function ShortSignupForm({
         ...(form.email.trim() ? { email: form.email.trim() } : {}),
         ...(photo ? { photo: { mimeType: photo.mimeType, base64: photo.base64 } } : {}),
       });
-      onRegistered(
-        form.email.trim()
-          ? { signInWith: "email", identifier: form.email.trim().toLowerCase() }
-          : { signInWith: "mobile", identifier: mobile },
-      );
+      const result: ShortSignupResult = form.email.trim()
+        ? { signInWith: "email", identifier: form.email.trim().toLowerCase() }
+        : { signInWith: "mobile", identifier: mobile };
+      // PORTAL-B: no second form — sign the new citizen in with the
+      // password they just typed and open their workspace. Anything
+      // unexpected (rate limit, a second factor) falls back to the
+      // "Account created → sign in" screen, so the account is never lost.
+      try {
+        const session: any = await api(
+          "/auth/login",
+          "POST",
+          result.signInWith === "email"
+            ? { email: result.identifier, password: form.password }
+            : { identifierType: "mobile", identifier: result.identifier, password: form.password },
+        );
+        if (session?.user?.id && !session.mfaRequired) {
+          adoptSession(session);
+          history.replaceState({}, "", "/");
+          window.dispatchEvent(new CustomEvent("astra:session-changed"));
+          return;
+        }
+      } catch {
+        // Fall through to the manual sign-in hand-over below.
+      }
+      onRegistered(result);
     } catch (error) {
       const mapped = fieldErrors(error);
       const code = errorCode(error);

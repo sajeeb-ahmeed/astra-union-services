@@ -25,7 +25,7 @@ async function browserInstance(): Promise<Browser> {
 }
 async function login(page: Page, email: string, password = "Demo-Phase1!") {
   await page.goto(`${origin}/login`);
-  await page.getByLabel("Email", { exact: true }).fill(email);
+  await page.getByLabel("Email or mobile number", { exact: true }).fill(email);
   await page.getByLabel("Password", { exact: true }).fill(password);
   await page.locator(".login-form").getByRole("button", { name: "Sign in", exact: true }).click();
   await page.getByRole("button", { name: "Sign out", exact: true }).waitFor();
@@ -604,10 +604,8 @@ test(
       await page.locator("#signup-password").fill(password);
       await page.locator("#signup-email").fill(email);
       await page.getByRole("button", { name: "Create account", exact: true }).click();
-      await page
-        .getByRole("heading", { name: "Account created", exact: true })
-        .waitFor();
-      await login(page, email, password);
+      // PORTAL-B: signup signs the new citizen straight in.
+      await page.getByRole("button", { name: "Sign out", exact: true }).waitFor();
       await nav(page, /Service catalog|সেবার তালিকা/);
       await page
         .locator("button.svc-card", { hasText: "Holding tax" })

@@ -6,15 +6,10 @@
   margin-inline: auto;
 }
 
-.public-site button, .public-site .button {
-  border-radius: 4px;
-  border-color: #0b7040;
-  background: #0b7040;
-}
-
-.public-site button:hover {
-  background: #185c2c;
-}
+/* PORTAL-B: the legacy flat-green primary (#0b7040, 4px radius) is gone —
+   it tied on specificity with the PP-1 gradient rule in style.css and won
+   by load order, so portal forms looked different from the rest of the
+   site. Primary buttons now come from style.css alone. */
 
 .public-site button.secondary {
   background: #fff;

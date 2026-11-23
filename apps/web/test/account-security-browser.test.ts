@@ -56,7 +56,7 @@ test(
         200,
       );
       await page.goto(`${origin}/login`);
-      await page.getByLabel("Email", { exact: true }).fill(email);
+      await page.getByLabel("Email or mobile number", { exact: true }).fill(email);
       await page.getByLabel("Password", { exact: true }).fill(password);
       await page
         .locator(".login-form")
