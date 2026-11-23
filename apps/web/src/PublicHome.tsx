@@ -7,6 +7,7 @@ import { PublicOffers } from "./GlobalNotices.js";
 import { categoryLabel } from "./service-categories.js";
 import { servicePath } from "./service-slugs.js";
 import { HomeServiceDirectory, NoticeTicker } from "./HomeServiceDirectory.js";
+import { HeroCarousel } from "./HeroCarousel.js";
 import "./public-home.css";
 
 import { certificateNumberInput, verificationToken } from "./verify-input.js";
@@ -204,9 +205,12 @@ export function PublicHome({ login }: { login?: React.ReactNode } = {}) {
               </p>
             </div>
           </div>
-          {/* PORTAL-E: no photo carousel — its scenes were illustrative
-              ("প্রতীকী ছবি"); the banner is the title, the search and the
-              account actions only. */}
+          {/* PORTAL-E2 (owner, 23 Nov 2026): the carousel returns — it
+              builds trust. Its scenes are AI-generated, so each keeps its
+              existing "প্রতীকী ছবি / Illustrative image" tag. */}
+          <div className="hx-hero-visual">
+            <HeroCarousel />
+          </div>
         </div>
       </section>
 
