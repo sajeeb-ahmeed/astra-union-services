@@ -100,17 +100,17 @@ Ports: PostgreSQL 55432, API 3001, frontend 5173, all loopback. Generated admini
 
 Local synthetic accounts use **Demo-Phase1!**:
 
-| Account                  | Access                                             |
-| ------------------------ | -------------------------------------------------- |
-| citizen@alpha.demo.test  | Own applications, profile, copies and certificates |
-| staff@alpha.demo.test    | Register/find citizens and prepare applications    |
-| reviewer@alpha.demo.test | Review, correction and rejection                   |
-| approver@alpha.demo.test | Granted demo approval, issuance and revocation     |
-| admin@alpha.demo.test    | Office/staff administration and billing            |
-| finance@alpha.demo.test  | Billing, invoices and reports                      |
-| owner@astra.demo.test    | Tenant provisioning, adjustments and support       |
+| Account                   | Access                                             |
+| ------------------------- | -------------------------------------------------- |
+| citizen@alpha.local.test  | Own applications, profile, copies and certificates |
+| staff@alpha.local.test    | Register/find citizens and prepare applications    |
+| reviewer@alpha.local.test | Review, correction and rejection                   |
+| approver@alpha.local.test | Granted demo approval, issuance and revocation     |
+| admin@alpha.local.test    | Office/staff administration and billing            |
+| finance@alpha.local.test  | Billing, invoices and reports                      |
+| owner@astra.demo.test     | Tenant provisioning, adjustments and support       |
 
-Equivalent tenant accounts exist at `@beta.demo.test`. Hosted setup uses `db:initialize` and a unique owner password, **not** development seed; see deployment instructions.
+Equivalent tenant accounts exist at `@beta.local.test`. Hosted setup uses `db:initialize` and a unique owner password, **not** development seed; see deployment instructions.
 
 ## Verify
 
