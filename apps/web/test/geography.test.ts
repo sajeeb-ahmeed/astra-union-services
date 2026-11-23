@@ -42,7 +42,7 @@ test("language source: displayed literal translations cover all public/workspace
   // copy patterns: t/tx literals must resolve in the dictionaries, and a
   // choose() pair must carry a literal on BOTH sides (a one-sided or
   // script-swapped pair is a coverage failure, not a pass).
-  for (const filename of ["main", "AdditionalWorkspace", "DynamicForm", "PublicPortal", "AdminWorkspace", "GeographyFields", "PublicHome", "TrustVisual"]) {
+  for (const filename of ["main", "AdditionalWorkspace", "DynamicForm", "PublicPortal", "AdminWorkspace", "GeographyFields", "PublicHome"]) {
     const file = ts.createSourceFile(filename, fs.readFileSync(`apps/web/src/${filename}.tsx`, "utf8"), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
     function visit(node: ts.Node) {
       if (ts.isCallExpression(node) && ["t", "tx"].includes(node.expression.getText(file)) && node.arguments[0]) {

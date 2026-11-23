@@ -218,11 +218,11 @@ export function CertificateAssetsSettings() {
         );
       })}
       <fieldset className="cert-asset">
-        <legend>{pick({ bn: "নমুনা সনদের প্রিভিউ", en: "Sample certificate preview" })}</legend>
+        <legend>{pick({ bn: "সনদের প্রিভিউ", en: "Certificate preview" })}</legend>
         <p className="hint">
           {pick({
-            bn: "বর্তমান ছবিগুলো দিয়ে একটি নমুনা সনদ তৈরি করে দেখুন। এটি শুধু প্রিভিউ — কোনো আসল সনদ ইস্যু হয় না। সনদে ছাপা চেয়ারম্যানের নাম ও পদবি ইস্যুকারী চেয়ারম্যানের নিজের অ্যাকাউন্ট প্রোফাইল থেকে আসে।",
-            en: "Render a sample certificate with the current assets. This is a preview only — no real certificate is issued. The chairman name and designation printed on certificates come from the issuing chairman's own account profile.",
+            bn: "বর্তমান ছবিগুলো দিয়ে একটি সনদ তৈরি করে দেখুন। এটি শুধু প্রিভিউ — কোনো আসল সনদ ইস্যু হয় না। সনদে ছাপা চেয়ারম্যানের নাম ও পদবি ইস্যুকারী চেয়ারম্যানের নিজের অ্যাকাউন্ট প্রোফাইল থেকে আসে।",
+            en: "Render a certificate with the current assets. This is a preview only — no real certificate is issued. The chairman name and designation printed on certificates come from the issuing chairman's own account profile.",
           })}
         </p>
         <div className="form-grid">
