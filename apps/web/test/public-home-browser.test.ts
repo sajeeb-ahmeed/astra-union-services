@@ -42,8 +42,22 @@ test(
       const tiles = page.locator(".hsd-grid .hsd-tile");
       await tiles.first().waitFor();
       assert.equal(await tiles.count(), 18);
-      for (const heading of ["home-services-heading", "home-how-heading", "home-verify-heading", "home-offices-heading", "home-faq-heading"])
+      // PORTAL-A: services + four steps in the main column; track, verify,
+      // offices and help in the aside. The FAQ list moved to /help.
+      for (const heading of ["home-services-heading", "home-how-heading", "home-track-heading", "home-verify-heading", "home-offices-heading", "home-help-heading"])
         assert.equal(await page.locator(`#${heading}`).count(), 1, heading);
+      assert.equal(await page.locator("#home-faq-heading").count(), 0, "the FAQ list lives on /help");
+      // PORTAL-A: the header offers the three doors of a service portal.
+      const header = page.locator(".du-header");
+      assert.equal(await header.getByRole("link", { name: "Register", exact: true }).getAttribute("href"), "/register");
+      assert.equal(await header.getByRole("link", { name: "Office account", exact: true }).getAttribute("href"), "/register-office");
+      assert.equal(await header.getByRole("link", { name: "Login", exact: true }).getAttribute("href"), "/login");
+      // …and one flat six-item menu.
+      const menu = page.getByRole("navigation", { name: "Public navigation", exact: true });
+      assert.deepEqual(
+        await menu.getByRole("link").allTextContents(),
+        ["Home", "Services", "Track application", "Verify certificate", "Union offices", "Help & FAQ"],
+      );
       // HOME-REDESIGN-02 CONTRACT CHANGE: the §5 account card is gone.
       // The hero carries the account actions as plain links — a
       // "Create a free account" CTA (/register) and a "Sign in" link
@@ -96,9 +110,25 @@ test(
         page.locator(".hx-verify-form").getByRole("button").click(),
       ]);
 
-      // Tracking lives on its own page now; an unknown reference alerts.
+      // PORTAL-A: the home track card — an empty entry is rejected in
+      // place; a reference opens /tracking with the lookup already run,
+      // and an unknown reference alerts there.
+      await page.goto(`${origin}/`);
+      await page.locator("#home-track-input").waitFor();
+      await page.locator("#home-track-input").press("Enter");
+      await page.locator("#home-track-error").waitFor();
+      const unknown = "00000000-0000-4000-8000-000000000000";
+      await page.locator("#home-track-input").fill(unknown);
+      await Promise.all([
+        page.waitForURL(`${origin}/tracking?searchText=${unknown}`),
+        page.locator("#home-track-input").press("Enter"),
+      ]);
+      assert.equal(await page.locator("#tracking-id").inputValue(), unknown);
+      await page.getByRole("alert").waitFor();
+
+      // The tracking page itself still works from an empty form.
       await page.goto(`${origin}/tracking`);
-      await page.locator("#tracking-id").fill("00000000-0000-4000-8000-000000000000");
+      await page.locator("#tracking-id").fill(unknown);
       await page.locator("#public-content").getByRole("button", { name: "Track application", exact: true }).click();
       await page.getByRole("alert").waitFor();
 

@@ -935,3 +935,224 @@ html[lang="bn"] .hx-hero h1 {
     transition: none;
   }
 }
+
+/* ======================================================================
+ * PORTAL-A — the homepage as a public service portal.
+ * Compact hero, then a two-column body: services (main) and quick jobs
+ * (aside). The aside stacks under the main column below 1024px.
+ * ====================================================================== */
+.hx-hero.hx-hero-compact {
+  padding: clamp(24px, 3.5vw, 40px) 0;
+}
+.hx-hero-compact .hx-hero-kicker {
+  margin-bottom: 6px;
+}
+.hx-hero-compact h1 {
+  font-size: clamp(26px, 3.2vw, 36px);
+  margin-bottom: 18px;
+}
+.hx-hero-compact .hx-search {
+  margin-bottom: 14px;
+}
+/* The carousel is a banner here, not the page: narrower, wider crop. */
+.hx-hero-compact .hx-hero-grid {
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 0.8fr);
+}
+.hx-hero-compact .hx-hero-visual {
+  max-width: 440px;
+  justify-self: end;
+  width: 100%;
+}
+.hx-hero-compact .hc {
+  padding: 10px;
+  box-shadow: 0 16px 36px rgb(2 36 18 / 30%);
+}
+.hx-hero-compact .hc-viewport {
+  aspect-ratio: 16 / 8;
+}
+/* Below tablet width the hero is one column and the carousel (decoration)
+   is dropped, so the search and the services come first. */
+@media (max-width: 900px) {
+  .hx-hero-compact .hx-hero-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .hx-hero-compact .hx-hero-visual {
+    display: none;
+  }
+}
+
+.hp-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 340px);
+  gap: 24px;
+  align-items: start;
+  padding-block: 28px 44px;
+}
+.hp-main,
+.hp-aside {
+  display: grid;
+  gap: 24px;
+  min-width: 0;
+}
+
+/* Panels and cards: white on the light-grey page, one titled job each. */
+.hp-panel,
+.hp-card {
+  background: var(--du-surface);
+  border: 1px solid var(--du-line);
+  border-radius: var(--du-radius-panel, 12px);
+  box-shadow: var(--ax-shadow);
+}
+.hp-panel {
+  padding: 20px;
+}
+.hp-panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 16px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+  padding-inline-start: 12px;
+  border-inline-start: 4px solid var(--du-sidebar-active-edge, #e01d1d);
+}
+.hp-panel-head h2,
+.hp-card h2 {
+  margin: 0;
+  font-size: 20px;
+  line-height: 1.4;
+  color: var(--du-green-800);
+}
+.hp-panel-head > a {
+  font-weight: 600;
+  color: var(--du-green-700);
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+}
+
+.hp-card {
+  padding: 18px;
+  display: grid;
+  gap: 10px;
+}
+.hp-card h2 {
+  font-size: 18px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--du-line);
+}
+.hp-card p {
+  margin: 0;
+  color: var(--du-muted);
+  font-size: 15.5px;
+  line-height: 1.65;
+}
+.hp-card .hp-card-note {
+  font-size: 14px;
+}
+.hp-form {
+  margin: 0;
+  max-width: none;
+}
+.hp-form label {
+  display: block;
+  font-weight: 600;
+  font-size: 15px;
+  margin-bottom: 6px;
+}
+/* In the narrow aside the input and its button share one row; the input
+   keeps the room. */
+.hp-card .hx-verify-row input {
+  min-height: 46px;
+  font-size: 16px;
+}
+.hp-card .hx-verify-row button {
+  min-height: 46px;
+  padding-inline: 16px;
+}
+.hp-card-office {
+  background: var(--du-green-50);
+  border-color: var(--du-green-100);
+}
+.hp-card-office .button {
+  justify-self: start;
+}
+.hp-card-link {
+  font-weight: 600;
+  color: var(--du-green-700);
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+}
+.hp-links {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+}
+.hp-links a {
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 6px 2px;
+  border-bottom: 1px solid var(--du-line);
+  color: var(--du-green-700);
+  font-weight: 600;
+  text-decoration: none;
+}
+.hp-links li:last-child a {
+  border-bottom: 0;
+}
+.hp-links a::after {
+  content: "›";
+  margin-inline-start: auto;
+  color: var(--du-muted);
+  font-size: 20px;
+}
+.hp-links a:hover {
+  color: var(--du-green-800);
+  text-decoration: underline;
+}
+
+/* The four steps inside a panel: two by two in the main column. */
+.hp-steps {
+  margin: 4px 0 0;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px 24px;
+}
+.hp-steps li {
+  padding-top: 0;
+  padding-inline-start: 58px;
+  min-height: 46px;
+}
+.hp-steps li::before {
+  display: none;
+}
+.hp-steps strong {
+  font-size: 17px;
+}
+.hp-steps p {
+  font-size: 15px;
+}
+
+@media (max-width: 1023px) {
+  .hp-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .hp-aside {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 680px) {
+  .hp-aside,
+  .hp-steps {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .hp-layout {
+    padding-block: 18px 28px;
+    gap: 18px;
+  }
+  .hp-panel {
+    padding: 16px;
+  }
+}

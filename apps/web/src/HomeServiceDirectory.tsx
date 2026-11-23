@@ -14,7 +14,13 @@ const FIRST_ROWS = 18;
  * category tabs or by typing. The first 18 show at rest; the rest open in
  * place, so the page stays scannable.
  */
-export function HomeServiceDirectory() {
+export function HomeServiceDirectory({
+  showCategories = true,
+}: {
+  /** PORTAL-A: the homepage shows icons + one filter box only; category
+      browsing lives on /services. */
+  showCategories?: boolean;
+} = {}) {
   const [lang] = useLanguage();
   const [category, setCategory] = useState<string>("all");
   const [filter, setFilter] = useState("");
@@ -41,21 +47,23 @@ export function HomeServiceDirectory() {
   return (
     <div className="hsd">
       <div className="hsd-controls">
-        <div className="hsd-tabs" role="tablist" aria-label={choose({ bn: "বিভাগ", en: "Category" })}>
-          {[["all", serviceCatalog.length] as [string, number], ...categories].map(([c, n]) => (
-            <button
-              key={c}
-              type="button"
-              role="tab"
-              aria-selected={category === c}
-              className={`hsd-tab${category === c ? " is-active" : ""}`}
-              onClick={() => setCategory(c)}
-            >
-              {c === "all" ? choose({ bn: "সব সেবা", en: "All" }) : choose(categoryLabel(c))}
-              <span className="hsd-count">{localDigits(n, lang)}</span>
-            </button>
-          ))}
-        </div>
+        {showCategories && (
+          <div className="hsd-tabs" role="tablist" aria-label={choose({ bn: "বিভাগ", en: "Category" })}>
+            {[["all", serviceCatalog.length] as [string, number], ...categories].map(([c, n]) => (
+              <button
+                key={c}
+                type="button"
+                role="tab"
+                aria-selected={category === c}
+                className={`hsd-tab${category === c ? " is-active" : ""}`}
+                onClick={() => setCategory(c)}
+              >
+                {c === "all" ? choose({ bn: "সব সেবা", en: "All" }) : choose(categoryLabel(c))}
+                <span className="hsd-count">{localDigits(n, lang)}</span>
+              </button>
+            ))}
+          </div>
+        )}
         <label className="hsd-filter">
           <span className="sr-only">{choose({ bn: "সেবার তালিকায় খুঁজুন", en: "Filter services" })}</span>
           <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden="true">
@@ -146,7 +154,7 @@ export function NoticeTicker({ notices }: { notices: any[] }) {
   }));
   return (
     <div className="ntk" role="region" aria-label={choose({ bn: "সর্বশেষ বিজ্ঞপ্তি", en: "Latest notices" })}>
-      <div className="ax-container ntk-row">
+      <div className="du-container ntk-row">
         <a className="ntk-label" href="/notices">
           {choose({ bn: "বিজ্ঞপ্তি", en: "Notices" })}
         </a>

@@ -754,3 +754,18 @@
    content: `.service-detail small` matches zero elements, so no rule is
    added for it. The verify rules moved to style.css (see there) because
    /verify never loads this chunk. */
+
+/* PORTAL-A: portal pages share the header's content edge (.du-container:
+   1200px with 24px gutters, 16px below 1280px) and start close under the
+   menu instead of 55px down. Later rules win over the legacy widths above. */
+.public-container {
+  width: min(calc(var(--du-container, 1200px) - 48px), calc(100% - 48px));
+}
+@media (max-width: 1279px) {
+  .public-container {
+    width: calc(100% - 32px);
+  }
+}
+.public-site .public-section {
+  padding-block: 24px 48px;
+}

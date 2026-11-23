@@ -47,10 +47,11 @@ test(
       await page.getByRole("button", { name: "বাংলা", exact: true }).click();
       const banglaNav = page.getByRole("navigation", { name: "প্রধান মেনু", exact: true });
       await banglaNav.getByRole("link", { name: "আবেদনের অবস্থা", exact: true }).waitFor();
-      // The rail panels are gone; on the Bangla home the verify band
-      // carries both the verification heading and the tracking cross-link.
+      // PORTAL-A: on the Bangla home the aside carries the tracking and
+      // verification cards side by side with the services.
       await page.locator("#home-verify-heading").getByText("একটি সনদ যাচাই করুন").waitFor();
-      await page.getByRole("link", { name: "আবেদন ট্র্যাক করুন", exact: true }).waitFor();
+      await page.locator("#home-track-heading").getByText("আবেদনের অবস্থা জানুন").waitFor();
+      await page.getByLabel("আবেদনের রেফারেন্স নম্বর", { exact: true }).waitFor();
       assert.equal(
         await page.evaluate(
           () => document.documentElement.scrollWidth <= innerWidth + 1,
