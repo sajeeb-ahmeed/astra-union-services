@@ -483,6 +483,9 @@ button[aria-busy="true"]::after,
   font-weight: 700;
   letter-spacing: 0.04em;
   color: var(--ax-green-800);
+  /* PORTAL-C: a reference is read out and compared digit by digit — never
+     break it across lines (it wrapped 12 + 4 in phone cards). */
+  white-space: nowrap;
 }
 .ax-refchip-label {
   font-size: var(--ax-text-sm);

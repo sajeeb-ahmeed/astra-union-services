@@ -398,7 +398,9 @@ export function ServiceFlow({
         {step === 0 && (
           <>
             <label className="ax-flow-field" htmlFor="ax-flow-citizen-search">
-              {choose({ bn: "নাগরিক খুঁজুন (নাম বা রেফারেন্স)", en: "Find a citizen (name or reference)" })}
+              {/* PORTAL-C: the search already matches the contact mobile
+                  (Phase 5B) — the number a walk-in citizen knows by heart. */}
+              {choose({ bn: "নাগরিক খুঁজুন (নাম, মোবাইল বা রেফারেন্স)", en: "Find a citizen (name, mobile or reference)" })}
               <input
                 id="ax-flow-citizen-search"
                 type="search"

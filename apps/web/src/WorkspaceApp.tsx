@@ -3168,7 +3168,11 @@ export function WorkspaceApp({
                       application.state,
                     ) && (
                       <div className="detail-rail-actions">
+                        {/* PORTAL-C: once issued, re-issuing is a safe
+                            recovery (it returns the same certificate), not
+                            the next step — it must not look like one. */}
                         <button
+                          className={application.state === "ISSUED" ? "secondary" : undefined}
                           disabled={busy}
                           onClick={() =>
                             run(async () => {
