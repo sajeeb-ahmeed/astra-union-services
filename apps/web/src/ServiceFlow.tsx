@@ -14,7 +14,6 @@ import { ApplicationOrder, type IntakeOrderState } from "./ApplicationOrder.js";
 import { chosenCitizenAddress } from "./PresentAddressFields.js";
 import { withoutOrderLanguage } from "./order-schema.js";
 import { ApplicationStatus, RefChip, Stepper } from "./ui/kit.js";
-import { SampleCertificate } from "./TrustVisual.js";
 import { ProfileCompletionCard, profileGapsFor } from "./ProfileCompletion.js";
 import "./service-flow.css";
 
@@ -652,17 +651,6 @@ export function ServiceFlow({
               {choose({ bn: "আবেদনের রেফারেন্স", en: "Application reference" })}:{" "}
               <RefChip value={result.reference || result.id} />
             </p>
-            {result.state === "SUBMITTED" && (
-              <div className="ax-flow-done-visual">
-                <SampleCertificate compact />
-                <p className="hint">
-                  {choose({
-                    bn: "অনুমোদনের পর আপনার সনদটি দেখতে এমনই হবে — উপরেরটি একটি নমুনা।",
-                    en: "After approval, your certificate will look like this — the one above is a sample.",
-                  })}
-                </p>
-              </div>
-            )}
             <div className="ax-flow-actions">
               <button type="button" onClick={() => onOpenApplication(result.id)}>
                 {choose({ bn: "আবেদন খুলুন", en: "Open application" })}

@@ -12,7 +12,6 @@ import { applyPageHead } from "./seo/head.js";
 import { IssuanceModeProvider } from "./mode.js";
 import { applicationStatusMeta } from "./ui/kit.js";
 import { formatDateTime } from "./ui/fmt.js";
-import { SampleCertificate } from "./TrustVisual.js";
 import { AsyncPanel, LoadingPanel } from "./AsyncPanel.js";
 import { MfaChallenge, type MfaLoginChallenge } from "./MfaChallenge.js";
 import "./fonts.css";
@@ -240,7 +239,6 @@ function CertificateVerification({
           )}
         </section>
         <div className="public-tool-visual">
-          <SampleCertificate compact />
           {/* REFINEMENT-02 P1-12: the side column teaches where the two
               inputs live on the real certificate, plus a help row. */}
           <div className="tool-need">
@@ -248,8 +246,8 @@ function CertificateVerification({
             <ul>
               <li>
                 {choose({
-                  bn: "সনদ নম্বর — সনদের উপরে থাকা ১৬ সংখ্যার নম্বরটি (উপরে নমুনায় দেখানো)।",
-                  en: "The certificate number — the 16 digits at the top of the certificate (shown in the sample above).",
+                  bn: "সনদ নম্বর — সনদের উপরে থাকা ১৬ সংখ্যার নম্বরটি।",
+                  en: "The certificate number — the 16 digits at the top of the certificate.",
                 })}
               </li>
               <li>

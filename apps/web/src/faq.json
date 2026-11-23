@@ -1,16 +1,5 @@
 [
   {
-    "id": "what-is-digitalunion",
-    "q": {
-      "bn": "DigitalUnion কী?",
-      "en": "What is DigitalUnion?"
-    },
-    "a": {
-      "bn": "DigitalUnion ইউনিয়ন পরিষদ, পৌরসভা ও সিটি কর্পোরেশন অফিসের নাগরিক সেবার আবেদন, যাচাই, অনুমোদন ও সনদ ইস্যুর একটি অনলাইন ব্যবস্থা। প্রতিটি অফিস নিজের নাগরিক, সেবা ও ফি আলাদাভাবে পরিচালনা করে।",
-      "en": "DigitalUnion is an online system for citizen service applications, checks, approval and certificate issuing for union, municipality and city corporation offices. Each office runs its own citizens, services and fees separately."
-    }
-  },
-  {
     "id": "find-office",
     "q": {
       "bn": "আমার অফিস DigitalUnion-তে আছে কি না কীভাবে দেখব?",

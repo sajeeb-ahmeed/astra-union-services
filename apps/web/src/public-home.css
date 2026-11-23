@@ -943,6 +943,8 @@ html[lang="bn"] .hx-hero h1 {
  * ====================================================================== */
 .hx-hero.hx-hero-compact {
   padding: clamp(24px, 3.5vw, 40px) 0;
+  /* PORTAL-E: one solid chrome green — a plain official banner, no glow. */
+  background: var(--du-green-700);
 }
 .hx-hero-compact .hx-hero-kicker {
   margin-bottom: 6px;
@@ -954,31 +956,12 @@ html[lang="bn"] .hx-hero h1 {
 .hx-hero-compact .hx-search {
   margin-bottom: 14px;
 }
-/* The carousel is a banner here, not the page: narrower, wider crop. */
+/* PORTAL-E: the banner holds text only (no carousel) — one column. */
 .hx-hero-compact .hx-hero-grid {
-  grid-template-columns: minmax(0, 1.2fr) minmax(0, 0.8fr);
+  grid-template-columns: minmax(0, 1fr);
 }
-.hx-hero-compact .hx-hero-visual {
-  max-width: 440px;
-  justify-self: end;
-  width: 100%;
-}
-.hx-hero-compact .hc {
-  padding: 10px;
-  box-shadow: 0 16px 36px rgb(2 36 18 / 30%);
-}
-.hx-hero-compact .hc-viewport {
-  aspect-ratio: 16 / 8;
-}
-/* Below tablet width the hero is one column and the carousel (decoration)
-   is dropped, so the search and the services come first. */
-@media (max-width: 900px) {
-  .hx-hero-compact .hx-hero-grid {
-    grid-template-columns: minmax(0, 1fr);
-  }
-  .hx-hero-compact .hx-hero-visual {
-    display: none;
-  }
+.hx-hero-compact .hx-hero-copy {
+  max-width: 720px;
 }
 
 .hp-layout {

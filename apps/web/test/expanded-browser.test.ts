@@ -179,25 +179,10 @@ test(
       await page
         .getByText("Feedback saved to the support inbox.", { exact: true })
         .waitFor();
+      // PORTAL-E: the footer no longer offers an "updates" sign-up (outgoing
+      // email is not connected); the /public/subscribe API keeps its own tests.
       await page.goto(origin);
-      await page
-        .getByLabel("Update preferences", { exact: true })
-        .fill(`browser-${Date.now()}@example.test`);
-      const subscription = page.waitForResponse(
-        (r) =>
-          r.url().endsWith("/public/subscribe") &&
-          r.request().method() === "POST",
-      );
-      await page
-        .getByRole("button", { name: "Save subscription", exact: true })
-        .click();
-      assert.equal((await subscription).status(), 202);
-      await page
-        .getByText(
-          "Subscription preference saved locally. Email delivery is not connected.",
-          { exact: true },
-        )
-        .waitFor();
+      assert.equal(await page.getByLabel("Update preferences", { exact: true }).count(), 0);
       const ownerContext = await browser.newContext(),
         owner = await ownerContext.newPage();
       await ownerContext.addInitScript(() => { if (!localStorage.getItem("astra.language")) localStorage.setItem("astra.language", "en"); });
