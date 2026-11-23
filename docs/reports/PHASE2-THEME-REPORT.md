@@ -28,7 +28,7 @@
 
 - **API, 7 of the 8 failures:** the known local-only `pdftotext -bbox` / `pdfinfo` gap (xpdf on this machine, poppler on CI). Identical on baseline.
 - **API, the 8th — `Audit 01 F8: LIKE metacharacters…` (hardening.test.ts): a pre-existing flaky test, cause identified, not caused by this phase.** Phase 2 changes no API code (empty diff above). The citizen search also matches the *digits* of the query against reference numbers, with no minimum length (`referenceDigits`, `apps/api/src/references.ts:24`). The test's run id is 8 random hex characters; when it holds only one or two digits, `%<digits>%` matches nearly any 16-digit reference, including the "X" citizen's. Re-ran the test 3× on the same DB: 3/3 pass. The underlying search behaviour is a real product issue (a name search containing a digit or two matches unrelated references); see follow-ups.
-- **Web, the 1 failure — price-list browser test:** Reproduces identically on clean origin HEAD 75e40fa — not caused by these changes. Cause not yet identified (passed in the earlier baseline run); labelled UNVERIFIED, under observation. This is its third failure in five full local runs.
+- **Web, the 1 failure — price-list browser test: cause identified and fixed in this PR (test-only).** It reproduced identically on clean origin HEAD 75e40fa, so it was never caused by these changes. It also failed once on CI for this PR (the `pull_request` run; the `push` run of the same commit passed). Cause: the test searched for its new office, then immediately clicked the *first* "View office" button. When the search results had not yet replaced the default office list, that opened a different office, whose price list has no published fee. The test now clicks the button inside the card carrying its own office name. Verified 3/3 consecutive local runs. The application code is unchanged.
 
 ## Screenshots (Bangla UI, local stack)
 
@@ -47,11 +47,10 @@ Phase 1's signup and completion-card screenshots (`phase1/`) were taken before t
 - Contrast ratios are calculated from the token values, not measured with a tool on every surface.
 - A support banner or floating button driven by real contact values (parity A6): the owner has not supplied the phone and email, so nothing was added.
 - Owner-console and print/PDF views were not screenshot-reviewed for this theme. PDFs are untouched by design.
-- The price-list browser test (see above) and the 7 local PDF tests (CI covers them).
+- The 7 local PDF tests (CI covers them).
 
 ## Follow-ups
 
 1. Bundle Kalpurush once the owner approves the file and licence.
 2. Citizen search: require a minimum digit count (e.g. ≥ 4) before matching reference digits; then the `F8` test stops flaking.
-3. Investigate the price-list browser test (recurring).
-4. Carried from Phase 1: make the staff citizen-registration browser test idempotent.
+3. Carried from Phase 1: make the staff citizen-registration browser test idempotent.

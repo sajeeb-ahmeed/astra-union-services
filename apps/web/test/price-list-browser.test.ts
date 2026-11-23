@@ -80,7 +80,13 @@ test(
       await page.goto(`${origin}/offices`);
       await page.getByLabel("Office name", { exact: true }).fill(nameEn);
       await page.getByRole("button", { name: "Search offices", exact: true }).click();
-      await page.getByRole("button", { name: "View office", exact: true }).first().click();
+      // Open THIS office's card. Clicking the first "View office" right after the
+      // search raced the results refresh: when the default list was still on
+      // screen it opened another office, whose list has no published fee.
+      await page
+        .locator("article.office-card", { hasText: nameEn })
+        .getByRole("button", { name: "View office", exact: true })
+        .click();
       const details = page.getByRole("region", { name: "Office details" });
       await details.waitFor();
       const list = details.locator(".price-list");
