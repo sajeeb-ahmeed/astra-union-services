@@ -5,7 +5,7 @@
 .hsd-icon,
 .svc-medallion {
   --ic-a: #3fb36b;
-  --ic-b: #04592c;
+  --ic-b: #1f7d5e;
   background: linear-gradient(150deg, var(--ic-a), var(--ic-b)) !important;
   color: #fff !important;
   border-radius: 14px;
@@ -19,7 +19,7 @@
   stroke-width: 1.8;
   filter: drop-shadow(0 1px 0 rgb(0 0 0 / 12%));
 }
-.cat-tint-0.hsd-icon, .cat-tint-0.svc-medallion { --ic-a: #3fb36b; --ic-b: #04592c; }
+.cat-tint-0.hsd-icon, .cat-tint-0.svc-medallion { --ic-a: #3fb36b; --ic-b: #1f7d5e; }
 .cat-tint-1.hsd-icon, .cat-tint-1.svc-medallion { --ic-a: #e0668c; --ic-b: #8c2d4a; }
 .cat-tint-2.hsd-icon, .cat-tint-2.svc-medallion { --ic-a: #4f86c6; --ic-b: #00356e; }
 .cat-tint-3.hsd-icon, .cat-tint-3.svc-medallion { --ic-a: #33a383; --ic-b: #0b5c46; }

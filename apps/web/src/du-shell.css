@@ -112,12 +112,12 @@
 }
 .du-header .du-btn-primary,
 .du-drawer .du-btn-primary {
-  background: var(--du-green-700);
+  background: var(--du-gradient-primary);
   color: #fff;
 }
 .du-header .du-btn-primary:hover,
 .du-drawer .du-btn-primary:hover {
-  background: var(--du-green-800);
+  background: var(--du-gradient-primary-hover);
 }
 .du-header .du-btn-ghost,
 .du-drawer .du-btn-ghost {

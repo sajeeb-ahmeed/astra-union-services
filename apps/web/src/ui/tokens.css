@@ -6,12 +6,22 @@
  */
 :root {
   /* DigitalUnion brand tokens */
-  --du-green-800: #03451f;
-  --du-green-700: #04592c;
-  --du-green-600: #0b7040;
-  --du-green-500: #2e9e5b;
-  --du-green-100: #e2f1e4;
-  --du-green-50: #f0f7ee;
+  /* PP-1 (parity L1): the chrome green is Prottoyon's #1f7d5e family.
+     White on #1f7d5e = 5.0:1; white on #175f48 = 7.4:1. */
+  --du-green-800: #175f48;
+  --du-green-700: #1f7d5e;
+  --du-green-600: #26906c;
+  --du-green-500: #3aa57f;
+  --du-green-100: #dcefe7;
+  --du-green-50: #eff8f3;
+  /* PP-1 (L2): the signature primary action — 135° green→red, white text
+     (white on #e01d1d = 4.6:1, so the text passes along the whole ramp). */
+  --du-gradient-primary: linear-gradient(135deg, #1f7d5e 0%, #e01d1d 100%);
+  --du-gradient-primary-hover: linear-gradient(135deg, #175f48 0%, #b81717 100%);
+  /* PP-1 (L8, L9): the quiet third colour. */
+  --du-purple: #8e53a1;
+  --du-purple-accent: #9e5bba;
+  --du-purple-ink: #6b3a7d;
   --du-lime: #7ab929;
   --du-red: #c40000;
   --du-red-logo: #e00000;
@@ -20,7 +30,8 @@
   --du-muted: #43584a;
   --du-line: #dde7da;
   --du-surface: #ffffff;
-  --du-page: #f6f8f4;
+  /* PP-1 (L7): white cards on a light grey page. */
+  --du-page: #eef2f0;
   --du-warn-bg: #fff6df;
   --du-warn-ink: #6d4d00;
   --du-error-bg: #fdecea;
@@ -32,12 +43,15 @@
      1.2:1). Every sidebar rule now resolves through these tokens so no
      import order can resurrect the dark ground. Contrast on --du-sidebar-bg
      (#fbfdfb): ink 14.4:1, muted 7.4:1; active ink on active bg 9.6:1. */
-  --du-sidebar-bg: #fbfdfb;
+  /* PP-1 (L3): cream sidebar; the active row is solid chrome green with
+     white text and a red left edge. Ink on cream 14:1; white on green 5.0:1. */
+  --du-sidebar-bg: #fffced;
   --du-sidebar-ink: var(--du-ink);
   --du-sidebar-muted: var(--du-muted);
-  --du-sidebar-hover-bg: var(--du-green-50);
-  --du-sidebar-active-bg: var(--du-green-100);
-  --du-sidebar-active-ink: var(--du-green-800);
+  --du-sidebar-hover-bg: #f6f1d6;
+  --du-sidebar-active-bg: var(--du-green-700);
+  --du-sidebar-active-ink: #ffffff;
+  --du-sidebar-active-edge: #e01d1d;
 
   /* ServiceCard interactive states (P0-3, ui/kit.css): rest = --ax-surface
      + --ax-line; hover/focus-visible = --ax-green-50 ground +
@@ -69,7 +83,9 @@
   --ax-space-5: 24px;
   --ax-space-6: 32px;
   --ax-shadow: 0 1px 2px rgb(20 53 40 / 8%), 0 4px 14px rgb(20 53 40 / 6%);
-  --ax-font: "Noto Sans Bengali", "Nirmala UI", system-ui, sans-serif;
+  /* PP-1 (L4): Kalpurush first where available, Noto Sans Bengali (self-hosted)
+     as the guaranteed fallback. No Kalpurush file ships yet — see the report. */
+  --ax-font: "Kalpurush", "Noto Sans Bengali", "Nirmala UI", system-ui, sans-serif;
   --ax-text-sm: 14px;
   --ax-text: 16px;
   --ax-text-lg: 18px;
@@ -104,6 +120,6 @@
   --du-control-h-sm: 36px;
   --du-radius-control: 8px;
   --du-radius-panel: 12px;
-  --du-focus: #04592c;
+  --du-focus: #175f48;
   --du-transition: 140ms ease;
 }

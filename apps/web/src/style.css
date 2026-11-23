@@ -1,5 +1,5 @@
 /* DigitalUnion global styles — consolidated: one :root, one brand green
-   (#04592c family), one radius set, one focus colour. Component CSS lives
+   (#1f7d5e family), one radius set, one focus colour. Component CSS lives
    in the per-surface files (du-shell, public-*, workspace-*, ui/kit). */
 
 :root {
@@ -7,11 +7,11 @@
   font-size: 16px;
   --astra-ink: #253930;
   --astra-muted: #64746b;
-  --astra-green: #04592c;
-  --astra-green-hover: #03451f;
+  --astra-green: var(--du-green-700);
+  --astra-green-hover: var(--du-green-800);
   --astra-line: #dfe6e1;
   --astra-surface: #f6f8f7;
-  font-family: "Noto Sans Bengali", "Nirmala UI", system-ui, sans-serif;
+  font-family: var(--ax-font, "Noto Sans Bengali", "Nirmala UI", system-ui, sans-serif);
   color: var(--astra-ink);
   background: var(--astra-surface);
   line-height: 1.65;
@@ -51,9 +51,9 @@ button, input, select, textarea {
 
 button, .button {
   cursor: pointer;
-  border: 1px solid #04592c;
+  border: 1px solid #1f7d5e;
   border-radius: 7px;
-  background: #04592c;
+  background: #1f7d5e;
   color: white;
   padding: 10px 17px;
   text-decoration: none;
@@ -65,12 +65,12 @@ button, .button {
 }
 
 button:hover, .button:hover {
-  background: #03451f;
+  background: #175f48;
 }
 
 button.secondary, .button.secondary {
   background: white;
-  color: #04592c;
+  color: #1f7d5e;
 }
 
 button.danger {
@@ -81,7 +81,7 @@ button.danger {
 
 .text-button {
   background: transparent;
-  color: #04592c;
+  color: #1f7d5e;
   border: 0;
   padding: 8px;
   min-height: 44px;
@@ -146,7 +146,7 @@ input[type="radio"] {
   height: 20px;
   min-height: 20px;
   flex: none;
-  accent-color: var(--du-green-700, #04592c);
+  accent-color: var(--du-green-700, #1f7d5e);
 }
 
 .check-field {
@@ -166,7 +166,7 @@ input[type="radio"] {
   min-height: 20px;
   height: 20px;
   margin: 0;
-  accent-color: #04592c;
+  accent-color: #1f7d5e;
 }
 
 .repeatable {
@@ -392,7 +392,7 @@ td small {
 
 .subscription-badge {
   font-size: 13px;
-  color: #04592c;
+  color: #1f7d5e;
 }
 
 .subscription-badge[data-urgent] {
@@ -1037,18 +1037,20 @@ button, .button, .public-site button, .public-site .button {
     border-color 140ms ease;
 }
 
+/* PP-1 (L2): primary actions carry the 135° green→red gradient. */
 button:where(
   :not(.secondary, .text-button, .danger, .service, .public-service)
 ), .button, .public-site button:where(:not(.secondary, .text-button, .public-service)) {
-  background: var(--astra-green);
-  border-color: var(--astra-green);
+  background: var(--du-gradient-primary);
+  border-color: transparent;
+  color: #fff;
 }
 
 button:where(
     :not(.secondary, .text-button, .danger, .service, .public-service)
   ):hover, .public-site
   button:where(:not(.secondary, .text-button, .public-service)):hover, .button:hover {
-  background: var(--astra-green-hover);
+  background: var(--du-gradient-primary-hover);
 }
 
 button.secondary, .button.secondary, .public-site button.secondary {
@@ -1077,7 +1079,7 @@ button:disabled {
 button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible, summary:focus-visible {
   /* FULL-UIUX-01 C41: the focus ring is the brand primary, on every
      interactive element — not the lighter leaf green it used to be. */
-  outline: 3px solid var(--du-focus, #04592c);
+  outline: 3px solid var(--du-focus, #1f7d5e);
   outline-offset: 3px;
 }
 
@@ -1177,7 +1179,7 @@ label {
 .notice.success {
   border-color: #9cc7a8;
   background: var(--du-green-50, #f0f7ee);
-  color: var(--du-green-800, #03451f);
+  color: var(--du-green-800, #175f48);
 }
 
 .notice.error {
@@ -1964,10 +1966,10 @@ legend {
 .verify-verdict.is-valid {
   background: #eef8f0;
   border-color: #b9dfc2;
-  color: var(--du-green-800, #03451f);
+  color: var(--du-green-800, #175f48);
 }
 .verify-verdict.is-valid .verify-verdict-icon {
-  background: var(--du-green-700, #04592c);
+  background: var(--du-green-700, #1f7d5e);
 }
 .verify-verdict.is-revoked {
   background: #fdecea;

@@ -194,16 +194,17 @@ export function StatusPill({ children }: { children: React.ReactNode }) {
  */
 const APPLICATION_STATUS: Record<
   string,
-  { bn: string; en: string; tone: "ok" | "warn" | "danger" | "neutral" | "info" }
+  { bn: string; en: string; tone: "ok" | "approved" | "warn" | "danger" | "neutral" | "info" }
 > = {
   DRAFT: { bn: "খসড়া", en: "Draft", tone: "neutral" },
-  SUBMITTED: { bn: "জমা দেওয়া", en: "Submitted", tone: "info" },
+  // PP-1 (L8): submitted green, approved/issued purple, rejected red.
+  SUBMITTED: { bn: "জমা দেওয়া", en: "Submitted", tone: "ok" },
   UNDER_REVIEW: { bn: "পর্যালোচনাধীন", en: "Under review", tone: "warn" },
   CORRECTION_REQUIRED: { bn: "সংশোধন প্রয়োজন", en: "Correction needed", tone: "danger" },
-  RESUBMITTED: { bn: "পুনরায় জমা দেওয়া", en: "Resubmitted", tone: "info" },
-  APPROVED: { bn: "অনুমোদিত", en: "Approved", tone: "ok" },
+  RESUBMITTED: { bn: "পুনরায় জমা দেওয়া", en: "Resubmitted", tone: "ok" },
+  APPROVED: { bn: "অনুমোদিত", en: "Approved", tone: "approved" },
   ISSUANCE_PENDING: { bn: "সনদ ইস্যুর অপেক্ষায়", en: "Awaiting issuance", tone: "warn" },
-  ISSUED: { bn: "সনদ ইস্যু হয়েছে", en: "Certificate issued", tone: "ok" },
+  ISSUED: { bn: "সনদ ইস্যু হয়েছে", en: "Certificate issued", tone: "approved" },
   REJECTED: { bn: "প্রত্যাখ্যাত", en: "Rejected", tone: "danger" },
   CANCELLED: { bn: "বাতিল", en: "Cancelled", tone: "neutral" },
   REVOKED: { bn: "প্রত্যাহৃত", en: "Revoked", tone: "danger" },

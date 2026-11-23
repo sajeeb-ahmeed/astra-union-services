@@ -20,10 +20,14 @@
   border-radius: var(--ax-radius-lg);
   padding: var(--ax-space-5);
 }
+/* PP-1 (L6): the step title is a green bar with a white title. */
 .ax-flow-panel > h3 {
   margin: 0 0 var(--ax-space-4);
+  padding: 10px 16px;
+  border-radius: 8px;
+  background: var(--du-green-700);
   font-size: 18px;
-  color: var(--ax-green-800);
+  color: #fff;
 }
 .ax-flow-panel > h3:focus {
   outline: none;
