@@ -36,7 +36,7 @@ async function login(page: Page, role: string, tenant = "alpha") {
   // browser suite uses.
   await page.goto(`${origin}/login`);
   await page
-    .getByLabel("Email", { exact: true })
+    .getByLabel("Email or mobile number", { exact: true })
     .fill(
       role === "owner"
         ? "owner@astra.demo.test"
@@ -545,7 +545,7 @@ test(
       await signOut(page);
       await page.locator(".login-form").getByRole("button", { name: "Sign in", exact: true }).waitFor();
       assert.equal(
-        await page.getByLabel("Email", { exact: true }).inputValue(),
+        await page.getByLabel("Email or mobile number", { exact: true }).inputValue(),
         "",
         "Signing out clears the previous account from the form without navigation",
       );
@@ -554,7 +554,7 @@ test(
         "",
         "Signing out never restores the submitted password or initial local demo password",
       );
-      await page.getByLabel("Email", { exact: true }).focus();
+      await page.getByLabel("Email or mobile number", { exact: true }).focus();
       await page.keyboard.press("Tab");
       assert.equal(
         await page.evaluate(() => document.activeElement?.id),

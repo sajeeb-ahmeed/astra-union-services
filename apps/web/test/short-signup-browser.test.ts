@@ -91,7 +91,9 @@ test(
       await page.locator("#signup-mobile").fill(mobile);
       await page.locator("#signup-password").fill(password);
       await page.getByRole("button", { name: "Create account", exact: true }).click();
-      await page.getByRole("heading", { name: "Account created", exact: true }).waitFor();
+      // PORTAL-B: no second form — the new citizen lands signed in, in their workspace.
+      await page.getByRole("button", { name: "Sign out", exact: true }).waitFor();
+      assert.equal(new URL(page.url()).pathname, "/");
       const seconds = (Date.now() - started) / 1000;
       fs.writeFileSync(
         "execution/reg-ux-walkthrough.json",
@@ -103,15 +105,19 @@ test(
       );
       assert.ok(seconds < 60, `account created in ${seconds}s`);
 
-      // The success screen hands over to a sign-in form prefilled with the mobile.
-      await page.getByRole("button", { name: "Go to sign in", exact: true }).click();
-      await page.locator("#login-identifier-type").waitFor();
-      assert.equal(await page.locator("#login-identifier-type").inputValue(), "mobile");
-      assert.equal(await page.locator(".login-form #email").inputValue(), mobile);
+      assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), true);
+
+      // PORTAL-B: signing back in needs no "sign in with" choice — the mobile
+      // goes into the default email-or-mobile field (here with Bengali digits
+      // and a +88 prefix, as people type it).
+      await page.getByRole("button", { name: "Sign out", exact: true }).click();
+      await page.goto(`${origin}/login`);
+      assert.equal(await page.locator("#login-identifier-type").inputValue(), "email");
+      const bengali = mobile.replace(/\d/g, (d) => "০১২৩৪৫৬৭৮৯"[Number(d)]);
+      await page.getByLabel("Email or mobile number", { exact: true }).fill(`+88 ${bengali}`);
       await page.getByLabel("Password", { exact: true }).fill(password);
       await page.locator(".login-form").getByRole("button", { name: "Sign in", exact: true }).click();
       await page.getByRole("button", { name: "Sign out", exact: true }).waitFor();
-      assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), true);
       await page.getByRole("button", { name: "Sign out", exact: true }).click();
 
       // The same mobile again: refused at the mobile field, with a sign-in button there.

@@ -24,7 +24,7 @@ async function browserInstance(): Promise<Browser> {
 }
 async function signIn(page: Page, who: string) {
   await page.goto(`${origin}/login`);
-  await page.getByLabel("Email", { exact: true }).fill(`${who}@alpha.local.test`);
+  await page.getByLabel("Email or mobile number", { exact: true }).fill(`${who}@alpha.local.test`);
   await page.getByLabel("Password", { exact: true }).fill("Demo-Phase1!");
   await page.locator(".login-form").getByRole("button", { name: "Sign in", exact: true }).click();
   await page.getByRole("button", { name: "Sign out", exact: true }).waitFor();

@@ -277,7 +277,7 @@ test(
     await mockApi(page);
     await page.goto(origin + "/login");
     await page
-      .getByLabel("Email", { exact: true })
+      .getByLabel("Email or mobile number", { exact: true })
       .fill("performance@example.test");
     await page
       .getByLabel("Password", { exact: true })
@@ -305,9 +305,9 @@ test(
     assert.equal(await page.locator("html").getAttribute("lang"), "bn");
     await page.getByRole("button", { name: "English", exact: true }).click();
     await page.getByRole("button", { name: "Sign out", exact: true }).click();
-    await page.getByLabel("Email", { exact: true }).waitFor();
+    await page.getByLabel("Email or mobile number", { exact: true }).waitFor();
     assert.equal(
-      await page.getByLabel("Email", { exact: true }).inputValue(),
+      await page.getByLabel("Email or mobile number", { exact: true }).inputValue(),
       "",
     );
     assert.equal(

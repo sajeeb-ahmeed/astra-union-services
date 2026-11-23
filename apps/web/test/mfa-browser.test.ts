@@ -73,7 +73,7 @@ async function createUser(browser: Browser, label: string) {
 }
 async function login(page: Page, email: string) {
   await page.goto(`${origin}/login`);
-  await page.getByLabel("Email", { exact: true }).fill(email);
+  await page.getByLabel("Email or mobile number", { exact: true }).fill(email);
   await page.getByLabel("Password", { exact: true }).fill(password);
   await page
     .locator(".login-form")

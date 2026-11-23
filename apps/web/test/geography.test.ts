@@ -306,7 +306,8 @@ test("geography browser: mobile registration derives the office's area and a ser
     assert.equal(response.status(), 201, await response.text());
     // The short form makes no area claim: the area is the office's own; the ward is deferred.
     assert.equal("geography" in response.request().postDataJSON(), false);
-    await page.getByRole("heading", { name: "Account created", exact: true }).waitFor();
+    // PORTAL-B: signup signs the new citizen straight in.
+    await page.getByRole("button", { name: "Sign out", exact: true }).waitFor();
     const loggedIn = await page.request.post(`${origin}/api/v1/auth/login`, { data: { email, password } });
     assert.equal(loggedIn.status(), 200);
     const session = await loggedIn.json();

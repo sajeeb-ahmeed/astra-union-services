@@ -165,7 +165,10 @@
 @media (max-width: 767px) {
   .ax-flow-actions {
     position: sticky;
-    bottom: 0;
+    /* PORTAL-B: stick ABOVE the workspace's fixed bottom tab bar (56px
+       buttons + 1px border + the home-indicator inset). At bottom: 0 the
+       tab bar covered the last button — "Submit application" — on phones. */
+    bottom: calc(57px + env(safe-area-inset-bottom, 0px));
     z-index: 5;
     background: var(--ax-surface);
     padding-bottom: var(--ax-space-3);

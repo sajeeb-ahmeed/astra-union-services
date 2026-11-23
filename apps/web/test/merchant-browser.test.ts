@@ -55,7 +55,7 @@ test(
     await page.addInitScript(() => { if (!localStorage.getItem("astra.language")) localStorage.setItem("astra.language", "en"); });
     try {
       await page.goto(`${origin}/login`);
-      await page.getByLabel("Email", { exact: true }).fill(`admin@${slug}.test`);
+      await page.getByLabel("Email or mobile number", { exact: true }).fill(`admin@${slug}.test`);
       await page.getByLabel("Password", { exact: true }).fill(adminPassword);
       await page.locator(".login-form").getByRole("button", { name: "Sign in", exact: true }).click();
       await page.getByRole("button", { name: "Sign out", exact: true }).waitFor();

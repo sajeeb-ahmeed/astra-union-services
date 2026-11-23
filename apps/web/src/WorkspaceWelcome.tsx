@@ -142,6 +142,36 @@ export function WorkspaceWelcome({
                   page: "applications",
                 },
               ]
+            : role === "citizen"
+              ? [
+                  // PORTAL-B: a citizen applies for themselves — no "choose a
+                  // citizen" wording, and their own applications are "mine".
+                  {
+                    title: { bn: "নতুন আবেদন করুন", en: "Apply for a certificate" },
+                    hint: {
+                      bn: "সেবা বেছে ফরম পূরণ করুন।",
+                      en: "Choose a service and fill in the form.",
+                    },
+                    page: "services",
+                  },
+                  {
+                    title: { bn: "আমার আবেদন", en: "My applications" },
+                    hint: {
+                      bn: "অবস্থা দেখুন, খসড়া শেষ করুন বা সনদ ডাউনলোড করুন।",
+                      en: "See the status, finish a draft or download a certificate.",
+                    },
+                    page: "applications",
+                  },
+                  {
+                    title: { bn: "সংশোধন করে আবার জমা দিন", en: "Fix and resubmit" },
+                    hint: {
+                      bn: "অফিস কিছু ঠিক করতে বললে এখানে পাবেন।",
+                      en: "If the office asks for a change, you will find it here.",
+                    },
+                    page: "applications",
+                    state: "CORRECTION_REQUIRED",
+                  },
+                ]
             : [
                 {
                   title: { bn: "আবেদন শুরু করুন", en: "Start an application" },

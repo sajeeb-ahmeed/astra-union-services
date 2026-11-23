@@ -39,7 +39,7 @@ test(
     try {
       await page.goto(`${origin}/login`);
       await page
-        .getByLabel("Email", { exact: true })
+        .getByLabel("Email or mobile number", { exact: true })
         .fill("citizen@alpha.local.test");
       await page.getByLabel("Password", { exact: true }).fill("Demo-Phase1!");
       await page

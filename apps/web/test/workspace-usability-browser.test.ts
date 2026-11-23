@@ -22,7 +22,7 @@ async function launch() {
 async function login(page: Page, role = "staff") {
   await page.goto(`${base}/login`);
   await page
-    .getByLabel("Email", { exact: true })
+    .getByLabel("Email or mobile number", { exact: true })
     .fill(`${role}@alpha.local.test`);
   await page.getByLabel("Password", { exact: true }).fill("Demo-Phase1!");
   await page

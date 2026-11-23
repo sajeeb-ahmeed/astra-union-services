@@ -10,7 +10,7 @@ async function launch(){
   const executable=process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE??(fs.existsSync(local)?fs.readdirSync(local).filter(n=>/^chromium-/.test(n)).sort().reverse().map(n=>path.join(local,n,'chrome-win64','chrome.exe')).find(p=>fs.existsSync(p)):undefined);
   return chromium.launch({headless:true,executablePath:executable});
 }
-async function login(page:Page,role:string){await page.goto(origin+'/login');await page.getByLabel('Email',{exact:true}).fill(`${role}@alpha.local.test`);await page.getByLabel('Password',{exact:true}).fill('Demo-Phase1!');await page.locator('.login-form').getByRole('button',{name:'Sign in',exact:true}).click();await page.getByRole('button',{name:'Sign out',exact:true}).waitFor();}
+async function login(page:Page,role:string){await page.goto(origin+'/login');await page.getByLabel('Email or mobile number',{exact:true}).fill(`${role}@alpha.local.test`);await page.getByLabel('Password',{exact:true}).fill('Demo-Phase1!');await page.locator('.login-form').getByRole('button',{name:'Sign in',exact:true}).click();await page.getByRole('button',{name:'Sign out',exact:true}).waitFor();}
 async function nav(page:Page,name:RegExp){await goToWorkspacePage(page,name);}
 test('portal browser: responsive profile, searchable applicant and biodata/holding/witness private PDF copies',{timeout:90000},async()=>{
   const browser=await launch(),page=await browser.newPage({viewport:{width:390,height:844}});await page.addInitScript(()=>localStorage.setItem("astra.language","en"));const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));

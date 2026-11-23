@@ -797,6 +797,9 @@ export function WorkspaceApp({
       });
       const query = params.toString();
       writeRoute(`#/applications${query ? `?${query}` : ""}`);
+      // PORTAL-B: re-read even when the filters are unchanged (the filter
+      // effect only fires on a change; its later epoch wins when they do).
+      void run(refresh);
       return;
     }
     nav(next);
@@ -1103,6 +1106,10 @@ export function WorkspaceApp({
     setErrorMessage("");
     setSearch("");
     writeRoute(routeHashFor(next));
+    // PORTAL-B: opening the list (or the dashboard counts) re-reads it, so a
+    // decision made since the last load shows at once — before, a citizen
+    // could see "Submitted" on an application the Chairman had issued.
+    if (next === "applications" || next === "home") void run(refresh);
   }
   function certificatePanel(cert: any) {
     if (!cert) return null;
@@ -1262,7 +1269,13 @@ export function WorkspaceApp({
               if (!groupPages.length) return null;
               return (
                 <div className="ws-nav-group" key={group.title.en}>
-                  <span className="ws-nav-group-title">{choose(group.title)}</span>
+                  <span className="ws-nav-group-title">
+                    {/* PORTAL-B: a citizen's print copies are a service to
+                        them, not "office" work. */}
+                    {role === "citizen" && group.title.en === "Office"
+                      ? choose({ bn: "অন্যান্য সেবা", en: "More services" })
+                      : choose(group.title)}
+                  </span>
                   {groupPages.map((p) => (
                     <button
                       key={p}
