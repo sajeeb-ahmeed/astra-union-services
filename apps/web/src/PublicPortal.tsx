@@ -1416,26 +1416,13 @@ export function PublicPortal({
       </a>
       {/* FULL-UIUX-01 (A1/P0-2): no nav override — the portal renders the
           ONE public shell (PUBLIC_NAV + default footer), identical to the
-          home and verify surfaces. */}
+          home and verify surfaces. PORTAL-A: the default account doors too
+          (register · office account · login), so every page offers the same
+          three; register/login navigate in-app, the office account loads
+          its own page. */}
       <SiteHeader
         current={page === "home" ? "/" : `/${page}`}
         onNavigate={(href) => nav(href === "/" ? "home" : href.slice(1))}
-        account={
-          <>
-            <button
-              className="du-btn du-btn-ghost"
-              onClick={() => nav("register")}
-            >
-              {t("নিবন্ধন ")}
-            </button>
-            <button
-              className="du-btn du-btn-primary"
-              onClick={() => nav("login")}
-            >
-              {t("লগইন")}
-            </button>
-          </>
-        }
       />
       <main id="public-content">
         <GlobalNoticeBanner />

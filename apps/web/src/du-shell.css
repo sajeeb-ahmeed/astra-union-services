@@ -130,23 +130,27 @@
   background: var(--du-green-50);
 }
 
+/* PORTAL-A: the menu is a solid chrome-green bar with white links, the
+   familiar look of a public service portal. White on --du-green-700 is
+   5.0:1; the current page sits on --du-green-800 (7.4:1) with the red
+   brand underline. */
 .du-topnav {
-  border-top: 1px solid var(--du-line);
+  background: var(--du-green-700);
 }
 .du-topnav-row {
   display: flex;
-  gap: 2px;
+  gap: 0;
   overflow-x: auto;
 }
 .du-topnav .du-navlink {
   display: inline-flex;
   align-items: center;
   min-height: 48px;
-  padding: 10px 14px;
+  padding: 10px 16px;
   border: 0;
-  border-radius: 6px;
+  border-radius: 0;
   background: none;
-  color: var(--du-ink);
+  color: #fff;
   font: inherit;
   font-weight: 600;
   font-size: 15.5px;
@@ -154,12 +158,32 @@
   white-space: nowrap;
   cursor: pointer;
 }
-.du-topnav .du-navlink:hover {
-  background: var(--du-green-50);
+/* Beat the global primary-button gradient: in-app nav links render as
+   <button> on portal pages. */
+.du-topnav button.du-navlink {
+  background: none;
+  color: #fff;
+  border: 0;
 }
-.du-topnav .du-navlink[aria-current="page"] {
-  color: var(--du-green-700);
-  box-shadow: inset 0 -3px 0 var(--du-lime);
+.du-topnav .du-navlink:hover,
+.du-topnav button.du-navlink:hover {
+  background: var(--du-green-800);
+}
+.du-topnav .du-navlink[aria-current="page"],
+.du-topnav button.du-navlink[aria-current="page"] {
+  background: var(--du-green-800);
+  color: #fff;
+  box-shadow: inset 0 -3px 0 var(--du-sidebar-active-edge);
+}
+.du-topnav .du-navlink:focus-visible {
+  outline: 3px solid #fff;
+  outline-offset: -3px;
+}
+/* The office-account door rides in the drawer on narrow screens. */
+@media (max-width: 1023px) {
+  .du-header .du-btn-office {
+    display: none;
+  }
 }
 
 .du-bottomnav {

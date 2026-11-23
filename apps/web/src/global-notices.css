@@ -2,18 +2,20 @@
 .du-global-notices {
   display: grid;
   gap: 8px;
-  padding: 10px 16px;
+  padding: 10px 0;
   background: var(--du-green-50);
   border-bottom: 1px solid var(--du-line);
 }
+/* PORTAL-A: banner and offers share the header's content edge
+   (.du-container: 24px gutters from 1280px, 16px below). */
 .du-global-notice {
   display: flex;
   flex-wrap: wrap;
   align-items: baseline;
   gap: 6px 10px;
-  max-width: var(--du-container);
+  max-width: calc(var(--du-container) - 48px);
   margin: 0 auto;
-  width: 100%;
+  width: calc(100% - 32px);
   color: var(--du-ink);
   font-size: 0.95rem;
 }
@@ -25,9 +27,16 @@
   font-weight: 600;
 }
 .du-public-offers {
-  max-width: var(--du-container);
+  max-width: calc(var(--du-container) - 48px);
+  width: calc(100% - 32px);
   margin: 0 auto;
-  padding: 24px 16px 8px;
+  padding: 24px 0 8px;
+}
+@media (min-width: 1280px) {
+  .du-global-notice,
+  .du-public-offers {
+    width: calc(100% - 48px);
+  }
 }
 .du-public-offer-list {
   display: flex;

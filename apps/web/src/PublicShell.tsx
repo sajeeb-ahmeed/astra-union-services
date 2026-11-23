@@ -21,13 +21,17 @@ import "./du-shell.css";
  * with the full page list. Exactly one element carries the "Public
  * navigation" label at any viewport.
  */
+/* PORTAL-A (prottoyon-style portal): one flat menu, no dropdowns — the
+   things citizens come for, in the order they need them. Notices and the
+   witness generator stay on the home help card, the drawer and the footer
+   (the witness generator offers nothing until the owner enters its
+   options, so it is not promoted to the menu). */
 export const PUBLIC_NAV = [
   { href: "/", bn: "হোম", en: "Home" },
   { href: "/services", bn: "নাগরিক সেবা", en: "Services" },
   { href: "/tracking", bn: "আবেদনের অবস্থা", en: "Track application" },
   { href: "/verify", bn: "সনদ যাচাই", en: "Verify certificate" },
   { href: "/offices", bn: "ইউনিয়ন অফিস", en: "Union offices" },
-  { href: "/notices", bn: "নোটিশ", en: "Notices" },
   { href: "/help", bn: "সাধারণ জিজ্ঞাসা", en: "Help & FAQ" },
 ] as const;
 
@@ -35,10 +39,15 @@ const DRAWER_EXTRA = [
   // HOME-REDESIGN-01: the phone header hides its Register button, so the
   // drawer carries it.
   { href: "/register", bn: "নতুন অ্যাকাউন্ট খুলুন", en: "Create an account" },
+  { href: "/notices", bn: "নোটিশ", en: "Notices" },
+  { href: "/witness", bn: "সাক্ষীর প্রত্যয়ন", en: "Witness statement" },
   { href: "/guide", bn: "ব্যবহার নির্দেশিকা", en: "User guide" },
   { href: "/policies", bn: "নীতি", en: "Policies" },
   { href: "/register-office", bn: "অফিস অ্যাকাউন্ট খুলুন", en: "Open an office account" },
 ] as const;
+
+/** Pages outside the citizen portal's page set: always a real page load. */
+const HARD_LINKS = new Set(["/register-office"]);
 
 const QUICK_NAV = [
   { href: "/", shortBn: "হোম", shortEn: "Home", fullBn: "হোম", fullEn: "Home" },
@@ -79,7 +88,7 @@ function NavLink({
   onDone?: () => void;
 }) {
   const active = current === href;
-  if (onNavigate)
+  if (onNavigate && !HARD_LINKS.has(href))
     return (
       <button
         type="button"
@@ -169,8 +178,17 @@ export function SiteHeader({
             <LanguageSwitcher />
             {account ?? (
               <>
+                {/* PORTAL-A: the three doors of a public service portal —
+                    a free citizen account, an office account, sign in. */}
                 <NavLink href="/register" onNavigate={onNavigate} className="du-btn du-btn-ghost">
                   {choose({ bn: "নিবন্ধন", en: "Register" })}
+                </NavLink>
+                <NavLink
+                  href="/register-office"
+                  onNavigate={onNavigate}
+                  className="du-btn du-btn-ghost du-btn-office"
+                >
+                  {choose({ bn: "অফিস অ্যাকাউন্ট", en: "Office account" })}
                 </NavLink>
                 <NavLink href="/login" onNavigate={onNavigate} className="du-btn du-btn-primary">
                   {choose({ bn: "লগইন", en: "Login" })}
@@ -317,8 +335,10 @@ export function SiteFooter({
           <ul>
             {link("/verify", "সনদ যাচাই", "Verify certificate")}
             {link("/tracking", "আবেদনের অবস্থা", "Track application")}
+            {link("/witness", "সাক্ষীর প্রত্যয়ন", "Witness statement")}
             {link("/notices", "নোটিশ", "Notices")}
             {link("/register", "নতুন অ্যাকাউন্ট", "Create an account")}
+            {link("/register-office", "অফিস অ্যাকাউন্ট খুলুন", "Open an office account")}
           </ul>
         </nav>
         <div>
