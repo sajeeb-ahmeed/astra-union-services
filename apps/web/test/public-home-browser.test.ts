@@ -72,7 +72,8 @@ test(
       const registerLink = heroCtas.getByRole("link", { name: "Create a free account", exact: true });
       assert.equal(await registerLink.count(), 1);
       assert.equal(await registerLink.getAttribute("href"), "/register");
-      assert.equal(await page.locator("#ax-subscribe-email").count(), 1);
+      // PORTAL-E: no footer "updates" sign-up while outgoing email is not connected.
+      assert.equal(await page.locator("#ax-subscribe-email").count(), 0);
       fs.mkdirSync("execution/screenshots", { recursive: true });
       await page.screenshot({ path: "execution/screenshots/phase1-public-home-desktop.png", fullPage: true });
 

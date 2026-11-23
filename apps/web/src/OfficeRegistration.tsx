@@ -21,8 +21,18 @@ export function OfficeRegistration() {
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState(false);
   useEffect(() => {
-    api("/offices?pageSize=100")
-      .then((r) => setOffices(items(r)))
+    // PORTAL-E: every office, not just the first page — the API returns at
+    // most 100 per page, so offices beyond the 100th could not be chosen.
+    (async () => {
+      const first: any = await api("/offices?pageSize=100&page=1");
+      const total = Number(first?.total ?? 0);
+      const pages = Math.max(1, Math.ceil(total / 100));
+      const rest = await Promise.all(
+        Array.from({ length: pages - 1 }, (_, i) => api(`/offices?pageSize=100&page=${i + 2}`)),
+      );
+      return [first, ...rest].flatMap((r) => items(r));
+    })()
+      .then(setOffices)
       .catch(() => setOffices([]));
   }, []);
   useEffect(() => {

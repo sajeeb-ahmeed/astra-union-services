@@ -1031,7 +1031,7 @@ html[lang="bn"] h1, html[lang="bn"] h2, html[lang="bn"] h3 {
 }
 
 button, .button, .public-site button, .public-site .button {
-  border-radius: 8px;
+  border-radius: var(--du-radius-control, 4px);
   transition:
     background-color 140ms ease,
     border-color 140ms ease;

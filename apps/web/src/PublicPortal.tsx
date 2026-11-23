@@ -24,7 +24,6 @@ import {
   serviceTitle,
 } from "./seo/service-seo.js";
 import { applyPageHead } from "./seo/head.js";
-import { SampleCertificate } from "./TrustVisual.js";
 import { BrandLockup } from "./BrandLockup.js";
 import { getServiceSchema } from "@astra/shared-schemas";
 import React, { Suspense, lazy, useEffect, useRef, useState } from "react";
@@ -265,7 +264,7 @@ function ApplicationTracking() {
       )}
       </section>
       <div className="public-tool-visual">
-        <SampleCertificate compact />
+        {/* PORTAL-E: no sample-certificate picture ("নমুনা") on a citizen page. */}
         {/* REFINEMENT-02 P1-12: a "what you need" panel instead of bare
             decoration, plus the cross-link to certificate verification. */}
         <div className="tool-need">
@@ -540,13 +539,20 @@ export function PublicPortal({
       api("/health").catch(() => null),
       api("/offices?pageSize=100"),
     ])
-      .then(([health, list]) => {
+      .then(async ([health, list]) => {
         if (!active) return;
         const offices = items(list);
         const slug = wanted || health?.signup?.defaultOffice || "";
-        const pick =
-          (slug && offices.find((o: any) => o.slug === slug)) ||
-          (offices.length === 1 ? offices[0] : null);
+        // PORTAL-E: the requested office is looked up by its slug, not only
+        // inside the first 100 listed — beyond 100 offices "?office=" (and
+        // the server's default office) silently stopped preselecting.
+        let bySlug = slug ? offices.find((o: any) => o.slug === slug) : null;
+        if (slug && !bySlug) {
+          const found = await api(`/offices?q=${encodeURIComponent(slug)}&pageSize=20`).catch(() => null);
+          bySlug = found ? items(found).find((o: any) => o.slug === slug) : null;
+        }
+        if (!active) return;
+        const pick = bySlug || (Number(list?.total ?? offices.length) === 1 ? offices[0] : null);
         if (pick) adoptSignupOffice(pick);
         else setChangingOffice(true);
       })
@@ -1492,12 +1498,6 @@ export function PublicPortal({
                           })}
                         </li>
                       </ul>
-                      <p className="login-brand-pilot">
-                        {choose({
-                          bn: "পাইলট অফিস: বেলাবো ইউনিয়ন পরিষদ, বেলাবো, নরসিংদী।",
-                          en: "Pilot office: Belabo Union Parishad, Belabo, Narsingdi.",
-                        })}
-                      </p>
                     </div>
                     <div className="standalone-login">
                       {/* BUNDLE06-R5 B4: the sign-in page carries a real H1
@@ -2076,7 +2076,6 @@ export function PublicPortal({
                       </p>
                     </section>
                     <div className="public-tool-visual">
-                      <SampleCertificate compact />
                       {/* BUNDLE06-R5 B4: same "what you need" remedy the
                           tracking page got in REFINEMENT-02 P1-12 — the
                           visual column carries guidance, not dead space. */}

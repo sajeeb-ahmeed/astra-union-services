@@ -6,7 +6,6 @@ import { useBranding } from "./branding.js";
 import { hasPageHead } from "./seo/head.js";
 import { GlobalNoticeBanner } from "./GlobalNotices.js";
 import "./ui/kit.js";
-import { SubscriptionForm } from "./SubscriptionForm.js";
 import { BrandLockup } from "./BrandLockup.js";
 import "./public-shell.css";
 import "./du-shell.css";
@@ -300,25 +299,9 @@ export function SiteFooter({
     <footer className="du-footer">
       <div className="du-container du-footer-grid">
         <div className="du-footer-brand">
+          {/* PORTAL-E (owner scope): the brand only — no pilot-office line,
+              no "who we are" paragraphs, no tagline sentence. */}
           <BrandLockup size={40} tagline />
-          <p className="du-footer-note">
-            {choose({
-              bn: "ইউনিয়ন পরিষদের নাগরিক সেবা — আবেদন, অবস্থা ও সনদ যাচাই এক ঠিকানায়।",
-              en: "Union Parishad citizen services — apply, track and verify in one place.",
-            })}
-          </p>
-          <p className="du-footer-note">
-            {choose({
-              bn: "পাইলট অফিস: বেলাবো ইউনিয়ন পরিষদ, বেলাবো, নরসিংদী।",
-              en: "Pilot office: Belabo Union Parishad, Belabo, Narsingdi.",
-            })}
-          </p>
-          <p className="du-footer-note">
-            {choose({
-              bn: "DigitalUnion একটি বেসরকারি প্ল্যাটফর্ম, যা ইউনিয়ন পরিষদ অফিসগুলো ব্যবহার করে। এটি সরকারি ওয়েবসাইট নয়; সরকারি সিস্টেমটি unionservices.gov.bd।",
-              en: "DigitalUnion is a private platform used by Union Parishad offices. It is not a government website; the government system is unionservices.gov.bd.",
-            })}
-          </p>
         </div>
         <nav aria-label={choose({ bn: "সেবা", en: "Services" })}>
           <h3>{choose({ bn: "সেবা", en: "Services" })}</h3>
@@ -362,9 +345,10 @@ export function SiteFooter({
               )}
             </ul>
           )}
-          <div className="du-footer-subscribe">
-            {subscribeSlot ?? <SubscriptionForm />}
-          </div>
+          {/* PORTAL-E: no "updates" sign-up by default — outgoing email is
+              not connected, so it promised updates nobody would send. The
+              form returns only where a page passes it explicitly. */}
+          {subscribeSlot && <div className="du-footer-subscribe">{subscribeSlot}</div>}
         </div>
       </div>
       <div className="du-footer-bottom">

@@ -7,7 +7,6 @@ import { PublicOffers } from "./GlobalNotices.js";
 import { categoryLabel } from "./service-categories.js";
 import { servicePath } from "./service-slugs.js";
 import { HomeServiceDirectory, NoticeTicker } from "./HomeServiceDirectory.js";
-import { HeroCarousel } from "./HeroCarousel.js";
 import "./public-home.css";
 
 import { certificateNumberInput, verificationToken } from "./verify-input.js";
@@ -205,9 +204,9 @@ export function PublicHome({ login }: { login?: React.ReactNode } = {}) {
               </p>
             </div>
           </div>
-          <div className="hx-hero-visual">
-            <HeroCarousel />
-          </div>
+          {/* PORTAL-E: no photo carousel — its scenes were illustrative
+              ("প্রতীকী ছবি"); the banner is the title, the search and the
+              account actions only. */}
         </div>
       </section>
 

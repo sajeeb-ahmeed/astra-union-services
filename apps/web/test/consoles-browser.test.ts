@@ -77,9 +77,16 @@ test("PORTAL-D consoles: admin tabs in setup order; owner menu complete and queu
     await menu.waitFor();
     const clipped = await menu.evaluate((nav) => nav.scrollHeight - nav.clientHeight);
     assert.ok(clipped <= 1, `the whole owner menu shows without an inner scroll (hidden ${clipped}px)`);
+    // Settings, the last section, lies inside the menu's visible box (not
+    // clipped by an inner scroll) — independent of how many announcement
+    // banners sit above the console on this database.
     const settings = owner.locator('a[href="#owner-settings"]');
-    const box = (await settings.boundingBox())!;
-    assert.ok(box.y + box.height <= 900, "Settings, the last section, is on screen at 1280×900");
+    const inside = await settings.evaluate((link) => {
+      const nav = link.closest(".owner-nav")!.getBoundingClientRect();
+      const box = link.getBoundingClientRect();
+      return box.top >= nav.top - 1 && box.bottom <= nav.bottom + 1;
+    });
+    assert.ok(inside, "Settings is fully inside the owner menu's visible area");
 
     await owner.locator('a[href="#owner-overview"]').first().click();
     const tile = owner.locator("button.kpi-link", { hasText: "Office inclusion requests" });

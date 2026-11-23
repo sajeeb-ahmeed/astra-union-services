@@ -180,9 +180,19 @@ a managed backup tool (`node scripts/backup/backup.mjs backup`, driven by
 
 ## 9. Going official
 
-Certificates carry DEMO wording and health reports `DEMO_ONLY` until the
-owner decides the platform is live for a real office. Flipping is one
-variable — `ISSUANCE_MODE=official` in the app environment, then restart.
-The template keeps its factual "not a government-issued document" honesty
-lines in both modes; only the demo branding changes. Activation is the
-owner's call, not part of this deployment.
+Owner decision (23 Nov 2026, PORTAL-E): production is official, and
+`.env.cpanel.example` now sets `ISSUANCE_MODE=official`. Two steps make a
+running server official:
+
+1. Set `ISSUANCE_MODE=official` in the app environment, then restart.
+   New certificates get plain 16-digit numbers (no `DEMO-` prefix) and the
+   emblem artwork; health reports `OFFICIAL`. Certificate PDFs carry no demo
+   wording in either mode (since 17 Nov 2026).
+2. Mark each office that is really live as non-demo. Public verification
+   reads the office's flag (`tenants.demo`, migration 041); while it is
+   `true`, that office's certificates verify as a demo certificate. There is
+   no owner screen for it — after a backup, run per office:
+   `UPDATE tenants SET demo = false WHERE slug = '<office-slug>';`
+
+Certificates already issued are never rewritten: their stored PDFs and
+numbers stay as they are, so a `DEMO-` number keeps verifying as demo.
