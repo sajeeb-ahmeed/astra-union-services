@@ -3691,7 +3691,23 @@ export function WorkspaceApp({
                     />
                     <OwnerSettledRevenueCard />
                   </div>
-                  <OwnerOperations />
+                  <OwnerOperations
+                    onOpen={(section, selector) => {
+                      // PORTAL-D: open the section that handles the queue,
+                      // then bring its (lazily loaded) panel into view.
+                      setOwnerSection(section);
+                      let tries = 0;
+                      const bring = () => {
+                        const panel = document.querySelector<HTMLElement>(selector);
+                        if (panel) {
+                          panel.scrollIntoView({ block: "start" });
+                          panel.querySelector<HTMLElement>("h2, h3")?.setAttribute("tabindex", "-1");
+                          panel.querySelector<HTMLElement>("h2, h3")?.focus({ preventScroll: true });
+                        } else if (++tries < 40) window.setTimeout(bring, 50);
+                      };
+                      window.setTimeout(bring, 0);
+                    }}
+                  />
                 </section>
                 )}
                 {ownerSection === "offices" && (
