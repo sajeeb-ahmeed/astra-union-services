@@ -358,7 +358,7 @@ test(
       // HOME-REDESIGN-01: the public verify page answers with a verdict
       // sentence, not the old status badge — and this stack issues
       // DEMO-mode certificates, so the correct verdict is the demo one.
-      await verify.getByText("This is a demo certificate", { exact: true }).waitFor();
+      await verify.getByText("This is not an official certificate", { exact: true }).waitFor();
       assert.equal(
         await verify.getByText("Karim Uddin", { exact: true }).count(),
         0,

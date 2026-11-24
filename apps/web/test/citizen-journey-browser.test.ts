@@ -184,7 +184,7 @@ test(
       await visitor.goto(origin);
       await visitor.locator("#home-verify-input").fill(certificate.number);
       await Promise.all([visitor.waitForURL(/\/verify\?searchText=/), visitor.locator("#home-verify-input").press("Enter")]);
-      await visitor.getByText("This is a demo certificate", { exact: true }).waitFor();
+      await visitor.getByText("This is not an official certificate", { exact: true }).waitFor();
       await publicContext.close();
       await context.close();
       assert.deepEqual(errors, []);

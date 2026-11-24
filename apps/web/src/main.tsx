@@ -116,7 +116,7 @@ function CertificateVerification({
                       : verdict === "revoked"
                         ? { bn: "এই সনদ প্রত্যাহার করা হয়েছে", en: "This certificate has been revoked" }
                         : verdict === "demo"
-                          ? { bn: "এটি নমুনা (ডেমো) সনদ", en: "This is a demo certificate" }
+                          ? { bn: "এই সনদটি সরকারি নয়", en: "This is not an official certificate" }
                           : applicationStatusMeta(status);
                   const sub =
                     verdict === "valid"
