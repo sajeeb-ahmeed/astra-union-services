@@ -198,7 +198,7 @@ test(
       // flow opens directly on the application form.
       await fillApplicationForm(citizen, demoPayloads[45]);
       await citizen
-        .getByLabel("Purpose (English)", { exact: false })
+        .locator('[data-field-path="purpose"]')
         .fill("Browser acceptance demonstration");
       await citizen
         .getByRole("button", { name: "Next: fees and delivery", exact: true })
@@ -266,7 +266,7 @@ test(
       await citizen.reload();
       await openById(citizen, application.reference);
       await citizen
-        .getByLabel("Purpose (English)", { exact: false })
+        .locator('[data-field-path="purpose"]')
         .fill("Corrected browser acceptance purpose");
       const saved = citizen.waitForResponse(
         (r) => r.request().method() === "PATCH",
@@ -284,22 +284,31 @@ test(
       const before = await approver.evaluate(
         async () => await (await fetch("/api/v1/wallet")).json(),
       );
-      // QA-13 (PR #55): approving first asks window.confirm
-      // (WorkspaceApp.tsx transition()). With no dialog handler
-      // registered Playwright auto-dismisses it, the confirm reads as
-      // "Cancel" and the transition POST is never sent — accept the
-      // dialog explicitly so the approval below can run.
-      approver.on("dialog", (dialog) => void dialog.accept());
-      // Phase W: one click — the Chairman's approval issues the certificate.
-      const issuedResponse = approver.waitForResponse(
-        (r) =>
-          r.url().endsWith("/transition") && r.request().method() === "POST",
-      );
+      // QAFIX-09 (B1): approving first asks in an in-app modal
+      // (WorkspaceApp.tsx transition()) — the window.confirm it
+      // replaced (QA-13) was auto-dismissed by Playwright, which
+      // silently read as "Cancel" and the transition POST was
+      // never sent. The modal names the application it will act
+      // on; confirming it sends the transition.
       await approver
         .getByRole("button", {
           name: "Approve and issue certificate",
           exact: true,
         })
+        .click();
+      const confirmDialog = approver.getByRole("dialog");
+      await confirmDialog.waitFor();
+      assert.ok(
+        (await confirmDialog.innerText()).includes(application.reference),
+        "the confirmation modal names the application it will approve",
+      );
+      // Phase W: one decision — the Chairman's approval issues the certificate.
+      const issuedResponse = approver.waitForResponse(
+        (r) =>
+          r.url().endsWith("/transition") && r.request().method() === "POST",
+      );
+      await confirmDialog
+        .getByRole("button", { name: "Confirm approval", exact: true })
         .click();
       const issued = await issuedResponse;
       assert.equal(issued.status(), 200, await issued.text());
@@ -385,7 +394,8 @@ test(
       const persisted = await detail.json();
       assert.equal(persisted.versions.length, 2);
       assert.equal(
-        persisted.payload.purpose_en,
+        // QAFIX-01: the purpose is a single field now (was purpose_en).
+        persisted.payload.purpose,
         "Corrected browser acceptance purpose",
       );
       assert.equal(persisted.application.state, "ISSUED");

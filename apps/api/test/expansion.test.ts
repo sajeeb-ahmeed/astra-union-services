@@ -514,8 +514,11 @@ test("ALL47-01: every service validates, persists, submits and is issued by the 
 test("GEO-FORM: v3 location selectors reject cross-parent codes server-side and documents print dataset names", async () => {
   for (const no of [36, 41, 42]) {
     // CERT-REFINE-01 published v4 of these services on top of the
-    // geography v3; the selector behaviour asserted below is unchanged.
-    assert.equal(getServiceSchema(no).version, 4);
+    // geography v3, and QAFIX-01 published v5; QAFIX-07 published v6
+    // for service 36 (the NOC subject gating) and QAFIX-08 v6 for
+    // services 41 and 42. The selector behaviour asserted below is
+    // unchanged.
+    assert.equal(getServiceSchema(no).version, 6);
     // Trade v3 leaves the address type optional; a union applies only to a union address.
     const payload =
       no === 42
@@ -1167,8 +1170,22 @@ async function issuedV2ApplicationWith(no: number, overrides: Record<string, str
   ).rows[0];
   const v2 = allServiceSchemaVersions.find((x) => x.serviceNo === no && x.version === 2)!;
   assert.ok(v2 && getServiceSchema(no).version > 2);
-  const { org_location: _dropped, ...rest } = getDemoPayload(no) as Record<string, unknown>;
-  const payload = { ...rest, ...v2LocationText[no], ...overrides };
+  const { org_location: _dropped, purpose: _purpose, purpose_language: _purposeLanguage, ...rest } = getDemoPayload(no) as Record<string, unknown>;
+  // QAFIX-08: service 42's v2 predates the whole purpose-and-language
+  // section, so its v2-era payload also drops address_source and
+  // delivery_language (the other two services carried the purpose
+  // pair at v2 — see below).
+  if (no === 42) {
+    delete (rest as Record<string, unknown>).address_source;
+    delete (rest as Record<string, unknown>).delivery_language;
+  }
+  // QAFIX-01: a v2-era payload carries the purpose pair, not the single
+  // purpose field the current demo payload uses.
+  const purposePair: Record<string, unknown> =
+    no === 42
+      ? {}
+      : { purpose_bn: "নবায়নের উদ্দেশ্য", purpose_en: "Renewal purpose" };
+  const payload = { ...rest, ...purposePair, ...v2LocationText[no], ...overrides };
   const hash = (
     await db.query("SELECT schema_hash FROM service_versions WHERE service_no=$1 AND version=2", [no])
   ).rows[0].schema_hash;
@@ -1197,7 +1214,7 @@ async function issuedV2ApplicationWith(no: number, overrides: Record<string, str
 async function issuedV2Application(no: number, overrides: Record<string, string> = {}) {
   return issuedV2ApplicationWith(no, overrides);
 }
-for (const no of [42, 36, 41])
+for (const no of [36, 41])
   test(`B5: a v2-pinned service ${no} application renews unchanged onto v3 when its location text matches`, async () => {
     const { id } = await issuedV2Application(no);
     const renewal = await req("POST", `/applications/${id}/renew`, {}, s.citizen);
@@ -1219,6 +1236,27 @@ for (const no of [42, 36, 41])
     assert.equal(reissued.status, 200, JSON.stringify(reissued.body));
     assert.equal(reissued.body.id, approvedRenewal.certificate.id);
   });
+test("B5: a v2-pinned service 42 application renews on its pinned version — the current form's purpose cannot be invented", async () => {
+  // QAFIX-08 gave service 42 the standard purpose-and-language
+  // section (purpose + purpose_language are required). A v2-era
+  // trade licence carries no purpose text anywhere — the
+  // QAFIX-01 pair migration has nothing to carry — so the renewal
+  // cannot validate against the current version and takes the
+  // designed pinned fallback (as with unmatched location text):
+  // it renews on v2 with the payload unchanged, and still issues.
+  const { id, payload } = await issuedV2Application(42);
+  const renewal = await req("POST", `/applications/${id}/renew`, {}, s.citizen);
+  assert.equal(renewal.status, 201, `Renew v2 42: ${JSON.stringify(renewal.body)}`);
+  assert.equal(renewal.body.schemaVersion, 2);
+  const child = (await req("GET", `/applications/${renewal.body.id}`, undefined, s.citizen)).body;
+  assert.equal(child.payload.org_location, undefined);
+  assert.equal(child.payload.union_id, payload.union_id);
+  assert.equal(child.payload.district_id, payload.district_id);
+  const approvedRenewal = await approve(renewal.body.id);
+  const reissued = await req("POST", `/applications/${renewal.body.id}/issue`, {}, s.approver);
+  assert.equal(reissued.status, 200, JSON.stringify(reissued.body));
+  assert.equal(reissued.body.id, approvedRenewal.certificate.id);
+});
 test("B5: unmatched location text keeps the renewal on its pinned version with the payload unchanged", async () => {
   const { id, payload } = await issuedV2Application(41, { union_id: "Nonexistent Union" });
   const renewal = await req("POST", `/applications/${id}/renew`, {}, s.citizen);

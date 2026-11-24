@@ -4,6 +4,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { chromium, type Browser } from "playwright";
 import { workspacePage, goToWorkspacePage } from "./fixtures/workspace-nav.js";
+import { ensurePendingScan } from "./fixtures/pending-scan.js";
 const origin = "http://127.0.0.1:5173";
 async function browserInstance(): Promise<Browser> {
   const local = path.join(process.env.LOCALAPPDATA || "", "ms-playwright");
@@ -26,6 +27,11 @@ test("operations browser: the owner sees scanner health and pending queues first
   const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
   await page.addInitScript(() => { if (!localStorage.getItem("astra.language")) localStorage.setItem("astra.language", "en"); });
   try {
+    // QAFIX-09: arrange one pending scan BEFORE sign-in — the
+    // operations panel fetches once on mount and re-polls only
+    // every 60s, so a scan arranged after sign-in can leave the
+    // panel showing the stale "All clear" state (see consoles).
+    await ensurePendingScan(origin);
     await page.goto(`${origin}/login`);
     await page.getByLabel("Email or mobile number", { exact: true }).fill("owner@astra.demo.test");
     await page.getByLabel("Password", { exact: true }).fill("Demo-Phase1!");

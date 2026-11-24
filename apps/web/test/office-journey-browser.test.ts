@@ -95,7 +95,7 @@ test(
       await addressBn.waitFor();
       assert.equal(await addressBn.inputValue(), "");
       await fillApplicationForm(staff, demoPayloads[45]);
-      await staff.getByLabel("Purpose (English)", { exact: false }).fill("Office journey purpose");
+      await staff.locator('[data-field-path="purpose"]').fill("Office journey purpose");
       await staff.getByRole("button", { name: "Next: fees and delivery", exact: true }).click();
       const submit = staff.getByRole("button", { name: "Submit application", exact: true });
       const language = staff.locator("#order-language");
@@ -119,11 +119,10 @@ test(
       await chairContext.addInitScript(() => localStorage.setItem("astra.language", "en"));
       const chair = await chairContext.newPage();
       chair.on("pageerror", (e) => errors.push(`chairman: ${e.message}`));
+      // QAFIX-09 (B1): the irreversible-decision confirmation is
+      // an in-app modal now, not a native dialog — the flow below
+      // records the modal instead of a dialog event.
       const confirmations: string[] = [];
-      chair.on("dialog", (dialog) => {
-        confirmations.push(dialog.message());
-        void dialog.accept();
-      });
       await signIn(chair, "approver@alpha.local.test");
       assert.match(new URL(chair.url()).hash, /^#\/pending/, "the Chairman starts on his queue");
       const card = chair.locator("article.ax-card").filter({ hasText: reference });
@@ -142,8 +141,16 @@ test(
       const reasonTop = (await reason.boundingBox())!.y;
       assert.ok(detailsTop < reasonTop, `details (${detailsTop}) come before the decision (${reasonTop})`);
 
-      const issued = chair.waitForResponse((r) => r.url().endsWith("/transition") && r.request().method() === "POST");
       await chair.getByRole("button", { name: "Approve and issue certificate", exact: true }).click();
+      const confirmDialog = chair.getByRole("dialog");
+      await confirmDialog.waitFor();
+      confirmations.push(await confirmDialog.innerText());
+      assert.ok(
+        confirmations[0].includes(reference),
+        "the confirmation modal names the application it will approve",
+      );
+      const issued = chair.waitForResponse((r) => r.url().endsWith("/transition") && r.request().method() === "POST");
+      await confirmDialog.getByRole("button", { name: "Confirm approval", exact: true }).click();
       const response = await issued;
       assert.equal(response.status(), 200, await response.text());
       assert.equal(confirmations.length, 1, "one confirmation before an irreversible approval");

@@ -125,7 +125,9 @@ test("all 47 proposed schemas enabled; versions remain pinned and cannot silentl
     Array.from({ length: 47 }, (_, index) => index + 1),
   );
   assert.throws(() => getServiceSchema(48), RangeError);
-  assert.throws(() => getServiceSchema(45, 2), RangeError);
+  // QAFIX-01 published v2 of service 45 and QAFIX-09 v3; v4 does
+  // not exist.
+  assert.throws(() => getServiceSchema(45, 4), RangeError);
   assert.throws(() => getReferencePreview(48), RangeError);
   assert.equal(validateServicePayload(1, {}).valid, false);
 });
@@ -148,7 +150,7 @@ test("published schema and catalog metadata are recursively immutable", () => {
   const isolated = clone(schema);
   (isolated as unknown as { version: number }).version = 99;
   assert.equal(hash(), before);
-  assert.equal(getServiceSchema(45).version, 1);
+  assert.equal(getServiceSchema(45).version, 3);
 });
 
 test("canonical schema serialization ignores object key insertion order", () => {
@@ -158,7 +160,7 @@ test("canonical schema serialization ignores object key insertion order", () => 
   ) as unknown as FormSchema;
   assert.equal(stableSchemaJson(schema), stableSchemaJson(reordered));
   const changed = clone(schema) as unknown as { version: number };
-  changed.version = 2;
+  changed.version = 99;
   assert.notEqual(
     stableSchemaJson(schema),
     stableSchemaJson(changed as unknown as FormSchema),
@@ -182,7 +184,8 @@ test("all operational bilingual synthetic fixtures validate; declared labels are
 test("required fields, unknown fields and boolean confirmations fail accessibly", () => {
   const invalid = {
     ...demoPayloads[45],
-    purpose_bn: "",
+    // QAFIX-01: the purpose is one field now (was purpose_bn/purpose_en).
+    purpose: "",
     confirmation: false,
     tenant_id: "tenant-b",
   };
@@ -190,7 +193,7 @@ test("required fields, unknown fields and boolean confirmations fail accessibly"
   assert.equal(result.valid, false);
   assert.ok(
     result.issues.some(
-      (issue) => issue.path === "purpose_bn" && issue.code === "required",
+      (issue) => issue.path === "purpose" && issue.code === "required",
     ),
   );
   assert.ok(
@@ -224,7 +227,7 @@ test("date, Unicode length, select membership and payload root type are validate
   assert.ok(
     validateServicePayload(45, {
       ...demoPayloads[45],
-      purpose_en: "x".repeat(501),
+      purpose: "x".repeat(501),
     }).issues.some((issue) => issue.code === "max_length"),
   );
   assert.equal(validateServicePayload(45, []).valid, false);

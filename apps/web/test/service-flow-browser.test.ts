@@ -196,7 +196,7 @@ test(
 );
 
 test(
-  "Phase 4: untouched conditional groups do not block the form, and selecting one enforces its fields (service 23)",
+  "QAFIX-05: service 23's profession and figures are always required and the earner select gates the earner fields",
   { timeout: 150000 },
   async () => {
     const browser = await browserInstance();
@@ -210,26 +210,52 @@ test(
       await page.getByRole("button", { name: "Next: application form" }).click();
       await stepHeading(page).getByText("Application form", { exact: true }).waitFor();
 
-      // Neither opt-in group (profession details, another person's income)
-      // is touched: the demo payload leaves both toggles off, and the form
-      // must advance. Before Phase 4 this stopped on "This field is
-      // required." for the untouched toggles and their hidden groups.
-      await fillApplicationForm(page, demoPayloads[23]);
+      // QAFIX-05 removed both opt-in checkboxes: the profession pair and
+      // the income figures are always visible, and the earner is a select.
+      const form = page.getByTestId("service-application-form");
       assert.equal(
-        await page.locator('[data-field-path="other_person_name"]').count(),
+        await form.locator('[data-field-path="optradio"]').count(),
         0,
-        "the other-person group stays hidden while its toggle is off",
+        "the registration opt-in is gone",
       );
+      assert.equal(
+        await form.locator('[data-field-path="other_person"]').count(),
+        0,
+        "the other-person checkbox is gone",
+      );
+      for (const path of [
+        "income_info_amount",
+        "income_info_amount_word",
+        "profession_bn",
+        "profession_en",
+        "income_earner",
+      ])
+        assert.equal(
+          await form.locator(`[data-field-path="${path}"]`).count(),
+          1,
+          `${path} is always visible`,
+        );
+      // With the earner unset the earner fields stay hidden.
+      assert.equal(
+        await form.locator('[data-field-path="other_person_name"]').count(),
+        0,
+        "the earner group stays hidden while no other earner is chosen",
+      );
+
+      // The demo payload (earner "self") fills the always-visible core
+      // and the form advances. Before QAFIX-05 an untouched citizen
+      // submitted with no profession and no named earner at all.
+      await fillApplicationForm(page, demoPayloads[23]);
       await page.getByRole("button", { name: "Next: fees and delivery" }).click();
       // No fee policy for this service either: the fees step auto-skips
       // and the review step proves the form advanced.
       await stepHeading(page).getByText("Review and submit", { exact: true }).waitFor();
 
-      // Back on the form, selecting the group reveals it and its required
-      // fields are enforced again.
+      // Back on the form, choosing another person reveals the earner
+      // group and its required fields are enforced again.
       await page.getByRole("button", { name: "← Application form" }).click();
       await stepHeading(page).getByText("Application form", { exact: true }).waitFor();
-      await page.locator('[data-field-path="other_person"]').check();
+      await page.locator('[data-field-path="income_earner"]').selectOption("other_person");
       await page.locator('[data-field-path="other_person_name"]').waitFor();
       await page.getByRole("button", { name: "Next: fees and delivery" }).click();
       const summary = page.locator(".ax-flow .error-summary");
@@ -275,8 +301,13 @@ test(
       await stepHeading(page).getByText("Review and submit", { exact: true }).waitFor();
       const details = (await page.locator(".ax-flow-details").textContent()) ?? "";
       assert.match(details, /Resident since/);
-      assert.match(details, /2020-03-04/);
-      assert.match(details, /Resident certificate application/);
+      // QAFIX-01 (§4 item 10): the review renders human dates, not ISO —
+      // the entered 2020-03-04 reads "4 March 2020" here.
+      assert.match(details, /4 March 2020/);
+      // QAFIX-01: the purpose is a single field now; the review shows the
+      // one purpose text the form carried (the demo payload's Bangla text),
+      // where the old pair showed the English purpose here.
+      assert.ok(details.includes(demoPayloads[45].purpose as string));
 
       const created = page.waitForResponse(
         (r) => r.url().endsWith("/api/v1/applications") && r.request().method() === "POST",

@@ -224,6 +224,34 @@ test("certno: service 27 renders as a recommendation letter (owner decision D5)"
   assert.ok(en.includes("Regional Passport Office"));
 });
 
+test("certno: service 27 renders the QAFIX-06 select purposes from the label map in both languages", () => {
+  // The repaired form stores a select value; the letter must print
+  // its mapped label, not the raw value.
+  const bn = render({
+    number: "2026111812345678",
+    service: { service_no: 27, name_bn: "পাসপোর্ট সুপারিশ পত্র", name_en: "Passport recommendation letter" },
+    payload: { delivery_language: "bn", passport_purpose: "hajj" },
+    schema: getServiceSchema(27),
+  });
+  assert.ok(bn.includes("হজ্জ"), "BN letter prints the mapped Hajj label");
+  assert.ok(!bn.includes("hajj"), "BN letter never prints the raw select value");
+  const en = render({
+    number: "2026111812345678",
+    service: { service_no: 27, name_bn: "পাসপোর্ট সুপারিশ পত্র", name_en: "Passport recommendation letter" },
+    payload: { delivery_language: "en", passport_purpose: "hajj" },
+    schema: getServiceSchema(27),
+  });
+  assert.ok(en.includes("Hajj"), "EN letter prints the mapped Hajj label");
+  // A legacy free-text purpose (pinned payload) still prints as stored.
+  const legacy = render({
+    number: "2026111812345678",
+    service: { service_no: 27, name_bn: "পাসপোর্ট সুপারিশ পত্র", name_en: "Passport recommendation letter" },
+    payload: { delivery_language: "bn", passport_purpose: "চিকিৎসা" },
+    schema: getServiceSchema(27, 3),
+  });
+  assert.ok(legacy.includes("চিকিৎসা"), "legacy free text prints exactly as stored");
+});
+
 test("certno: service 1 renders the tax receipt with the year table and amount in words", () => {
   const html = render({
     number: "2026111812345678",
@@ -290,6 +318,98 @@ test("certno: service 23 guardian variant certifies the guardian's income with w
     schema: getServiceSchema(23),
   });
   assert.ok(en.includes("The annual income of the guardian, Md Asaduzzaman, is BDT 1,20,000 (in words: One Lakh Twenty Thousand Taka only)."));
+});
+
+test("certno: service 23 income_earner select certifies the guardian's income with words (QAFIX-05)", () => {
+  // From v5 the earner is chosen from the income_earner select; the
+  // pinned other_person payload above keeps rendering through the
+  // fallback, and this is the new path.
+  const en = render({
+    number: "2026111812345679",
+    service: { service_no: 23, name_bn: "বাৎসরিক আয় সনদ", name_en: "Annual income certificate" },
+    payload: {
+      delivery_language: "en",
+      income_info_amount: 120000,
+      income_earner: "other_person",
+      other_person_name: "Md Asaduzzaman",
+    },
+    schema: getServiceSchema(23),
+  });
+  assert.ok(en.includes("The annual income of the guardian, Md Asaduzzaman, is BDT 1,20,000 (in words: One Lakh Twenty Thousand Taka only)."));
+  // And "self" still certifies the applicant's own income.
+  const self = render({
+    number: "2026111812345680",
+    service: { service_no: 23, name_bn: "বাৎসরিক আয় সনদ", name_en: "Annual income certificate" },
+    payload: {
+      delivery_language: "en",
+      income_info_amount: 120000,
+      income_earner: "self",
+    },
+    schema: getServiceSchema(23),
+  });
+  assert.ok(self.includes("The applicant&#39;s own annual income is BDT 1,20,000 (in words: One Lakh Twenty Thousand Taka only)."));
+});
+
+test("certno: service 29 guardian variant certifies the guardian's monthly income (pinned path)", () => {
+  const en = render({
+    number: "2026111812345681",
+    service: { service_no: 29, name_bn: "মাসিক আয় সনদ", name_en: "Monthly income certificate" },
+    payload: {
+      delivery_language: "en",
+      income_info_amount: 30000,
+      other_person: true,
+      other_person_name: "Md Asaduzzaman",
+    },
+    schema: getServiceSchema(29, 4),
+  });
+  assert.ok(en.includes("The monthly income of the guardian, Md Asaduzzaman, is BDT 30,000"));
+});
+
+test("certno: service 29 income_earner select prints the other person's own amount (QAFIX-06)", () => {
+  // From v5 the earner is chosen from the income_earner select and
+  // the other person's own monthly amount is captured; the
+  // certificate must print THAT amount against their name, not the
+  // applicant's shared amount.
+  const en = render({
+    number: "2026111812345682",
+    service: { service_no: 29, name_bn: "মাসিক আয় সনদ", name_en: "Monthly income certificate" },
+    payload: {
+      delivery_language: "en",
+      income_info_amount: 30000,
+      income_earner: "other_person",
+      other_person_name: "Md Asaduzzaman",
+      other_person_income_amount: 45000,
+    },
+    schema: getServiceSchema(29),
+  });
+  assert.ok(en.includes("The monthly income of the guardian, Md Asaduzzaman, is BDT 45,000"), en.slice(0, 400));
+  assert.ok(!en.includes("BDT 30,000"), "the applicant's amount must not print against the guardian");
+  const bn = render({
+    number: "2026111812345683",
+    service: { service_no: 29, name_bn: "মাসিক আয় সনদ", name_en: "Monthly income certificate" },
+    payload: {
+      delivery_language: "bn",
+      income_info_amount: 30000,
+      income_earner: "other_person",
+      other_person_name_bn: "মোঃ আসাদুজ্জামান",
+      other_person_income_amount: 45000,
+    },
+    schema: getServiceSchema(29),
+  });
+  assert.ok(bn.includes("৪৫,০০০"), "BN certificate prints the other person's amount in Bangla digits");
+  assert.ok(!bn.includes("৩০,০০০"), "BN certificate must not print the applicant's amount");
+  // And "self" still certifies the applicant's own monthly income.
+  const self = render({
+    number: "2026111812345684",
+    service: { service_no: 29, name_bn: "মাসিক আয় সনদ", name_en: "Monthly income certificate" },
+    payload: {
+      delivery_language: "en",
+      income_info_amount: 30000,
+      income_earner: "self",
+    },
+    schema: getServiceSchema(29),
+  });
+  assert.ok(self.includes("The applicant&#39;s own monthly income is BDT 30,000"));
 });
 
 /* ---------- API level: photo endpoints + bilingual issuance ---------- */

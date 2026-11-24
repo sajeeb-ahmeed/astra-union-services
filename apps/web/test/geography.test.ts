@@ -11,7 +11,9 @@ const source = [
   { level: "divisions", count: 8, parent: null, hash: "7cd85edac040eac2d66a692be3c709ee74d35f43eaa1701a62a679e7275c79b8" },
   { level: "districts", count: 64, parent: "divisionCode", hash: "8ee180d77ea24161cd9b0fa1ad669f3d554772f2424ad535882fe43097fe3622" },
   { level: "upazilas", count: 495, parent: "districtCode", hash: "d88126d4862bcab11915903b58f2d78a644c2d61cb8835fbcb5550165ffeaebd" },
-  { level: "unions", count: 4586, parent: "upazilaCode", hash: "80664b1a45b865d03013b760bd3aabd653e5c71cc33d24e8214192a5a7ae49a5" },
+  // QAFIX-01: uni-2774's name was corrected বেলাব → বেলাবো (live QA §4-12);
+  // the count is unchanged, the checksum follows the corrected name.
+  { level: "unions", count: 4586, parent: "upazilaCode", hash: "799dcdeb68329262d13f1c0e4f3995ad276726d0123ff7cf9b42029e8e7bfa50" },
   { level: "wards", count: 41274, parent: "unionCode", hash: "b83239fa631618404ecdd4a7c34df6507c5a68f1ce91d154ee2ea19138456c8a" },
 ] as const;
 

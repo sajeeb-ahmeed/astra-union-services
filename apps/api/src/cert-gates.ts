@@ -24,9 +24,13 @@ const present = (v: unknown) =>
 /** [banglaKey, englishKey] pairs per service (CERT-REFINE-01 A9). */
 const LANGUAGE_PAIRS: Record<number, [string, string][]> = {
   10: [["last_occupation", "last_occupation_en"]],
-  11: [["claimed_nationality", "claimed_nationality_en"]],
+  // Service 11 has no pair: QAFIX-03 made the declared nationality a
+  // single bilingual select, and both language documents render the
+  // chosen value from the certificate's label map (NATIONALITY_LABELS).
   16: [["deceased_spouse_name", "deceased_spouse_name_en"]],
-  18: [["community_name", "community_name_en"]],
+  // 18 removed by QAFIX-04 (the community-name pair collapsed into the
+  // single bilingual select; the value now comes from the certificate's
+  // label map, COMMUNITY_LABELS).
   20: [
     [
       "freedom_fighter_service_narrative_bn",

@@ -151,7 +151,7 @@ after(async () => {
   await admin.end();
 });
 
-test("integration fix 3: an EN trade licence order issues an English licence when the form has no delivery_language", async () => {
+test("integration fix 3: an EN trade licence order issues an English licence, the form's delivery_language agreeing with the order", async () => {
   // A zero-fee policy for service 42, so issuance is not stopped at the payment gate.
   const published = await request(
     "POST",
@@ -171,10 +171,16 @@ test("integration fix 3: an EN trade licence order issues an English licence whe
   assert.equal(published.status, 201, JSON.stringify(published.body));
   const policyVersion = published.body.policy.version;
 
-  const payload = getDemoPayload(42);
-  assert.ok(
-    !Object.hasOwn(payload, "delivery_language"),
-    "premise: the trade licence form carries no delivery_language field",
+  // QAFIX-08: the trade form now carries the standard
+  // delivery_language field (it previously had none, so the order
+  // alone chose the language and the review defaulted to Bangla).
+  // The citizen picks English in the form and the order agrees —
+  // the orders module rejects a form/order language mismatch.
+  const payload = { ...getDemoPayload(42), delivery_language: "en" };
+  assert.equal(
+    payload.delivery_language,
+    "en",
+    "premise: the trade licence form now asks the document language",
   );
   const preferences = {
     addressBasis: "registered_profile",

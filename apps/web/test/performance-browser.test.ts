@@ -156,7 +156,15 @@ test("performance: compact public service catalog keeps its own 47-row contract"
       "service_no",
     ]);
     const canonical = canonicalByNo.get(row.service_no)!;
-    assert.equal(row.name_bn, canonical.name_bn);
+    // QAFIX-05 (§3.21c): service 21's public name is the decomposed
+    // "কৃষি প্রত্যয়ন", matching the SEO text — the reference catalog
+    // keeps the precomposed form as pinned evidence (A3), so this one
+    // row deliberately differs from its reference name.
+    if (row.service_no === 21) {
+      assert.equal(row.name_bn, "কৃষি প্রত্যয়ন");
+    } else {
+      assert.equal(row.name_bn, canonical.name_bn);
+    }
     assert.equal(row.category_en, canonical.category_en);
     assert.ok(
       Number.isInteger(row.document_count) && row.document_count >= 0,

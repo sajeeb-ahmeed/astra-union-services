@@ -82,6 +82,30 @@ function lookup(path: string): Promise<Place[]> {
   }
   return promise;
 }
+/**
+ * QAFIX-01 (live QA §4 item 10): resolve a stored geography value's codes
+ * to place names, level by level, through the same cached lookups the
+ * selects use. The review screen renders names — never the raw codes
+ * (div-01 / dis-10 / …) citizens cannot read.
+ */
+export async function geographyNames(
+  value: Partial<GeographyValue> | null | undefined,
+): Promise<string[]> {
+  if (!value) return [];
+  const names: string[] = [];
+  let parentCode: string | undefined;
+  for (const level of levels) {
+    const code = value[level.key];
+    if (!code) break;
+    const path = `/geography/${level.endpoint}${parentCode ? `?parentCode=${encodeURIComponent(parentCode)}` : ""}`;
+    const places = await lookup(path);
+    const place = places.find((item) => item.code === code);
+    names.push(place ? choose({ bn: place.nameBn, en: place.nameEn }) : code);
+    parentCode = code;
+  }
+  return names;
+}
+
 function GeographySelect({
   level,
   parentCode,

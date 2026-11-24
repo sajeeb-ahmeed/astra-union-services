@@ -247,6 +247,31 @@ const actionDone: Record<string, { bn: string; en: string }> = {
     en: "The applicant has been asked to come.",
   },
 };
+/** QA-13 → QAFIX-09 (B1): the irreversible decisions (approve,
+    reject) are confirmed in an in-app modal in the reader's
+    language — the copy the native window.confirm used to carry,
+    minus its trailing question (the modal's buttons ask it). */
+const transitionConfirmText: Record<string, { bn: string; en: string }> = {
+  approve: {
+    bn: "অনুমোদন করলে সঙ্গে সঙ্গে সনদ ইস্যু হবে এবং তা ফেরানো যাবে না।",
+    en: "Approving issues the certificate immediately and cannot be undone.",
+  },
+  reject: {
+    bn: "আবেদনটি প্রত্যাখ্যান করবেন? এটি ফেরানো যাবে না।",
+    en: "Reject this application? This cannot be undone.",
+  },
+};
+const transitionConfirmTitle: Record<string, { bn: string; en: string }> = {
+  approve: {
+    bn: "অনুমোদন করে সনদ ইস্যু করুন",
+    en: "Approve and issue certificate",
+  },
+  reject: { bn: "প্রত্যাখ্যান করুন", en: "Reject application" },
+};
+const transitionConfirmButton: Record<string, { bn: string; en: string }> = {
+  approve: { bn: "হ্যাঁ, অনুমোদন করুন", en: "Confirm approval" },
+  reject: { bn: "হ্যাঁ, প্রত্যাখ্যান করুন", en: "Confirm rejection" },
+};
 /* FULL-UIUX-01 · OWNER-DECISION 1: real workspace routes. Hash-based
    (production is an SPA behind LiteSpeed with no rewrite control):
    #/<page>, #/applications/<id>, #/applications?state=X&service=N,
@@ -410,6 +435,7 @@ export function WorkspaceApp({
   const [selectedService, setSelectedService] = useState(45),
     [returnToIntake, setReturnToIntake] = useState(false),
     [detail, setDetail] = useState<any>(null),
+    [confirmAction, setConfirmAction] = useState<string | null>(null),
     [reason, setReason] = useState(""),
     [filter, setFilter] = useState(""),
     [search, setSearch] = useState("");
@@ -417,7 +443,9 @@ export function WorkspaceApp({
     [appQuery, setAppQuery] = useState(""),
     [appPage, setAppPage] = useState(1),
     [appPageSize, setAppPageSize] = useState(25),
-    [appTotal, setAppTotal] = useState(0);
+    // QAFIX-01 (§4 item 13): null until the first list answer arrives —
+    // totals show a loading dash, never a confident 0 that later jumps.
+    [appTotal, setAppTotal] = useState<number | null>(null);
   // Phase 6c: date range and renewals-only filters for the applications list.
   const [appFrom, setAppFrom] = useState(""),
     [appTo, setAppTo] = useState(""),
@@ -524,6 +552,11 @@ export function WorkspaceApp({
   useEffect(() => {
     setCitizenGeography(readGeography(session?.tenant));
   }, [session?.tenant?.id]);
+  // QAFIX-01 (§4 item 13): the global "Working…" line belongs to the
+  // initial load only. It used to re-render on every background refresh,
+  // which is why it looked stuck on the Applications page long after the
+  // list had loaded — the list's own skeletons cover later loads.
+  const [initialLoaded, setInitialLoaded] = useState(false);
   async function run(fn: () => Promise<void>) {
     setBusy(true);
     setMessage("");
@@ -534,6 +567,7 @@ export function WorkspaceApp({
       setErrorMessage((e as Error).message);
     } finally {
       setBusy(false);
+      setInitialLoaded(true);
     }
   }
   const refreshEpoch = useRef(0);
@@ -819,23 +853,24 @@ export function WorkspaceApp({
   }
   function closeDetail() {
     setActionError("");
+    setConfirmAction(null);
     setDetail(null);
     writeRoute(applicationsHash());
   }
   async function transition(action: string) {
-    // QA-13: decisions that cannot be undone ask once before they run.
-    const confirmText: Record<string, { bn: string; en: string }> = {
-      approve: {
-        bn: "অনুমোদন করলে সঙ্গে সঙ্গে সনদ ইস্যু হবে এবং তা ফেরানো যাবে না। চালিয়ে যাবেন?",
-        en: "Approving issues the certificate immediately and cannot be undone. Continue?",
-      },
-      reject: {
-        bn: "আবেদনটি প্রত্যাখ্যান করবেন? এটি ফেরানো যাবে না।",
-        en: "Reject this application? This cannot be undone.",
-      },
-    };
-    if (confirmText[action] && !window.confirm(choose(confirmText[action])))
+    // QAFIX-09 (B1): decisions that cannot be undone (QA-13) ask
+    // once before they run — in the in-app confirmation modal
+    // rendered below, not window.confirm: the native dialog is
+    // auto-cancelled by automated browsers, which silently
+    // stranded the chairman's approve/reject, and it cannot show
+    // the application reference. Other transitions run at once.
+    if (transitionConfirmText[action]) {
+      setConfirmAction(action);
       return;
+    }
+    await runTransition(action);
+  }
+  async function runTransition(action: string) {
     setActionError("");
     try {
       await api(`/applications/${application.id}/transition`, "POST", {
@@ -1490,7 +1525,7 @@ export function WorkspaceApp({
           ),
         )}
         {tx(
-          busy && (
+          busy && !initialLoaded && (
             <p role="status" className="working">
               {t("Working… ")}
             </p>
@@ -1583,7 +1618,11 @@ export function WorkspaceApp({
                     onClick={() => openTask("applications", "DRAFT")}
                   >
                     <StatCard
-                      value={localDigits(String(citizenCounts?.DRAFT ?? 0), language)}
+                      value={
+                        citizenCounts
+                          ? localDigits(String(citizenCounts.DRAFT ?? 0), language)
+                          : "—"
+                      }
                       label={choose({ bn: "খসড়া", en: "Drafts" })}
                       icon={<NavIcon name="applications" />}
                       context={choose({ bn: "চালিয়ে যান", en: "Continue" })}
@@ -1595,16 +1634,20 @@ export function WorkspaceApp({
                     onClick={() => openTask("applications")}
                   >
                     <StatCard
-                      value={localDigits(
-                        String(
-                          (citizenCounts?.SUBMITTED ?? 0) +
-                            (citizenCounts?.UNDER_REVIEW ?? 0) +
-                            (citizenCounts?.RESUBMITTED ?? 0) +
-                            (citizenCounts?.APPROVED ?? 0) +
-                            (citizenCounts?.ISSUANCE_PENDING ?? 0),
-                        ),
-                        language,
-                      )}
+                      value={
+                        citizenCounts
+                          ? localDigits(
+                              String(
+                                (citizenCounts.SUBMITTED ?? 0) +
+                                  (citizenCounts.UNDER_REVIEW ?? 0) +
+                                  (citizenCounts.RESUBMITTED ?? 0) +
+                                  (citizenCounts.APPROVED ?? 0) +
+                                  (citizenCounts.ISSUANCE_PENDING ?? 0),
+                              ),
+                              language,
+                            )
+                          : "—"
+                      }
                       label={choose({ bn: "পর্যালোচনাধীন", en: "In review" })}
                       icon={<NavIcon name="pending" />}
                       context={choose({ bn: "অবস্থা দেখুন", en: "Check status" })}
@@ -1616,7 +1659,11 @@ export function WorkspaceApp({
                     onClick={() => openTask("applications", "ISSUED")}
                   >
                     <StatCard
-                      value={localDigits(String(citizenCounts?.ISSUED ?? 0), language)}
+                      value={
+                        citizenCounts
+                          ? localDigits(String(citizenCounts.ISSUED ?? 0), language)
+                          : "—"
+                      }
                       label={choose({ bn: "ইস্যু হয়েছে", en: "Issued" })}
                       icon={<NavIcon name="print-certificate" />}
                       context={choose({ bn: "সনদ ডাউনলোড", en: "Download certificates" })}
@@ -2500,9 +2547,11 @@ export function WorkspaceApp({
                 </details>
                 <div className="application-filter-tools">
                   <p className="hint" role="status">
-                    {appTotal.toLocaleString(
-                      language === "bn" ? "bn-BD" : "en-GB",
-                    )}{" "}
+                    {appTotal === null
+                      ? "—"
+                      : appTotal.toLocaleString(
+                          language === "bn" ? "bn-BD" : "en-GB",
+                        )}{" "}
                     {choose({ bn: "টি আবেদন", en: "applications" })}
                   </p>
                 </div>
@@ -2584,16 +2633,16 @@ export function WorkspaceApp({
                   {t("Previous applications ")}
                 </button>
                 <span>
-                  {tx(appTotal)}
+                  {tx(appTotal ?? "—")}
                   {t(" results · Page ")}
                   {tx(appPage)}
                   {t(" /")}
                   {tx(" ")}
-                  {tx(Math.max(1, Math.ceil(appTotal / appPageSize)))}
+                  {tx(Math.max(1, Math.ceil((appTotal ?? 0) / appPageSize)))}
                 </span>
                 <button
                   className="secondary"
-                  disabled={busy || appPage * appPageSize >= appTotal}
+                  disabled={busy || appPage * appPageSize >= (appTotal ?? 0)}
                   onClick={() => setAppPage(appPage + 1)}
                 >
                   {t("Next applications ")}
@@ -3991,6 +4040,56 @@ export function WorkspaceApp({
           {branding.name} · {choose({ bn: branding.taglineBn, en: branding.taglineEn })}
         </footer>
       </main>
+      {/* QAFIX-09 (B1): the irreversible-decision confirmation —
+          an in-app modal replacing window.confirm (QA-13). It
+          names the application it will act on; confirming runs
+          the same transition the button asked for. */}
+      {tx(
+        confirmAction && application && (
+          <div
+            className="ws-confirm-backdrop"
+            onClick={() => setConfirmAction(null)}
+          >
+            <div
+              className="ws-confirm"
+              role="dialog"
+              aria-modal="true"
+              aria-label={actionText[confirmAction]}
+              onClick={(event) => event.stopPropagation()}
+            >
+              <h2>{choose(transitionConfirmTitle[confirmAction])}</h2>
+              <p>
+                {choose({ bn: "আবেদন নম্বর", en: "Application" })}
+                {tx(": ")}
+                <strong>{tx(application.reference)}</strong>
+              </p>
+              <p>{choose(transitionConfirmText[confirmAction])}</p>
+              <div className="ws-confirm-actions">
+                <button
+                  type="button"
+                  className="secondary"
+                  onClick={() => setConfirmAction(null)}
+                >
+                  {choose({ bn: "বাতিল", en: "Cancel" })}
+                </button>
+                <button
+                  type="button"
+                  className={confirmAction === "reject" ? "danger" : undefined}
+                  data-testid="confirm-transition"
+                  disabled={busy}
+                  onClick={() => {
+                    const action = confirmAction;
+                    setConfirmAction(null);
+                    void run(() => runTransition(action));
+                  }}
+                >
+                  {choose(transitionConfirmButton[confirmAction])}
+                </button>
+              </div>
+            </div>
+          </div>
+        ),
+      )}
       {/* FULL-UIUX-01 (B27/P1-12): the phone workspace gets a bottom tab
           bar — the role's top destinations (the pending tab carries the
           queue count) plus a "আরও" sheet with every page. The desktop

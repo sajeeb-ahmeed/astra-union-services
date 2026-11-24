@@ -581,7 +581,7 @@ test("ORDER-07: correction preserves order language and snapshot; uncollected po
   );
   const detail = (await request("GET", `/applications/${ordered.id}`)).body;
   const corrected = await request("PATCH", `/applications/${ordered.id}`, {
-    payload: { ...detail.payload, purpose_en: "Synthetic corrected purpose" },
+    payload: { ...detail.payload, purpose: "Synthetic corrected purpose" },
   });
   assert.equal(corrected.status, 200, JSON.stringify(corrected.body));
   await transition(ordered.id, "resubmit", "citizen");

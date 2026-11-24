@@ -263,7 +263,10 @@ function renderCertificateHtmlV6(
             ) +
             row(
               bn ? "আবেদনের উদ্দেশ্য" : "Application purpose",
-              input.payload[bn ? "purpose_bn" : "purpose_en"],
+              // QAFIX-01: new applications carry ONE purpose field; payloads
+              // pinned to earlier schema versions keep the per-language pair.
+              input.payload.purpose ??
+                input.payload[bn ? "purpose_bn" : "purpose_en"],
               `purpose_${lang}`,
             )
           : approvedSchemaData(

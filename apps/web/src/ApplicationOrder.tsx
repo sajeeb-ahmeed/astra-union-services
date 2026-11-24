@@ -28,6 +28,25 @@ export type IntakeOrderState = {
   order?: OrderInput;
 };
 const label = (bn: string, en: string) => choose({ bn, en });
+
+/**
+ * QAFIX-01 (§4 item 4): the fee-settings answer for a service is fetched
+ * once per session and shared — the flow prefetches it while the citizen
+ * fills the form, so entering the fee step resolves immediately instead
+ * of spinning on a cold request. A failed fetch is evicted so the step's
+ * own retry can try again; the server re-reads the policy for the quote
+ * and at application creation regardless.
+ */
+const orderOptionsCache = new Map<number, Promise<any>>();
+export function prefetchOrderOptions(serviceNo: number): Promise<any> {
+  let pending = orderOptionsCache.get(serviceNo);
+  if (!pending) {
+    pending = api(`/services/${serviceNo}/order-options`);
+    pending.catch(() => orderOptionsCache.delete(serviceNo));
+    orderOptionsCache.set(serviceNo, pending);
+  }
+  return pending;
+}
 export function money(minor: number) {
   return (minor / 100).toLocaleString(choose({ bn: "bn-BD", en: "en-BD" }), {
     minimumFractionDigits: 2,
@@ -156,7 +175,7 @@ export function ApplicationOrder({
     setError("");
     setQuote(null);
     setAccepted(false);
-    api(`/services/${serviceNo}/order-options`)
+    prefetchOrderOptions(serviceNo)
       .then((result) => {
         if (!active) return;
         setPolicy(result.configured ? result.policy : null);
@@ -254,7 +273,7 @@ export function ApplicationOrder({
       <div className="form-grid">
         <div className="field">
           <label htmlFor="order-language">
-            {label("সনদের ভাষা", "Certificate language")}
+            {label("নথির ভাষা", "Document language")}
           </label>
           <select
             id="order-language"

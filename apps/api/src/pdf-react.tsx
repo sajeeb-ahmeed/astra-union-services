@@ -27,6 +27,7 @@ import {
   STATUS_SENTENCE_EN,
   STATUS_SENTENCE_SERVICES,
   CORRECTION_FIELD_LABELS,
+  orgTypeLabel,
   amountInWordsBn,
   amountInWordsEn,
   bnDigits,
@@ -2038,7 +2039,7 @@ function tradeLicenceBody(ctx: DocContext, base: CertFamily) {
         {trow(3, L.mother, motherName)}
         {trow(4, L.father, fatherName)}
         {trow(5, L.spouse, text(bn ? p.proprietor_spouse_name_bn : p.proprietor_spouse_name))}
-        {trow(6, L.orgType, text(bn ? p.trade_license_org_type_bn : p.trade_license_org_type))}
+        {trow(6, L.orgType, orgTypeLabel(p, bn))}
         {trow(7, L.businessType, businessType)}
         {trow(8, L.businessAddress, businessAddress)}
         {halfRow(

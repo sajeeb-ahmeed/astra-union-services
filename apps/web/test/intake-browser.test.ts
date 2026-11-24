@@ -156,11 +156,12 @@ test(
         .click();
       await assertBlank(page);
       await page
-        .getByLabel("Purpose (English)", { exact: false })
+        .locator('[data-field-path="purpose"]')
         .fill("Unsaved applicant entered purpose");
       await page.getByRole("button", { name: "বাংলা", exact: true }).click();
       assert.equal(
-        await page.locator("[id$='purpose_en']").inputValue(),
+        // QAFIX-01: the purpose is one field now (was purpose_en).
+        await page.locator('[data-field-path="purpose"]').inputValue(),
         "Unsaved applicant entered purpose",
       );
       assert.match(await page.locator(".ax-eyebrow").innerText(), /৪৫/);
@@ -329,6 +330,16 @@ test(
             url: `${origin}${requested.pathname}${requested.search}`,
             headers: {
               ...route.request().headers(),
+              // QAFIX-09: the API's deliberate single-origin guard
+              // (httpHardening + session middleware) rejects
+              // mutations from any origin but PUBLIC_ORIGIN, and the
+              // hosted page's first mutation is the svc-45 document
+              // upload (POST /attachments → 403 ORIGIN_DENIED).
+              // The proxy already rewrites host + cookie to emulate
+              // the production reverse proxy; presenting the app
+              // origin keeps the hosted-hostname UI coverage while
+              // the guard itself stays covered by the API suite.
+              origin,
               host: new URL(origin).host,
               cookie: cookies
                 .map((cookie) => `${cookie.name}=${cookie.value}`)

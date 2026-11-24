@@ -38,7 +38,16 @@ export function ProfileCompletionCard({
   const needAddressBn = gaps.includes("address") && !filled(citizen?.addressBn);
   const needAddressEn = gaps.includes("address") && !filled(citizen?.addressEn);
   const needWard = gaps.includes("geography");
-  const [form, setForm] = useState({ nameBn: "", nameEn: "", dateOfBirth: "", addressBn: "", addressEn: "" });
+  // QAFIX-01 (§1 bug 5): start from whatever the profile already holds —
+  // a field is only ASKED when its gap is open, but the card never opens
+  // blank over data the citizen has already saved.
+  const [form, setForm] = useState({
+    nameBn: citizen?.nameBn ?? "",
+    nameEn: citizen?.nameEn ?? "",
+    dateOfBirth: citizen?.dateOfBirth ?? "",
+    addressBn: citizen?.addressBn ?? "",
+    addressEn: citizen?.addressEn ?? "",
+  });
   const [geography, setGeography] = useState(() => readGeography(citizen?.geography));
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [pageError, setPageError] = useState("");

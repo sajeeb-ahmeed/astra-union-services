@@ -69,6 +69,7 @@ async function login(name: string) {
 async function createSubmitted(
   no = 45,
   payload = demoPayloads[no as keyof typeof demoPayloads],
+  order?: Record<string, unknown>,
 ) {
   const created = await request(
     "POST",
@@ -77,6 +78,7 @@ async function createSubmitted(
       citizenId: citizen.id,
       serviceNo: no,
       payload,
+      ...(order ? { order } : {}),
     },
     sessions["alpha:staff"],
   );
@@ -96,8 +98,9 @@ async function createSubmitted(
 async function createIssued(
   no = 45,
   payload = demoPayloads[no as keyof typeof demoPayloads],
+  order?: Record<string, unknown>,
 ) {
-  const created = await createSubmitted(no, payload);
+  const created = await createSubmitted(no, payload, order);
   const approved = await request(
     "POST",
     `/applications/${created.id}/transition`,
@@ -343,7 +346,8 @@ test("FOR-02 / APP-01 / APP-04: valid versioned draft, correction, resubmission 
   assert.equal(correction.body.state, "CORRECTION_REQUIRED");
   const revised = {
     ...demoPayloads[45],
-    purpose_en: "Revised synthetic demonstration purpose",
+    // QAFIX-01: the purpose is a single field now (was purpose_en).
+    purpose: "Revised synthetic demonstration purpose",
   };
   const edited = await request(
     "PATCH",
@@ -416,10 +420,10 @@ test("FOR-02 / APP-01 / APP-04: valid versioned draft, correction, resubmission 
   assert.equal(detail.body.application.feeCredits, 0);
   assert.equal(detail.body.versions.length, 2);
   assert.equal(
-    detail.body.versions[0].payload.purpose_en,
-    demoPayloads[45].purpose_en,
+    detail.body.versions[0].payload.purpose,
+    demoPayloads[45].purpose,
   );
-  assert.equal(detail.body.payload.purpose_en, revised.purpose_en);
+  assert.equal(detail.body.payload.purpose, revised.purpose);
   // Phase 3B: the successful approval adds an approve AND an issue event
   // (the old blocked approval recorded only the approve event).
   assert.equal(detail.body.events.length, 7);
@@ -906,13 +910,36 @@ test("WAL-05 / BILL-01 / BILL-02: verified sandbox settlements are replay-safe a
 });
 test("FOR-02: repeatable family and conditional trade forms persist through the same engine", async () => {
   for (const no of [2, 42]) {
-    // CERT-REFINE-01 (A11): a trade licence cannot issue with a blank fee
-    // block, so the trade application carries real fee components.
-    const payload =
-      no === 42
-        ? { ...demoPayloads[42], trade_fee_new: 300, trade_fee_vat: 45 }
-        : demoPayloads[no as keyof typeof demoPayloads];
-    const issued = await createIssued(no, payload);
+    // QAFIX-08: the trade form no longer collects fee components
+    // (fees are system-set only), so the plain fixture payload is
+    // used — demo issuance never required citizen-typed fees.
+    // When the office has an order policy for service 42 (the
+    // certificate-assets suite publishes a zero-fee one for its
+    // official-mode issuance earlier in this shared-DB run), the
+    // creation must carry a matching order instead.
+    let payload: Record<string, unknown> = demoPayloads[no as keyof typeof demoPayloads];
+    let order: Record<string, unknown> | undefined;
+    if (no === 42) {
+      const policyVersion = (
+        await admin.query(
+          "SELECT COALESCE(MAX(version),0)::int v FROM service_order_policies WHERE tenant_id=$1 AND service_no=42",
+          [sessions["alpha:staff"].user.tenantId],
+        )
+      ).rows[0].v as number;
+      if (policyVersion > 0) {
+        payload = { ...payload, delivery_language: "en" };
+        order = {
+          policyVersion,
+          preferences: {
+            addressBasis: "registered_profile",
+            certificateLanguage: "en",
+            deliveryMode: "office_collection",
+            urgency: "normal",
+          },
+        };
+      }
+    }
+    const issued = await createIssued(no, payload, order);
     const detail = (
       await request(
         "GET",
@@ -1157,8 +1184,12 @@ test("CER-01: current resident PDFs contain approved purpose/residency and genui
     const payload: Record<string, unknown> = {
       ...demoPayloads[45],
       residence_since: expected.residenceSince,
-      purpose_bn: expected.purposeBn,
-      purpose_en: expected.purposeEn,
+      // QAFIX-01: the purpose is entered once, in one language; the
+      // certificate prints that single text in every language section.
+      // Each journey here states it in the certificate's own language
+      // (bilingual keeps the Bangla statement).
+      purpose: language === "en" ? expected.purposeEn : expected.purposeBn,
+      purpose_language: language === "en" ? "en" : "bn",
       delivery_language: language,
     };
     // Phase W: the Chairman's approve issued this certificate already; the
@@ -1229,7 +1260,14 @@ test("CER-01: current resident PDFs contain approved purpose/residency and genui
       assert.ok(body.includes(payload.permanent_address_en as string));
       assert.ok(body.includes(expected.residenceSince));
       assert.ok(
-        body.includes("Synthetic scholarship &amp; study application"),
+        body.includes(
+          // QAFIX-01: an English certificate carries the English purpose;
+          // a bilingual one repeats the citizen's single (Bangla) purpose
+          // in both sections — there is no second-language purpose text.
+          language === "en"
+            ? "Synthetic scholarship &amp; study application"
+            : expected.purposeBn,
+        ),
         "Approved text is escaped for HTML but retains its value in the PDF",
       );
       assert.ok(body.includes('data-language="en"'));

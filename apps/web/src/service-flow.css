@@ -14,6 +14,11 @@
   margin: 0;
   color: var(--ax-green-800);
 }
+.ax-flow-desc {
+  margin: var(--ax-space-1) 0 0;
+  max-width: 640px;
+  color: var(--ax-muted, #4b5563);
+}
 .ax-flow-panel {
   background: var(--ax-surface);
   border: 1px solid var(--ax-line);
@@ -133,6 +138,10 @@
 }
 .ax-flow-details-list dd {
   margin: 0;
+}
+/* QAFIX-01: repeatable rows render one per line, never a cut-off run-on. */
+.ax-flow-details-list dd.repeatable {
+  white-space: pre-line;
 }
 .ax-flow-done {
   display: flex;

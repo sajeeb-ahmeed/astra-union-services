@@ -104,7 +104,14 @@ template instructs. The critical ones:
   `emailDelivery:false`). Never set `EMAIL_PROVIDER=log` in production
   (Audit 01, F1): the log provider delivers nothing.
 
-## 5. Initialise the database (once)
+## 5. Initialise the database (after EVERY deploy, not just once)
+
+> **MUST — never skip.** Every bundle deploy ends with this step, even
+> when the bundle contains no new migration. Schema versions live in the
+> `service_versions` DB table and reach it ONLY through this publish
+> step. Skipping it after the r9 deploy (24 Nov 2026) broke live
+> applications with 422 `SCHEMA_UNAVAILABLE` ("Operational schema
+> version is unavailable") until it was run.
 
 Open cPanel **Terminal** (or SSH), go to the application directory, put
 the same variables into the shell (a `.env` file in the app directory,
@@ -115,9 +122,20 @@ npm run db:initialize-cpanel
 ```
 
 Expected output ends with the single-role migration totals and
-"Published catalog and demo plan initialized". This creates the service
+"Published catalog and standard plan initialized". This creates the service
 catalog (47 services) and the platform owner account from `OWNER_EMAIL` /
-`OWNER_PASSWORD`.
+`OWNER_PASSWORD`, and publishes every schema version the bundle's code
+defines.
+
+If `initialize` throws `Service N version V is immutable; publish a new
+schema version`, do NOT edit `initialize.ts` and do NOT re-run it hoping
+it passes. Generate a reconcile publish migration from the DEPLOYED
+bundle's code (pattern: migrations 054 and 057 — update differing known
+`(service_no, version)` rows to canonical, insert missing rows, raise
+only on unknown keys or newer-than-canonical versions), drop the file
+into `db/migrations/`, run `db:migrate-cpanel`, then re-run
+`db:initialize-cpanel`. Verify the initialize output before calling the
+deploy done.
 
 Do **not** run `npm run db:seed` in production: it loads synthetic demo
 tenants, and it expects a bypass-RLS admin connection that single-role

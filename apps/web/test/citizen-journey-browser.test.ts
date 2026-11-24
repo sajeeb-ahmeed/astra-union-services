@@ -116,7 +116,7 @@ test(
       );
       const { permanent_address_bn: _bn, permanent_address_en: _en, ...rest } = demoPayloads[45] as Record<string, unknown>;
       await fillApplicationForm(page, rest);
-      await page.getByLabel("Purpose (English)", { exact: false }).fill("Journey test purpose");
+      await page.locator('[data-field-path="purpose"]').fill("Journey test purpose");
       await page.getByRole("button", { name: "Next: fees and delivery", exact: true }).click();
       await throughFees(page);
       // On a phone the sticky action bar sits above the bottom tab bar: the

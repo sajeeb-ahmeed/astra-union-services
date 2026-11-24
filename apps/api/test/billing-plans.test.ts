@@ -373,7 +373,7 @@ test("Phase 3C: a limited plan covers N submits, then the per-service credit pri
   const edited = await req(
     "PATCH",
     `/applications/${first}`,
-    { payload: { ...getDemoPayload(SERVICE), delivery_language: "bn", purpose_en: "Revised synthetic purpose" } },
+    { payload: { ...getDemoPayload(SERVICE), delivery_language: "bn", purpose: "Revised synthetic purpose" } },
     officeL.citizen,
   );
   assert.equal(edited.status, 200, JSON.stringify(edited.body));

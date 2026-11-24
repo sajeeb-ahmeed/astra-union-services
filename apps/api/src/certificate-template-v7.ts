@@ -135,6 +135,12 @@ export const RELATIONSHIP_LABELS: Record<string, { bn: string; en: string }> = {
   parent: { bn: "পিতা/মাতা", en: "Parent" },
   sibling: { bn: "ভাই/বোন", en: "Sibling" },
   other: { bn: "অন্যান্য", en: "Other" },
+  // QAFIX-05 (§4 item 9): the guardian list (services 19/24) adds these
+  // codes; the certificate prints their labels, never the raw codes.
+  grandparent: { bn: "দাদা/দাদি/নানা/নানি", en: "Grandparent" },
+  uncle: { bn: "চাচা/মামা", en: "Uncle" },
+  aunt: { bn: "চাচি/মামি/খালা", en: "Aunt" },
+  guardian: { bn: "অভিভাবক", en: "Guardian" },
 };
 export const relationshipLabel = (value: unknown, bn: boolean) => {
   const entry = RELATIONSHIP_LABELS[text(value)];
@@ -153,6 +159,119 @@ export const MARITAL_LABELS: Record<string, { bn: string; en: string }> = {
   widowed: { bn: "বিধবা/বিপত্নীক", en: "Widowed" },
   divorced: { bn: "তালাকপ্রাপ্ত", en: "Divorced" },
 };
+/**
+ * QAFIX-03 (§4 item 9): declared-nationality labels for service 11. From
+ * schema v5 the declared nationality is a closed select; the certificate
+ * prints the chosen value's label in the document's own language.
+ * Payloads pinned to earlier versions carry free text instead — the
+ * attestation falls back to printing that text verbatim.
+ */
+export const NATIONALITY_LABELS: Record<string, { bn: string; en: string }> = {
+  bangladeshi: { bn: "বাংলাদেশি", en: "Bangladeshi" },
+  indian: { bn: "ভারতীয়", en: "Indian" },
+  pakistani: { bn: "পাকিস্তানি", en: "Pakistani" },
+  nepali: { bn: "নেপালি", en: "Nepali" },
+  myanmar: { bn: "বার্মিজ", en: "Myanmar" },
+  chinese: { bn: "চীনা", en: "Chinese" },
+  british: { bn: "ব্রিটিশ", en: "British" },
+  american: { bn: "মার্কিন", en: "American" },
+  other: { bn: "অন্যান্য", en: "Other" },
+};
+/**
+ * QAFIX-04 (§4 item 9): standard-occupation labels for service 17.
+ * From schema v4 the profession is a closed select; the certificate
+ * prints the chosen value's label in the document's own language.
+ * Payloads pinned to earlier versions carry free text instead — the
+ * attestation falls back to printing that text verbatim. Must stay in
+ * sync with qaFix4ProfessionOptions (expanded-schemas.ts).
+ */
+export const PROFESSION_LABELS: Record<string, { bn: string; en: string }> = {
+  farmer: { bn: "কৃষক", en: "Farmer" },
+  teacher: { bn: "শিক্ষক", en: "Teacher" },
+  doctor: { bn: "চিকিৎসক", en: "Doctor" },
+  engineer: { bn: "প্রকৌশলী", en: "Engineer" },
+  business: { bn: "ব্যবসায়ী", en: "Businessperson" },
+  government_employee: { bn: "সরকারি চাকরিজীবী", en: "Government employee" },
+  private_employee: { bn: "বেসরকারি চাকরিজীবী", en: "Private-sector employee" },
+  lawyer: { bn: "আইনজীবী", en: "Lawyer" },
+  journalist: { bn: "সাংবাদিক", en: "Journalist" },
+  shopkeeper: { bn: "দোকানদার", en: "Shopkeeper" },
+  driver: { bn: "চালক", en: "Driver" },
+  rickshaw_puller: { bn: "রিকশাচালক", en: "Rickshaw puller" },
+  day_labourer: { bn: "দিনমজুর", en: "Day labourer" },
+  fisherman: { bn: "জেলে", en: "Fisherman" },
+  weaver: { bn: "তাঁতি", en: "Weaver" },
+  artisan: { bn: "কারিগর", en: "Artisan" },
+  homemaker: { bn: "গৃহিণী", en: "Homemaker" },
+  student: { bn: "ছাত্র/ছাত্রী", en: "Student" },
+  retired: { bn: "অবসরপ্রাপ্ত", en: "Retired" },
+  other: { bn: "অন্যান্য", en: "Other" },
+};
+/**
+ * QAFIX-04 (§4 item 9): recognised-community labels for service 18.
+ * From schema v4 the community is a closed select; the certificate
+ * prints the chosen value's label in the document's own language.
+ * Payloads pinned to earlier versions carry free text instead — the
+ * attestation falls back to printing that text verbatim (with the
+ * trailing "সম্প্রদায়" / " community" stripped as before). Must stay
+ * in sync with qaFix4CommunityOptions (expanded-schemas.ts).
+ */
+export const COMMUNITY_LABELS: Record<string, { bn: string; en: string }> = {
+  chakma: { bn: "চাকমা", en: "Chakma" },
+  marma: { bn: "মারমা", en: "Marma" },
+  tripura: { bn: "ত্রিপুরা", en: "Tripura" },
+  tanchangya: { bn: "তঞ্চঙ্গ্যা", en: "Tanchangya" },
+  barua: { bn: "বড়ুয়া", en: "Barua" },
+  mro: { bn: "ম্রো", en: "Mro" },
+  bawm: { bn: "বম", en: "Bawm" },
+  khumi: { bn: "খুমি", en: "Khumi" },
+  chak: { bn: "চাক", en: "Chak" },
+  pankho: { bn: "পাংখো", en: "Pankho" },
+  lushei: { bn: "লুসাই", en: "Lushei" },
+  khyang: { bn: "খিয়াং", en: "Khyang" },
+  garo: { bn: "গারো", en: "Garo" },
+  hajong: { bn: "হাজং", en: "Hajong" },
+  koch: { bn: "কোচ", en: "Koch" },
+  rajbanshi: { bn: "রাজবংশী", en: "Rajbanshi" },
+  santal: { bn: "সাঁওতাল", en: "Santal" },
+  oraon: { bn: "ওরাঁও", en: "Oraon" },
+  munda: { bn: "মুন্ডা", en: "Munda" },
+  khasi: { bn: "খাসি", en: "Khasi" },
+  manipuri: { bn: "মণিপুরি", en: "Manipuri" },
+  muslim: { bn: "মুসলিম", en: "Muslim" },
+  hindu: { bn: "হিন্দু", en: "Hindu" },
+  buddhist: { bn: "বৌদ্ধ", en: "Buddhist" },
+  christian: { bn: "খ্রিস্টান", en: "Christian" },
+  other: { bn: "অন্যান্য", en: "Other" },
+};
+
+/**
+ * QAFIX-08 (§4 item 9): organisation-type labels for service 42.
+ * From schema v6 the type is a closed select in
+ * `trade_license_org_type`; the licence prints the chosen value's
+ * label in the document's own language. Payloads pinned to
+ * earlier versions carry the free-text pair instead — the caller
+ * falls back to printing that pair verbatim. Must stay in sync
+ * with qaFix8OrgTypeOptions (expanded-schemas.ts).
+ */
+export const ORG_TYPE_LABELS: Record<string, { bn: string; en: string }> = {
+  proprietorship: { bn: "একক মালিকানা", en: "Sole proprietorship" },
+  partnership: { bn: "অংশীদারি", en: "Partnership" },
+  private_limited: { bn: "প্রাইভেট লিমিটেড কোম্পানি", en: "Private limited company" },
+  public_limited: { bn: "পাবলিক লিমিটেড কোম্পানি", en: "Public limited company" },
+  cooperative: { bn: "সমবায় সমিতি", en: "Cooperative society" },
+  other: { bn: "অন্যান্য", en: "Other" },
+};
+
+/** The organisation type as printed on a trade licence (QAFIX-08). */
+export function orgTypeLabel(
+  p: Record<string, unknown>,
+  bn: boolean,
+): string {
+  const label = ORG_TYPE_LABELS[text(p.trade_license_org_type)];
+  if (label) return bn ? label.bn : label.en;
+  return cleanText(bn ? p.trade_license_org_type_bn : p.trade_license_org_type);
+}
 /** Service 33 correction field keys → printed labels (CERT-REFINE-01 §B svc33 fixed map). */
 export const CORRECTION_FIELD_LABELS: Record<string, { bn: string; en: string }> = {
   name: { bn: "নাম", en: "Name" },
@@ -210,6 +329,17 @@ export function deathCauseEn(reason: unknown): string {
  * labels (normalised match); any other value prints exactly as stored —
  * arbitrary free text cannot be translated safely. */
 const PASSPORT_PURPOSES: Record<string, { bn: string; en: string }> = {
+  // QAFIX-06 (service 27): the fixed select values the repaired form
+  // offers. The issuance-phrase entries below stay for payloads pinned
+  // to earlier schema versions, whose purpose was free text.
+  travel: { bn: "ভ্রমণ", en: "travel" },
+  employment: { bn: "বিদেশে কর্মসংস্থান", en: "employment abroad" },
+  hajj: { bn: "হজ্জ", en: "Hajj" },
+  umrah: { bn: "ওমরাহ", en: "Umrah" },
+  study: { bn: "শিক্ষা", en: "study" },
+  treatment: { bn: "চিকিৎসা", en: "medical treatment" },
+  business: { bn: "ব্যবসা", en: "business" },
+  other: { bn: "অন্যান্য", en: "other" },
   "new passport issuance": { bn: "নতুন পাসপোর্ট প্রদান", en: "new passport issuance" },
   "passport issuance": { bn: "পাসপোর্ট প্রদান", en: "passport issuance" },
   "passport renewal": { bn: "পাসপোর্ট নবায়ন", en: "passport renewal" },
@@ -418,15 +548,21 @@ export const ATTESTATIONS_BN: Record<number, Attestation> = {
       "তাঁহার স্বভাব-চরিত্র ভালো; তিনি রাষ্ট্রবিরোধী কোনো কার্যকলাপের সহিত জড়িত নন।",
     );
   },
-  11: (p) =>
-    joinSentences(
-      present(p.claimed_nationality)
-        ? `তিনি জাতীয়তায় ${cleanText(p.claimed_nationality)}।`
-        : "তিনি জাতীয়তায় বাংলাদেশি।",
+  11: (p) => {
+    // QAFIX-03: from schema v5 the value is a select code with a label
+    // map; pinned payloads carry free text and print it verbatim.
+    const nat = NATIONALITY_LABELS[text(p.claimed_nationality)];
+    return joinSentences(
+      nat
+        ? `তিনি জাতীয়তায় ${nat.bn}।`
+        : present(p.claimed_nationality)
+          ? `তিনি জাতীয়তায় ${cleanText(p.claimed_nationality)}।`
+          : "তিনি জাতীয়তায় বাংলাদেশি।",
       MARITAL_LABELS[text(p.marital_status)]
         ? `বৈবাহিক অবস্থাঃ ${MARITAL_LABELS[text(p.marital_status)].bn}।`
         : "",
-    ),
+    );
+  },
   // CERT-REFINE-01 §12: the captured basis-based wording is kept (A3-aligned).
   12: (p) => {
     const basis = `${text(p.citizenship_basis)} ${text(p.citizenship_basis_bn)}`;
@@ -456,12 +592,27 @@ export const ATTESTATIONS_BN: Record<number, Attestation> = {
       "তিনি বিধবা।",
       "স্বামীর মৃত্যুর পর তিনি সন্তানদের সহিত বসবাস করিতেছেন।",
     ),
-  17: (p) =>
-    present(p.profession_bn)
-      ? `তিনি পেশায় একজন ${cleanText(p.profession_bn)}।`
-      : "তাঁহার পেশা আবেদনে উল্লিখিত অনুযায়ী প্রত্যয়ন করা যাচ্ছে।",
+  17: (p) => {
+    // QAFIX-04: from schema v4 the value is a select code with a label
+    // map; pinned payloads carry free text and print it verbatim.
+    const prof = PROFESSION_LABELS[text(p.profession)];
+    const value = prof
+      ? prof.bn
+      : present(p.profession_bn)
+        ? cleanText(p.profession_bn)
+        : "";
+    return value
+      ? `তিনি পেশায় একজন ${value}।`
+      : "তাঁহার পেশা আবেদনে উল্লিখিত অনুযায়ী প্রত্যয়ন করা যাচ্ছে।";
+  },
   18: (p) => {
-    const name = cleanText(p.community_name).replace(/\s*সম্প্রদায়$/u, "");
+    // QAFIX-04: from schema v4 the value is a select code with a label
+    // map; pinned payloads carry free text and print it verbatim (the
+    // trailing "সম্প্রদায়" stripped as before).
+    const label = COMMUNITY_LABELS[text(p.community_name)];
+    const name = label
+      ? label.bn
+      : cleanText(p.community_name).replace(/\s*সম্প্রদায়$/u, "");
     return name
       ? `তিনি ${name} সম্প্রদায়ের সদস্য।`
       : "তিনি আবেদনে উল্লিখিত সম্প্রদায়ের সদস্য।";
@@ -499,7 +650,9 @@ export const ATTESTATIONS_BN: Record<number, Attestation> = {
   22: "আমার জানামতে এবং স্থানীয় তদন্ত অনুযায়ী তিনি অবিবাহিত; তিনি কখনো বিবাহ বন্ধনে আবদ্ধ হন নাই।",
   23: (p) => {
     const subject =
-      p.other_person === true
+      // QAFIX-05: the earner is chosen from the income_earner select;
+      // the other_person fallback keeps pinned v4 payloads rendering.
+      p.income_earner === "other_person" || p.other_person === true
         ? present(p.other_person_name_bn)
           ? `তাঁহার অভিভাবক ${cleanText(p.other_person_name_bn)} এর`
           : "তাঁহার অভিভাবকের"
@@ -543,15 +696,25 @@ export const ATTESTATIONS_BN: Record<number, Attestation> = {
       "তিনি আমার ব্যক্তিগতভাবে পরিচিত।",
     ),
   29: (p) => {
-    const subject =
-      p.other_person === true
-        ? present(p.other_person_name_bn)
-          ? `তাঁহার অভিভাবক ${cleanText(p.other_person_name_bn)} এর`
-          : "তাঁহার অভিভাবকের"
-        : "আবেদনকারীর নিজের";
+    const otherPerson =
+      // QAFIX-06: the earner is chosen from the income_earner select;
+      // the other_person fallback keeps pinned v4 payloads rendering.
+      p.income_earner === "other_person" || p.other_person === true;
+    const subject = otherPerson
+      ? present(p.other_person_name_bn)
+        ? `তাঁহার অভিভাবক ${cleanText(p.other_person_name_bn)} এর`
+        : "তাঁহার অভিভাবকের"
+      : "আবেদনকারীর নিজের";
+    // QAFIX-06: an other-person certificate prints THAT person's
+    // monthly amount when the repaired form captured it; pinned
+    // payloads carry only the shared amount.
+    const amount =
+      otherPerson && present(p.other_person_income_amount)
+        ? p.other_person_income_amount
+        : p.income_info_amount;
     return joinSentences(
-      present(p.income_info_amount)
-        ? `${subject} মাসিক আয় ${bnDigits(Number(p.income_info_amount).toLocaleString("en-IN"))} টাকা (${amountInWordsBn(Number(p.income_info_amount))} টাকা মাত্র)।`
+      present(amount)
+        ? `${subject} মাসিক আয় ${bnDigits(Number(amount).toLocaleString("en-IN"))} টাকা (${amountInWordsBn(Number(amount))} টাকা মাত্র)।`
         : `${subject} মাসিক আয় আবেদনে উল্লিখিত অনুযায়ী।`,
       present(p.profession_bn) ? `তাঁহার পেশাঃ ${cleanText(p.profession_bn)}।` : "",
     );
@@ -617,7 +780,14 @@ export const ATTESTATIONS_BN: Record<number, Attestation> = {
         : "",
     ),
   40: (p) => {
-    const name = cleanText(p.community_name);
+    // QAFIX-08: from schema v5 the value is a select code resolved
+    // through COMMUNITY_LABELS (as service 18 since QAFIX-04);
+    // pinned payloads carry free text and print it verbatim (the
+    // trailing "সম্প্রদায়" stripped as on service 18).
+    const label = COMMUNITY_LABELS[text(p.community_name)];
+    const name = label
+      ? label.bn
+      : cleanText(p.community_name).replace(/\s*সম্প্রদায়$/u, "");
     return name
       ? `তিনি ${name} ক্ষুদ্র নৃ-গোষ্ঠী সম্প্রদায়ের সদস্য।`
       : "তিনি আবেদনে উল্লিখিত ক্ষুদ্র নৃ-গোষ্ঠী সম্প্রদায়ের সদস্য।";
@@ -635,6 +805,15 @@ export const ATTESTATIONS_BN: Record<number, Attestation> = {
   44: (p) => {
     const name = cleanText(p.previous_spouse_name);
     if (!name) return "তিনি পুনরায় বিবাহ বন্ধনে আবদ্ধ হন নাই বলে প্রত্যয়ন করা যাচ্ছে।";
+    // QAFIX-09: from schema v5 the applicant states how the previous
+    // marriage ended; a divorce prints the divorce sentence with the
+    // divorce date. Pinned payloads carry no marriage_end_type and
+    // print the historical death sentences byte-identically.
+    if (text(p.marriage_end_type) === "divorce")
+      return joinSentences(
+        `তাঁহার পূর্বের স্বামী/স্ত্রী ${name} এর সহিত তাঁহার বিবাহ বিচ্ছেদ ঘটে${present(p.divorce_date) ? ` (গত ${bnDateIso(p.divorce_date)} তারিখে)` : ""}।`,
+        "বিবাহ বিচ্ছেদের পর হইতে তিনি অদ্যাবধি পুনরায় বিবাহ বন্ধনে আবদ্ধ হন নাই।",
+      );
     return joinSentences(
       `তাঁহার স্বামী মৃত ${name}${present(p.spouse_death_date) ? ` গত ${bnDateIso(p.spouse_death_date)} তারিখে` : ""} মৃত্যুবরণ করেন।`,
       "স্বামীর মৃত্যুর পর তিনি অদ্যাবধি পুনরায় বিবাহ বন্ধনে আবদ্ধ হন নাই এবং সন্তানদের সহিত বসবাস করিতেছেন।",
@@ -695,15 +874,23 @@ export const ATTESTATIONS_EN: Record<number, Attestation> = {
       "The person's character is good; the person is not involved in any anti-state activity.",
     );
   },
-  11: (p) =>
-    joinSentences(
-      present(p.claimed_nationality_en)
-        ? `The person's nationality is ${cleanText(p.claimed_nationality_en)}.`
-        : "The person's nationality is Bangladeshi.",
+  11: (p) => {
+    // QAFIX-03: from schema v5 the value is a select code with a label
+    // map; pinned payloads carry the free-text pair and print it verbatim.
+    const nat = NATIONALITY_LABELS[text(p.claimed_nationality)];
+    return joinSentences(
+      nat
+        ? `The person's nationality is ${nat.en}.`
+        : present(p.claimed_nationality_en)
+          ? `The person's nationality is ${cleanText(p.claimed_nationality_en)}.`
+          : present(p.claimed_nationality)
+            ? `The person's nationality is ${cleanText(p.claimed_nationality)}.`
+            : "The person's nationality is Bangladeshi.",
       MARITAL_LABELS[text(p.marital_status)]
         ? `Marital status: ${MARITAL_LABELS[text(p.marital_status)].en}.`
         : "",
-    ),
+    );
+  },
   // CERT-REFINE-01 §12: the captured basis-based wording is kept (A3-aligned).
   12: (p) => {
     const basis = `${text(p.citizenship_basis)} ${text(p.citizenship_basis_bn)}`;
@@ -733,12 +920,27 @@ export const ATTESTATIONS_EN: Record<number, Attestation> = {
       "The person is a widow.",
       "After the spouse's death, the person has been living with the children.",
     ),
-  17: (p) =>
-    present(p.profession_en ?? p.profession)
-      ? `The person is a ${cleanText(p.profession_en ?? p.profession)} by profession.`
-      : "The person's profession is certified as stated in the application.",
+  17: (p) => {
+    // QAFIX-04: from schema v4 the value is a select code with a label
+    // map; pinned payloads carry free text and print it verbatim.
+    const prof = PROFESSION_LABELS[text(p.profession)];
+    const value = prof
+      ? prof.en
+      : present(p.profession_en)
+        ? cleanText(p.profession_en)
+        : "";
+    return value
+      ? `The person is a ${value} by profession.`
+      : "The person's profession is certified as stated in the application.";
+  },
   18: (p) => {
-    const name = cleanText(p.community_name_en).replace(/\s+community$/i, "");
+    // QAFIX-04: from schema v4 the value is a select code with a label
+    // map; pinned payloads carry free text and print it verbatim (the
+    // trailing " community" stripped as before).
+    const label = COMMUNITY_LABELS[text(p.community_name)];
+    const name = label
+      ? label.en
+      : cleanText(p.community_name_en).replace(/\s+community$/i, "");
     return name
       ? `The person is a member of the ${name} community.`
       : "The person is a member of the community stated in the application.";
@@ -771,7 +973,9 @@ export const ATTESTATIONS_EN: Record<number, Attestation> = {
   22: "To my knowledge and according to local enquiry, the person is unmarried and has never been married.",
   23: (p) => {
     const subject =
-      p.other_person === true
+      // QAFIX-05: the earner is chosen from the income_earner select;
+      // the other_person fallback keeps pinned v4 payloads rendering.
+      p.income_earner === "other_person" || p.other_person === true
         ? present(p.other_person_name_en ?? p.other_person_name)
           ? `The annual income of the guardian, ${cleanText(p.other_person_name_en ?? p.other_person_name)}, is`
           : "The guardian's annual income is"
@@ -813,15 +1017,25 @@ export const ATTESTATIONS_EN: Record<number, Attestation> = {
       "The person is personally known to me.",
     ),
   29: (p) => {
-    const subject =
-      p.other_person === true
-        ? present(p.other_person_name_en ?? p.other_person_name)
-          ? `The monthly income of the guardian, ${cleanText(p.other_person_name_en ?? p.other_person_name)}, is`
-          : "The guardian's monthly income is"
-        : "The applicant's own monthly income is";
+    const otherPerson =
+      // QAFIX-06: the earner is chosen from the income_earner select;
+      // the other_person fallback keeps pinned v4 payloads rendering.
+      p.income_earner === "other_person" || p.other_person === true;
+    const subject = otherPerson
+      ? present(p.other_person_name_en ?? p.other_person_name)
+        ? `The monthly income of the guardian, ${cleanText(p.other_person_name_en ?? p.other_person_name)}, is`
+        : "The guardian's monthly income is"
+      : "The applicant's own monthly income is";
+    // QAFIX-06: an other-person certificate prints THAT person's
+    // monthly amount when the repaired form captured it; pinned
+    // payloads carry only the shared amount.
+    const amount =
+      otherPerson && present(p.other_person_income_amount)
+        ? p.other_person_income_amount
+        : p.income_info_amount;
     return joinSentences(
-      present(p.income_info_amount)
-        ? `${subject} BDT ${Number(p.income_info_amount).toLocaleString("en-IN")} (in words: ${amountInWordsEn(Number(p.income_info_amount))} Taka only).`
+      present(amount)
+        ? `${subject} BDT ${Number(amount).toLocaleString("en-IN")} (in words: ${amountInWordsEn(Number(amount))} Taka only).`
         : "The person's monthly income is as stated in the application.",
       present(p.profession_en ?? p.profession)
         ? `Occupation: ${cleanText(p.profession_en ?? p.profession)}.`
@@ -892,7 +1106,13 @@ export const ATTESTATIONS_EN: Record<number, Attestation> = {
         : "",
     ),
   40: (p) => {
-    const name = cleanText(p.community_name_en).replace(/\s+community$/i, "");
+    // QAFIX-08: the code resolves through COMMUNITY_LABELS; pinned
+    // payloads print their English free text verbatim (the trailing
+    // " community" stripped as before).
+    const label = COMMUNITY_LABELS[text(p.community_name)];
+    const name = label
+      ? label.en
+      : cleanText(p.community_name_en).replace(/\s+community$/i, "");
     return name
       ? `The person is a member of the ${name} ethnic minority community.`
       : "The person is a member of the ethnic minority community stated in the application.";
@@ -909,6 +1129,15 @@ export const ATTESTATIONS_EN: Record<number, Attestation> = {
     ),
   44: (p) => {
     const name = cleanText(p.previous_spouse_name_en);
+    // QAFIX-09: the divorce branch (schema v5); pinned payloads take
+    // the historical death sentences below, byte-identically.
+    if (text(p.marriage_end_type) === "divorce") {
+      if (!name) return "The person has not remarried since the divorce.";
+      return joinSentences(
+        `The person's previous marriage, to ${name}, ended in divorce${present(p.divorce_date) ? ` on ${enDateIso(p.divorce_date)}` : ""}.`,
+        "Since the divorce, the person has not remarried.",
+      );
+    }
     if (!name)
       return "The person has not remarried since the spouse's death.";
     return joinSentences(
@@ -1643,7 +1872,7 @@ function tradeLicenceBody(ctx: DocContext, emblem: string, logo = ""): string {
     ${field(n[2]!, labels.fields[2]!, bn ? p.proprietor_mother_name_bn : p.proprietor_mother_name)}
     ${field(n[3]!, labels.fields[3]!, bn ? p.proprietor_father_name_bn : p.proprietor_father_name)}
     ${field(n[4]!, labels.fields[4]!, bn ? p.proprietor_spouse_name_bn : p.proprietor_spouse_name)}
-    ${field(n[5]!, labels.fields[5]!, bn ? p.trade_license_org_type_bn : p.trade_license_org_type)}
+    ${field(n[5]!, labels.fields[5]!, orgTypeLabel(p, bn))}
     ${field(n[6]!, labels.fields[6]!, businessType)}
     ${field(n[7]!, labels.fields[7]!, businessAddress)}
     <tr><td class="fl">${n[8]}.</td><td class="fv subpair"><div><span>${escape(labels.zone)}</span><span>: ${escape(bn ? bnDigits(text(p.trade_license_org_zone_bn) || text(p.trade_license_org_zone)) : text(p.trade_license_org_zone))}</span></div><div><span>${escape(labels.ward)}</span><span>: ${escape(bn ? bnDigits(wardNo) : wardNo)}</span></div></td></tr>

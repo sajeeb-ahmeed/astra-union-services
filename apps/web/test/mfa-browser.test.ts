@@ -352,9 +352,15 @@ test(
       await challenge
         .getByRole("heading", { name: "One more step to sign in", exact: true })
         .waitFor();
+      // QAFIX-09 (B3): a cookie-less /auth/me now answers 200 with
+      // an anonymous body instead of 401, so the property is read
+      // from the body — it must carry no session user.
+      const passwordOnlyMe = await (
+        await context.request.get(`${origin}/api/v1/auth/me`)
+      ).json();
       assert.equal(
-        (await context.request.get(`${origin}/api/v1/auth/me`)).status(),
-        401,
+        passwordOnlyMe.user,
+        null,
         "Password alone must not establish a session.",
       );
       assert.equal(
@@ -370,9 +376,13 @@ test(
         .getByRole("button", { name: "Verify and sign in", exact: true })
         .click();
       await challenge.getByRole("alert").waitFor();
+      // QAFIX-09 (B3): same anonymous-body contract as above.
+      const replayMe = await (
+        await context.request.get(`${origin}/api/v1/auth/me`)
+      ).json();
       assert.equal(
-        (await context.request.get(`${origin}/api/v1/auth/me`)).status(),
-        401,
+        replayMe.user,
+        null,
         "The enrollment code must not be replayable.",
       );
       assert.equal(
