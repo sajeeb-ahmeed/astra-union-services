@@ -83,7 +83,10 @@ const roleInput = z.enum([
 const password = z
   .string()
   .min(6, "Password must be at least 6 characters.")
-  .max(64, "Password must be at most 64 characters.") // QA-09: was 18; long passphrases and password-manager passwords must work
+  // QAFIX-01 (live QA §1): the owner's standing rule is ONE password rule
+  // everywhere — 6–18 characters. QA-09's 64-character allowance made the
+  // API disagree with the change-password form; the 6–18 rule wins.
+  .max(18, "Password must be at most 18 characters.")
   .refine((value) => !isCommonPassword(value), {
     message: "This password is too common. Choose a less predictable password.",
   });

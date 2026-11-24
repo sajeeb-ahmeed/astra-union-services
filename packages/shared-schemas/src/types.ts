@@ -23,6 +23,8 @@ export interface FieldConstraints {
   readonly acceptedMimeTypes?: readonly string[];
   readonly maxBytes?: number;
   readonly mustBeTrue?: boolean;
+  /** Date fields: the date must not be later than today in Asia/Dhaka. */
+  readonly notFuture?: boolean;
   readonly integer?: boolean;
   /** Compare within the same object/repeatable row, never another tenant's data. */
   readonly differentFrom?: string;

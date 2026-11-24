@@ -331,7 +331,7 @@ test("Phase 3B: a correction and resubmit of the same application never re-charg
   const edited = await req(
     "PATCH",
     `/applications/${id}`,
-    { payload: { ...getDemoPayload(SERVICE), delivery_language: "bn", purpose_en: "Revised synthetic purpose" } },
+    { payload: { ...getDemoPayload(SERVICE), delivery_language: "bn", purpose: "Revised synthetic purpose" } },
     officeP.citizen,
   );
   assert.equal(edited.status, 200, JSON.stringify(edited.body));
@@ -367,7 +367,7 @@ test("Phase 3B: a subscribed office pays 0 and consumes one allowance per applic
   const edited = await req(
     "PATCH",
     `/applications/${first}`,
-    { payload: { ...getDemoPayload(SERVICE), delivery_language: "bn", purpose_en: "Revised synthetic purpose" } },
+    { payload: { ...getDemoPayload(SERVICE), delivery_language: "bn", purpose: "Revised synthetic purpose" } },
     officeS.citizen,
   );
   assert.equal(edited.status, 200, JSON.stringify(edited.body));

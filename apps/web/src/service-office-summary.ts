@@ -27,14 +27,36 @@ export function loadServiceOfficeSummaries(): Promise<
       const map = new Map<number, ServiceOfficeSummary>();
       try {
         const offices = items(await api("/offices?pageSize=100"));
-        const details = await Promise.all(
-          offices.map(async (office: any) => {
+        // QAFIX-01 (web 4× timeout root cause): the detail fetch used to
+        // fire one request per office in a single Promise.all burst. With
+        // every test-created tenant in the directory that burst landed at
+        // the same moment as the page's lazy chunk, fonts and CSS, and the
+        // headless browser's network service failed the chunk import with
+        // net::ERR_INSUFFICIENT_RESOURCES — the public home then showed
+        // its load-error panel and every home wait timed out. The
+        // summaries are an enhancement, so they are fetched three at a
+        // time now: complete, just not all at once. (Observed 24 Nov:
+        // 11 offices → 11 parallel detail requests on every public page
+        // load, refired on each navigation because the cache is per
+        // document.)
+        const details: any[] = [];
+        const CONCURRENCY = 3;
+        let next = 0;
+        const worker = async () => {
+          while (next < offices.length) {
+            const office = offices[next++] as any;
             try {
-              return await api(`/offices/${office.slug}`);
+              details.push(await api(`/offices/${office.slug}`));
             } catch {
-              return null;
+              details.push(null);
             }
-          }),
+          }
+        };
+        await Promise.all(
+          Array.from(
+            { length: Math.min(CONCURRENCY, offices.length) },
+            () => worker(),
+          ),
         );
         for (const detail of details) {
           if (!detail) continue;

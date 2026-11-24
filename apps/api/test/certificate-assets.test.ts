@@ -457,17 +457,51 @@ test("certassets: preview renders a real sample PDF with the office assets and s
 async function issueCertificate(who: string, citizenWho: string, serviceNo: number) {
   const citizens = await req("GET", "/citizens", undefined, citizenWho);
   const citizenId = citizens.body.items[0].id;
-  // CERT-REFINE-01 (A11): a trade licence cannot issue with a blank fee
-  // block — the application carries real fee components, as the live form
-  // now collects them.
-  const payload =
-    serviceNo === 42
-      ? { ...demoPayloads[serviceNo], trade_fee_new: 300, trade_fee_vat: 45 }
-      : demoPayloads[serviceNo];
+  // QAFIX-08: the trade form no longer collects fee components
+  // (fees are system-set only), so an official trade licence now
+  // issues against an ORDER instead — a zero-fee policy published
+  // for this office, with the form's language agreeing with the
+  // order's (the orders module rejects a mismatch).
+  let payload: Record<string, unknown> = demoPayloads[serviceNo];
+  let order: Record<string, unknown> | undefined;
+  if (serviceNo === 42) {
+    const current = (
+      await admin.query(
+        "SELECT COALESCE(MAX(version),0)::int v FROM service_order_policies WHERE tenant_id=$1 AND service_no=42",
+        [alphaId],
+      )
+    ).rows[0].v as number;
+    const published = await req(
+      "POST",
+      "/admin/services/42/order-policies",
+      {
+        expectedVersion: current,
+        reason: "Synthetic certificate-assets regression; not a government tariff",
+        statutoryFeeMinor: 0,
+        processingFeeMinor: 0,
+        emergencySurchargeMinor: 0,
+        deliveryFeesMinor: { office_collection: 0, digital_copy: 0 },
+        deliveryModes: ["office_collection", "digital_copy"],
+        urgencies: ["normal"],
+      },
+      "alphaAdmin",
+    );
+    assert.equal(published.status, 201, JSON.stringify(published.body));
+    payload = { ...payload, delivery_language: "en" };
+    order = {
+      policyVersion: published.body.policy.version,
+      preferences: {
+        addressBasis: "registered_profile",
+        certificateLanguage: "en",
+        deliveryMode: "office_collection",
+        urgency: "normal",
+      },
+    };
+  }
   const created = await req(
     "POST",
     "/applications",
-    { citizenId, serviceNo, payload },
+    { citizenId, serviceNo, payload, ...(order ? { order } : {}) },
     who,
   );
   assert.equal(created.status, 201, JSON.stringify(created.body));

@@ -130,10 +130,11 @@ test("order browser: explicit office fees, citizen-first quote acceptance, bilin
     // FULL-UIUX-01 (UX M14): a signed-in citizen applying for themselves
     // skips the citizen step — the flow opens on the application form.
     await fillApplicationForm(citizen, demoPayloads[45]);
-    await citizen.getByLabel("Purpose (English)", { exact: false }).fill("Preserved custom order purpose");
+    await citizen.locator('[data-field-path="purpose"]').fill("Preserved custom order purpose");
     // Form values survive an interface-language switch before the fees step is reached.
     await language(citizen, "বাংলা");
-    assert.equal(await citizen.locator("[id$='purpose_en']").inputValue(), "Preserved custom order purpose");
+    // QAFIX-01: the purpose is one field now (was purpose_en).
+    assert.equal(await citizen.locator('[data-field-path="purpose"]').inputValue(), "Preserved custom order purpose");
     await language(citizen, "English");
     await citizen.getByRole("button", { name: "Next: fees and delivery", exact: true }).click();
     await citizen.locator("#order-language").waitFor();

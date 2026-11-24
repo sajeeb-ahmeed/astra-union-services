@@ -124,6 +124,19 @@ test(
         page.waitForURL(`${origin}/tracking?searchText=${unknown}`),
         page.locator("#home-track-input").press("Enter"),
       ]);
+      // QAFIX-D fix-forward: the /tracking mount effect fills #tracking-id
+      // from ?searchText= after the navigation lands, so asserting the
+      // value the instant waitForURL resolves races the effect (the
+      // 111/112 closing run read '' here; the same test passes on
+      // re-run). Wait for the effect to land instead of asserting
+      // immediately. No product change — the prefill behaviour is
+      // correct; only the test's timing was racy.
+      await page.waitForFunction(
+        (expected) =>
+          (document.querySelector("#tracking-id") as HTMLInputElement)
+            ?.value === expected,
+        unknown,
+      );
       assert.equal(await page.locator("#tracking-id").inputValue(), unknown);
       await page.getByRole("alert").waitFor();
 

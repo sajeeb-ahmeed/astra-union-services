@@ -421,6 +421,18 @@ export function PublicPortal({
     initial === "services"
       ? serviceNoFromSlug(location.pathname.split("/")[2] ?? "")
       : null;
+  // QAFIX-09 (B2): a /services/<segment> URL whose segment resolves
+  // to nothing is a missing page, not the catalogue — the soft-404
+  // the 2026-11-23 QA flagged (e.g. /services/citizenship, when the
+  // real page is /services/citizenship-certificate). The legacy
+  // ?service=N alias still counts as a resolution.
+  const legacyLinked =
+    Number.isInteger(linkedService) && linkedService >= 1 && linkedService <= 47;
+  const slugMissed = (pageName: string, segment: string, resolved: number | null) =>
+    pageName === "services" && segment !== "" && resolved === null && !legacyLinked;
+  const [slugMiss, setSlugMiss] = useState<boolean>(
+    slugMissed(initial, location.pathname.split("/")[2] ?? "", slugService),
+  );
   // SEO P10: an office is addressable at /offices/<slug>; the slug lives in
   // state (plus a ref for the directory's URL writer) alongside the detail.
   const initialOfficeSlug =
@@ -602,10 +614,13 @@ export function PublicPortal({
       }
       const next = location.pathname.split("/")[1] || "home";
       setPage(next);
-      setServiceNo(
+      const resolved =
         next === "services"
           ? serviceNoFromSlug(location.pathname.split("/")[2] ?? "")
-          : null,
+          : null;
+      setServiceNo(resolved);
+      setSlugMiss(
+        slugMissed(next, location.pathname.split("/")[2] ?? "", resolved),
       );
       // SEO P10: back/forward restores an open office from its slug URL.
       if (next === "offices") {
@@ -628,6 +643,18 @@ export function PublicPortal({
         title: serviceTitle(seo, language),
         description: serviceDescription(seo, language),
         canonicalPath: servicePath(serviceNo),
+      });
+    } else if (page === "services" && slugMiss) {
+      // QAFIX-09 (B2): a missed slug is not the hub — its head must
+      // not claim the hub's title/canonical either.
+      applyPageHead({
+        title: `${choose({ bn: "সেবাটি পাওয়া যায়নি", en: "Service not found" })} | DigitalUnion`,
+        description: choose({
+          bn: "এই ঠিকানায় কোনো সেবা নেই।",
+          en: "There is no service at this address.",
+        }),
+        canonicalPath: location.pathname,
+        robots: "noindex, follow",
       });
     } else if (page === "services") {
       applyPageHead({
@@ -675,7 +702,7 @@ export function PublicPortal({
         canonicalPath: `/${page}`,
       });
     }
-  }, [page, serviceNo, office, language]);
+  }, [page, serviceNo, office, language, slugMiss]);
   async function loadOffices(p = 1) {
     setWorking(true);
     setError("");
@@ -989,6 +1016,7 @@ export function PublicPortal({
     // always lands on the services view at the service's slug URL.
     onNavigate?.();
     setPage("services");
+    setSlugMiss(false);
     setServiceNo(no);
     setOffice(null);
     setOfficeSlug(null);
@@ -997,6 +1025,7 @@ export function PublicPortal({
     window.scrollTo(0, 0);
   }
   function closeService() {
+    setSlugMiss(false);
     setServiceNo(null);
     history.pushState({}, "", "/services");
     window.scrollTo(0, 0);
@@ -1030,6 +1059,30 @@ export function PublicPortal({
       void loadOfficeDetail(officeSlug);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [page, officeSlug]);
+  // QAFIX-09 (B2): the not-found state for an unresolved
+  // /services/<segment> URL — a real missing page with a way back
+  // to the catalogue, never the catalogue itself (soft-404).
+  const serviceNotFoundView = () => (
+    <>
+      <div className="public-section-heading">
+        <div>
+          <span className="eyebrow">
+            {choose({ bn: "নাগরিক সেবা", en: "Citizen services" })}
+          </span>
+          <h1>{choose({ bn: "সেবাটি পাওয়া যায়নি", en: "Service not found" })}</h1>
+          <p>
+            {choose({
+              bn: "এই ঠিকানায় কোনো সেবা নেই। ঠিকানা বদলে গিয়ে থাকতে পারে — সব সেবার তালিকা থেকে খুঁজে নিন।",
+              en: "There is no service at this address. The address may have changed — find the service in the full list.",
+            })}
+          </p>
+        </div>
+      </div>
+      <button type="button" onClick={closeService}>
+        {choose({ bn: "সব সেবা দেখুন", en: "Browse all services" })}
+      </button>
+    </>
+  );
   const servicesView = () => (
     <>
       <div className="public-section-heading">
@@ -1465,7 +1518,11 @@ export function PublicPortal({
               )}
               {tx(
                 page === "services" &&
-                  (selected ? serviceDetailView() : servicesView()),
+                  (selected
+                    ? serviceDetailView()
+                    : slugMiss
+                      ? serviceNotFoundView()
+                      : servicesView()),
               )}
               {tx(
                 page === "login" && (

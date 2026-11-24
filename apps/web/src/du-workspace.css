@@ -801,3 +801,39 @@ tr.ax-row-new td {
   background: #fff;
   color: var(--du-green-800);
 }
+
+/* QAFIX-09 (B1): the irreversible-decision confirmation modal —
+   the in-app replacement for window.confirm on approve/reject.
+   Same backdrop language as the public drawer (du-shell.css). */
+.ws-confirm-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  background: rgb(10 30 18 / 48%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+.ws-confirm {
+  background: var(--du-surface);
+  color: var(--du-ink);
+  border-radius: var(--du-radius-panel);
+  box-shadow: var(--du-shadow-raised);
+  max-width: 440px;
+  width: 100%;
+  padding: 24px;
+}
+.ws-confirm h2 {
+  margin: 0 0 12px;
+  font-size: var(--du-text-h3);
+}
+.ws-confirm p {
+  margin: 0 0 12px;
+}
+.ws-confirm-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 20px;
+}

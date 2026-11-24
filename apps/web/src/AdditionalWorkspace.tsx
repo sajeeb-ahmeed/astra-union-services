@@ -27,6 +27,8 @@ function Field({
   type = "text",
   required = false,
   maxLength = 150,
+  disabled = false,
+  hint,
 }: {
   label: string;
   name: string;
@@ -35,6 +37,8 @@ function Field({
   type?: string;
   required?: boolean;
   maxLength?: number;
+  disabled?: boolean;
+  hint?: string;
 }) {
   return (
     <label htmlFor={name}>
@@ -47,7 +51,14 @@ function Field({
         onChange={(e) => onChange(e.target.value)}
         required={required}
         maxLength={maxLength}
+        disabled={disabled}
+        aria-describedby={hint ? `${name}-hint` : undefined}
       />
+      {hint && (
+        <span className="hint" id={`${name}-hint`}>
+          {tx(hint)}
+        </span>
+      )}
     </label>
   );
 }
@@ -73,6 +84,10 @@ export function AdditionalWorkspace({
     nameBn: "",
     phone: "",
     address: "",
+    citizenNameEn: "",
+    dateOfBirth: "",
+    permanentAddressBn: "",
+    permanentAddressEn: "",
   });
   const [currentPassword, setCurrentPassword] = useState(""),
     [newPassword, setNewPassword] = useState(""),
@@ -135,10 +150,23 @@ export function AdditionalWorkspace({
   useEffect(() => {
     void run(async () => {
       if (page === "profile") {
-        setProfile(await api("/profile"));
+        // QAFIX-01 (§4 item 13): the profile and citizen reads run in
+        // parallel — they used to be sequential awaits, so the page's
+        // spinner lasted the sum of both round trips.
+        const [loaded, citizensResult] = await Promise.all([
+          api("/profile"),
+          session.user.role === "citizen"
+            ? api("/citizens")
+            : Promise.resolve(null),
+        ]);
+        // QAFIX-01: for a citizen, the Bangla name field shows the citizen
+        // record's name — the one completeness and certificates read.
+        if (session.user.role === "citizen" && loaded.citizenNameBn)
+          loaded.nameBn = loaded.citizenNameBn;
+        setProfile(loaded);
         // Phase 3a: a citizen also keeps their own personal and identity details.
         if (session.user.role === "citizen")
-          setOwnCitizen(items(await api("/citizens"))[0] ?? null);
+          setOwnCitizen(items(citizensResult)[0] ?? null);
       }
       if (page === "prints") {
         const c = items(await api("/citizens"));
@@ -198,30 +226,59 @@ export function AdditionalWorkspace({
                 onSubmit={(e) => {
                   e.preventDefault();
                   void run(async () => {
-                    setProfile(
-                      await api("/profile", "PATCH", {
-                        displayName: profile.displayName,
-                        nameBn: profile.nameBn,
-                        phone: profile.phone,
-                        address: profile.address,
-                        ...(session.user.role === "citizen" &&
-                        profile.geography?.divisionCode
-                          ? {
-                              geography: geographyPayload(
-                                readGeography(profile.geography),
-                              ),
-                            }
-                          : {}),
-                        ...(session.user.role === "citizen" &&
-                        profile.presentAddress
-                          ? {
-                              presentAddress: presentAddressPayload(
-                                readPresentAddress(profile.presentAddress),
-                              ),
-                            }
-                          : {}),
-                      }),
-                    );
+                    const isCitizen = session.user.role === "citizen";
+                    const saved = await api("/profile", "PATCH", {
+                      displayName: profile.displayName,
+                      nameBn: profile.nameBn,
+                      phone: profile.phone,
+                      address: profile.address,
+                      // QAFIX-01 (§1 bugs 1–3): the citizen record's own
+                      // fields — English name, date of birth and the
+                      // permanent address in both scripts — are saved
+                      // from this page, so 100% completeness is reachable
+                      // here alone. Blank means "leave as saved".
+                      ...(isCitizen && profile.citizenNameEn?.trim()
+                        ? { citizenNameEn: profile.citizenNameEn.trim() }
+                        : {}),
+                      ...(isCitizen && profile.dateOfBirth
+                        ? { dateOfBirth: profile.dateOfBirth }
+                        : {}),
+                      ...(isCitizen && profile.permanentAddressBn?.trim()
+                        ? {
+                            permanentAddressBn:
+                              profile.permanentAddressBn.trim(),
+                          }
+                        : {}),
+                      ...(isCitizen && profile.permanentAddressEn?.trim()
+                        ? {
+                            permanentAddressEn:
+                              profile.permanentAddressEn.trim(),
+                          }
+                        : {}),
+                      ...(isCitizen && profile.geography?.divisionCode
+                        ? {
+                            geography: geographyPayload(
+                              readGeography(profile.geography),
+                            ),
+                          }
+                        : {}),
+                      ...(isCitizen && profile.presentAddress
+                        ? {
+                            presentAddress: presentAddressPayload(
+                              readPresentAddress(profile.presentAddress),
+                            ),
+                          }
+                        : {}),
+                    });
+                    if (isCitizen && saved.citizenNameBn)
+                      saved.nameBn = saved.citizenNameBn;
+                    setProfile(saved);
+                    // QAFIX-01 (§1 bug 4): refresh the citizen record so
+                    // the completeness meter and checklist below recompute
+                    // from what was just saved — they used to keep showing
+                    // the pre-save state.
+                    if (isCitizen)
+                      setOwnCitizen(items(await api("/citizens"))[0] ?? null);
                     setMessage("Profile saved / প্রোফাইল সংরক্ষিত হয়েছে");
                   });
                 }}
@@ -242,14 +299,73 @@ export function AdditionalWorkspace({
                     onChange={(v) => setProfile({ ...profile, nameBn: v })}
                     maxLength={120}
                   />
-                  <Field
-                    label={t("Mobile (optional, 11 digits)")}
-                    name="profile-phone"
-                    value={profile.phone}
-                    onChange={(v) => setProfile({ ...profile, phone: v })}
-                    type="tel"
-                    maxLength={11}
-                  />
+                  {session.user.role === "citizen" && (
+                    <>
+                      <Field
+                        label={t("নাম (ইংরেজি) / Name (English)")}
+                        name="profile-name-en"
+                        value={profile.citizenNameEn ?? ""}
+                        onChange={(v) =>
+                          setProfile({ ...profile, citizenNameEn: v })
+                        }
+                        maxLength={120}
+                      />
+                      <Field
+                        label={t("জন্ম তারিখ / Date of birth")}
+                        name="profile-dob"
+                        value={profile.dateOfBirth ?? ""}
+                        onChange={(v) =>
+                          setProfile({ ...profile, dateOfBirth: v })
+                        }
+                        type="date"
+                      />
+                      <Field
+                        label={t(
+                          "স্থায়ী ঠিকানা (বাংলা) / Permanent address (Bangla)",
+                        )}
+                        name="profile-permanent-address-bn"
+                        value={profile.permanentAddressBn ?? ""}
+                        onChange={(v) =>
+                          setProfile({ ...profile, permanentAddressBn: v })
+                        }
+                        maxLength={500}
+                      />
+                      <Field
+                        label={t(
+                          "স্থায়ী ঠিকানা (ইংরেজি) / Permanent address (English)",
+                        )}
+                        name="profile-permanent-address-en"
+                        value={profile.permanentAddressEn ?? ""}
+                        onChange={(v) =>
+                          setProfile({ ...profile, permanentAddressEn: v })
+                        }
+                        maxLength={500}
+                      />
+                    </>
+                  )}
+                  {session.user.role === "citizen" ? (
+                    <Field
+                      label={t("সাইন-ইন মোবাইল / Sign-in mobile")}
+                      name="profile-phone"
+                      value={profile.phone}
+                      onChange={(v) => setProfile({ ...profile, phone: v })}
+                      type="tel"
+                      maxLength={11}
+                      disabled
+                      hint={t(
+                        "সাইন-ইনের নম্বর — বদলাতে অফিসে যোগাযোগ করুন। যোগাযোগের মোবাইল নিচে নাগরিকের তথ্যে দিন। / Your sign-in number — contact the office to change it. Your contact mobile goes in Citizen details below.",
+                      )}
+                    />
+                  ) : (
+                    <Field
+                      label={t("Mobile (optional, 11 digits)")}
+                      name="profile-phone"
+                      value={profile.phone}
+                      onChange={(v) => setProfile({ ...profile, phone: v })}
+                      type="tel"
+                      maxLength={11}
+                    />
+                  )}
                   <Field
                     label={t("Address")}
                     name="profile-address"

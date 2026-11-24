@@ -106,6 +106,189 @@ test("v7 citizenship: sampled paragraph pattern, Bangla digits and date, A4 port
   assert.ok(!/prottoyon/i.test(html), "no Prottoyon branding anywhere");
 });
 
+test("v7 nationality: QAFIX-03 select codes print their labels; pinned free text prints verbatim", () => {
+  const service = { service_no: 11, name_bn: "জাতীয়তা সনদ", name_en: "Nationality certificate" };
+  const bn = render({
+    number: "DEMO-2026-NAT11",
+    service,
+    payload: { delivery_language: "bn", claimed_nationality: "indian" },
+    schema: getServiceSchema(11),
+  });
+  assert.ok(bn.includes("তিনি জাতীয়তায় ভারতীয়।"), "Bangla document prints the Bangla label");
+  const en = render({
+    number: "DEMO-2026-NAT11",
+    service,
+    payload: { delivery_language: "en", claimed_nationality: "indian" },
+    schema: getServiceSchema(11),
+  });
+  // (The paragraph is HTML-escaped, so the apostrophe in "person's"
+  // renders as &#39; — assert on the sentence body.)
+  assert.ok(en.includes("nationality is Indian."), "English document prints the English label");
+  assert.ok(!en.includes("nationality is indian"), "the raw select code never prints");
+  // Applications pinned to the pre-QAFIX-03 versions carry free text; it
+  // still renders verbatim in both languages.
+  const legacyBn = render({
+    number: "DEMO-2026-NAT11",
+    service,
+    payload: { delivery_language: "bn", claimed_nationality: "কানাডীয়" },
+    schema: getServiceSchema(11),
+  });
+  assert.ok(legacyBn.includes("তিনি জাতীয়তায় কানাডীয়।"));
+  const legacyEn = render({
+    number: "DEMO-2026-NAT11",
+    service,
+    payload: { delivery_language: "en", claimed_nationality_en: "Canadian" },
+    schema: getServiceSchema(11),
+  });
+  assert.ok(legacyEn.includes("nationality is Canadian."));
+});
+
+test("v7 profession: QAFIX-04 select codes print their labels; pinned free text prints verbatim", () => {
+  const service = { service_no: 17, name_bn: "পেশাগত সনদ", name_en: "Occupation certificate" };
+  const bn = render({
+    number: "DEMO-2026-PROF17",
+    service,
+    payload: { delivery_language: "bn", profession: "teacher" },
+    schema: getServiceSchema(17),
+  });
+  assert.ok(bn.includes("তিনি পেশায় একজন শিক্ষক।"), "Bangla document prints the Bangla label");
+  const en = render({
+    number: "DEMO-2026-PROF17",
+    service,
+    payload: { delivery_language: "en", profession: "teacher" },
+    schema: getServiceSchema(17),
+  });
+  // (The paragraph is HTML-escaped, so the apostrophe in "person's"
+  // renders as &#39; — assert on the sentence body.)
+  assert.ok(en.includes("is a Teacher by profession."), "English document prints the English label");
+  assert.ok(!en.includes("is a teacher by profession."), "the raw select code never prints");
+  // Applications pinned to the pre-QAFIX-04 versions carry free text; it
+  // still renders verbatim in both languages.
+  const legacyBn = render({
+    number: "DEMO-2026-PROF17",
+    service,
+    payload: { delivery_language: "bn", profession_bn: "দর্জি" },
+    schema: getServiceSchema(17),
+  });
+  assert.ok(legacyBn.includes("তিনি পেশায় একজন দর্জি।"));
+  const legacyEn = render({
+    number: "DEMO-2026-PROF17",
+    service,
+    payload: { delivery_language: "en", profession_en: "Tailor" },
+    schema: getServiceSchema(17),
+  });
+  assert.ok(legacyEn.includes("is a Tailor by profession."));
+});
+
+test("v7 community: QAFIX-04 select codes print their labels; pinned free text prints verbatim", () => {
+  const service = { service_no: 18, name_bn: "সম্প্রদায় সনদ", name_en: "Community certificate" };
+  const bn = render({
+    number: "DEMO-2026-COMM18",
+    service,
+    payload: { delivery_language: "bn", community_name: "chakma" },
+    schema: getServiceSchema(18),
+  });
+  assert.ok(bn.includes("তিনি চাকমা সম্প্রদায়ের সদস্য।"), "Bangla document prints the Bangla label");
+  const en = render({
+    number: "DEMO-2026-COMM18",
+    service,
+    payload: { delivery_language: "en", community_name: "chakma" },
+    schema: getServiceSchema(18),
+  });
+  assert.ok(en.includes("member of the Chakma community."), "English document prints the English label");
+  assert.ok(!en.includes("member of the chakma community."), "the raw select code never prints");
+  // Applications pinned to the pre-QAFIX-04 versions carry free text; it
+  // still renders verbatim in both languages (the trailing
+  // "সম্প্রদায়" / " community" stripped as before).
+  const legacyBn = render({
+    number: "DEMO-2026-COMM18",
+    service,
+    payload: { delivery_language: "bn", community_name: "মুসলিম সম্প্রদায়" },
+    schema: getServiceSchema(18),
+  });
+  assert.ok(legacyBn.includes("তিনি মুসলিম সম্প্রদায়ের সদস্য।"));
+  const legacyEn = render({
+    number: "DEMO-2026-COMM18",
+    service,
+    payload: { delivery_language: "en", community_name_en: "Muslim community" },
+    schema: getServiceSchema(18),
+  });
+  assert.ok(legacyEn.includes("member of the Muslim community."));
+});
+
+test("v7 tribal: QAFIX-08 select codes print their labels; pinned free text prints verbatim", () => {
+  const service = { service_no: 40, name_bn: "উপজাতি সনদ", name_en: "Tribal certificate" };
+  const bn = render({
+    number: "DEMO-2026-TRIB40",
+    service,
+    payload: { delivery_language: "bn", community_name: "chakma" },
+    schema: getServiceSchema(40),
+  });
+  assert.ok(bn.includes("তিনি চাকমা ক্ষুদ্র নৃ-গোষ্ঠী সম্প্রদায়ের সদস্য।"), "Bangla document prints the Bangla label");
+  assert.ok(!bn.includes("chakma"), "the raw select code never prints");
+  const en = render({
+    number: "DEMO-2026-TRIB40",
+    service,
+    payload: { delivery_language: "en", community_name: "chakma" },
+    schema: getServiceSchema(40),
+  });
+  assert.ok(en.includes("member of the Chakma ethnic minority community."), "English document prints the English label");
+  // Applications pinned to the pre-QAFIX-08 versions carry free text
+  // in both fields; it still renders verbatim.
+  const legacyBn = render({
+    number: "DEMO-2026-TRIB40",
+    service,
+    payload: { delivery_language: "bn", community_name: "চাকমা সম্প্রদায়" },
+    schema: getServiceSchema(40, 4),
+  });
+  assert.ok(legacyBn.includes("তিনি চাকমা ক্ষুদ্র নৃ-গোষ্ঠী সম্প্রদায়ের সদস্য।"));
+  const legacyEn = render({
+    number: "DEMO-2026-TRIB40",
+    service,
+    payload: { delivery_language: "en", community_name_en: "Chakma community" },
+    schema: getServiceSchema(40, 4),
+  });
+  assert.ok(legacyEn.includes("member of the Chakma ethnic minority community."));
+});
+
+test("v7 orphan: QAFIX-05 guardian-relation codes print their labels; father-only attestation names the father", () => {
+  const service = { service_no: 24, name_bn: "এতিম সনদ", name_en: "Orphan certificate" };
+  const bn = render({
+    number: "DEMO-2026-ORPH24",
+    service,
+    payload: {
+      delivery_language: "bn",
+      orphan_father_name_bn: "আব্দুল করিম",
+      orphan_father_death_date: "2019-11-02",
+      orphan_guardian_name_bn: "করিম চাচা",
+      orphan_guardian_relation: "uncle",
+      guardian_or_support_details: "চাচার তত্ত্বাবধানে আছেন।",
+      orphanhood_declaration: "পিতার মৃত্যুর পর এতিম হয়েছেন।",
+    },
+    schema: getServiceSchema(24),
+  });
+  assert.ok(bn.includes("তাঁহার পিতা মৃত আব্দুল করিম"), "Bangla attestation names the late father");
+  assert.ok(bn.includes("(চাচা/মামা)"), "Bangla document prints the Bangla relation label");
+  assert.ok(!bn.includes("(uncle)"), "the raw relation code never prints");
+  assert.ok(bn.includes("তিনি এতিম।"));
+  const en = render({
+    number: "DEMO-2026-ORPH24",
+    service,
+    payload: {
+      delivery_language: "en",
+      orphan_father_name_en: "Abdul Karim",
+      orphan_father_death_date: "2019-11-02",
+      orphan_guardian_name_en: "Karim Chacha",
+      orphan_guardian_relation: "uncle",
+    },
+    schema: getServiceSchema(24),
+  });
+  assert.ok(en.includes("The person&#39;s father, the late Abdul Karim, died on 2 November 2019."), "English attestation names the late father with a human date");
+  assert.ok(en.includes("(Uncle)"), "English document prints the English relation label");
+  assert.ok(!en.includes("(uncle)"), "the raw relation code never prints");
+  assert.ok(en.includes("The person is an orphan."));
+});
+
 test("v7 voter area transfer: A4 portrait, no spouse segment, captured marriage attestation (CERT-REFINE-01)", () => {
   const html = render({
     number: "DEMO-2026-DEF456",
@@ -202,6 +385,137 @@ test("v7 trade licence (BN): Bangla labels, digits and total", () => {
   // CERT-REFINE-01 (A6): Latin digits in the printed URL.
   assert.ok(html.includes("যাচাইকরণ: https://belabo.astra.test/verify?searchText=DEMO-2026-TL789"));
   assert.ok(!/prottoyon/i.test(html));
+});
+
+test("v7 trade licence: QAFIX-08 organisation-type codes print their labels; pinned free text prints verbatim", () => {
+  const service = { service_no: 42, name_bn: "ট্রেড লাইসেন্স", name_en: "Trade license" };
+  const en = render({
+    number: "DEMO-2026-TL790",
+    service,
+    payload: {
+      delivery_language: "en",
+      business_name_en: "Messrs Rahman Traders",
+      proprietor_name_en: "Md Rahman",
+      business_type: "retail",
+      trade_license_org_type: "private_limited",
+      mobile: "01712345678",
+      start_date: "2024-03-14",
+    },
+    schema: getServiceSchema(42),
+  });
+  assert.ok(en.includes("Private limited company"), "English document prints the English label");
+  assert.ok(!en.includes("private_limited"), "the raw select code never prints");
+  const bn = render({
+    number: "DEMO-2026-TL790",
+    service,
+    payload: {
+      delivery_language: "bn",
+      business_name_bn: "মেসার্স রহমান ট্রেডার্স",
+      proprietor_name_bn: "মোঃ রহমান",
+      business_type: "retail",
+      trade_license_org_type: "private_limited",
+      mobile: "01712345678",
+      start_date: "2024-03-14",
+    },
+    schema: getServiceSchema(42),
+  });
+  assert.ok(bn.includes("প্রাইভেট লিমিটেড কোম্পানি"), "Bangla document prints the Bangla label");
+  // Applications pinned to the pre-QAFIX-08 versions carry the
+  // free-text pair; it still renders verbatim in both languages.
+  const legacyEn = render({
+    number: "DEMO-2026-TL790",
+    service,
+    payload: {
+      delivery_language: "en",
+      business_name_en: "Messrs Rahman Traders",
+      proprietor_name_en: "Md Rahman",
+      business_type: "retail",
+      trade_license_org_type: "Family business",
+      trade_license_org_type_bn: "পারিবারিক ব্যবসা",
+      mobile: "01712345678",
+      start_date: "2024-03-14",
+    },
+    schema: getServiceSchema(42, 5),
+  });
+  assert.ok(legacyEn.includes("Family business"));
+  const legacyBn = render({
+    number: "DEMO-2026-TL790",
+    service,
+    payload: {
+      delivery_language: "bn",
+      business_name_bn: "মেসার্স রহমান ট্রেডার্স",
+      proprietor_name_bn: "মোঃ রহমান",
+      business_type: "retail",
+      trade_license_org_type: "Family business",
+      trade_license_org_type_bn: "পারিবারিক ব্যবসা",
+      mobile: "01712345678",
+      start_date: "2024-03-14",
+    },
+    schema: getServiceSchema(42, 5),
+  });
+  assert.ok(legacyBn.includes("পারিবারিক ব্যবসা"));
+});
+
+test("v7 non-remarriage: QAFIX-09 divorce payloads print the divorce sentences; pinned death payloads print verbatim", () => {
+  const service = { service_no: 44, name_bn: "পুনঃবিবাহ না হওয়ার প্রত্যয়ন", name_en: "Non-remarriage certificate" };
+  const divorceEn = render({
+    number: "DEMO-2026-NR440",
+    service,
+    payload: {
+      delivery_language: "en",
+      previous_spouse_name: "আব্দুল করিম",
+      previous_spouse_name_en: "Abdul Karim",
+      marriage_end_type: "divorce",
+      divorce_date: "2021-05-10",
+    },
+    schema: getServiceSchema(44),
+  });
+  assert.ok(divorceEn.includes("ended in divorce on 10 May 2021"), "English divorce sentence with the divorce date");
+  assert.ok(divorceEn.includes("Since the divorce, the person has not remarried."));
+  assert.ok(!divorceEn.includes("the late Abdul Karim"), "no widowhood wording on the divorce path");
+  const divorceBn = render({
+    number: "DEMO-2026-NR440",
+    service,
+    payload: {
+      delivery_language: "bn",
+      previous_spouse_name: "আব্দুল করিম",
+      previous_spouse_name_en: "Abdul Karim",
+      marriage_end_type: "divorce",
+      divorce_date: "2021-05-10",
+    },
+    schema: getServiceSchema(44),
+  });
+  assert.ok(divorceBn.includes("বিবাহ বিচ্ছেদ ঘটে"), "Bangla divorce sentence prints");
+  assert.ok(divorceBn.includes("বিবাহ বিচ্ছেদের পর হইতে তিনি অদ্যাবধি পুনরায় বিবাহ বন্ধনে আবদ্ধ হন নাই।"));
+  assert.ok(!divorceBn.includes("মৃত্যুবরণ করেন"), "no death wording on the divorce path");
+  // Pinned payloads (no marriage_end_type) print the historical
+  // death sentences byte-identically in both languages.
+  const deathEn = render({
+    number: "DEMO-2026-NR441",
+    service,
+    payload: {
+      delivery_language: "en",
+      previous_spouse_name_en: "Abdul Karim",
+      spouse_death_date: "2020-02-03",
+    },
+    schema: getServiceSchema(44, 4),
+  });
+  // (The paragraph is HTML-escaped in the document: ' renders as
+  // &#39; — the Workstream C/E assertion trap.)
+  assert.ok(deathEn.includes("The person&#39;s spouse, the late Abdul Karim, died on 3 February 2020."));
+  assert.ok(deathEn.includes("Since the spouse&#39;s death, the person has not remarried and has been living with the children."));
+  const deathBn = render({
+    number: "DEMO-2026-NR441",
+    service,
+    payload: {
+      delivery_language: "bn",
+      previous_spouse_name: "আব্দুল করিম",
+      spouse_death_date: "2020-02-03",
+    },
+    schema: getServiceSchema(44, 4),
+  });
+  assert.ok(deathBn.includes("মৃত্যুবরণ করেন।"), "Bangla death sentence prints as before");
+  assert.ok(deathBn.includes("স্বামীর মৃত্যুর পর তিনি অদ্যাবধি পুনরায় বিবাহ বন্ধনে আবদ্ধ হন নাই"));
 });
 
 test("v7 modes: demo shows no emblem; official shows the emblem header + emblem watermark and no seal (CERTNO-01)", () => {

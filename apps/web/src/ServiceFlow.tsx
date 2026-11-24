@@ -1,7 +1,9 @@
 import React, { useEffect, useRef, useState } from "react";
 import {
   getServiceSchema,
+  groupControllerIds,
   isFieldVisible,
+  serviceDescriptions,
   validateForm,
   type FieldDefinition,
   type FormSchema,
@@ -10,7 +12,13 @@ import {
 import { api, errorCode, items } from "./api.js";
 import { choose, recordName, useLanguage } from "./i18n.js";
 import { DynamicForm } from "./DynamicForm.js";
-import { ApplicationOrder, type IntakeOrderState } from "./ApplicationOrder.js";
+import {
+  ApplicationOrder,
+  prefetchOrderOptions,
+  type IntakeOrderState,
+} from "./ApplicationOrder.js";
+import { geographyNames } from "./GeographyFields.js";
+import { useFormatters } from "./ui/fmt.js";
 import { chosenCitizenAddress } from "./PresentAddressFields.js";
 import { withoutOrderLanguage } from "./order-schema.js";
 import { ApplicationStatus, RefChip, Stepper } from "./ui/kit.js";
@@ -37,6 +45,16 @@ const presentValue = (value: unknown): boolean =>
  * PORTAL-B: form fields that ask again for what the citizen record already
  * holds. The form opens with these filled (still editable), so nobody types
  * the same address or parents' names twice.
+ * QAFIX-01 (live QA §4 item 1): the map now covers every field id that asks
+ * for the APPLICANT's own facts across the catalogue — the household head
+ * (service 2), the proprietor (36/41/42/46) and the same-person subject
+ * (39) are the applicant themselves. Fields that belong to OTHER people
+ * (the deceased on warish/death forms, heirs, the spouse on marriage
+ * forms, delegates, the related person on 39) are deliberately absent:
+ * pre-filling them with the applicant's data would write wrong facts.
+ * The citizen's NID is never mapped: the API returns only a masked hint
+ * (the full number sits behind the audited reveal endpoint), so there is
+ * nothing safe to prefill.
  */
 const CITIZEN_FIELD_SOURCES: Record<string, string> = {
   permanent_address_bn: "addressBn",
@@ -48,15 +66,63 @@ const CITIZEN_FIELD_SOURCES: Record<string, string> = {
   spouse_name_bn: "spouseNameBn",
   spouse_name_en: "spouseNameEn",
   date_of_birth: "dateOfBirth",
+  // The applicant under another title: household head (2), proprietor
+  // (36/41/42/46), the person both names belong to (39).
+  household_name_bn: "nameBn",
+  household_name_en: "nameEn",
+  proprietor_name_bn: "nameBn",
+  proprietor_name_en: "nameEn",
+  proprietor_father_name_bn: "fatherNameBn",
+  proprietor_father_name: "fatherNameEn",
+  proprietor_mother_name_bn: "motherNameBn",
+  proprietor_mother_name: "motherNameEn",
+  proprietor_spouse_name_bn: "spouseNameBn",
+  proprietor_spouse_name: "spouseNameEn",
+  // QAFIX-07 (service 34): the childless attestation concerns the
+  // applicant couple, so its spouse pair is the applicant's own.
+  childless_spouse_name_bn: "spouseNameBn",
+  childless_spouse_name: "spouseNameEn",
+  noc_proprietor_bn: "nameBn",
+  noc_proprietor: "nameEn",
+  noc_mobile: "contactMobile",
+  primises_license_proprietor_bn: "nameBn",
+  primises_license_proprietor: "nameEn",
+  transport_license_proprietor_bn: "nameBn",
+  transport_license_proprietor: "nameEn",
+  transport_license_mobile: "contactMobile",
+  mobile: "contactMobile",
+  spi_name_bn: "nameBn",
+  spi_name_en: "nameEn",
+};
+
+/**
+ * Field ids whose meaning depends on the service: on service 2 the
+ * warish_info block describes the household head (the applicant), so the
+ * head's parents and spouse are the applicant's own. On services 3/4 the
+ * same ids describe the DECEASED — never prefilled there.
+ */
+const CITIZEN_FIELD_SOURCES_BY_SERVICE: Record<number, Record<string, string>> = {
+  2: {
+    warish_info_father_name_bn: "fatherNameBn",
+    warish_info_father_name: "fatherNameEn",
+    warish_info_mother_name_bn: "motherNameBn",
+    warish_info_mother_name: "motherNameEn",
+    warish_info_spouse_name_bn: "spouseNameBn",
+    warish_info_spouse_name: "spouseNameEn",
+  },
 };
 
 /** Starting values for a new application: top-level text/date fields only. */
 export function citizenFormDefaults(schema: FormSchema, citizen: any): Record<string, string> {
   const defaults: Record<string, string> = {};
   if (!citizen) return defaults;
+  const sources = {
+    ...CITIZEN_FIELD_SOURCES,
+    ...(CITIZEN_FIELD_SOURCES_BY_SERVICE[schema.serviceNo] ?? {}),
+  };
   for (const section of schema.sections)
     for (const field of section.fields) {
-      const source = CITIZEN_FIELD_SOURCES[field.id];
+      const source = sources[field.id];
       if (!source || !["text", "textarea", "date"].includes(field.type)) continue;
       const value = citizen[source];
       if (typeof value === "string" && value.trim()) defaults[field.id] = value.trim();
@@ -65,7 +131,11 @@ export function citizenFormDefaults(schema: FormSchema, citizen: any): Record<st
 }
 
 /** Human-readable rendering of one entered value, for the review step. */
-function detailText(field: FieldDefinition, value: any): string | null {
+function detailText(
+  field: FieldDefinition,
+  value: any,
+  formatDate?: (iso: string) => string,
+): string | null {
   if (field.type === "repeatable") {
     if (!Array.isArray(value) || !value.length) return null;
     const rows = value
@@ -73,14 +143,16 @@ function detailText(field: FieldDefinition, value: any): string | null {
         const parts = (field.children ?? [])
           .filter((child) => isFieldVisible(child, row ?? {}))
           .map((child) => {
-            const childText = detailText(child, row?.[child.id]);
+            const childText = detailText(child, row?.[child.id], formatDate);
             return childText ? `${choose(child.label)}: ${childText}` : null;
           })
           .filter(Boolean);
         return parts.length ? `${index + 1}. ${parts.join(", ")}` : null;
       })
       .filter(Boolean);
-    return rows.length ? rows.join("; ") : null;
+    // QAFIX-01 (§4 item 10): one row per line — a run-on joined string is
+    // what read as "cut off mid-line" on the family/heir lists.
+    return rows.length ? rows.join("\n") : null;
   }
   if (!presentValue(value)) return null;
   switch (field.type) {
@@ -96,10 +168,53 @@ function detailText(field: FieldDefinition, value: any): string | null {
         ? `${choose({ bn: "সংযুক্ত নথি", en: "Attached document" })} (${Math.max(1, Math.round(value.byteLength / 1024))} KB)`
         : choose({ bn: "সংযুক্ত নথি", en: "Attached document" });
     case "geography":
+      // Rendered by GeographyDetailText (names, never codes); the string
+      // form only survives for nested use, where no geography field occurs.
       return Object.values(value ?? {}).filter(Boolean).join(" / ") || null;
+    case "date":
+      // QAFIX-01 (§4 item 10): human dates on the review screen, never ISO.
+      return formatDate ? formatDate(String(value)) : String(value);
     default:
       return String(value);
   }
+}
+
+/**
+ * QAFIX-01 (§4 item 10): a geography value on the review screen resolves
+ * to place names (বেলাবো, নরসিংদী…) — the raw dataset codes citizens saw
+ * before (div-01 / dis-10 / upa-047) never render.
+ */
+function GeographyDetailText({ value }: { value: any }) {
+  useLanguage();
+  const [names, setNames] = useState<string[] | null>(null);
+  const [failed, setFailed] = useState(false);
+  useEffect(() => {
+    let active = true;
+    setNames(null);
+    setFailed(false);
+    geographyNames(value)
+      .then((resolved) => {
+        if (active) setNames(resolved);
+      })
+      .catch(() => {
+        if (active) setFailed(true);
+      });
+    return () => {
+      active = false;
+    };
+  }, [JSON.stringify(value ?? null)]);
+  if (failed)
+    return (
+      <>
+        {choose({
+          bn: "এলাকার নাম লোড হয়নি",
+          en: "Area names could not be loaded",
+        })}
+      </>
+    );
+  if (!names)
+    return <>{choose({ bn: "লোড হচ্ছে…", en: "Loading…" })}</>;
+  return <>{names.join(" / ")}</>;
 }
 
 /**
@@ -141,14 +256,27 @@ export function PayloadDetails({
   schema: FormSchema;
   payload: Record<string, any>;
 }) {
+  const { date: formatDate } = useFormatters();
   const sections = schema.sections
     .map((section) => ({
       section,
       rows: section.fields
         .filter((field) => isFieldVisible(field, payload))
+        // QAFIX-01 (§4 item 10): group-controller checkboxes (the opt-in
+        // toggles) are form mechanics — their "হ্যাঁ" never leaks onto the
+        // review screen as if it were applicant data.
+        .filter(
+          (field) =>
+            !(field.type === "checkbox" && groupControllerIds.has(field.id)),
+        )
         .map((field) => ({
           field,
-          text: detailText(field, payload[field.id]),
+          text:
+            field.type === "geography"
+              ? presentValue(payload[field.id])
+                ? "geography"
+                : null
+              : detailText(field, payload[field.id], formatDate),
         }))
         .filter((row) => row.text !== null),
     }))
@@ -161,15 +289,29 @@ export function PayloadDetails({
           <h4>{choose(section.title)}</h4>
           <dl className="ax-flow-details-list">
             {rows.map((row) => {
-              /* P2-5: long declarations span both columns. */
-              const wide = String(row.text ?? "").length > 120;
+              /* P2-5: long declarations span both columns. QAFIX-01:
+                 repeatable lists always span — one member/heir per line. */
+              const wide =
+                row.field.type === "repeatable" ||
+                (row.field.type !== "geography" &&
+                  String(row.text ?? "").length > 120);
               return (
                 <React.Fragment key={row.field.id}>
                   <dt className={wide ? "wide" : undefined}>
                     {choose(row.field.label)}
                   </dt>
-                  <dd className={wide ? "wide" : undefined}>
-                    {row.text}
+                  <dd
+                    className={
+                      [wide ? "wide" : "", row.field.type === "repeatable" ? "repeatable" : ""]
+                        .filter(Boolean)
+                        .join(" ") || undefined
+                    }
+                  >
+                    {row.field.type === "geography" ? (
+                      <GeographyDetailText value={payload[row.field.id]} />
+                    ) : (
+                      row.text
+                    )}
                     {/* QA-05: reviewers must be able to open what they approve. */}
                     {attachmentIds(row.field, payload[row.field.id]).map(
                       (id, index, all) => (
@@ -271,13 +413,54 @@ export function ServiceFlow({
   // PORTAL-B: a citizen applying for themselves starts from what their own
   // record already holds. Staff intake keeps its blank form (Release 0.4,
   // "citizen-first blank applications" — the intake tests pin it).
+  // QAFIX-01 (§4 item 4): start the fee-settings request while the citizen
+  // is still filling the form, so the fee step resolves the moment it is
+  // reached instead of spinning on a cold call (the live QA measured
+  // 8–10 s on services 36/41). The server stays authoritative: the quote
+  // and the application creation re-read the policy server-side.
+  useEffect(() => {
+    if (step === 1 && citizen) prefetchOrderOptions(serviceNo);
+  }, [step, citizen, serviceNo]);
+  // QAFIX-01 (§1 bug 5): the record handed in at mount is the workspace's
+  // snapshot from sign-in time. A citizen who completed their profile a
+  // minute ago — on the profile page, in this same session — was still
+  // asked for the same items again, because the flow never looked again.
+  // A self-applying citizen's own record is re-read when the flow opens;
+  // staff intake (a searched-for citizen) is untouched.
+  useEffect(() => {
+    if (!selfCitizen || !initialCitizen?.id) return;
+    let active = true;
+    api("/citizens")
+      .then((r) => {
+        if (!active) return;
+        const fresh =
+          items(r).find((c: any) => c.id === initialCitizen.id) ?? null;
+        if (fresh) setCitizen(fresh);
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+    // Mount-only: the snapshot is replaced once, when the flow opens.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const formReady =
     selfCitizen && step === 1 && !!citizen && profileGapsFor(citizen).length === 0;
   useEffect(() => {
     if (!formReady) return;
     const defaults = citizenFormDefaults(formSchema, citizen);
     if (!Object.keys(defaults).length) return;
-    setPayload((current) => (Object.keys(current).length ? current : defaults));
+    // QAFIX-02 (found on service 2): merge the defaults UNDER whatever the
+    // form already holds. The old all-or-nothing seeding lost every default
+    // on services with a required repeatable (family members, heirs): the
+    // form's row-seeding effect runs first and puts a blank row in the
+    // payload, so the payload was never empty when this effect ran and the
+    // citizen's own facts were silently never prefilled. Values already
+    // present (seeded rows, anything typed) always win.
+    setPayload((current) => {
+      const missing = Object.keys(defaults).filter((key) => !(key in current));
+      return missing.length ? { ...defaults, ...current } : current;
+    });
   }, [formReady, citizen, formSchema]);
   useEffect(() => {
     let active = true;
@@ -372,6 +555,12 @@ export function ServiceFlow({
             {choose({ bn: `সেবা ${serviceNo.toLocaleString("bn-BD")}`, en: `Service ${serviceNo}` })}
           </span>
           <h2 className="ax-flow-title">{title}</h2>
+          {/* QAFIX-02 (§3.4/§4 item 3): near-duplicate services carry a
+              one-line distinguishing description under the title, so the
+              citizen can tell them apart before starting. */}
+          {serviceDescriptions[serviceNo] && (
+            <p className="ax-flow-desc">{choose(serviceDescriptions[serviceNo])}</p>
+          )}
         </div>
         {step < 4 && (
           <button type="button" className="text-button" onClick={onExit}>
@@ -589,7 +778,7 @@ export function ServiceFlow({
               <dd>{choose(chosenCitizenAddress(citizen, payload.address_source))}</dd>
               {(payload.delivery_language === "bn" || payload.delivery_language === "en") && (
                 <>
-                  <dt>{choose({ bn: "সনদের ভাষা", en: "Certificate language" })}</dt>
+                  <dt>{choose({ bn: "নথির ভাষা", en: "Document language" })}</dt>
                   <dd>{payload.delivery_language === "en" ? "English" : "বাংলা"}</dd>
                 </>
               )}

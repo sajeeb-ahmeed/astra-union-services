@@ -755,6 +755,24 @@ app.post(
   }),
 );
 app.use("/api/v1", publicMfaRouter);
+// QAFIX-09 (B3): /auth/me for a request carrying NO session cookie
+// is answered anonymously (200, user: null) instead of 401. Public
+// pages probe it on every load to attempt session restore, and a
+// logged-out visitor is not an error — the 401 was console noise
+// on every public page view. BUNDLE06-R5 D3 keeps the probe
+// itself (a browser can hold a valid cookie with no client-side
+// trace, so restore must ask), but it need not fail. A request
+// WITH a cookie falls through to the auth middleware and the
+// handler below: an invalid or inactive session still 401s,
+// which the client's session-drop logic depends on.
+app.get("/api/v1/auth/me", (req, res, next) => {
+  const hasSessionCookie = (req.headers.cookie ?? "")
+    .split(";")
+    .map((x) => x.trim())
+    .some((x) => x.startsWith("astra_session=") && x.length > 14);
+  if (hasSessionCookie) return next();
+  res.json({ user: null, tenant: null, csrfToken: null, anonymous: true });
+});
 app.use(
   "/api/v1",
   (req: Req, res: express.Response, next: express.NextFunction) => {
@@ -1730,14 +1748,35 @@ app.post(
           let latestError: unknown = null;
           if (upgrade.status !== "UNRESOLVED")
             try {
+              // QAFIX-01: the purpose pair (purpose_bn/purpose_en) became a
+              // single `purpose` + `purpose_language`. Carry the citizen's
+              // own words over — Bangla first, the product is Bangla-first —
+              // so a pre-QAFIX application can still renew onto the current
+              // form instead of staying pinned to the old one forever.
+              const migrated = { ...upgrade.payload };
+              if (
+                migrated.purpose === undefined &&
+                (typeof migrated.purpose_bn === "string" ||
+                  typeof migrated.purpose_en === "string")
+              ) {
+                const bnText =
+                  typeof migrated.purpose_bn === "string" &&
+                  migrated.purpose_bn.trim()
+                    ? migrated.purpose_bn
+                    : undefined;
+                migrated.purpose = bnText ?? migrated.purpose_en;
+                migrated.purpose_language = bnText ? "bn" : "en";
+                delete migrated.purpose_bn;
+                delete migrated.purpose_en;
+              }
               await validatePayload(
                 db,
                 parent.service_no,
-                upgrade.payload,
+                migrated,
                 latestVersion,
                 parent.citizen_id,
               );
-              payload = upgrade.payload;
+              payload = migrated;
             } catch (error) {
               if (!(error instanceof ApiError && error.code === "FORM_INVALID"))
                 throw error;

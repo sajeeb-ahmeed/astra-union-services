@@ -202,6 +202,16 @@ export function DynamicForm({
                     as every other required field (was an unmarked legend). */}
                 {required ? " *" : ""}
               </div>
+              {/* QAFIX-04 (§4 item 5): a repeatable's guidance was never
+                  rendered — the regular-field branch below shows
+                  field.description, the repeatable branch did not, so
+                  document requirements (e.g. service 16's death
+                  certificate) were invisible to the citizen. */}
+              {tx(
+                field.description && (
+                  <p className="hint">{choose(field.description)}</p>
+                ),
+              )}
               {tx(
                 rows.map((row: Values, index: number) => (
                   <div className="repeat-row" key={index}>

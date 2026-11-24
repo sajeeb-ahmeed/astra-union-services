@@ -4,6 +4,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { chromium, type Browser, type Page } from "playwright";
 import { goToWorkspacePage } from "./fixtures/workspace-nav.js";
+import { ensurePendingScan } from "./fixtures/pending-scan.js";
 
 /**
  * PORTAL-D: the office-admin and owner consoles.
@@ -72,6 +73,13 @@ test("PORTAL-D consoles: admin tabs in setup order; owner menu complete and queu
     const owner = await browser.newPage({ viewport: { width: 1280, height: 900 } });
     await owner.addInitScript(() => localStorage.setItem("astra.language", "en"));
     owner.on("pageerror", (e) => errors.push(`owner: ${e.message}`));
+    // QAFIX-09: the owner KPI grid (incl. the "Office inclusion
+    // requests" tile) collapses to "All clear" when every queue is
+    // zero, and the operations panel fetches once on mount and
+    // re-polls only every 60s — so the pending scan must exist
+    // BEFORE the owner signs in, or the panel shows the stale
+    // all-clear state past the 30s tile wait.
+    await ensurePendingScan(origin);
     await signIn(owner, "owner@astra.demo.test");
     const menu = owner.locator(".owner-nav");
     await menu.waitFor();

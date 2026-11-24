@@ -58,6 +58,10 @@ test(
         .click();
       const form = page.getByTestId("service-application-form");
       await form.waitFor();
+      // QAFIX-07 (service 36 v6): the establishment-address block is
+      // gated on the NOC subject — a land subject reveals it. The
+      // cascade behaviour asserted below is unchanged.
+      await form.locator("[data-field-path='noc_subject']").selectOption("land");
       const kind = form.locator("[data-field-path='noc_org_add_type']");
       const selects = form.locator(".geography-picker select");
       await kind.selectOption("union");

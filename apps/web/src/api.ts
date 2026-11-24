@@ -65,6 +65,14 @@ function resyncSession() {
           clearSessionToken();
           return "expired" as const;
         }
+        // QAFIX-09 (B3): a cookie-less resync now answers with the
+        // anonymous 200 (user: null) instead of 401 — the session
+        // is gone either way, so it takes the same "expired" path
+        // the 401 used to.
+        if (response.ok && !data?.user) {
+          clearSessionToken();
+          return "expired" as const;
+        }
         if (!response.ok) return "unknown" as const;
         if (!data?.csrfToken || !data?.user?.id) return "unknown" as const;
         adoptSession(data);

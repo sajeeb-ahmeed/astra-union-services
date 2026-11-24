@@ -270,7 +270,7 @@ export function ShortSignupForm({
               type={showPassword ? "text" : "password"}
               required
               minLength={6}
-              maxLength={64}
+              maxLength={18}
               autoComplete="new-password"
               value={form.password}
               onChange={set("password")}
@@ -288,7 +288,7 @@ export function ShortSignupForm({
             </button>
           </span>
           <small id={"signup-password-hint"} className="hint">
-            {choose({ bn: "কমপক্ষে ৬ অক্ষর।", en: "At least 6 characters." })}
+            {choose({ bn: "৬–১৮ অক্ষর।", en: "6 to 18 characters." })}
           </small>
           {fieldError("password")}
         </label>

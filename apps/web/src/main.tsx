@@ -605,6 +605,20 @@ function SessionApp() {
         // open in the browser's network stack and can stall connection reuse (found by
         // the platform browser test — the portal never reached network idle).
         const result = await response.json().catch(() => null);
+        if (response.ok && result && !result.user) {
+          // QAFIX-09 (B3): the server answers a cookie-less probe
+          // with an anonymous 200 (user: null) — there is no
+          // session to restore and no error to surface. A tab that
+          // still holds a session drops to sign-in exactly as it
+          // did on the old 401 (the cookie vanished elsewhere).
+          if (!sessionRef.current) anonymousRef.current = true;
+          if (sessionRef.current) {
+            showSignInAfterSession();
+            sessionRef.current = null;
+            setSession(null);
+          }
+          return;
+        }
         if (!response.ok || !result) {
           if (response.status === 401) clearSessionToken();
           if (!sessionRef.current) anonymousRef.current = true;
