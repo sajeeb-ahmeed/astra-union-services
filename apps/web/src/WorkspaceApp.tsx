@@ -1076,6 +1076,14 @@ export function WorkspaceApp({
               {choose({ bn: "নতুন", en: "New" })}
             </span>
           )}
+          {/* W-013: a partial draft is visibly incomplete so nobody mistakes
+              it for a ready-to-submit draft. */}
+          {(a.partialPayload ?? a.partial_payload) &&
+            (a.state || a.status) === "DRAFT" && (
+              <span className="ax-new-badge">
+                {choose({ bn: "অসম্পূর্ণ খসড়া", en: "Incomplete draft" })}
+              </span>
+            )}
         </td>
         {!hideCitizen && <td>{citizenNameFor(a) || "—"}</td>}
         <td>
@@ -2203,6 +2211,8 @@ export function WorkspaceApp({
                     citizen={open}
                     canEdit={staff || role === "citizen"}
                     geographyRequired={!!session?.tenant?.divisionCode}
+                    // S-010: plain staff cannot reveal full identity numbers.
+                    canRevealFullNumbers={role !== "staff"}
                     onClose={() => setDetailsCitizenId("")}
                     onSaved={(updated) => {
                       setCitizens((list) =>
@@ -3025,7 +3035,7 @@ export function WorkspaceApp({
                 <div className="actions">
                   {tx(
                     (staff || role === "citizen") &&
-                      ["DRAFT", "SUBMITTED", "CORRECTION_REQUIRED"].includes(
+                      ["DRAFT", "SUBMITTED", "CORRECTION_REQUIRED", "RESUBMITTED"].includes(
                         application.state,
                       ) && (
                         <button
@@ -3034,6 +3044,30 @@ export function WorkspaceApp({
                           onClick={() => run(() => transition("cancel"))}
                         >
                           {choose({ bn: "আবেদন বাতিল করুন", en: "Cancel application" })}
+                        </button>
+                      ),
+                  )}
+                  {tx(
+                    (staff || role === "citizen") &&
+                      application.state === "REJECTED" && (
+                        <button
+                          disabled={busy}
+                          onClick={() =>
+                            run(async () => {
+                              // W-014: start a new draft reusing this payload;
+                              // the new draft opens so the citizen can review
+                              // it (and choose delivery options when the
+                              // office has a fee policy) before submitting.
+                              const created = await api(
+                                `/applications/${application.id}/reapply`,
+                                "POST",
+                                {},
+                              );
+                              await openApplication(created.id);
+                            })
+                          }
+                        >
+                          {choose({ bn: "আবার আবেদন করুন", en: "Re-apply" })}
                         </button>
                       ),
                   )}

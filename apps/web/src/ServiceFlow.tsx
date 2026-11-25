@@ -398,7 +398,13 @@ export function ServiceFlow({
   // a legitimate repeat application is still possible.
   const [requestKey] = useState(() => randomUUID());
   const [error, setError] = useState("");
-  const [result, setResult] = useState<{ id: string; reference?: string; state: string; note?: string } | null>(null);
+  const [result, setResult] = useState<{ id: string; reference?: string; state: string; note?: string; partial?: boolean } | null>(null);
+  // W-013: whether this office has an order policy for the service. A
+  // partial (half-filled) draft can only be saved before the delivery step
+  // when no policy exists — with a policy, the draft needs the order
+  // snapshot, which is only chosen at the delivery step. Resolved from the
+  // same prefetched options the delivery step uses.
+  const [orderPolicyConfigured, setOrderPolicyConfigured] = useState<boolean | null>(null);
   // W-006: the fee outcome of this submit, fetched when the review step is
   // reached so the citizen / responsible office sees it BEFORE committing.
   // The preview is advisory (balances move); the submit stays authoritative.
@@ -443,7 +449,21 @@ export function ServiceFlow({
   // 8–10 s on services 36/41). The server stays authoritative: the quote
   // and the application creation re-read the policy server-side.
   useEffect(() => {
-    if (step === 1 && citizen) prefetchOrderOptions(serviceNo);
+    if (step === 1 && citizen) {
+      prefetchOrderOptions(serviceNo);
+      // W-013: learn whether a policy exists so the form step knows if an
+      // incomplete draft can be saved here (no policy) or only after the
+      // delivery step (policy configured).
+      let active = true;
+      prefetchOrderOptions(serviceNo)
+        .then((options) => {
+          if (active) setOrderPolicyConfigured(Boolean(options?.configured));
+        })
+        .catch(() => {});
+      return () => {
+        active = false;
+      };
+    }
   }, [step, citizen, serviceNo]);
   // QAFIX-01 (§1 bug 5): the record handed in at mount is the workspace's
   // snapshot from sign-in time. A citizen who completed their profile a
@@ -566,6 +586,37 @@ export function ServiceFlow({
       // REG-UX Phase 1: the server's application gate found deferred profile items
       // missing — return to the form step, where the inline completion card shows.
       if (errorCode(createError) === "PROFILE_INCOMPLETE") setStep(1);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  // W-013: save the half-filled form as a partial draft — no client-side
+  // validation, no order input (only offered when no order policy exists, so
+  // the server never has to refuse it for a missing order snapshot). The
+  // server marks it partial; submit re-validates fully.
+  async function savePartialDraft() {
+    setBusy(true);
+    setError("");
+    try {
+      const created = await api("/applications", "POST", {
+        citizenId: citizen.id,
+        serviceNo,
+        payload,
+        requestKey,
+        partial: true,
+      });
+      const createdApplication = created.application || created;
+      onChanged();
+      setResult({
+        id: createdApplication.id as string,
+        reference: (createdApplication.reference as string) || undefined,
+        state: "DRAFT",
+        partial: true,
+      });
+      go(4);
+    } catch (saveError) {
+      setError((saveError as Error).message);
     } finally {
       setBusy(false);
     }
@@ -740,6 +791,20 @@ export function ServiceFlow({
                   {choose({ bn: "← নাগরিক", en: "← Citizen" })}
                 </button>
               )}
+              {/* W-013: save the half-filled form. Only when this office has no
+                  order policy for the service — with a policy the draft needs
+                  the delivery options, which are chosen at the next step, and
+                  a draft can be saved at the review step instead. */}
+              {orderPolicyConfigured === false && (
+                <button
+                  type="button"
+                  className="secondary"
+                  disabled={busy}
+                  onClick={() => void savePartialDraft()}
+                >
+                  {choose({ bn: "অসম্পূর্ণ খসড়া সংরক্ষণ", en: "Save incomplete draft" })}
+                </button>
+              )}
               <button
                 type="button"
                 onClick={() => {
@@ -758,6 +823,14 @@ export function ServiceFlow({
                 {choose({ bn: "পরবর্তী: ফি ও সরবরাহ", en: "Next: fees and delivery" })}
               </button>
             </div>
+            {orderPolicyConfigured === true && (
+              <p className="hint">
+                {choose({
+                  bn: "এই সেবায় ডেলিভারি অপশন বেছে নেওয়ার পর যাচাই ধাপে খসড়া সংরক্ষণ করা যাবে।",
+                  en: "For this service, a draft can be saved at the review step, after the delivery options are chosen.",
+                })}
+              </p>
+            )}
           </>
         )}
 
@@ -936,7 +1009,9 @@ export function ServiceFlow({
             <p>
               {result.state === "SUBMITTED"
                 ? choose({ bn: "আবেদন জমা হয়েছে এবং অফিসের পর্যালোচনায় আছে।", en: "The application is submitted and waiting for office review." })
-                : choose({ bn: "আবেদন খসড়া হিসেবে সংরক্ষিত হয়েছে; এখনো জমা হয়নি।", en: "The application is saved as a draft; it is not submitted yet." })}
+                : result.partial
+                  ? choose({ bn: "অসম্পূর্ণ খসড়া সংরক্ষিত হয়েছে — আবেদনের তালিকা থেকে খুলে ফরমটি শেষ করুন।", en: "Incomplete draft saved — open it from your applications to finish the form." })
+                  : choose({ bn: "আবেদন খসড়া হিসেবে সংরক্ষিত হয়েছে; এখনো জমা হয়নি।", en: "The application is saved as a draft; it is not submitted yet." })}
             </p>
             {result.note && <p className="ax-flow-error">{result.note}</p>}
             <p>

@@ -297,6 +297,7 @@ export function CitizenDetailsEditor({
   onClose,
   canEdit = true,
   geographyRequired = false,
+  canRevealFullNumbers = true,
 }: {
   citizen: any;
   onSaved: (citizen: any) => void;
@@ -304,6 +305,10 @@ export function CitizenDetailsEditor({
   canEdit?: boolean;
   /** Phase 3b: whether the office uses structured geography, so the address area counts. */
   geographyRequired?: boolean;
+  /** S-010: plain office staff may not reveal full identity numbers (the API
+   * returns 403 for them); hide the reveal button instead of offering a
+   * control that always fails. */
+  canRevealFullNumbers?: boolean;
 }) {
   useLanguage();
   const [draft, setDraft] = useState(() => readCitizenDetails(citizen));
@@ -343,7 +348,7 @@ export function CitizenDetailsEditor({
           {revealed ? (revealed.birthReg ?? "—") : (citizen.birthRegHint ?? "—")}
         </dd>
       </dl>
-      {hasNumbers && !revealed && (
+      {hasNumbers && canRevealFullNumbers && !revealed && (
         <button
           type="button"
           className="secondary"
@@ -357,6 +362,9 @@ export function CitizenDetailsEditor({
         >
           {t("পূর্ণ নম্বর দেখুন / Show full numbers")}
         </button>
+      )}
+      {hasNumbers && !canRevealFullNumbers && (
+        <p className="hint">{t("Full identity numbers are available to the Chairman and reviewers only.")}</p>
       )}
       {hasNumbers && !revealed && (
         <p className="hint">{t("Viewing full numbers is recorded in the audit log.")}</p>

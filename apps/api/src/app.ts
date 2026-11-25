@@ -51,6 +51,7 @@ import {
   citizenDetailsInput,
   decryptNumber,
   duplicateNumberError,
+  maskIdentityNumber,
   type CitizenDetails,
 } from "./citizen-data.js";
 import {
@@ -1315,15 +1316,44 @@ app.get(
 app.get(
   "/api/v1/citizens/:id/identity",
   wrap(async (req, res) => {
-    const a = roles(req, [...staffRead, "citizen"]);
+    // S-010: full identity numbers are NOT for plain office staff. The
+    // reviewer and approver need them for issuance checks, the office admin
+    // for account administration, and the citizen for their own record; a
+    // staff member works from the masked hints on the citizen row instead.
+    // `?masked=true` returns the masked form even for authorized roles.
+    const a = roles(req, ["admin", "reviewer", "approver", "citizen"]);
     const id = uuid.parse(req.params.id);
+    const masked = req.query.masked === "true";
     const numbers = await transaction(tenant(req), async (db) => {
       const r = await reachableCitizen(db, a, id, "nid_cipher,birth_reg_cipher");
       // Reading the full numbers is recorded, like other access to personal data.
       await audit(db, a.tenantId!, a.userId, "CITIZEN_IDENTITY_VIEWED", id);
+      // S-010: bulk/rapid reads are flagged once per window so a compromised
+      // or curious account harvesting numbers leaves a distinct audit event
+      // instead of blending into the per-read log.
+      const recentReads = (
+        await db.query(
+          "SELECT count(*)::int n FROM audit_events WHERE tenant_id=$1 AND actor_id=$2 AND action='CITIZEN_IDENTITY_VIEWED' AND created_at > now() - interval '10 minutes'",
+          [a.tenantId, a.userId],
+        )
+      ).rows[0].n as number;
+      if (recentReads >= 20) {
+        const alreadyFlagged = (
+          await db.query(
+            "SELECT 1 FROM audit_events WHERE tenant_id=$1 AND actor_id=$2 AND action='CITIZEN_IDENTITY_BULK_READ' AND created_at > now() - interval '10 minutes'",
+            [a.tenantId, a.userId],
+          )
+        ).rowCount;
+        if (!alreadyFlagged)
+          await audit(db, a.tenantId!, a.userId, "CITIZEN_IDENTITY_BULK_READ", id, {
+            readsInWindow: recentReads,
+          });
+      }
+      const nid = r.nid_cipher ? decryptNumber(r.nid_cipher, a.tenantId!, "nid") : null;
+      const birthReg = r.birth_reg_cipher ? decryptNumber(r.birth_reg_cipher, a.tenantId!, "birth_reg") : null;
       return {
-        nid: r.nid_cipher ? decryptNumber(r.nid_cipher, a.tenantId!, "nid") : null,
-        birthReg: r.birth_reg_cipher ? decryptNumber(r.birth_reg_cipher, a.tenantId!, "birth_reg") : null,
+        nid: masked ? maskIdentityNumber(nid) : nid,
+        birthReg: masked ? maskIdentityNumber(birthReg) : birthReg,
       };
     });
     res.setHeader("Cache-Control", "no-store");
@@ -1621,6 +1651,13 @@ app.post(
         // passes, inside the creation transaction, so a rejected
         // request never consumes it.
         requestKey: uuid.optional(),
+        // W-013: a partial draft saves a half-filled form. Only the form
+        // validation is skipped — profile, service and order checks still
+        // run, and submit/resubmit re-validate fully, so a partial draft
+        // can never leave DRAFT in an invalid state. The draft is marked
+        // partial (applications.partial_payload) until a fully valid
+        // payload is saved over it.
+        partial: z.boolean().optional(),
       })
       .strict()
       .parse(req.body);
@@ -1659,13 +1696,15 @@ app.post(
       const schemaVersion = getServiceSchema(
         z.number().int().min(1).max(47).parse(data.serviceNo),
       ).version;
-      await validatePayload(
-        db,
-        data.serviceNo,
-        data.payload,
-        schemaVersion,
-        data.citizenId,
-      );
+      // W-013: partial drafts skip form validation only (see the body comment).
+      if (!data.partial)
+        await validatePayload(
+          db,
+          data.serviceNo,
+          data.payload,
+          schemaVersion,
+          data.citizenId,
+        );
       const sv = (
         await db.query(
           "SELECT * FROM service_versions WHERE service_no=$1 AND version=$2",
@@ -1730,7 +1769,7 @@ app.post(
       const applicationId = randomUUID();
       const r = (
         await db.query(
-          "INSERT INTO applications(id,tenant_id,citizen_id,service_no,schema_version,schema_hash,created_by,order_mode,reference) VALUES($1,$2,$3,$4,$7,$5,$6,$8,$9) RETURNING *",
+          "INSERT INTO applications(id,tenant_id,citizen_id,service_no,schema_version,schema_hash,created_by,order_mode,reference,partial_payload) VALUES($1,$2,$3,$4,$7,$5,$6,$8,$9,$10) RETURNING *",
           [
             applicationId,
             a.tenantId,
@@ -1741,6 +1780,7 @@ app.post(
             schemaVersion,
             order ? "POLICY" : "LEGACY",
             reference,
+            !!data.partial,
           ],
         )
       ).rows[0];
@@ -2177,12 +2217,190 @@ app.post(
     res.status(201).json(result);
   }),
 );
+/**
+ * W-014: re-apply from a rejected application. Rejection is no longer a dead
+ * end: the citizen (or office staff) starts a new DRAFT that reuses the
+ * rejected payload, linked via applications.reapplication_of so the history
+ * stays connected. The new application is a fresh application in every other
+ * respect — its own reference, its own fee settlement at submit, and its own
+ * Chairman decision. The submit fee is charged again under the implemented
+ * billing model (charge at first submit); waiving the second fee is an OWNER
+ * DECISION, not implemented here. If the carried payload no longer validates
+ * against the current schema it is saved as a partial draft (W-013) so the
+ * citizen can fix it instead of losing it. The order snapshot is NOT carried
+ * over: delivery choices and fees are re-chosen under the current policy.
+ */
+app.post(
+  "/api/v1/applications/:id/reapply",
+  wrap(async (req, res) => {
+    const a = roles(req, ["citizen", "staff", "admin"]);
+    const id = uuid.parse(req.params.id);
+    const d = z
+      .object({
+        payload: z.record(z.string(), z.unknown()).optional(),
+        order: applicationOrderInput.optional(),
+        // W-004: same idempotency claim as POST /applications and renew — a
+        // retried reapply returns the original re-application draft.
+        requestKey: uuid.optional(),
+      })
+      .strict()
+      .parse(req.body ?? {});
+    let replayed = false;
+    const result = await transaction(
+      tenant(req),
+      async (db) => {
+        const original = await loadApplication(db, id, a, true);
+        if (d.requestKey) {
+          await db.query(
+            "SELECT pg_advisory_xact_lock(hashtext('application_reapply'), hashtext($1))",
+            [
+              `${a.tenantId}:${original.citizen_id}:${original.service_no}:${d.requestKey}`,
+            ],
+          );
+          const claimed = (
+            await db.query(
+              "SELECT application_id FROM application_creation_keys WHERE tenant_id=$1 AND citizen_id=$2 AND service_no=$3 AND request_key=$4",
+              [a.tenantId, original.citizen_id, original.service_no, d.requestKey],
+            )
+          ).rows[0];
+          if (claimed) {
+            const existing = (
+              await db.query(
+                "SELECT * FROM applications WHERE id=$1 AND tenant_id=$2",
+                [claimed.application_id, a.tenantId],
+              )
+            ).rows[0];
+            if (existing) {
+              replayed = true;
+              return { ...camelRow(existing), sourceApplicationId: id };
+            }
+          }
+        }
+        if (original.state !== "REJECTED")
+          fail(
+            409,
+            "REAPPLY_SOURCE_INVALID",
+            "Only a rejected application can be re-applied for.",
+          );
+        const sourcePayload = (
+          await db.query(
+            "SELECT payload FROM application_payload_versions WHERE application_id=$1 AND version=$2",
+            [id, original.latest_version],
+          )
+        ).rows[0].payload;
+        const carried = { ...(d.payload ?? sourcePayload) };
+        // Carry the payload onto the current schema when it validates there;
+        // otherwise keep it on the pinned version, as a partial draft when it
+        // validates nowhere, so the citizen's work is never lost.
+        const latestVersion = getServiceSchema(original.service_no).version;
+        const validOn = async (version: number) => {
+          try {
+            await validatePayload(
+              db,
+              original.service_no,
+              carried,
+              version,
+              original.citizen_id,
+            );
+            return true;
+          } catch (error) {
+            if (error instanceof ApiError && error.code === "FORM_INVALID")
+              return false;
+            throw error;
+          }
+        };
+        let payload = carried,
+          schemaVersion = latestVersion,
+          partial = false;
+        if (await validOn(latestVersion)) schemaVersion = latestVersion;
+        else if (await validOn(original.schema_version))
+          schemaVersion = original.schema_version;
+        else {
+          schemaVersion = original.schema_version;
+          partial = true;
+        }
+        const order = await prepareApplicationOrder(
+          db,
+          a.tenantId!,
+          original.service_no,
+          d.order,
+          payload,
+        );
+        const schema = (
+          await db.query(
+            "SELECT schema_hash FROM service_versions WHERE service_no=$1 AND version=$2",
+            [original.service_no, schemaVersion],
+          )
+        ).rows[0];
+        const reference = await mintReference(applicationReferenceExists(db));
+        const child = (
+          await db.query(
+            "INSERT INTO applications(id,tenant_id,citizen_id,service_no,schema_version,schema_hash,created_by,order_mode,reference,partial_payload,reapplication_of) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING *",
+            [
+              randomUUID(),
+              a.tenantId,
+              original.citizen_id,
+              original.service_no,
+              schemaVersion,
+              schema.schema_hash,
+              a.userId,
+              order ? "POLICY" : "LEGACY",
+              reference,
+              partial,
+              id,
+            ],
+          )
+        ).rows[0];
+        await db.query(
+          "INSERT INTO application_payload_versions(tenant_id,application_id,version,payload,payload_hash,actor_id) VALUES($1,$2,1,$3,$4,$5)",
+          [
+            a.tenantId,
+            child.id,
+            JSON.stringify(payload),
+            digest(stablePayload(payload)),
+            a.userId,
+          ],
+        );
+        await saveApplicationOrder(
+          db,
+          a.tenantId!,
+          child.id,
+          original.service_no,
+          order,
+        );
+        if (d.requestKey)
+          await db.query(
+            "INSERT INTO application_creation_keys(tenant_id,citizen_id,service_no,request_key,application_id) VALUES($1,$2,$3,$4,$5)",
+            [a.tenantId, original.citizen_id, original.service_no, d.requestKey, child.id],
+          );
+        await event(
+          db,
+          { ...child, state: null },
+          a,
+          "reapply",
+          "DRAFT",
+          `Re-applies for rejected ${original.reference ?? original.id}`,
+        );
+        return { ...camelRow(child), sourceApplicationId: id };
+      },
+      true,
+    );
+    if (replayed) res.set("X-Idempotency-Replayed", "true");
+    res.status(201).json(result);
+  }),
+);
 app.patch(
   "/api/v1/applications/:id",
   wrap(async (req, res) => {
     const a = roles(req, ["staff", "admin", "citizen"]);
     const data = z
-      .object({ payload: z.record(z.string(), z.unknown()) })
+      .object({
+        payload: z.record(z.string(), z.unknown()),
+        // W-013: a partial edit saves a half-filled form without full
+        // validation. The order agreement is still checked; submit/resubmit
+        // re-validate fully. A fully valid save clears the partial marker.
+        partial: z.boolean().optional(),
+      })
       .strict()
       .parse(req.body);
     const result = await transaction(tenant(req), async (db) => {
@@ -2193,13 +2411,14 @@ app.patch(
           "STATE_CONFLICT",
           "This application cannot be edited in its current state.",
         );
-      await validatePayload(
-        db,
-        r.service_no,
-        data.payload,
-        r.schema_version,
-        r.citizen_id,
-      );
+      if (!data.partial)
+        await validatePayload(
+          db,
+          r.service_no,
+          data.payload,
+          r.schema_version,
+          r.citizen_id,
+        );
       await validateApplicationOrder(db, r, data.payload);
       const version = r.latest_version + 1;
       await db.query(
@@ -2215,8 +2434,8 @@ app.patch(
       );
       const next = (
         await db.query(
-          "UPDATE applications SET latest_version=$2,updated_at=now() WHERE id=$1 RETURNING *",
-          [r.id, version],
+          "UPDATE applications SET latest_version=$2,partial_payload=$3,updated_at=now() WHERE id=$1 RETURNING *",
+          [r.id, version, !!data.partial],
         )
       ).rows[0];
       await event(db, r, a, "edit", r.state);
@@ -2722,6 +2941,10 @@ app.post(
             [r.id, r.latest_version],
           )
         ).rows[0].payload;
+        // W-013: final submission enforces FULL validation. A partial draft
+        // reaches here without ever having passed it, so this is the gate
+        // that makes partial drafts safe — an invalid payload stays a draft.
+        await validatePayload(db, r.service_no, payload, r.schema_version, r.citizen_id);
         await validateApplicationOrder(db, r, payload);
       }
       switch (data.action) {
