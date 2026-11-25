@@ -37,7 +37,10 @@ import { WorkspaceDashboard } from "./WorkspaceDashboard.js";
 import { SidebarNav } from "./ui/SidebarNav.js";
 import {
   ApplicationStatus,
+  APPLICATION_STATES,
+  applicationStatusLabel,
   applicationStatusMeta,
+  normalizeApplicationState,
   ledgerKindMeta,
   ledgerReasonText,
   planNameText,
@@ -315,11 +318,27 @@ function parseWorkspaceHash(): WorkspaceRoute {
       ownerSection: OWNER_SECTIONS.includes(section) ? section : "overview",
     };
   }
+  // CH-004: the hash is untrusted input — a bad link (e.g. ?state=
+  // AWAITING_ISSUANCE, which is not a state in the state machine) must
+  // degrade to the unfiltered list, never crash the section (the old code
+  // stored the raw value, and choose(applicationStatusMeta(filter)) threw
+  // on the null meta, tripping the error boundary until a full reload) and
+  // never 422 the list request. Unknown states become "" (all states);
+  // a non-numeric or out-of-range service (API serviceNo is 1..47) is dropped.
+  const rawService = params.get("service") ?? undefined;
+  const serviceNo = Number(rawService);
   return {
     page: segments[0] || "home",
     detailId: segments[0] === "applications" ? segments[1] : undefined,
-    state: params.get("state") ?? undefined,
-    service: params.get("service") ?? undefined,
+    state: normalizeApplicationState(params.get("state")),
+    service:
+      rawService !== undefined &&
+      /^\d+$/.test(rawService) &&
+      Number.isInteger(serviceNo) &&
+      serviceNo >= 1 &&
+      serviceNo <= 47
+        ? rawService
+        : undefined,
   };
 }
 function roleDefaultPage(role: string): string {
@@ -445,7 +464,10 @@ export function WorkspaceApp({
     [appPageSize, setAppPageSize] = useState(25),
     // QAFIX-01 (§4 item 13): null until the first list answer arrives —
     // totals show a loading dash, never a confident 0 that later jumps.
-    [appTotal, setAppTotal] = useState<number | null>(null);
+    [appTotal, setAppTotal] = useState<number | null>(null),
+    // CH-004: the last applications-list failure, if any — the section
+    // renders it with a retry instead of a stale/empty list.
+    [appLoadError, setAppLoadError] = useState("");
   // Phase 6c: date range and renewals-only filters for the applications list.
   const [appFrom, setAppFrom] = useState(""),
     [appTo, setAppTo] = useState(""),
@@ -591,6 +613,19 @@ export function WorkspaceApp({
         ? api(
             `/applications?${new URLSearchParams({ ...(filter ? { state: filter } : {}), ...(appService ? { serviceNo: appService } : {}), q: appQuery, page: String(appPage), pageSize: String(appPageSize), ...(appFrom ? { from: appFrom } : {}), ...(appTo ? { to: appTo } : {}), ...(appRenewals ? { renewal: "true" } : {}) })}`,
           )
+            // CH-004: a failed list fetch must not reject the whole
+            // refresh (which would leave every panel stale) and must not
+            // leave a dead screen — the section below renders the
+            // failure with a retry. The previously loaded rows stay
+            // visible until a fetch succeeds.
+            .then((r) => {
+              setAppLoadError("");
+              return r;
+            })
+            .catch((e) => {
+              setAppLoadError((e as Error).message);
+              return null;
+            })
         : Promise.resolve({ items: [], total: 0 }),
       ["admin", "finance", "approver"].includes(role)
         ? api("/wallet")
@@ -604,8 +639,12 @@ export function WorkspaceApp({
     setCatalog(items(servicesResult));
     setCitizens(items(citizenResult));
     setCitizenTotal(citizenResult.total ?? items(citizenResult).length);
-    setApplications(items(applicationResult));
-    setAppTotal(applicationResult.total ?? items(applicationResult).length);
+    // CH-004: null when the list fetch failed (see above) — keep the
+    // previously loaded rows and total instead of wiping the list.
+    if (applicationResult) {
+      setApplications(items(applicationResult));
+      setAppTotal(applicationResult.total ?? items(applicationResult).length);
+    }
     setWallet(walletResult);
     setBilling(billingResult);
     setTenants(items(tenantResult));
@@ -786,9 +825,26 @@ export function WorkspaceApp({
     if (route.ownerSection) setOwnerSection(route.ownerSection);
     if (!route.page) return;
     if (route.page === "applications") {
-      setFilter(route.state ?? "");
+      // CH-004: normalize again at the boundary (parseWorkspaceHash
+      // already normalizes; this covers any future caller passing a raw
+      // value) and repair the URL when the hash carried a value that
+      // normalized away, so a refresh or bookmark does not re-carry the
+      // bad filter. replaceState fires no hashchange, so this cannot loop.
+      const state = normalizeApplicationState(route.state);
+      setFilter(state);
       setAppService(route.service ?? "");
       setAppPage(1);
+      if (!route.detailId) {
+        const params = new URLSearchParams({
+          ...(state ? { state } : {}),
+          ...(route.service ? { service: route.service } : {}),
+        });
+        const query = params.toString();
+        const cleanHash = `#/applications${query ? `?${query}` : ""}`;
+        if (window.location.hash !== cleanHash) {
+          history.replaceState({}, "", cleanHash);
+        }
+      }
     }
     setDetail(null);
     setPage(route.page);
@@ -821,12 +877,15 @@ export function WorkspaceApp({
   function openTask(next: string, state = "", serviceNo = "") {
     if (next === "applications") {
       clearApplicationFilters();
-      setFilter(state);
+      // CH-004: dashboard tiles and deep links pass state names; normalize
+      // so an unknown value degrades to "all" instead of crashing the list.
+      const normalizedState = normalizeApplicationState(state);
+      setFilter(normalizedState);
       setAppService(serviceNo);
       setDetail(null);
       setPage("applications");
       const params = new URLSearchParams({
-        ...(state ? { state } : {}),
+        ...(normalizedState ? { state: normalizedState } : {}),
         ...(serviceNo ? { service: serviceNo } : {}),
       });
       const query = params.toString();
@@ -1468,7 +1527,7 @@ export function WorkspaceApp({
                           }}
                         >
                           {a.reference || a.id} ·{" "}
-                          {choose(applicationStatusMeta(String(a.state || a.status || "")))}
+                          {choose(applicationStatusLabel(String(a.state || a.status || "")))}
                         </button>
                       ))}
                     </div>
@@ -2289,19 +2348,11 @@ export function WorkspaceApp({
                     >
                       <option value="">{choose({ bn: "সব অবস্থা", en: "All states" })}</option>
                       {tx(
-                        [
-                          "DRAFT",
-                          "SUBMITTED",
-                          "UNDER_REVIEW",
-                          "CORRECTION_REQUIRED",
-                          "RESUBMITTED",
-                          "APPROVED",
-                          "ISSUANCE_PENDING",
-                          "ISSUED",
-                          "REJECTED",
-                          "CANCELLED",
-                          "REVOKED",
-                        ].map((s) => (
+                        // CH-004: the options are the API's accepted states
+                        // by construction — ISSUANCE_PENDING was offered
+                        // here but the API rejects it with 422, so
+                        // selecting it only ever produced an error.
+                        APPLICATION_STATES.map((s) => (
                           <option key={s} value={s}>
                             {choose(applicationStatusMeta(s))}
                           </option>
@@ -2346,7 +2397,7 @@ export function WorkspaceApp({
                   <div className="app-filter-chips">
                     {filter && (
                       <span className="app-chip">
-                        {choose(applicationStatusMeta(filter))}
+                        {choose(applicationStatusLabel(filter))}
                         <button
                           type="button"
                           aria-label={choose({ bn: "অবস্থার ফিল্টার সরান", en: "Remove status filter" })}
@@ -2556,6 +2607,25 @@ export function WorkspaceApp({
                   </p>
                 </div>
               </div>
+              {/* CH-004: a failed list fetch shows here with a retry —
+                  never a dead screen, and never the misleading "No
+                  applications yet" empty state below while the load failed. */}
+              {tx(
+                appLoadError && (
+                  <div className="panel narrow" role="alert">
+                    <p>
+                      {choose({
+                        bn: "আবেদনের তালিকা লোড করা যায়নি।",
+                        en: "The applications list could not be loaded.",
+                      })}{" "}
+                      {tx(appLoadError)}
+                    </p>
+                    <button type="button" onClick={() => void run(refresh)}>
+                      {choose({ bn: "আবার চেষ্টা করুন", en: "Try again" })}
+                    </button>
+                  </div>
+                ),
+              )}
               <div className="table-wrap responsive-table">
                 <table>
                   <thead>
@@ -2582,7 +2652,7 @@ export function WorkspaceApp({
               </div>
               {tx(busy && !applications.length && <SkeletonRows rows={5} />)}
               {tx(
-                !busy && !applications.length && (
+                !busy && !applications.length && !appLoadError && (
                   <EmptyState
                     title={choose(
                       filter || appService || appSearch
