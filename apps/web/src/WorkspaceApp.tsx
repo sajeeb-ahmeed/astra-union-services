@@ -511,6 +511,13 @@ export function WorkspaceApp({
   const [renewalOrder, setRenewalOrder] = useState<IntakeOrderState | null>(
     null,
   );
+  // W-004 (follow-up): one idempotency key per source application, minted
+  // on the first renew click and reused on every retry of that renewal —
+  // a retried renew then returns the original draft instead of a second
+  // one. The key is kept after success too: the certificate can only ever
+  // have one active renewal, so a later click replays the same draft
+  // rather than failing with RENEWAL_EXISTS.
+  const renewalRequestKeys = useRef(new Map<string, string>());
   const [renewalLanguageChoice, setRenewalLanguageChoice] = useState<{
     id: string;
     // W-024: the renewal panel inherits the source application's
@@ -3106,10 +3113,19 @@ export function WorkspaceApp({
                           }
                           onClick={() =>
                             run(async () => {
+                              // W-004: the renew idempotency key (see the
+                              // renewalRequestKeys ref) — one key per source
+                              // application, reused across retries.
+                              let requestKey = renewalRequestKeys.current.get(application.id);
+                              if (!requestKey) {
+                                requestKey = crypto.randomUUID();
+                                renewalRequestKeys.current.set(application.id, requestKey);
+                              }
                               const renewal = await api(
                                 `/applications/${application.id}/renew`,
                                 "POST",
                                 {
+                                  requestKey,
                                   ...(renewalOrder?.order
                                     ? {
                                         order: renewalOrder.order,

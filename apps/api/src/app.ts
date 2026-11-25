@@ -1916,9 +1916,18 @@ app.post(
         .object({
           payload: z.record(z.string(), z.unknown()).optional(),
           order: applicationOrderInput.optional(),
+          // W-004 (follow-up): a renewal is a second creation path into
+          // applications, and it accepted no requestKey — a retried renew
+          // created a second renewal draft (the one_active_renewal unique
+          // index turned a concurrent race into a 500 instead of a clean
+          // replay). The same application_creation_keys claim as POST
+          // /applications applies: one renewal per (tenant, citizen,
+          // service, key).
+          requestKey: uuid.optional(),
         })
         .strict()
         .parse(req.body ?? {});
+    let replayed = false;
     const result = await transaction(
       tenant(req),
       async (db) => {
@@ -1929,6 +1938,50 @@ app.post(
             [id],
           )
         ).rows[0];
+        // W-004: the replay lookup runs BEFORE the RENEWAL_EXISTS check
+        // below, so a replay returns the original renewal instead of a
+        // 409; a keyless or different-key repeat still gets the 409. The
+        // claim is taken only after every validation passes, inside the
+        // transaction, so a rejected renew never consumes its key.
+        if (d.requestKey) {
+          await db.query(
+            "SELECT pg_advisory_xact_lock(hashtext('application_renew'), hashtext($1))",
+            [
+              `${a.tenantId}:${parent.citizen_id}:${parent.service_no}:${d.requestKey}`,
+            ],
+          );
+          const claimed = (
+            await db.query(
+              "SELECT application_id FROM application_creation_keys WHERE tenant_id=$1 AND citizen_id=$2 AND service_no=$3 AND request_key=$4",
+              [a.tenantId, parent.citizen_id, parent.service_no, d.requestKey],
+            )
+          ).rows[0];
+          if (claimed) {
+            const original = (
+              await db.query(
+                "SELECT * FROM applications WHERE id=$1 AND tenant_id=$2",
+                [claimed.application_id, a.tenantId],
+              )
+            ).rows[0];
+            if (original) {
+              replayed = true;
+              return {
+                ...camelRow(original),
+                sourceCertificateId: cert.id,
+                // The creation-time locationUpgrade is not stored; it is
+                // derived from the versions — a child on a newer schema
+                // version than its parent means the upgrade resolved.
+                // NONE vs UNRESOLVED cannot be told apart on replay
+                // (both stay on the parent's version); no client reads
+                // this field (the workspace uses only the id).
+                locationUpgrade:
+                  original.schema_version > parent.schema_version
+                    ? "RESOLVED"
+                    : "NONE",
+              };
+            }
+          }
+        }
         if (parent.state !== "ISSUED" || !cert)
           fail(
             409,
@@ -2094,6 +2147,11 @@ app.post(
           "INSERT INTO renewal_links(tenant_id,application_id,source_certificate_id) VALUES($1,$2,$3)",
           [a.tenantId, child.id, cert.id],
         );
+        if (d.requestKey)
+          await db.query(
+            "INSERT INTO application_creation_keys(tenant_id,citizen_id,service_no,request_key,application_id) VALUES($1,$2,$3,$4,$5)",
+            [a.tenantId, parent.citizen_id, parent.service_no, d.requestKey, child.id],
+          );
         await event(
           db,
           { ...child, state: null },
@@ -2110,6 +2168,7 @@ app.post(
       },
       true,
     );
+    if (replayed) res.set("X-Idempotency-Replayed", "true");
     res.status(201).json(result);
   }),
 );

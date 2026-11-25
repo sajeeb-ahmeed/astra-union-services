@@ -4561,7 +4561,7 @@
     "/api/v1/applications/{id}/renew": {
       "post": {
         "summary": "Create versioned renewal draft from issued certificate",
-        "description": "Citizen own/staff/admin tenant only. Creates a linked draft for the same service/citizen, with one active successor per source. Source must be issued and unrevoked; trade prior number is server-pinned. Requires a fresh current-policy order when configured, including when the source is legacy. Optional payload is validated against the current schema; otherwise source facts are reused. Current policy fees are recalculated, not copied from the source. Normal separate review/approval and exactly-once SaaS issuance credit apply.",
+        "description": "Citizen own/staff/admin tenant only. Creates a linked draft for the same service/citizen, with one active successor per source. Source must be issued and unrevoked; trade prior number is server-pinned. Requires a fresh current-policy order when configured, including when the source is legacy. Optional payload is validated against the current schema; otherwise source facts are reused. Current policy fees are recalculated, not copied from the source. Normal separate review/approval and exactly-once SaaS issuance credit apply. W-004: an optional requestKey (uuid) makes the renew idempotent — a replay returns the original renewal with X-Idempotency-Replayed: true instead of creating a second draft; a keyless or different-key repeat still gets 409 RENEWAL_EXISTS.",
         "security": [
           {
             "session": [],
@@ -4625,6 +4625,11 @@
                   },
                   "order": {
                     "$ref": "#/components/schemas/ApplicationOrderInput"
+                  },
+                  "requestKey": {
+                    "type": "string",
+                    "format": "uuid",
+                    "description": "W-004: optional client-supplied idempotency key. A replay of the same key for the same citizen + service returns the original renewal instead of creating a duplicate draft."
                   }
                 },
                 "required": []
