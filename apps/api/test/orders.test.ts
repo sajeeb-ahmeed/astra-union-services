@@ -406,13 +406,16 @@ test("ORDER-03: server quotes exact paisa components without writing application
   for (const body of [
     { preferences, totalMinor: 0 },
     { preferences: { ...preferences, coupon: "FREE" } },
-    { preferences: { ...preferences, certificateLanguage: "bilingual" } },
     { preferences: { ...preferences, addressBasis: "permanent" } },
   ])
     assert.equal(
       (await request("POST", "/services/45/order-quote", body)).status,
       422,
     );
+  // W-024: "bilingual" used to be rejected here (it was listed in this
+  // 422 loop) — that was the bug: the form offers bilingual and issuance
+  // renders both languages, so the quote must accept it. ORDER-11 covers
+  // the corrected behaviour (quote + create + snapshot + mismatch).
   assert.deepEqual(await counts(), before);
   const foreign = await publish({ statutoryFeeMinor: 999 }, "foreignAdmin");
   assert.equal(foreign.status, 201);
@@ -810,4 +813,66 @@ test("ORDER-10: renewal explicitly accepts the current policy and cannot reuse s
     .body;
   assert.equal(parent.order.policyVersion, oldVersion);
   assert.equal(parent.order.preferences.deliveryMode, "digital_copy");
+});
+
+test("ORDER-11 (W-024): the order panel language \"bilingual\" quotes, creates and snapshots; mismatched languages still fail", async () => {
+  const bilingual = { ...preferences, certificateLanguage: "bilingual" };
+  // The quote does not depend on language: bilingual prices identically to bn.
+  const quote = await request(
+    "POST",
+    "/services/45/order-quote",
+    { preferences: bilingual },
+  );
+  assert.equal(quote.status, 200, JSON.stringify(quote.body));
+  assert.equal(quote.body.preferences.certificateLanguage, "bilingual");
+  const bnQuote = await request(
+    "POST",
+    "/services/45/order-quote",
+    { preferences },
+  );
+  assert.equal(bnQuote.status, 200, JSON.stringify(bnQuote.body));
+  assert.equal(quote.body.totalMinor, bnQuote.body.totalMinor);
+  // A nonsense language is still rejected by the schema, not stored.
+  assert.equal(
+    (
+      await request("POST", "/services/45/order-quote", {
+        preferences: { ...preferences, certificateLanguage: "fr" },
+      })
+    ).status,
+    422,
+  );
+  const before = await counts();
+  // Bilingual form payload + bilingual order preference agree: creation succeeds.
+  const created = await createApplication(
+    { policyVersion: currentVersion, preferences: bilingual },
+    { ...getDemoPayload(45), delivery_language: "bilingual" },
+  );
+  assert.equal(created.status, 201, JSON.stringify(created.body));
+  assert.equal(created.body.orderMode, "POLICY");
+  const snapshot = (await request("GET", `/applications/${created.body.id}`))
+    .body.order;
+  assert.equal(snapshot.preferences.certificateLanguage, "bilingual");
+  assert.equal(snapshot.policyVersion, currentVersion);
+  // Mismatches still fail atomically, in both directions, with no new rows.
+  const mismatchBilingualPayload = await createApplication(
+    { policyVersion: currentVersion, preferences },
+    { ...getDemoPayload(45), delivery_language: "bilingual" },
+  );
+  assert.equal(mismatchBilingualPayload.status, 422);
+  assert.equal(
+    mismatchBilingualPayload.body.error.code,
+    "ORDER_LANGUAGE_MISMATCH",
+  );
+  const mismatchBilingualOrder = await createApplication(
+    { policyVersion: currentVersion, preferences: bilingual },
+    { ...getDemoPayload(45), delivery_language: "bn" },
+  );
+  assert.equal(mismatchBilingualOrder.status, 422);
+  assert.equal(
+    mismatchBilingualOrder.body.error.code,
+    "ORDER_LANGUAGE_MISMATCH",
+  );
+  const after = await counts();
+  assert.equal(after.applications, before.applications + 1);
+  assert.equal(after.snapshots, before.snapshots + 1);
 });

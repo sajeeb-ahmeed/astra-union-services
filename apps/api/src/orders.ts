@@ -5,13 +5,19 @@ import { fail } from "./models.js";
 import type { Auth } from "./app.js";
 import { applicationPaymentState } from "./payments.js";
 
+// W-024: "bilingual" is a legitimate order language — the form schema
+// offers bn / en / bilingual for delivery_language, and issuance always
+// renders both language versions under one number (CERTNO-01), so the
+// order preference must be able to record "both languages" instead of
+// forcing the citizen back to bn or en at the fees step.
+const certificateLanguage = z.enum(["bn", "en", "bilingual"]);
 const deliveryMode = z.enum(["office_collection", "digital_copy"]);
 const urgency = z.enum(["normal", "urgent"]);
 const money = z.number().int().min(0).max(100000000);
 export const orderPreferencesInput = z
   .object({
     addressBasis: z.literal("registered_profile"),
-    certificateLanguage: z.enum(["bn", "en"]),
+    certificateLanguage,
     deliveryMode,
     urgency,
   })

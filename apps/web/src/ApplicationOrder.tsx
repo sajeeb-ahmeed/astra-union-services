@@ -2,9 +2,13 @@ import { useEffect, useRef, useState } from "react";
 import { api } from "./api.js";
 import { choose, useLanguage } from "./i18n.js";
 
+// W-024: "bilingual" is a legitimate certificate language — the form
+// offers it, and issuance renders both language versions under one
+// number, so the panel must represent it instead of silently falling
+// back to displaying "bn" while the prop stays "bilingual".
 export type OrderPreferences = {
   addressBasis: "registered_profile";
-  certificateLanguage: "bn" | "en";
+  certificateLanguage: "bn" | "en" | "bilingual";
   deliveryMode: "office_collection" | "digital_copy";
   urgency: "normal" | "urgent";
 };
@@ -82,7 +86,9 @@ export function OrderSummary({ order }: { order: OrderQuote }) {
         ·{" "}
         {order.preferences.certificateLanguage === "bn"
           ? label("বাংলা সনদ", "Bangla certificate")
-          : label("ইংরেজি সনদ", "English certificate")}
+          : order.preferences.certificateLanguage === "bilingual"
+            ? label("দ্বিভাষিক সনদ (বাংলা ও ইংরেজি)", "Bilingual certificate (Bangla and English)")
+            : label("ইংরেজি সনদ", "English certificate")}
       </p>
       <p>
         {order.preferences.deliveryMode === "office_collection"
@@ -137,7 +143,7 @@ export function ApplicationOrder({
   certificateLanguage?: string;
   officeName: string;
   address: string;
-  onLanguageChange: (language: "bn" | "en") => void;
+  onLanguageChange: (language: "bn" | "en" | "bilingual") => void;
   onChange: (state: IntakeOrderState) => void;
 }) {
   useLanguage();
@@ -278,13 +284,20 @@ export function ApplicationOrder({
           <select
             id="order-language"
             value={certificateLanguage || ""}
-            onChange={(e) => onLanguageChange(e.target.value as "bn" | "en")}
+            onChange={(e) =>
+              onLanguageChange(
+                e.target.value as "bn" | "en" | "bilingual",
+              )
+            }
           >
             <option value="" disabled>
               {label("ভাষা নির্বাচন করুন", "Choose language")}
             </option>
             <option value="bn">{label("বাংলা", "Bangla")}</option>
             <option value="en">{label("ইংরেজি", "English")}</option>
+            <option value="bilingual">
+              {label("দ্বিভাষিক (বাংলা ও ইংরেজি)", "Bilingual (Bangla and English)")}
+            </option>
           </select>
         </div>
         <div className="field">
@@ -345,7 +358,10 @@ export function ApplicationOrder({
       <button
         type="button"
         className="secondary"
-        disabled={busy || !["bn", "en"].includes(certificateLanguage || "")}
+        disabled={
+          busy ||
+          !["bn", "en", "bilingual"].includes(certificateLanguage || "")
+        }
         onClick={async () => {
           const epoch = ++requestEpoch.current;
           const expectedPreferences = currentPreferences;

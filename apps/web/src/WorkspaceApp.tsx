@@ -474,7 +474,9 @@ export function WorkspaceApp({
   );
   const [renewalLanguageChoice, setRenewalLanguageChoice] = useState<{
     id: string;
-    language: "bn" | "en";
+    // W-024: the renewal panel inherits the source application's
+    // delivery_language, which may be "bilingual".
+    language: "bn" | "en" | "bilingual";
   } | null>(null);
   useEffect(() => {
     const timer = setTimeout(() => {
