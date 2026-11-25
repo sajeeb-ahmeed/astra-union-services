@@ -1357,13 +1357,22 @@ async function issuedV2Application(no: number, overrides: Record<string, string>
 }
 for (const no of [36, 41])
   test(`B5: a v2-pinned service ${no} application renews unchanged onto v3 when its location text matches`, async () => {
-    const { id } = await issuedV2Application(no);
+    const { id, payload } = await issuedV2Application(no);
     // W-002: a policy is published for 41, so its renewal needs the order;
     // 36 has no policy, so an order would be rejected — keep it order-free.
+    // W-013: service 36's v6 added a required noc_subject with no v2
+    // source — a genuine v2 payload cannot validate against v6 without it,
+    // so the citizen supplies it in the renewal form (the renewal renders
+    // from the latest schema; the renew endpoint accepts a payload for
+    // exactly this). Service 41's v2 payload already validates against its
+    // latest, so it renews on the carried payload unchanged.
     const renewal = await req(
       "POST",
       `/applications/${id}/renew`,
-      { ...([41, 42].includes(no) ? { order: moneyOrder(no) } : {}) },
+      {
+        ...([41, 42].includes(no) ? { order: moneyOrder(no) } : {}),
+        ...(no === 36 ? { payload: { ...payload, noc_subject: "land" } } : {}),
+      },
       s.citizen,
     );
     assert.equal(renewal.status, 201, `Renew v2 ${no}: ${JSON.stringify(renewal.body)}`);
