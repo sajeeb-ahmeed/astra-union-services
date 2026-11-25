@@ -12,6 +12,7 @@ import { randomBytes } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { chromium, type Browser } from "playwright";
+import { readOtpCode } from "./fixtures/otp-outbox.js";
 const origin = "http://127.0.0.1:5173";
 async function browserInstance(): Promise<Browser> {
   const local = path.join(process.env.LOCALAPPDATA || "", "ms-playwright");
@@ -91,6 +92,18 @@ test(
       await page.locator("#signup-mobile").fill(mobile);
       await page.locator("#signup-password").fill(password);
       await page.getByRole("button", { name: "Create account", exact: true }).click();
+      // S-001: a mobile-only signup lands on the verification panel, not
+      // straight into the workspace — prove the number with the code sent
+      // to the handset, then the citizen is signed straight in.
+      await page.locator("#signup-verify-title").waitFor();
+      const sentAt = Date.now();
+      await page.getByRole("button", { name: "Send code", exact: true }).click();
+      await page
+        .locator("#signup-verify-code")
+        .fill(await readOtpCode(mobile.slice(-8), sentAt));
+      await page
+        .getByRole("button", { name: "Verify and sign in", exact: true })
+        .click();
       // PORTAL-B: no second form — the new citizen lands signed in, in their workspace.
       await page.getByRole("button", { name: "Sign out", exact: true }).waitFor();
       assert.equal(new URL(page.url()).pathname, "/");
