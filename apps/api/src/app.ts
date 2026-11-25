@@ -717,10 +717,17 @@ app.post(
           "IDENTIFIERS_UNAVAILABLE",
           "Sign-in with mobile, NID or birth registration is not configured on this server. Use your email.",
         );
+      // S-001: a mobile signs in only once a code sent to that handset proved
+      // it (verified_at NOT NULL). A pending mobile resolves to no account at
+      // all, so the failure is indistinguishable from an unknown number or a
+      // wrong password — no oracle for whether the number is registered or
+      // merely unverified. NID / birth registration keep their existing
+      // password-bound behaviour (they are set only from an authenticated
+      // session, never self-declared at signup).
       email =
         (
           await pool.query(
-            "SELECT u.email FROM account_identifiers i JOIN platform_users u ON u.id=i.user_id WHERE i.kind=$1 AND i.digest=$2",
+            "SELECT u.email FROM account_identifiers i JOIN platform_users u ON u.id=i.user_id WHERE i.kind=$1 AND i.digest=$2 AND (i.kind<>'mobile' OR i.verified_at IS NOT NULL)",
             [kind, identifierDigest(kind, normalized)],
           )
         ).rows[0]?.email ?? "";

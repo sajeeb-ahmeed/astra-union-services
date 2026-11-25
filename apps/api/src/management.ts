@@ -134,6 +134,14 @@ const shortSignupInput = z
       })
       .strict()
       .optional(),
+    // S-001: an OTP-verified code for this mobile, when the citizen verified
+    // the number before submitting. Without it the account is still created
+    // — registration never depends on the SMS provider — but the mobile is
+    // stored PENDING (verified_at NULL) and cannot sign in until verified.
+    otpToken: z
+      .string()
+      .regex(/^[a-f0-9]{64}$/)
+      .optional(),
   })
   .strict();
 type SignupRecord = {
@@ -677,6 +685,7 @@ publicManagementRouter.post(
           addressBn: null,
           addressEn: null,
           mobile: short.mobile,
+          otpToken: short.otpToken,
           photo: short.photo,
         }
       : full();
@@ -705,6 +714,8 @@ publicManagementRouter.post(
     // Phase X: when email delivery is configured, a verification token is created inside the
     // registration transaction and the message is sent only after it commits.
     const verification: { current: { token: string; email: string } | null } = { current: null };
+    // S-001: whether the mobile bound by this registration was OTP-verified.
+    const mobileVerification: { current: boolean } = { current: false };
     try {
       await transaction(d.tenantId, async (db) => {
       const office = (
@@ -807,27 +818,43 @@ publicManagementRouter.post(
         ],
       );
       if (short) {
-        // The short form's mobile is the citizen's contact number and, as on the
-        // reference platforms, the sign-in identifier — marked self-declared because
-        // no one-time code confirmed it (no SMS delivery is live; REG-UX §10).
+        // S-001: the short form's mobile is the citizen's contact number and
+        // the sign-in identifier — but it becomes TRUSTED only when a
+        // one-time code proved it. With an otpToken the code is consumed
+        // here and the identifier is verified at once; without one the
+        // account is still created (registration never waits on SMS) and
+        // the mobile stays PENDING (verified_at NULL, self_declared true)
+        // until the holder proves it via POST /auth/otp/verify-mobile.
+        // A provider outage can therefore never mark a mobile verified.
         await db.query(
           "UPDATE citizens SET contact_mobile=$3, photo=$4, photo_mime=$5, photo_updated_at=CASE WHEN $4::bytea IS NULL THEN NULL ELSE now() END WHERE tenant_id=$1 AND id=$2",
           [d.tenantId, citizenId, mobile, photoBytes, photoBytes ? d.photo!.mimeType : null],
         );
-        if (shortMobileDigest)
-          await db.query(
-            "INSERT INTO account_identifiers(user_id,kind,digest,hint,self_declared) VALUES($1,'mobile',$2,$3,true)",
-            [user.id, shortMobileDigest, identifierHint("mobile", mobile!)],
-          );
+        if (shortMobileDigest) {
+          if (d.otpToken) {
+            await consumeSignupOtp(db, d.otpToken, mobile!);
+            await db.query(
+              "INSERT INTO account_identifiers(user_id,kind,digest,hint,self_declared,verified_at) VALUES($1,'mobile',$2,$3,false,clock_timestamp())",
+              [user.id, shortMobileDigest, identifierHint("mobile", mobile!)],
+            );
+            mobileVerification.current = true;
+          } else {
+            await db.query(
+              "INSERT INTO account_identifiers(user_id,kind,digest,hint,self_declared) VALUES($1,'mobile',$2,$3,true)",
+              [user.id, shortMobileDigest, identifierHint("mobile", mobile!)],
+            );
+          }
+        }
       } else if (mobile) {
         const digestValue = identifierDigest("mobile", mobile);
         if ((await db.query("SELECT 1 FROM account_identifiers WHERE kind='mobile' AND digest=$1", [digestValue])).rowCount)
           mobileTaken();
         await consumeSignupOtp(db, d.otpToken!, mobile);
         await db.query(
-          "INSERT INTO account_identifiers(user_id,kind,digest,hint) VALUES($1,'mobile',$2,$3)",
+          "INSERT INTO account_identifiers(user_id,kind,digest,hint,verified_at) VALUES($1,'mobile',$2,$3,clock_timestamp())",
           [user.id, digestValue, identifierHint("mobile", mobile)],
         );
+        mobileVerification.current = true;
       }
       if (emailAvailable() && d.email) {
         const issued = await issueEmailVerificationToken(db, d.tenantId, user.id, d.email);
@@ -866,6 +893,15 @@ publicManagementRouter.post(
         : "failed";
     res.status(201).json({
       registered: true,
+      // S-001: the caller must know whether mobile sign-in works yet. A
+      // pending mobile cannot sign in until the holder proves it with a
+      // code (POST /auth/otp/verify-mobile); email sign-in is unaffected.
+      mobileVerified: mobile ? mobileVerification.current : null,
+      mobileVerification: mobile
+        ? mobileVerification.current
+          ? "verified"
+          : "pending"
+        : null,
       // BUNDLE06-R5 D1: demo wording is internal vocabulary — in OFFICIAL
       // mode citizens must never see "SYNTHETIC_DEMO" in an API response.
       // The citizens.verification_state column keeps its stored value; only
