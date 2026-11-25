@@ -160,6 +160,13 @@ Restart the application in **Setup Node.js App**, then check:
       with `features` all `true` (mode flips to `OFFICIAL` only when the
       owner later sets `ISSUANCE_MODE=official`).
 - [ ] The public homepage loads at `https://your-domain/`.
+- [ ] Plain HTTP redirects to HTTPS:
+      `curl -sI http://your-domain/login` must answer `301` with
+      `Location: https://your-domain/login`. The app redirects when the
+      proxy sends `X-Forwarded-Proto: http`. If the answer is still `200`,
+      this LiteSpeed setup does not send that header: turn on
+      cPanel → **Domains** → **Force HTTPS Redirect** for the domain and
+      check again.
 - [ ] Sign in with the owner account created in step 5.
 - [ ] Open the services list — it shows the 47-service catalog.
 - [ ] Issue one test certificate for a test citizen and download the PDF.
