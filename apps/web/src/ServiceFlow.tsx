@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
+import { randomUUID } from "./uuid.js";
 import {
   getServiceSchema,
   groupControllerIds,
@@ -395,7 +396,7 @@ export function ServiceFlow({
   // carries the same key, so the server returns the original application
   // instead of a duplicate draft. A new flow mount mints a new key, so
   // a legitimate repeat application is still possible.
-  const [requestKey] = useState(() => crypto.randomUUID());
+  const [requestKey] = useState(() => randomUUID());
   const [error, setError] = useState("");
   const [result, setResult] = useState<{ id: string; reference?: string; state: string; note?: string } | null>(null);
   // W-006: the fee outcome of this submit, fetched when the review step is

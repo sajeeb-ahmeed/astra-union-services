@@ -1,4 +1,5 @@
 import { choose, t, tx, useLanguage } from "./i18n.js";
+import { randomUUID } from "./uuid.js";
 import serviceCatalog from "./public-service-catalog.json" with { type: "json" };
 import { formatDateTime } from "./ui/fmt.js";
 import { EmptyState, applicationStatusMeta, ledgerKindMeta } from "./ui/kit.js";
@@ -99,7 +100,7 @@ export function AdditionalWorkspace({
   const [citizenSearch, setCitizenSearch] = useState("");
   const [kind, setKind] = useState("biodata"),
     [language, setLanguage] = useState("bilingual"),
-    [requestKey, setRequestKey] = useState(crypto.randomUUID());
+    [requestKey, setRequestKey] = useState(randomUUID());
   const [printPage, setPrintPage] = useState(1),
     [printTotal, setPrintTotal] = useState(0);
   // Phase 6c: find copies by name, reference or mobile within a date range.
@@ -189,11 +190,11 @@ export function AdditionalWorkspace({
   }, [page, kind, printPage, feedbackStatus]);
   const setHoldingField = (name: string, v: string) => {
     setHolding({ ...holding, [name]: v });
-    setRequestKey(crypto.randomUUID());
+    setRequestKey(randomUUID());
   };
   const setWitnessField = (name: string, v: string) => {
     setWitness({ ...witness, [name]: v });
-    setRequestKey(crypto.randomUUID());
+    setRequestKey(randomUUID());
   };
   return (
     <div className="workspace-additional">
@@ -525,7 +526,7 @@ export function AdditionalWorkspace({
                         );
                         setCitizens(c);
                         setCitizenId(c[0]?.id || "");
-                        setRequestKey(crypto.randomUUID());
+                        setRequestKey(randomUUID());
                       })
                     }
                   >
@@ -542,7 +543,7 @@ export function AdditionalWorkspace({
                       onChange={(e) => {
                         setKind(e.target.value);
                         setPrintPage(1);
-                        setRequestKey(crypto.randomUUID());
+                        setRequestKey(randomUUID());
                       }}
                     >
                       <option value="biodata">
@@ -564,7 +565,7 @@ export function AdditionalWorkspace({
                       value={citizenId}
                       onChange={(e) => {
                         setCitizenId(e.target.value);
-                        setRequestKey(crypto.randomUUID());
+                        setRequestKey(randomUUID());
                       }}
                       required
                     >
@@ -588,7 +589,7 @@ export function AdditionalWorkspace({
                       value={language}
                       onChange={(e) => {
                         setLanguage(e.target.value);
-                        setRequestKey(crypto.randomUUID());
+                        setRequestKey(randomUUID());
                       }}
                     >
                       <option value="bilingual">{t("বাংলা ও English")}</option>

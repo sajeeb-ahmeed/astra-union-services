@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { randomUUID } from "./uuid.js";
 import { api, ApiError } from "./api.js";
 import { choose, useLanguage } from "./i18n.js";
 import { EmptyState, SkeletonRows } from "./ui/kit.js";
@@ -342,8 +343,8 @@ export function ApplicationPayment({
   const [message, setMessage] = useState<Message | null>(null),
     [busy, setBusy] = useState(false),
     [refresh, setRefresh] = useState(0);
-  const requestKey = useRef(crypto.randomUUID());
-  const reconcileKey = useRef(crypto.randomUUID());
+  const requestKey = useRef(randomUUID());
+  const reconcileKey = useRef(randomUUID());
   const actionEpoch = useRef(0);
   const mounted = useRef(true);
   const canPay = ["citizen", "staff", "admin"].includes(role);
@@ -353,8 +354,8 @@ export function ApplicationPayment({
   const [resetReason, setResetReason] = useState("");
   useEffect(() => {
     mounted.current = true;
-    requestKey.current = crypto.randomUUID();
-    reconcileKey.current = crypto.randomUUID();
+    requestKey.current = randomUUID();
+    reconcileKey.current = randomUUID();
     return () => {
       mounted.current = false;
       actionEpoch.current++;
@@ -552,7 +553,7 @@ export function ApplicationPayment({
                       if (!isCurrent()) return;
                       setPayment(current);
                       if (result.reconciliation.id)
-                        reconcileKey.current = crypto.randomUUID();
+                        reconcileKey.current = randomUUID();
                       setMessage(checkMessage(result.reconciliation.result));
                     })
                   }
@@ -885,7 +886,7 @@ export function PaymentsWorkspace({ role }: { role: string }) {
                               if (!reconcileKeys.current.has(payment.id))
                                 reconcileKeys.current.set(
                                   payment.id,
-                                  crypto.randomUUID(),
+                                  randomUUID(),
                                 );
                               const result = await api(
                                 `/payments/${payment.id}/reconcile`,

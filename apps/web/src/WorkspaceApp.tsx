@@ -6,6 +6,7 @@ import {
   useLanguage,
   LanguageSwitcher,
 } from "./i18n.js";
+import { randomUUID } from "./uuid.js";
 import React, { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import {
   operationalServiceNumbers,
@@ -114,7 +115,7 @@ const walletAdjustKeys = new Map<string, string>();
 function walletAdjustKey(tenantId: string): string {
   let key = walletAdjustKeys.get(tenantId);
   if (!key) {
-    key = crypto.randomUUID();
+    key = randomUUID();
     walletAdjustKeys.set(tenantId, key);
   }
   return key;
@@ -3118,7 +3119,7 @@ export function WorkspaceApp({
                               // application, reused across retries.
                               let requestKey = renewalRequestKeys.current.get(application.id);
                               if (!requestKey) {
-                                requestKey = crypto.randomUUID();
+                                requestKey = randomUUID();
                                 renewalRequestKeys.current.set(application.id, requestKey);
                               }
                               const renewal = await api(
