@@ -34,7 +34,7 @@ const BN_DIGITS = "০১২৩৪৫৬৭৮৯";
  * /register-office, and the "not a government website" statement stays
  * in the footer on every page.
  */
-export function PublicHome({ login }: { login?: React.ReactNode } = {}) {
+export function PublicHome() {
   const [lang] = useLanguage();
   // L-004: the witness help-card link hides once the options list is
   // confirmed empty (fail-open while unknown).

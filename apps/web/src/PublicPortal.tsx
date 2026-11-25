@@ -45,6 +45,7 @@ import {
   geographyPayload,
   emptyGeography,
   readGeography,
+  type GeographyValue,
 } from "./GeographyFields.js";
 import { LanguageSwitcher } from "./i18n.js";
 
@@ -740,12 +741,15 @@ export function PublicPortal({
       });
     }
   }, [page, serviceNo, office, language, slugMiss]);
-  async function loadOffices(p = 1) {
+  async function loadOffices(
+    p = 1,
+    overrides?: { q?: string; type?: string; geography?: GeographyValue },
+  ) {
     setWorking(true);
     setError("");
     const query = new URLSearchParams({
-      ...filters,
-      ...geographyPayload(directoryGeography),
+      ...(overrides ? { q: overrides.q ?? "", type: overrides.type ?? "" } : filters),
+      ...geographyPayload(overrides?.geography ?? directoryGeography),
       page: String(p),
       pageSize: String(officePageSize),
     });
@@ -1773,6 +1777,39 @@ export function PublicPortal({
                         )),
                       )}
                     </div>
+                    {/* F-018: zero matching offices used to render a count
+                        of 0 and an empty grid — the same EmptyState pattern
+                        the services search already uses, with a one-click
+                        filter reset. */}
+                    {tx(
+                      !working && directory.total === 0 && (
+                        <EmptyState
+                          title={choose({
+                            bn: "এই ফিল্টারে কোনো অফিস পাওয়া যায়নি।",
+                            en: "No offices match these filters.",
+                          })}
+                          hint={choose({
+                            bn: "নাম বা এলাকা বদলে আবার খুঁজুন, অথবা সব ফিল্টার মুছে সব অফিস দেখুন।",
+                            en: "Try a different name or area, or clear the filters to see all offices.",
+                          })}
+                          action={
+                            <button
+                              type="button"
+                              className="secondary"
+                              onClick={() => {
+                                setFilters({ q: "", type: "" });
+                                setDirectoryGeography(readGeography(null));
+                                setOffice(null);
+                                setOfficeSlug(null);
+                                void loadOffices(1, { q: "", type: "", geography: readGeography(null) });
+                              }}
+                            >
+                              {choose({ bn: "সব অফিস দেখুন", en: "Show all offices" })}
+                            </button>
+                          }
+                        />
+                      ),
+                    )}
                     <div className="pagination">
                       <button
                         className="secondary"
@@ -2265,15 +2302,43 @@ export function PublicPortal({
                         placeholder={t("Application, password, payment…")}
                       />
                       {/* Phase 6b: Astra's own answers about how Astra works (apps/web/src/faq.json). */}
-                      {faq
-                        .map((item) => ({ id: item.id, q: choose(item.q), a: choose(item.a) }))
-                        .filter(({ q, a }) => `${q} ${a}`.toLowerCase().includes(faqSearch.toLowerCase()))
-                        .map(({ id, q, a }) => (
+                      {/* F-017: a search with no matches used to render a
+                          bare heading — the same EmptyState pattern the
+                          services search already uses. */}
+                      {(() => {
+                        const matches = faq
+                          .map((item) => ({ id: item.id, q: choose(item.q), a: choose(item.a) }))
+                          .filter(({ q, a }) => `${q} ${a}`.toLowerCase().includes(faqSearch.toLowerCase()));
+                        if (matches.length === 0 && faqSearch.trim() !== "") {
+                          return (
+                            <EmptyState
+                              title={choose({
+                                bn: "এই খোঁজে কোনো উত্তর পাওয়া যায়নি।",
+                                en: "No answers match that search.",
+                              })}
+                              hint={choose({
+                                bn: "অন্য শব্দ দিয়ে খুঁজুন, অথবা নিচের ফর্মে আপনার প্রশ্নটি লিখুন।",
+                                en: "Try different words, or ask your question in the form below.",
+                              })}
+                              action={
+                                <button
+                                  type="button"
+                                  className="secondary"
+                                  onClick={() => setFaqSearch("")}
+                                >
+                                  {choose({ bn: "সব প্রশ্ন দেখুন", en: "Show all questions" })}
+                                </button>
+                              }
+                            />
+                          );
+                        }
+                        return matches.map(({ id, q, a }) => (
                           <details key={id} id={`faq-${id}`}>
                             <summary>{q}</summary>
                             <p>{a}</p>
                           </details>
-                        ))}
+                        ));
+                      })()}
                     </section>
                     <section className="panel prose">
                       <h2>{t("মতামত ও সহায়তা / Feedback")}</h2>

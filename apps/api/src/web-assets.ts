@@ -66,6 +66,10 @@ export function mountWeb(app: express.Express, directory = path.resolve("apps/we
   try {
     slugByNumber = JSON.parse(fs.readFileSync(path.join(directory, "seo-slugs.json"), "utf8"));
   } catch { /* no prerender table — SPA fallback handles it */ }
+  // F-019: the set of valid service slugs, for the unknown-slug 404
+  // below. Empty when no prerender table exists (dev), which disables
+  // the check so local development keeps its client-side not-found view.
+  const knownServiceSlugs = new Set(Object.values(slugByNumber));
   const prerendered = fs.existsSync(path.join(directory, "services", "index.html"));
 
   app.use("/assets", (req, res, next) => {
@@ -120,6 +124,16 @@ export function mountWeb(app: express.Express, directory = path.resolve("apps/we
     }
     res.setHeader("Cache-Control", prerendered && req.path === "/" ? PRERENDER_CACHE : "no-store");
     if (!isKnownSpaRoute(req.path)) res.status(404);
+    // F-019: a bad /services/<slug> is a client-side "not found" view
+    // but the server used to answer HTTP 200 for it. The slug table is
+    // server-side already (it reads dist/seo-slugs.json for the 301
+    // above), so an unknown single-segment slug gets a real 404 while
+    // the shell still serves the friendly not-found view. Skipped when
+    // no prerender table exists (dev), where the SPA handles it.
+    if (req.path.startsWith("/services/") && knownServiceSlugs.size > 0) {
+      const slug = req.path.slice("/services/".length);
+      if (slug.includes("/") || !knownServiceSlugs.has(slug)) res.status(404);
+    }
     res.sendFile(path.join(directory, "index.html"));
   });
   app.use((error: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {

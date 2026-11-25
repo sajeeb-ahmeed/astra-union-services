@@ -486,7 +486,7 @@ function SignedOutPortal({
         </section>
   );
   // Phase 1: signed-out visitors get the new public home on "/"; other public pages stay legacy for now.
-  if (location.pathname === "/") return <AsyncPanel><PublicHome login={loginForm} /></AsyncPanel>;
+  if (location.pathname === "/") return <AsyncPanel><PublicHome /></AsyncPanel>;
   // Phase 2d: office staff ask for an account for their post.
   if (location.pathname === "/register-office")
     return (

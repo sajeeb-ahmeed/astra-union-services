@@ -1188,12 +1188,6 @@ label {
   color: var(--du-error-ink, #9b2c1f);
 }
 
-color: #59461f;
-  font-size: 13px;
-  border-radius: 8px;
-  line-height: 1.7;
-}
-
 .hint, .working, small {
   color: var(--astra-muted);
 }
