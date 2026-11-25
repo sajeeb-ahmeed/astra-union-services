@@ -56,7 +56,7 @@ publicOfficeRegistrationRouter.post(
         password: z
           .string()
           .min(6, "Password must be at least 6 characters.")
-          .max(64, "Password must be at most 64 characters.") // QA-09: was 18
+          .max(18, "Password must be at most 18 characters.") // QAFIX-01: the one 6–18 rule (see management.ts)
           .refine((value) => !isCommonPassword(value), {
             message: "This password is too common. Choose a less predictable password.",
           }),
@@ -95,8 +95,10 @@ publicOfficeRegistrationRouter.post(
         if ((await db.query("SELECT 1 FROM account_identifiers WHERE kind='mobile' AND digest=$1", [digestValue])).rowCount)
           fail(409, "IDENTIFIER_TAKEN", "This mobile number is already used by another account.");
         await consumeSignupOtp(db, d.otpToken!, mobile);
+        // S-001: the code was consumed just above, so this mobile is
+        // verified from the moment the account is created.
         await db.query(
-          "INSERT INTO account_identifiers(user_id,kind,digest,hint) VALUES($1,'mobile',$2,$3)",
+          "INSERT INTO account_identifiers(user_id,kind,digest,hint,verified_at) VALUES($1,'mobile',$2,$3,clock_timestamp())",
           [user.id, digestValue, identifierHint("mobile", mobile)],
         );
       }

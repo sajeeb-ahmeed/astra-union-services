@@ -9,10 +9,11 @@ import {
   randomToken,
   digest,
 } from "./security.js";
-import { ApiError, camelRow, fail } from "./models.js";
+import { ApiError, camelRow, fail, fieldFail } from "./models.js";
 import { applySubscriptionAction } from "./subscriptions.js";
 import { consumeSignupOtp } from "./otp.js";
-import { emailAvailable } from "./mailer.js";
+import { emailAvailable, placeholderEmail } from "./mailer.js";
+import { decodeUpload } from "./attachments.js";
 import {
   issueEmailVerificationToken,
   sendEmailVerificationMessage,
@@ -20,6 +21,7 @@ import {
 import {
   identifierDigest,
   identifierHint,
+  identifiersAvailable,
   normalizeIdentifier,
 } from "./identifiers.js";
 import { citizenReferenceExists, mintReference } from "./references.js";
@@ -81,7 +83,10 @@ const roleInput = z.enum([
 const password = z
   .string()
   .min(6, "Password must be at least 6 characters.")
-  .max(64, "Password must be at most 64 characters.") // QA-09: was 18; long passphrases and password-manager passwords must work
+  // QAFIX-01 (live QA §1): the owner's standing rule is ONE password rule
+  // everywhere — 6–18 characters. QA-09's 64-character allowance made the
+  // API disagree with the change-password form; the 6–18 rule wins.
+  .max(18, "Password must be at most 18 characters.")
   .refine((value) => !isCommonPassword(value), {
     message: "This password is too common. Choose a less predictable password.",
   });
@@ -100,6 +105,76 @@ const officeInput = z.object({
   geography: geographyInput.optional(),
   officeType: z.enum(["UNION", "MUNICIPALITY", "CITY_CORPORATION"]),
 });
+/** REG-UX Phase 1: the one-screen signup shape (design note §2.1, §3.1). */
+const BENGALI_SCRIPT = /[ঀ-৿]/;
+const shortSignupInput = z
+  .object({
+    tenantId: uuid,
+    name: z
+      .string()
+      .trim()
+      .min(2, "নাম কমপক্ষে ২ অক্ষরের হতে হবে। / Name must be at least 2 characters.")
+      .max(120, "নাম ১২০ অক্ষরের বেশি হতে পারবে না। / Name must be at most 120 characters."),
+    mobile: z
+      .string()
+      .trim()
+      .min(1, "মোবাইল নম্বর দিন। / Enter your mobile number.")
+      .max(40),
+    password,
+    // K2 lean: optional. An empty string from the form means "not given".
+    email: z.preprocess(
+      (v) => (typeof v === "string" && v.trim() === "" ? undefined : v),
+      email.optional(),
+    ),
+    // Optional profile photo (ঐচ্ছিক) — the same PNG/JPEG rule as PUT /citizens/:id/photo.
+    photo: z
+      .object({
+        mimeType: z.enum(["image/png", "image/jpeg"]),
+        base64: z.string().min(1).max(3_000_000),
+      })
+      .strict()
+      .optional(),
+    // S-001: an OTP-verified code for this mobile, when the citizen verified
+    // the number before submitting. Without it the account is still created
+    // — registration never depends on the SMS provider — but the mobile is
+    // stored PENDING (verified_at NULL) and cannot sign in until verified.
+    otpToken: z
+      .string()
+      .regex(/^[a-f0-9]{64}$/)
+      .optional(),
+  })
+  .strict();
+type SignupRecord = {
+  email?: string;
+  password: string;
+  displayName: string;
+  tenantId: string;
+  nameBn: string | null;
+  nameEn: string | null;
+  dateOfBirth: string | null;
+  addressBn: string | null;
+  addressEn: string | null;
+  syntheticReference?: string;
+  geography?: z.infer<typeof geographyInput>;
+  presentAddress?: z.infer<typeof presentAddressInput>;
+  mobile?: string;
+  otpToken?: string;
+  photo?: { mimeType: "image/png" | "image/jpeg"; base64: string };
+};
+const emailTaken = () =>
+  fieldFail(
+    409,
+    "EMAIL_TAKEN",
+    "এই ইমেইল দিয়ে আগেই একটি অ্যাকাউন্ট খোলা হয়েছে। আপনি কি সাইন ইন করতে চান? / This email already has an account. Would you like to sign in instead?",
+    "email",
+  );
+const mobileTaken = () =>
+  fieldFail(
+    409,
+    "IDENTIFIER_TAKEN",
+    "এই মোবাইল নম্বর দিয়ে আগেই একটি অ্যাকাউন্ট আছে। নম্বরটি আপনার হলে সাইন ইন করুন। / This mobile number already has an account. If it is yours, sign in.",
+    "mobile",
+  );
 export const publicManagementRouter = express.Router();
 export const managementRouter = express.Router();
 async function recoveryEligible(
@@ -551,7 +626,7 @@ publicManagementRouter.get(
 publicManagementRouter.post(
   "/auth/signup",
   wrap(async (req, res) => {
-    const d = z
+    const full = () => z
       .object({
         email,
         password,
@@ -590,12 +665,57 @@ publicManagementRouter.post(
         message: "A mobile number needs its verified code.",
       })
       .parse(req.body);
+    // REG-UX Phase 1: the one-screen form sends { tenantId, name, mobile, password,
+    // email?, photo? }. It is normalised into the same internal record the full
+    // payload builds — one transaction, one audit event, one reference path.
+    const isShort =
+      !!req.body && typeof req.body === "object" && "name" in req.body && !("nameBn" in req.body);
+    const short = isShort ? shortSignupInput.parse(req.body) : null;
+    const d: SignupRecord = short
+      ? {
+          email: short.email,
+          password: short.password,
+          displayName: short.name,
+          tenantId: short.tenantId,
+          // The name lands in the column of the script it is written in; the other
+          // script is collected at profile completion (never guessed here).
+          nameBn: BENGALI_SCRIPT.test(short.name) ? short.name : null,
+          nameEn: BENGALI_SCRIPT.test(short.name) ? null : short.name,
+          dateOfBirth: null,
+          addressBn: null,
+          addressEn: null,
+          mobile: short.mobile,
+          otpToken: short.otpToken,
+          photo: short.photo,
+        }
+      : full();
     const mobile = d.mobile ? normalizeIdentifier("mobile", d.mobile) : null;
     if (d.mobile && !mobile)
-      fail(422, "IDENTIFIER_INVALID", "Enter an 11-digit Bangladeshi mobile number starting with 01.");
+      fieldFail(
+        422,
+        "IDENTIFIER_INVALID",
+        "০১ দিয়ে শুরু ১১ সংখ্যার মোবাইল নম্বর দিন। / Enter an 11-digit Bangladeshi mobile number starting with 01.",
+        "mobile",
+      );
+    // K2 (owner decision open; lean built: email optional). An account without an
+    // email signs in with its mobile number, so that path needs the identifier secret.
+    if (short && !short.email && !identifiersAvailable())
+      fieldFail(
+        422,
+        "EMAIL_REQUIRED",
+        "এই সার্ভারে শুধু মোবাইল দিয়ে সাইন ইন চালু নেই — একটি ইমেইল দিন। / Mobile sign-in is not configured on this server — please add an email.",
+        "email",
+      );
+    const photoBytes = d.photo ? decodeUpload(d.photo) : null;
+    // platform_users.email is UNIQUE NOT NULL: an email-less account gets an
+    // internal address on the reserved .invalid domain — machine-only, never shown,
+    // never mailed (sendEmail refuses it), replaced when the citizen adds an email.
+    const accountEmail = d.email ?? placeholderEmail(randomUUID());
     // Phase X: when email delivery is configured, a verification token is created inside the
     // registration transaction and the message is sent only after it commits.
     const verification: { current: { token: string; email: string } | null } = { current: null };
+    // S-001: whether the mobile bound by this registration was OTP-verified.
+    const mobileVerification: { current: boolean } = { current: false };
     try {
       await transaction(d.tenantId, async (db) => {
       const office = (
@@ -605,13 +725,23 @@ publicManagementRouter.post(
         )
       ).rows[0];
       if (!office) fail(404, "NOT_FOUND", "Active office not found.");
-      if (office.division_code && !d.geography)
+      // REG-UX §2.2/§3.5: the short form makes no area claim — the citizen's area is
+      // the chosen office's own (division…union; the ward is a deferred profile item).
+      // Jurisdiction holds by construction and UNION_NOT_LISTED cannot arise.
+      if (short && office.division_code)
+        d.geography = {
+          divisionCode: office.division_code,
+          districtCode: office.district_code,
+          upazilaCode: office.upazila_code,
+          ...(office.union_code ? { unionCode: office.union_code } : {}),
+        };
+      else if (office.division_code && !d.geography)
         fail(
           400,
           "GEOGRAPHY_REQUIRED",
           "Select an address hierarchy for this participating office.",
         );
-      if (d.geography) {
+      if (d.geography && !short) {
         await validateGeography(db, d.geography, "citizen");
         validateOfficeJurisdiction(office, d.geography);
         // Phase 3E (§3.6): the citizen's union must be listed on the platform — an
@@ -640,10 +770,23 @@ publicManagementRouter.post(
             );
         }
       }
+      // REG-UX §4.1: a taken email is named, with the remedy, at the email field
+      // (the generic DUPLICATE message named neither the field nor a way out).
+      if (
+        d.email &&
+        (await db.query("SELECT 1 FROM platform_users WHERE lower(email)=$1", [d.email])).rowCount
+      )
+        emailTaken();
+      const shortMobileDigest = short && mobile ? identifierDigest("mobile", mobile) : null;
+      if (
+        shortMobileDigest &&
+        (await db.query("SELECT 1 FROM account_identifiers WHERE kind='mobile' AND digest=$1", [shortMobileDigest])).rowCount
+      )
+        mobileTaken();
       const user = (
         await db.query(
           "INSERT INTO platform_users(email,display_name,password_hash) VALUES($1,$2,$3) RETURNING id",
-          [d.email, d.displayName, hashPassword(d.password)],
+          [accountEmail, d.displayName, hashPassword(d.password)],
         )
       ).rows[0];
       await db.query(
@@ -674,23 +817,56 @@ publicManagementRouter.post(
           ...(await presentAddressValues(db, d.presentAddress)),
         ],
       );
-      if (mobile) {
+      if (short) {
+        // S-001: the short form's mobile is the citizen's contact number and
+        // the sign-in identifier — but it becomes TRUSTED only when a
+        // one-time code proved it. With an otpToken the code is consumed
+        // here and the identifier is verified at once; without one the
+        // account is still created (registration never waits on SMS) and
+        // the mobile stays PENDING (verified_at NULL, self_declared true)
+        // until the holder proves it via POST /auth/otp/verify-mobile.
+        // A provider outage can therefore never mark a mobile verified.
+        await db.query(
+          "UPDATE citizens SET contact_mobile=$3, photo=$4, photo_mime=$5, photo_updated_at=CASE WHEN $4::bytea IS NULL THEN NULL ELSE now() END WHERE tenant_id=$1 AND id=$2",
+          [d.tenantId, citizenId, mobile, photoBytes, photoBytes ? d.photo!.mimeType : null],
+        );
+        if (shortMobileDigest) {
+          if (d.otpToken) {
+            await consumeSignupOtp(db, d.otpToken, mobile!);
+            await db.query(
+              "INSERT INTO account_identifiers(user_id,kind,digest,hint,self_declared,verified_at) VALUES($1,'mobile',$2,$3,false,clock_timestamp())",
+              [user.id, shortMobileDigest, identifierHint("mobile", mobile!)],
+            );
+            mobileVerification.current = true;
+          } else {
+            await db.query(
+              "INSERT INTO account_identifiers(user_id,kind,digest,hint,self_declared) VALUES($1,'mobile',$2,$3,true)",
+              [user.id, shortMobileDigest, identifierHint("mobile", mobile!)],
+            );
+          }
+        }
+      } else if (mobile) {
         const digestValue = identifierDigest("mobile", mobile);
         if ((await db.query("SELECT 1 FROM account_identifiers WHERE kind='mobile' AND digest=$1", [digestValue])).rowCount)
-          fail(409, "IDENTIFIER_TAKEN", "This mobile number is already used by another account.");
+          mobileTaken();
         await consumeSignupOtp(db, d.otpToken!, mobile);
         await db.query(
-          "INSERT INTO account_identifiers(user_id,kind,digest,hint) VALUES($1,'mobile',$2,$3)",
+          "INSERT INTO account_identifiers(user_id,kind,digest,hint,verified_at) VALUES($1,'mobile',$2,$3,clock_timestamp())",
           [user.id, digestValue, identifierHint("mobile", mobile)],
         );
+        mobileVerification.current = true;
       }
-      if (emailAvailable()) {
+      if (emailAvailable() && d.email) {
         const issued = await issueEmailVerificationToken(db, d.tenantId, user.id, d.email);
         verification.current = { token: issued.token, email: d.email };
       }
       await audit(db, d.tenantId, user.id, "DEMO_SELF_REGISTRATION", user.id);
       });
-    } catch (error) {
+    } catch (error: any) {
+      // Backstop for a concurrent signup with the same email (the pre-check runs
+      // first; this keeps the race from surfacing as the generic DUPLICATE).
+      if (error?.code === "23505" && error?.constraint === "platform_users_email_key")
+        emailTaken();
       // Demand list (§3.6, owner-approved 18 Nov 08:01): a signup refused only because
       // its union is not listed is captured for the owner — after the transaction has
       // rolled back, in the failure-isolated write of demand.ts, so the response the
@@ -701,8 +877,8 @@ publicManagementRouter.post(
         d.geography?.unionCode
       )
         await recordRegistrationDemand({
-          nameBn: d.nameBn,
-          nameEn: d.nameEn,
+          nameBn: d.nameBn ?? d.displayName,
+          nameEn: d.nameEn ?? d.displayName,
           phone: mobile,
           geography: d.geography,
         });
@@ -717,6 +893,15 @@ publicManagementRouter.post(
         : "failed";
     res.status(201).json({
       registered: true,
+      // S-001: the caller must know whether mobile sign-in works yet. A
+      // pending mobile cannot sign in until the holder proves it with a
+      // code (POST /auth/otp/verify-mobile); email sign-in is unaffected.
+      mobileVerified: mobile ? mobileVerification.current : null,
+      mobileVerification: mobile
+        ? mobileVerification.current
+          ? "verified"
+          : "pending"
+        : null,
       // BUNDLE06-R5 D1: demo wording is internal vocabulary — in OFFICIAL
       // mode citizens must never see "SYNTHETIC_DEMO" in an API response.
       // The citizens.verification_state column keeps its stored value; only

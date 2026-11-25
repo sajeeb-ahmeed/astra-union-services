@@ -1,0 +1,1031 @@
+{
+  "packageId": "digitalunion-63e03f36e2f3-20261125-154736",
+  "version": "1.0.0",
+  "commit": "63e03f36e2f38f9ab7f57a4ce522f9b24a440d26",
+  "branch": "fix/phase4-stage1-release-blockers",
+  "builtAt": "2026-11-25T15:47:36.382Z",
+  "files": 5928,
+  "bytes": 160529525,
+  "assets": [
+    {
+      "path": "apps/web/dist/.vite/manifest.json",
+      "bytes": 11425,
+      "sha256": "674c8d3003b3609882ad82e1a0ba0e01123907a4a7f8f4c0c13391e03e7f81a0"
+    },
+    {
+      "path": "apps/web/dist/apple-touch-icon.png",
+      "bytes": 34884,
+      "sha256": "f964522ff13131abf31c27c91318e97af769cf45b1b3bc60b9771fb3db92c0d5"
+    },
+    {
+      "path": "apps/web/dist/apple-touch-icon.png.b64",
+      "bytes": 47124,
+      "sha256": "dffb66b86909f7c960f0696b5c06edb521e64bd1b456d7c504ab581024cae6f3"
+    },
+    {
+      "path": "apps/web/dist/assets/AccountMfa-CACJMNj9.js",
+      "bytes": 24936,
+      "sha256": "40071b9dcb8711dc4c1701fc1bab7bb31759512f7b96e7ead4dfb95f1e1c427d"
+    },
+    {
+      "path": "apps/web/dist/assets/AccountMfa-CACJMNj9.js.br",
+      "bytes": 6365,
+      "sha256": "5ccdaa7e92c28617b97771530ccb7a9eacd76c473f5b220c0d7d5e98c51e3b99"
+    },
+    {
+      "path": "apps/web/dist/assets/AccountMfa-CACJMNj9.js.gz",
+      "bytes": 7454,
+      "sha256": "58531901b5b2e61cc06f6af3cfef2a7b97f5b896271c52fab1eca9a1510a405a"
+    },
+    {
+      "path": "apps/web/dist/assets/AccountMfa-CckIIlWP.css",
+      "bytes": 1428,
+      "sha256": "cc5b7777c2c1332b7b4bff0cea2d9c869e3de4fecc4ffe6d7f51513b93d9e38e"
+    },
+    {
+      "path": "apps/web/dist/assets/AccountMfa-CckIIlWP.css.br",
+      "bytes": 471,
+      "sha256": "ac61f783d6759f4be0a7bf715f1bc514f11893ff40dd83a849d109967df85a47"
+    },
+    {
+      "path": "apps/web/dist/assets/AccountMfa-CckIIlWP.css.gz",
+      "bytes": 609,
+      "sha256": "4a4d4c31b9f01b9e947105ecea8ea040be19a2604dbfcd25ecc58f8744823e54"
+    },
+    {
+      "path": "apps/web/dist/assets/AdditionalWorkspace-JyvjYp4A.js",
+      "bytes": 23255,
+      "sha256": "c96c8a62da259e7dd187e1834cf408e5711f34008557105e10b8ba9eb6ae438a"
+    },
+    {
+      "path": "apps/web/dist/assets/AdditionalWorkspace-JyvjYp4A.js.br",
+      "bytes": 5847,
+      "sha256": "3cea0decfb075795a84b09a66563f3f243ae9385544f0f53b552365760cbc51e"
+    },
+    {
+      "path": "apps/web/dist/assets/AdditionalWorkspace-JyvjYp4A.js.gz",
+      "bytes": 6850,
+      "sha256": "ea1c331ed4033850138e3b168b23e2906db29028c7eb4243b4fe0a08a5857acf"
+    },
+    {
+      "path": "apps/web/dist/assets/AdminWorkspace-DfSTkvh5.js",
+      "bytes": 44600,
+      "sha256": "7444e592159b3b443bb3bd5d4095416e80ef5b97afb2443b737d40657f51cd47"
+    },
+    {
+      "path": "apps/web/dist/assets/AdminWorkspace-DfSTkvh5.js.br",
+      "bytes": 9822,
+      "sha256": "341af2547f6f0343289d12111476d0bb4357b3929a14f36c07f4ce15815901e3"
+    },
+    {
+      "path": "apps/web/dist/assets/AdminWorkspace-DfSTkvh5.js.gz",
+      "bytes": 11399,
+      "sha256": "234c34220b86557d855d016037245d1c5bcd099a04912eac62f5b168bde57905"
+    },
+    {
+      "path": "apps/web/dist/assets/BrandLockup-DTPnHy7Z.css",
+      "bytes": 2335,
+      "sha256": "f0311aa94e2ed6c4bd89044de6cad15f67ff3a3ff6de61a0640a4719a8b76784"
+    },
+    {
+      "path": "apps/web/dist/assets/BrandLockup-DTPnHy7Z.css.br",
+      "bytes": 596,
+      "sha256": "7c00e3a447f75fff1ff6ce7637f1bbabb78e0cd89034697630e59e64b46074f9"
+    },
+    {
+      "path": "apps/web/dist/assets/BrandLockup-DTPnHy7Z.css.gz",
+      "bytes": 720,
+      "sha256": "24e1021701c99564e9012be34b419a8b839757f077821ca72c5af7500b951754"
+    },
+    {
+      "path": "apps/web/dist/assets/BrandLockup-KYBHl-w7.js",
+      "bytes": 4448,
+      "sha256": "6ccefd74ca47761803bbfde0b86871bcd9d94e3bbef0d9d513bc3ea849daa6e7"
+    },
+    {
+      "path": "apps/web/dist/assets/BrandLockup-KYBHl-w7.js.br",
+      "bytes": 1595,
+      "sha256": "fe6baaac8a9133f71b49419f3780bcb3f235e6bfe872589dedce0c9f36cb6028"
+    },
+    {
+      "path": "apps/web/dist/assets/BrandLockup-KYBHl-w7.js.gz",
+      "bytes": 1859,
+      "sha256": "fde0dcd90654336f6904f83bfa5a51a0cf67dd6832d4a839383a61f47aeaca92"
+    },
+    {
+      "path": "apps/web/dist/assets/GeographyFields-E3ZASK89.js",
+      "bytes": 623102,
+      "sha256": "b6caa48f626707ed4292752fad22c143c9877a0c9aa9bdeb8f488f3979a133f0"
+    },
+    {
+      "path": "apps/web/dist/assets/GeographyFields-E3ZASK89.js.br",
+      "bytes": 39910,
+      "sha256": "0d70f8e5af450622eb71af0b9a14fc689326fff195ae144bc0eb0bdf7d93c01e"
+    },
+    {
+      "path": "apps/web/dist/assets/GeographyFields-E3ZASK89.js.gz",
+      "bytes": 55571,
+      "sha256": "58a36ff7d376ae204b8dc4f8614fc276b9f405b2b25b1deee794f931cf4e855b"
+    },
+    {
+      "path": "apps/web/dist/assets/OfficeInclusion-CiLOB-sV.js",
+      "bytes": 6612,
+      "sha256": "a08ec78518e2316bfe4104742548ebe4f4b4257aafec1fe1ee701782f56c9008"
+    },
+    {
+      "path": "apps/web/dist/assets/OfficeInclusion-CiLOB-sV.js.br",
+      "bytes": 1969,
+      "sha256": "aed900ae10799fd54abda9fdbec2ad1ff59f26346492a59eebdcfa4d29af2c26"
+    },
+    {
+      "path": "apps/web/dist/assets/OfficeInclusion-CiLOB-sV.js.gz",
+      "bytes": 2346,
+      "sha256": "5e7c2915904ae098f78dc19239454226245860eb60f69f104505092cffd74521"
+    },
+    {
+      "path": "apps/web/dist/assets/OfficeRegistration-BIwaofLM.js",
+      "bytes": 7578,
+      "sha256": "460a44939bb3fd65242d90ab35c9565157e0dcaa9fed00736b0a58a9380b0da5"
+    },
+    {
+      "path": "apps/web/dist/assets/OfficeRegistration-BIwaofLM.js.br",
+      "bytes": 2298,
+      "sha256": "e12b5c1776f96ff7bac6bd624b9a2323dff855f8500f561967700de500556eb4"
+    },
+    {
+      "path": "apps/web/dist/assets/OfficeRegistration-BIwaofLM.js.gz",
+      "bytes": 2729,
+      "sha256": "1790a30d76ea6e5df662257ee876b1c947d0162edab8a921a040a1a1ca8fe38d"
+    },
+    {
+      "path": "apps/web/dist/assets/OnlinePayments-Dav-dEIi.js",
+      "bytes": 25676,
+      "sha256": "1fd13324ecce0db4a2b0bf8fcd2747e53c645f6874d9d47eb7138bf1f6ddeb9e"
+    },
+    {
+      "path": "apps/web/dist/assets/OnlinePayments-Dav-dEIi.js.br",
+      "bytes": 6161,
+      "sha256": "ffc7bad3623ef4828e3641d7cf8a5ca169463507285516cf92c74e1dbaaa9d60"
+    },
+    {
+      "path": "apps/web/dist/assets/OnlinePayments-Dav-dEIi.js.gz",
+      "bytes": 7199,
+      "sha256": "3267651844f34d8e83b3de2cc28dc5470a425f08ad62e4597507b8bce1d0c0e8"
+    },
+    {
+      "path": "apps/web/dist/assets/OrderPolicySettings-Ch6cv0n8.js",
+      "bytes": 14633,
+      "sha256": "8e68c742f140a05768158387112970648e069a72b4636eff5d68673ad4ec8655"
+    },
+    {
+      "path": "apps/web/dist/assets/OrderPolicySettings-Ch6cv0n8.js.br",
+      "bytes": 4137,
+      "sha256": "321deb0f241f6b8ca358ff81549cc7bdf58dfa7543b98e454c4b5245abc3d084"
+    },
+    {
+      "path": "apps/web/dist/assets/OrderPolicySettings-Ch6cv0n8.js.gz",
+      "bytes": 4869,
+      "sha256": "0f8bdb57e4a04d2032cdd7ea5ed6748c0e67c10737e196657010441707100a29"
+    },
+    {
+      "path": "apps/web/dist/assets/OwnerAccountRequests-CGIsCBlB.js",
+      "bytes": 4581,
+      "sha256": "c13a59863c7e361fcd1387ebe37675a1c20e770b4059ee06764fed30c410d28c"
+    },
+    {
+      "path": "apps/web/dist/assets/OwnerAccountRequests-CGIsCBlB.js.br",
+      "bytes": 1478,
+      "sha256": "03a7180458d264b36c25a88dc0cee3292d98bedd2e444d1643fdd7106e42a3bf"
+    },
+    {
+      "path": "apps/web/dist/assets/OwnerAccountRequests-CGIsCBlB.js.gz",
+      "bytes": 1768,
+      "sha256": "0597faea33948954beae1fc5b4a8ac1ab08baf5eb51ab7142b04709d1946b587"
+    },
+    {
+      "path": "apps/web/dist/assets/OwnerAudit-B6SZZSwk.js",
+      "bytes": 3072,
+      "sha256": "c34c54ffa6aafb20bc2d7a1ade862c177f7fbcef59cfcfebb08534b5fe3cad9a"
+    },
+    {
+      "path": "apps/web/dist/assets/OwnerAudit-B6SZZSwk.js.br",
+      "bytes": 1107,
+      "sha256": "b875df4d8389b94c074a54e1f4789834294e9243261d6284bc5c84845281b997"
+    },
+    {
+      "path": "apps/web/dist/assets/OwnerAudit-B6SZZSwk.js.gz",
+      "bytes": 1303,
+      "sha256": "f85a5260da8963d9fd5b7d5d5b90d1490a50b7def9aa24447fca2f4c45bf824a"
+    },
+    {
+      "path": "apps/web/dist/assets/OwnerBranding-DJlpqAJu.js",
+      "bytes": 3206,
+      "sha256": "a87e676739b2bf57ec28e83753d7410cc2ceb91819e0bfe82b5300fcbbe83788"
+    },
+    {
+      "path": "apps/web/dist/assets/OwnerBranding-DJlpqAJu.js.br",
+      "bytes": 1087,
+      "sha256": "8bc1822a9443e46a22f6a2731e529e5c88525643bf7c487bf5ad9928cdc7d7d8"
+    },
+    {
+      "path": "apps/web/dist/assets/OwnerBranding-DJlpqAJu.js.gz",
+      "bytes": 1321,
+      "sha256": "fc1fc9b6cb991543f6f04a670a0b13c85fd25f57f63f8d4eeb55eb23e68f3377"
+    },
+    {
+      "path": "apps/web/dist/assets/OwnerCoupons-CODqlVRn.js",
+      "bytes": 13069,
+      "sha256": "71349007f8c77c799eb940c91b7ed66d6805e93fcb4c66d311d33892806e8db3"
+    },
+    {
+      "path": "apps/web/dist/assets/OwnerCoupons-CODqlVRn.js.br",
+      "bytes": 3524,
+      "sha256": "33463de3166627531558aa781ad5c5b99c2fb0d6f3c2a5752426526b8308e8a2"
+    },
+    {
+      "path": "apps/web/dist/assets/OwnerCoupons-CODqlVRn.js.gz",
+      "bytes": 4094,
+      "sha256": "830a09bb9a086ff2e4bea166ba7d8a644b0b2e873a3ac15f710acae76e084646"
+    },
+    {
+      "path": "apps/web/dist/assets/OwnerDemand-8OTzMIHW.js",
+      "bytes": 4067,
+      "sha256": "2aa3cf913430a384da46378c08f2c8d75a378057d490f30279e60b5daec81545"
+    },
+    {
+      "path": "apps/web/dist/assets/OwnerDemand-8OTzMIHW.js.br",
+      "bytes": 1242,
+      "sha256": "eee67da0e8f1fd415af4dddfac09db584e780c7e367edd7ec457bb9dec283d17"
+    },
+    {
+      "path": "apps/web/dist/assets/OwnerDemand-8OTzMIHW.js.gz",
+      "bytes": 1486,
+      "sha256": "664b323d2ca0c8985dd5875f45dfc7dde62e3614a051504b3a8f8123f67cd5c4"
+    },
+    {
+      "path": "apps/web/dist/assets/OwnerNotices-DZWmqgaJ.js",
+      "bytes": 8513,
+      "sha256": "8aeb03d8d5413a04359b91ff02b04eb78db04e2e97cbd546b4ca555e4386b82a"
+    },
+    {
+      "path": "apps/web/dist/assets/OwnerNotices-DZWmqgaJ.js.br",
+      "bytes": 2444,
+      "sha256": "2e04eef5bb52c5ee2680b7f412971697ff8b8a2b9a504253f873ba89cae75d25"
+    },
+    {
+      "path": "apps/web/dist/assets/OwnerNotices-DZWmqgaJ.js.gz",
+      "bytes": 2880,
+      "sha256": "9a7958d2f74d2716bfc2380fcb1c8812f4e3ff723f1b9b90cb5889ffd978d720"
+    },
+    {
+      "path": "apps/web/dist/assets/OwnerOperations-GMob5ve7.js",
+      "bytes": 5798,
+      "sha256": "ae41ada1af2f99af717f6c5bc7352fa0e2a987287f49b04cfc3f88739c51dcbf"
+    },
+    {
+      "path": "apps/web/dist/assets/OwnerOperations-GMob5ve7.js.br",
+      "bytes": 1701,
+      "sha256": "5787d22082588b4c2f81ffb1530fbf76709a28bc07566677968a8b9f0052df9d"
+    },
+    {
+      "path": "apps/web/dist/assets/OwnerOperations-GMob5ve7.js.gz",
+      "bytes": 2015,
+      "sha256": "fef469201bb0be543fc864dd9c6eb97f817328d584824d81eedd52ca07a0d501"
+    },
+    {
+      "path": "apps/web/dist/assets/OwnerPlans-K1buY9sN.js",
+      "bytes": 10853,
+      "sha256": "1f6f9b0f5e80a484ff8888c5137b895bae631021f973e29c5d5ddbf6ce4b1bd8"
+    },
+    {
+      "path": "apps/web/dist/assets/OwnerPlans-K1buY9sN.js.br",
+      "bytes": 3078,
+      "sha256": "8ed6fd197edc20cfd201a1b60d9e66a5e9935a9a9faa7f9c92a23bb26ffb9a2d"
+    },
+    {
+      "path": "apps/web/dist/assets/OwnerPlans-K1buY9sN.js.gz",
+      "bytes": 3586,
+      "sha256": "65527ad0d190a8baf97253aa57a605585a9bb9d1d6d99cfa3fdd56f0a9aac37d"
+    },
+    {
+      "path": "apps/web/dist/assets/OwnerPricing-yPVdBjZ-.js",
+      "bytes": 8252,
+      "sha256": "e3f6a6ec7224e66150131a1f2ff03d182ff5ba7f1938b06cc63e91f3f61009cb"
+    },
+    {
+      "path": "apps/web/dist/assets/OwnerPricing-yPVdBjZ-.js.br",
+      "bytes": 2476,
+      "sha256": "41ec722f7709563cd63b34217ed8b978a84b3b85755e63f41e947cb35014e206"
+    },
+    {
+      "path": "apps/web/dist/assets/OwnerPricing-yPVdBjZ-.js.gz",
+      "bytes": 2951,
+      "sha256": "f6c1a5f4ed92310770febc626dec0804be1b8c9a7047f3700a173d2f79383427"
+    },
+    {
+      "path": "apps/web/dist/assets/OwnerSubscriptions-ICUqKcnq.js",
+      "bytes": 9963,
+      "sha256": "7d94358da2b8e03fcc46cd35fe11556f3e63ca9927e0dc7015e18ed0c6dd8285"
+    },
+    {
+      "path": "apps/web/dist/assets/OwnerSubscriptions-ICUqKcnq.js.br",
+      "bytes": 2718,
+      "sha256": "4cd31ec35d6581771443032aacf74aabeb365b95a62c5ce4faa602f7db6fed66"
+    },
+    {
+      "path": "apps/web/dist/assets/OwnerSubscriptions-ICUqKcnq.js.gz",
+      "bytes": 3126,
+      "sha256": "63ff4319adfc31a0bf1eb2cf39d8be4845233b456ba9b5cc22e8e3f181c50516"
+    },
+    {
+      "path": "apps/web/dist/assets/PointsWallet-CfgX72PG.js",
+      "bytes": 5288,
+      "sha256": "3f5abfb39df8e804981c39e89bc22738aef1aafc4c769f5d7ba02d6d776463f1"
+    },
+    {
+      "path": "apps/web/dist/assets/PointsWallet-CfgX72PG.js.br",
+      "bytes": 1770,
+      "sha256": "0460506aa67b8aecd5f5a70d013ee43d8bde1154730e53e0033b72212d57983c"
+    },
+    {
+      "path": "apps/web/dist/assets/PointsWallet-CfgX72PG.js.gz",
+      "bytes": 2101,
+      "sha256": "ed03aabb3b648a8f667591e906048431e1e07097bfdaa603d0a287cd83e3aeb8"
+    },
+    {
+      "path": "apps/web/dist/assets/PublicHome-BZX52jV-.js",
+      "bytes": 21412,
+      "sha256": "cf18c037996b1b924ae13cf36af82f98c2ace266346de8944ccd0f31db6ce035"
+    },
+    {
+      "path": "apps/web/dist/assets/PublicHome-BZX52jV-.js.br",
+      "bytes": 5661,
+      "sha256": "f4adc27aebdb66988edebc5437b9bedc33883d866a9f1acfc0314d8b88aac7c0"
+    },
+    {
+      "path": "apps/web/dist/assets/PublicHome-BZX52jV-.js.gz",
+      "bytes": 6595,
+      "sha256": "cc9921ac3ec607d48a32ec7c752dbe257f96c3c9bc3152da26bcd0215f8546cd"
+    },
+    {
+      "path": "apps/web/dist/assets/PublicHome-CwzUw8il.css",
+      "bytes": 24878,
+      "sha256": "8cfc0ef2c1b746ac71d4d4129b9b735b3147cfb55c2be1414b67425176d70518"
+    },
+    {
+      "path": "apps/web/dist/assets/PublicHome-CwzUw8il.css.br",
+      "bytes": 4810,
+      "sha256": "a31d56f8715b8ea831f128f1def3fc6c3ce6b115b554d7b32f63c2a863b5e244"
+    },
+    {
+      "path": "apps/web/dist/assets/PublicHome-CwzUw8il.css.gz",
+      "bytes": 5433,
+      "sha256": "ab827282f756414aeb8fa8057cfca64d2aabb4da7a4d166536913c2141e8acf5"
+    },
+    {
+      "path": "apps/web/dist/assets/PublicPortal-BklswdZS.css",
+      "bytes": 15822,
+      "sha256": "fe5e5525149ffe92a8e563ec8e8c329b89b2c584d2ea37f445df6115a93163d7"
+    },
+    {
+      "path": "apps/web/dist/assets/PublicPortal-BklswdZS.css.br",
+      "bytes": 3395,
+      "sha256": "6e8a7a1daa4049bba8b290560128e36d9506639dfeed3f9a03db73c98cbae75b"
+    },
+    {
+      "path": "apps/web/dist/assets/PublicPortal-BklswdZS.css.gz",
+      "bytes": 3922,
+      "sha256": "7652dd80b10a157b9cf14ca25240ac82facc895f7a1b872f4f3bcbb7f54a696e"
+    },
+    {
+      "path": "apps/web/dist/assets/PublicPortal-C-IHnqyY.js",
+      "bytes": 69965,
+      "sha256": "25c0d37c620a95494dea175954535e3f7dd172c93baef80cc5e619dba502d247"
+    },
+    {
+      "path": "apps/web/dist/assets/PublicPortal-C-IHnqyY.js.br",
+      "bytes": 16833,
+      "sha256": "a8432b8ff0da193288313ceea0153ebbd39231b1b597aceff47ffdd49046314f"
+    },
+    {
+      "path": "apps/web/dist/assets/PublicPortal-C-IHnqyY.js.gz",
+      "bytes": 19778,
+      "sha256": "5e6bb4737f0cebb8b83121018fba546596ed4a52635cef197d6183df6bd995b4"
+    },
+    {
+      "path": "apps/web/dist/assets/PublicShell-BQBYNCtZ.css",
+      "bytes": 5854,
+      "sha256": "632b173a116ab05fde369b644d0f096ff39b1e0647953a3e2fdf8150b56bb0f0"
+    },
+    {
+      "path": "apps/web/dist/assets/PublicShell-BQBYNCtZ.css.br",
+      "bytes": 1409,
+      "sha256": "8d772370002925a2e63275b35c1d3e6253b57051a6cf8ce5f288e276c6324763"
+    },
+    {
+      "path": "apps/web/dist/assets/PublicShell-BQBYNCtZ.css.gz",
+      "bytes": 1652,
+      "sha256": "55a76c9005c0934e532768f4c8a0a0d343118684fbf6ce5266badd0e08bf1667"
+    },
+    {
+      "path": "apps/web/dist/assets/PublicShell-CTvkDbf0.js",
+      "bytes": 10655,
+      "sha256": "2cf874eafedf041e5f57c71fdd6ba3b65fd2a5d823ac5556bb69184f7c1fd390"
+    },
+    {
+      "path": "apps/web/dist/assets/PublicShell-CTvkDbf0.js.br",
+      "bytes": 2909,
+      "sha256": "4fc9185173837e4386f8ffbafc7d97c79c02128c41dc4f3769b8507b162df55d"
+    },
+    {
+      "path": "apps/web/dist/assets/PublicShell-CTvkDbf0.js.gz",
+      "bytes": 3389,
+      "sha256": "426c279f5df5b5b0e3aa9730d59d716b6c01f9b4e8cc4d7b32092567b218f6aa"
+    },
+    {
+      "path": "apps/web/dist/assets/Recharge-DBc23eQ-.js",
+      "bytes": 9736,
+      "sha256": "db3c6ed860f9a8215173cc22e56720ace3212b63fc1b38b070b3bfcfa7d3b4c5"
+    },
+    {
+      "path": "apps/web/dist/assets/Recharge-DBc23eQ-.js.br",
+      "bytes": 2950,
+      "sha256": "c7b4b01a1c1ff254563a15cd612b24dfe7100057927a05f652370f5af224f183"
+    },
+    {
+      "path": "apps/web/dist/assets/Recharge-DBc23eQ-.js.gz",
+      "bytes": 3417,
+      "sha256": "cf97d62186b980792cfe273800d289db35bc2c915dec9a505d894432f6f4ea87"
+    },
+    {
+      "path": "apps/web/dist/assets/Refunds-UfZ7strj.js",
+      "bytes": 4245,
+      "sha256": "fab1e2c6cc1329a1f93bf020fd7ac039607193af0094d64921b64876dcae4d61"
+    },
+    {
+      "path": "apps/web/dist/assets/Refunds-UfZ7strj.js.br",
+      "bytes": 1464,
+      "sha256": "8b3ed26ba3c00ff9ff4c6c78d4159ea9e6524cb2fc38d45d6f3bf54064fc839a"
+    },
+    {
+      "path": "apps/web/dist/assets/Refunds-UfZ7strj.js.gz",
+      "bytes": 1729,
+      "sha256": "a7da2b6a6a46d8a0efa3eaeae8ac310b77b252a397e30431fb5667c6530af05b"
+    },
+    {
+      "path": "apps/web/dist/assets/UserGuide-CzGjBzK8.js",
+      "bytes": 14274,
+      "sha256": "3cc3e73fd8dfa097b289540ce1428a13782c617e49ae1ef77e304b090f76b0fc"
+    },
+    {
+      "path": "apps/web/dist/assets/UserGuide-CzGjBzK8.js.br",
+      "bytes": 3809,
+      "sha256": "37ac7d6091f7ee50341dbb19f693d671b8e78ddee940c46c340974be7c750125"
+    },
+    {
+      "path": "apps/web/dist/assets/UserGuide-CzGjBzK8.js.gz",
+      "bytes": 4618,
+      "sha256": "51d454a0cdbff8005f6f8f50c0801cc2cc401053d05906f12e8a7382dea385be"
+    },
+    {
+      "path": "apps/web/dist/assets/WitnessGenerator-DSoAMYKY.js",
+      "bytes": 6720,
+      "sha256": "3ca82ea8c65b4994083b25a471f2b2a7b9e81c89f7a61e7db11b6d8e97246de4"
+    },
+    {
+      "path": "apps/web/dist/assets/WitnessGenerator-DSoAMYKY.js.br",
+      "bytes": 1996,
+      "sha256": "a98d2210ea8b8adba6bc2709180e8f248b01f6785cdd8431eb5a79cca10507d6"
+    },
+    {
+      "path": "apps/web/dist/assets/WitnessGenerator-DSoAMYKY.js.gz",
+      "bytes": 2376,
+      "sha256": "2d9fe7a29ae34369a94baf7408ac507d0de49ffe71027cdb98ca046eea0d750a"
+    },
+    {
+      "path": "apps/web/dist/assets/WorkspaceApp-B93nGxWQ.js",
+      "bytes": 173997,
+      "sha256": "6adafaf1963af5dc7a73cfee15bc0ac66c77fbd3f68f67a288d3d20150ad6117"
+    },
+    {
+      "path": "apps/web/dist/assets/WorkspaceApp-B93nGxWQ.js.br",
+      "bytes": 37789,
+      "sha256": "256881847b406715336ad5d6c2d1c95e1e39f2fc89d1bc4cfc4e20e4116c3aa6"
+    },
+    {
+      "path": "apps/web/dist/assets/WorkspaceApp-B93nGxWQ.js.gz",
+      "bytes": 46220,
+      "sha256": "332db2673fe58be386445e2df82f3f5d81255708b879dd321d085099587b825d"
+    },
+    {
+      "path": "apps/web/dist/assets/WorkspaceApp-DA7DM592.css",
+      "bytes": 31773,
+      "sha256": "3595fbfcc999dcba7543a946ff7328f2b23156755693f70f9ecb557379d8625e"
+    },
+    {
+      "path": "apps/web/dist/assets/WorkspaceApp-DA7DM592.css.br",
+      "bytes": 5682,
+      "sha256": "4409b2bc19889dc0edff0e881e73baf48612f27dfe714efe86b0767a2f51ab8b"
+    },
+    {
+      "path": "apps/web/dist/assets/WorkspaceApp-DA7DM592.css.gz",
+      "bytes": 6398,
+      "sha256": "930c4fb59b638076d890bf5b84699c2e7b00ec5cbb5e1fc5fe07e8c4530ead34"
+    },
+    {
+      "path": "apps/web/dist/assets/emblem-t4urzLf4.webp",
+      "bytes": 11664,
+      "sha256": "7e7882c3e5f4af39d76470683f2f3370810b07307e4b19d74337ae4102a28f36"
+    },
+    {
+      "path": "apps/web/dist/assets/faq-DJrQJse1.js",
+      "bytes": 13679,
+      "sha256": "20cb0bb6a36179c58f4450d8f3401e4b48d4451ef64a031570f18482c78b5db5"
+    },
+    {
+      "path": "apps/web/dist/assets/faq-DJrQJse1.js.br",
+      "bytes": 3568,
+      "sha256": "53597871c1aabc078082caf447a059b9f3111ac43adc9d1e574a28402dd1c479"
+    },
+    {
+      "path": "apps/web/dist/assets/faq-DJrQJse1.js.gz",
+      "bytes": 4282,
+      "sha256": "e36aa126091cdc0ca4504e7a331633af1ec0049f55a7278363e07298c564307b"
+    },
+    {
+      "path": "apps/web/dist/assets/index-BhTTjZQD.js",
+      "bytes": 388382,
+      "sha256": "423413c13261153ccbfb3871c76b676cb4727ed2971d45ef84a656dcb8451045"
+    },
+    {
+      "path": "apps/web/dist/assets/index-BhTTjZQD.js.br",
+      "bytes": 89267,
+      "sha256": "e73a239aac3ae0a86f6cd06fee857bc439190ba36ecf4fc7038c6204eb7c666d"
+    },
+    {
+      "path": "apps/web/dist/assets/index-BhTTjZQD.js.gz",
+      "bytes": 105707,
+      "sha256": "9b626e2710480b170ed9c7c5df7e30ad6cfad7cc5bc4d327570e7ec612a6a630"
+    },
+    {
+      "path": "apps/web/dist/assets/index-d4TtUdyZ.css",
+      "bytes": 52150,
+      "sha256": "b6c5aef6ad441d7bb32d8e82e9d2c3c6e0c5f592025476e6af6a1fe36ed48f0a"
+    },
+    {
+      "path": "apps/web/dist/assets/index-d4TtUdyZ.css.br",
+      "bytes": 10065,
+      "sha256": "e43cca63a97e52266012b858b1de5d31000d9442dfb02c22f3a70eaf183968de"
+    },
+    {
+      "path": "apps/web/dist/assets/index-d4TtUdyZ.css.gz",
+      "bytes": 11340,
+      "sha256": "a465591ed5535a78098c2010f4072c3cc3b2c4a9f7436035a598842e76fa71cf"
+    },
+    {
+      "path": "apps/web/dist/assets/noto-sans-bengali-bengali-600-normal-BVnGrJcL.woff2",
+      "bytes": 47636,
+      "sha256": "abfa65f4f73d0fab61667ad7a29ed1f96d143c2c7a8323ab04d0697d858a4d90"
+    },
+    {
+      "path": "apps/web/dist/assets/noto-sans-bengali-bengali-600-normal-BVnGrJcL.woff2.br",
+      "bytes": 47640,
+      "sha256": "ed23ba8653d0bb6a207d9ad04d557b250dc3272d9abcecac6b951ec55711cabc"
+    },
+    {
+      "path": "apps/web/dist/assets/noto-sans-bengali-bengali-600-normal-BVnGrJcL.woff2.gz",
+      "bytes": 47669,
+      "sha256": "77cbb136b94da0a5b391760835c80df6f7b9e4dd9c9db1a4df4366d265ec45b3"
+    },
+    {
+      "path": "apps/web/dist/assets/noto-sans-bengali-bengali-700-normal-C0v9szhP.woff2",
+      "bytes": 47788,
+      "sha256": "67ffaf548d85c2022569374b5401cd8d296a2434c2df4b57399c31f9118ce8c3"
+    },
+    {
+      "path": "apps/web/dist/assets/noto-sans-bengali-bengali-700-normal-C0v9szhP.woff2.br",
+      "bytes": 47792,
+      "sha256": "2e946a55ecd9b4a36105ff4f741de699c1f2a60503a6aa3b5930921c4022f87b"
+    },
+    {
+      "path": "apps/web/dist/assets/noto-sans-bengali-bengali-700-normal-C0v9szhP.woff2.gz",
+      "bytes": 47821,
+      "sha256": "9819e58b5903093d9843632d62f0fdeff555adfec53728aa9b150e1d56dd759f"
+    },
+    {
+      "path": "apps/web/dist/assets/noto-sans-bengali-latin-400-normal-DiV_iq0_.woff2",
+      "bytes": 10352,
+      "sha256": "787cb67c208f5b16d2e636c6b865d8b44cb4223cb7861346d27577346c1c2010"
+    },
+    {
+      "path": "apps/web/dist/assets/noto-sans-bengali-latin-400-normal-DiV_iq0_.woff2.br",
+      "bytes": 10356,
+      "sha256": "705305608f33c219029bc1c949f4c43e3582f204b1c90a26bb90d6b3dce20f2d"
+    },
+    {
+      "path": "apps/web/dist/assets/noto-sans-bengali-latin-400-normal-DiV_iq0_.woff2.gz",
+      "bytes": 10375,
+      "sha256": "7705d85fe7c840f15800b55daec043f68a4c4fe552ba507e5f1115c58f7e44b7"
+    },
+    {
+      "path": "apps/web/dist/assets/noto-sans-bengali-latin-600-normal-BokLars8.woff2",
+      "bytes": 10468,
+      "sha256": "8c3e19dc82cea1797b2f0ed19c807750ce1c751e11e82c717494c5728f9004fa"
+    },
+    {
+      "path": "apps/web/dist/assets/noto-sans-bengali-latin-600-normal-BokLars8.woff2.br",
+      "bytes": 10472,
+      "sha256": "0cb3f458bfcd588ac0c8da78a370dd29f57606c9b698e0ddad7b4dda6592103c"
+    },
+    {
+      "path": "apps/web/dist/assets/noto-sans-bengali-latin-600-normal-BokLars8.woff2.gz",
+      "bytes": 10491,
+      "sha256": "ba7b30eca54e6457331e9dc7b55e56cbc5bbf5a2bdd4bce7d8e1103ee7b68eb1"
+    },
+    {
+      "path": "apps/web/dist/assets/noto-sans-bengali-latin-700-normal-DcY8RmmN.woff2",
+      "bytes": 10408,
+      "sha256": "d04b9c030fbdaf5e749c2f3ed421068c21af32213da97f1e2d431dd9d5e5f48d"
+    },
+    {
+      "path": "apps/web/dist/assets/noto-sans-bengali-latin-700-normal-DcY8RmmN.woff2.br",
+      "bytes": 10412,
+      "sha256": "9da8657f8920febb034969ded295f30a5e65310abdf392edba50455b0d501089"
+    },
+    {
+      "path": "apps/web/dist/assets/noto-sans-bengali-latin-700-normal-DcY8RmmN.woff2.gz",
+      "bytes": 10431,
+      "sha256": "d5e91f4bda6c30683e9c558f22998f24e6705c04c8f72ace3a0f8a543064c9ad"
+    },
+    {
+      "path": "apps/web/dist/assets/office-registration-Obr3aR5I.css",
+      "bytes": 774,
+      "sha256": "6d14b2ab953449364844da8794995a6025a985a7d39ea0c7a08b6bb0f0eb1da1"
+    },
+    {
+      "path": "apps/web/dist/assets/office-registration-Obr3aR5I.css.br",
+      "bytes": 255,
+      "sha256": "f1b1e3efdab975c5b962027d0f4ff01cb7a7ab735159f314e17e0db7cbec41b8"
+    },
+    {
+      "path": "apps/web/dist/assets/office-registration-Obr3aR5I.css.gz",
+      "bytes": 338,
+      "sha256": "d9b3baba65ff1fcc4274ccac3f53d8c9b733776b71c7ac3b484a7851f261a6eb"
+    },
+    {
+      "path": "apps/web/dist/assets/service-slugs-CAdqqj8q.js",
+      "bytes": 424,
+      "sha256": "49f4baab886a4a3c9abe92000faacdba09edf331cc56f44b24c10f8e583c14f1"
+    },
+    {
+      "path": "apps/web/dist/assets/service-slugs-CAdqqj8q.js.br",
+      "bytes": 268,
+      "sha256": "04826bc694eb40af6d6138214707e1643956ef29ef21b10ee22ca940ce8733db"
+    },
+    {
+      "path": "apps/web/dist/assets/service-slugs-CAdqqj8q.js.gz",
+      "bytes": 304,
+      "sha256": "e395b62e0c57afdf828b51f225ea57ab700b8f5d6ed9ba535eb89b0d3e84b366"
+    },
+    {
+      "path": "apps/web/dist/favicon-192.png",
+      "bytes": 39437,
+      "sha256": "1b5d819dcacdaed7d82890d6c6674530199103fc32b13a0fbbadca66803d94dc"
+    },
+    {
+      "path": "apps/web/dist/favicon-192.png.b64",
+      "bytes": 53276,
+      "sha256": "c93ae89f98964c4d0867903e1c7e56f44bb6d1bc5ad701e5cde0107b446e3fb5"
+    },
+    {
+      "path": "apps/web/dist/favicon-32.png",
+      "bytes": 2281,
+      "sha256": "6b3c24766db12318371e72f02be32d3fb59133f770622fc5a16531db70868131"
+    },
+    {
+      "path": "apps/web/dist/favicon-32.png.b64",
+      "bytes": 3085,
+      "sha256": "b5a5ed02bc1f536b3ce48c8b23377b88ff1a0573eb80acdcfadbacbc1d5ef651"
+    },
+    {
+      "path": "apps/web/dist/favicon-512.png",
+      "bytes": 208116,
+      "sha256": "5e02ef69768c9877283000346e09b27317465f8c77727a53846055b18ce05654"
+    },
+    {
+      "path": "apps/web/dist/favicon-512.png.b64",
+      "bytes": 281140,
+      "sha256": "f997b2a8c0ab704a0c902653985efd52c364f4047faf738498918bf1b58110d5"
+    },
+    {
+      "path": "apps/web/dist/fonts/noto-sans-bengali-bengali-400-normal.woff2",
+      "bytes": 44352,
+      "sha256": "adb805ae2eb639cc5d7276ee0e3798a8092fbfe02a6e5a0e19d82587680b528c"
+    },
+    {
+      "path": "apps/web/dist/fonts/noto-sans-bengali-bengali-400-normal.woff2.b64",
+      "bytes": 59137,
+      "sha256": "0f96babbe45093352162e668d37f046ecc23f268f812dd74aeb69bfc4d84ffef"
+    },
+    {
+      "path": "apps/web/dist/images/carousel/apply-from-home.webp",
+      "bytes": 73676,
+      "sha256": "9687fb8b954d4b8e4c98d626b60db0826c60f0ff850da974b5f2169775428447"
+    },
+    {
+      "path": "apps/web/dist/images/carousel/certificate-received.webp",
+      "bytes": 98638,
+      "sha256": "bfbb1f553d8714f1190fbe9b72b016b439c471eb5cb16fb5eb4ef67891019751"
+    },
+    {
+      "path": "apps/web/dist/images/carousel/chairman-review.webp",
+      "bytes": 114568,
+      "sha256": "a4a647388189bfec410eacb0ab3affea2b158aed177eaa68b9ad7fa97d75269a"
+    },
+    {
+      "path": "apps/web/dist/images/carousel/digital-centre-help.webp",
+      "bytes": 98208,
+      "sha256": "aeae180cdf743fa6b02efea7b248cab9ddb4d1ab2758f152ad39fae9796049a7"
+    },
+    {
+      "path": "apps/web/dist/images/carousel/union-office.webp",
+      "bytes": 153760,
+      "sha256": "ce372c66e97f1ef021d05fbd2cdefea84af68a4b4c5e05176f26bbca9fdbc00a"
+    },
+    {
+      "path": "apps/web/dist/index.html",
+      "bytes": 12435,
+      "sha256": "0c48e48f568ea10c263648969ed2ed7f8a16731cfbe12b30809fa299c8d72aa9"
+    },
+    {
+      "path": "apps/web/dist/offices/belabo-up/index.html",
+      "bytes": 6144,
+      "sha256": "76d64efaa6bb0fa1fb07ad732494346fee19470e99ae8ca887afef943b61e7ec"
+    },
+    {
+      "path": "apps/web/dist/offices/index.html",
+      "bytes": 4678,
+      "sha256": "e6d6733b15b9f3b6045ccbdf2e89952aabecd3c918a47b086b34d11c362d08ed"
+    },
+    {
+      "path": "apps/web/dist/robots.txt",
+      "bytes": 465,
+      "sha256": "859cdea76d474902aa09ada2a347785ec6ef44c52314f907ce0d72198ed9602f"
+    },
+    {
+      "path": "apps/web/dist/seo-slugs.json",
+      "bytes": 1732,
+      "sha256": "92c52ea90ecb79da4503a26a13c0c970e62a33ace82150bc003c230d320cec0f"
+    },
+    {
+      "path": "apps/web/dist/services/agriculture-attestation/index.html",
+      "bytes": 14540,
+      "sha256": "8098f1d9e177787ca0dd818b4215b5288f63c23653df188098734d1b30876089"
+    },
+    {
+      "path": "apps/web/dist/services/annual-income-certificate/index.html",
+      "bytes": 15110,
+      "sha256": "2f4fbf6599609a3065e7411cecef6c02c6442bee010d3bfad648851a67bd9cce"
+    },
+    {
+      "path": "apps/web/dist/services/character-certificate/index.html",
+      "bytes": 14746,
+      "sha256": "c8b6d60ffd366debcb6c3108f21cab420fe60005793466e7c2260107eb06f664"
+    },
+    {
+      "path": "apps/web/dist/services/childless-attestation/index.html",
+      "bytes": 14921,
+      "sha256": "ea3c7a3528a886637cbd75dcdb8f6dd84e84334496dc704755002bcb54bcddb7"
+    },
+    {
+      "path": "apps/web/dist/services/citizenship-certificate/index.html",
+      "bytes": 15322,
+      "sha256": "2779d7e8e36550608c5c5032b85a8ebe39dba80cadf1f0f62c3818f4ff86a91e"
+    },
+    {
+      "path": "apps/web/dist/services/community-certificate/index.html",
+      "bytes": 14780,
+      "sha256": "ddfb86dd2ac99c1dee495fe4cee4bb36b2880c91a07d89c3c255bf494d3f7592"
+    },
+    {
+      "path": "apps/web/dist/services/death-attestation/index.html",
+      "bytes": 15602,
+      "sha256": "be164694bc5f64f70e048380f6345cd0e8bd61f27a0d1a14e6105aad2c5c8b1a"
+    },
+    {
+      "path": "apps/web/dist/services/death-while-unmarried-certificate/index.html",
+      "bytes": 15682,
+      "sha256": "9445e21845b9fe93dbbca7c8f2eca4c2ec3853e344fd7ae40062a02f33729aca"
+    },
+    {
+      "path": "apps/web/dist/services/delegation-of-authority-attestation/index.html",
+      "bytes": 15464,
+      "sha256": "9ad58ed31a0fafd040e013c9c6a764778b01f58a8485cf8423ba366fcdf4c44b"
+    },
+    {
+      "path": "apps/web/dist/services/disability-certificate/index.html",
+      "bytes": 15497,
+      "sha256": "78bb2bf5ccc03f1e6c04ca5488822b140a8dc8f3323a2e0bf0fc2a1d809f9b49"
+    },
+    {
+      "path": "apps/web/dist/services/dowry-free-marriage-attestation/index.html",
+      "bytes": 15508,
+      "sha256": "caf91ef218530019ebc89143766750107e8f918a9e05a29bb41c6204b62e6352"
+    },
+    {
+      "path": "apps/web/dist/services/family-certificate/index.html",
+      "bytes": 14695,
+      "sha256": "d96554162c99c2a845314fb37119fa73b48606da33cc26bca1f66a2597c5d546"
+    },
+    {
+      "path": "apps/web/dist/services/financial-hardship-certificate/index.html",
+      "bytes": 15570,
+      "sha256": "8749720bc48eaed1ea811a41890f5f1c6a1235e1b24e608d4ba06509a9ede613"
+    },
+    {
+      "path": "apps/web/dist/services/financial-solvency-certificate/index.html",
+      "bytes": 15462,
+      "sha256": "698f95e008494ec7590b3838097576c5189d7431fbce779b8ed9642d334aae6d"
+    },
+    {
+      "path": "apps/web/dist/services/freedom-fighter-attestation/index.html",
+      "bytes": 15981,
+      "sha256": "c1b47e4f793e89eaafb8899cf32c657f52fe1a6825f04b0318e0ecd34aabcdff"
+    },
+    {
+      "path": "apps/web/dist/services/guardian-consent-certificate/index.html",
+      "bytes": 15136,
+      "sha256": "19c2bd5b6d507d6ba628e42386f327fd731967c5e7cee0d6f42a834ca1c0e3d4"
+    },
+    {
+      "path": "apps/web/dist/services/holding-tax/index.html",
+      "bytes": 14836,
+      "sha256": "d6883f807edf0fa89b9864c032058326789d2a1d859ca500d2c47cca52cd9254"
+    },
+    {
+      "path": "apps/web/dist/services/index.html",
+      "bytes": 20088,
+      "sha256": "92f7acea3e3cc1d684f96e175a5a95b055b472a4c2931a5bf1759e593e852fc7"
+    },
+    {
+      "path": "apps/web/dist/services/indigenous-community-certificate/index.html",
+      "bytes": 14649,
+      "sha256": "feda6c22e1d2d9c1836d128d73c8f975e7ecfc77e5c705b59ec8f2ef60e49650"
+    },
+    {
+      "path": "apps/web/dist/services/landless-certificate/index.html",
+      "bytes": 14477,
+      "sha256": "4997db97288642f5945c3fdc67fd9a1bdce3d08a7bf0727da984c61095206dee"
+    },
+    {
+      "path": "apps/web/dist/services/legal-heirs-certificate/index.html",
+      "bytes": 15991,
+      "sha256": "0997c35543f4c8da3a738dcf6181bdb97a52045ddc7a94e05198c35c9fd42955"
+    },
+    {
+      "path": "apps/web/dist/services/living-person-attestation/index.html",
+      "bytes": 15322,
+      "sha256": "1c9b1811bbb7e1a5aedfe48c69792c0f329093a7667e43bc77e2c2041a5ed9f1"
+    },
+    {
+      "path": "apps/web/dist/services/married-attestation/index.html",
+      "bytes": 15052,
+      "sha256": "a29fdaa8baea918f24415f837e3cd221fd0269381b70a7e8049800414b4220cd"
+    },
+    {
+      "path": "apps/web/dist/services/miscellaneous-certificate/index.html",
+      "bytes": 14805,
+      "sha256": "9e9a025768b712b18edf784f7596e1ff7123542178cccbfdecca3ab69a80b38b"
+    },
+    {
+      "path": "apps/web/dist/services/monthly-income-certificate/index.html",
+      "bytes": 15070,
+      "sha256": "f7a9eafd8b1bfe2a09c6490090f79be5fc004705e560ecaee40de53f9a189341"
+    },
+    {
+      "path": "apps/web/dist/services/national-identity-information-correction-attestation/index.html",
+      "bytes": 16846,
+      "sha256": "410e9d79d2c1d79768b19255174f76133dd39d039e1490106fa4ced0e6061172"
+    },
+    {
+      "path": "apps/web/dist/services/nationality-certificate/index.html",
+      "bytes": 14800,
+      "sha256": "c9456349f6802edc060f24b3a8b196c0e21222b23f3ccc0800ceb4144189f08a"
+    },
+    {
+      "path": "apps/web/dist/services/new-electricity-connection-attestation/index.html",
+      "bytes": 15975,
+      "sha256": "6aad9489af258cf89d0ec887766214c79d88a4dfc0cb3c1af8e87d82c9a78cc0"
+    },
+    {
+      "path": "apps/web/dist/services/new-voter-attestation/index.html",
+      "bytes": 15649,
+      "sha256": "77d73def535c1b01984d07291837104b971bb35bd313479e54132e2cd9fb5cf4"
+    },
+    {
+      "path": "apps/web/dist/services/no-objection-certificate/index.html",
+      "bytes": 14741,
+      "sha256": "2f1a4fa86f831add6a99c261152205503859e4df35e263c1c561808f4b9cd378"
+    },
+    {
+      "path": "apps/web/dist/services/non-remarriage-attestation/index.html",
+      "bytes": 15396,
+      "sha256": "9a021ba37c3394ba8687e61ab60895793ea406c3c4d2da76fa9c7657564c1a8f"
+    },
+    {
+      "path": "apps/web/dist/services/non-rohingya-attestation/index.html",
+      "bytes": 15649,
+      "sha256": "78d4fe1eb1502236ad79252aa56e03ad92758ee7752577cf33e57b96c2e3c464"
+    },
+    {
+      "path": "apps/web/dist/services/occupation-certificate/index.html",
+      "bytes": 14354,
+      "sha256": "f65ed3fe476d7863ce58cb746a65a89dd056cedfddeea86abc91fa17d62553f9"
+    },
+    {
+      "path": "apps/web/dist/services/omitted-voter-inclusion-attestation/index.html",
+      "bytes": 17076,
+      "sha256": "c28db0d1c671a8961f7fb9f84a3ff384806d790c8e83657a8261ffd8dfe16a4c"
+    },
+    {
+      "path": "apps/web/dist/services/orphan-certificate/index.html",
+      "bytes": 14400,
+      "sha256": "e56593ed6931053e3275c26cd27edd91bdc05c23c642386f621cf81c49ea14a4"
+    },
+    {
+      "path": "apps/web/dist/services/passport-issuance-attestation/index.html",
+      "bytes": 15952,
+      "sha256": "627b06e3dc7dd749760815b40cb08d4b6ce3b19211663486daec0c27c52e5895"
+    },
+    {
+      "path": "apps/web/dist/services/permanent-resident-certificate/index.html",
+      "bytes": 15124,
+      "sha256": "f2a018a72f2902785b4005f4de7ac137600737dd01e9dd4ccea1e9f17195e4dc"
+    },
+    {
+      "path": "apps/web/dist/services/premises-license/index.html",
+      "bytes": 15451,
+      "sha256": "64fe964de9325f5b97e5971bfe6bdc0ba1eca1a965f151faffa66c71fa3d9c1c"
+    },
+    {
+      "path": "apps/web/dist/services/remarriage-certificate/index.html",
+      "bytes": 14685,
+      "sha256": "39259f236c3e9ec4cb35171161d678ba0aa506e31d0088b6ee641298757396be"
+    },
+    {
+      "path": "apps/web/dist/services/same-person-attestation/index.html",
+      "bytes": 15445,
+      "sha256": "6f6a28d3773c4c9d2c8fb1c81a98a88e888a39f7141f9b745ccc914b98121e29"
+    },
+    {
+      "path": "apps/web/dist/services/succession-certificate/index.html",
+      "bytes": 15416,
+      "sha256": "08d348e2b883da79c16592b659c9266aaf415a33c329221714c8be49518b6c9f"
+    },
+    {
+      "path": "apps/web/dist/services/trade-license/index.html",
+      "bytes": 15088,
+      "sha256": "8378bdc7e4a0036c62f16420a3a9e65d3586b4385458c069b7177d2f55f529e6"
+    },
+    {
+      "path": "apps/web/dist/services/unemployment-certificate/index.html",
+      "bytes": 14780,
+      "sha256": "3bce971eab51467619ca8f3d537f5ffb4d502b915b604d2472947131b6bef424"
+    },
+    {
+      "path": "apps/web/dist/services/unmarried-certificate/index.html",
+      "bytes": 14802,
+      "sha256": "62d65121d020d9f24268740ea9d5af357bedfd4db401cd955fd18c98cc2c6d63"
+    },
+    {
+      "path": "apps/web/dist/services/vehicle-license/index.html",
+      "bytes": 14861,
+      "sha256": "1911560731fc8a36f281d8a4cd6cbc50cf89fb7d30281736b7eba70432a1d6bc"
+    },
+    {
+      "path": "apps/web/dist/services/voter-area-transfer-attestation/index.html",
+      "bytes": 16088,
+      "sha256": "1d629460fe87ee6f2ba3c5a7524ae4553a35814581127839f3d6bf6318c93a0a"
+    },
+    {
+      "path": "apps/web/dist/services/voter-information-verification-attestation/index.html",
+      "bytes": 16461,
+      "sha256": "4162be59aad3839f1f6203c049fd1e463d4f077b151aaf98f95b10f5c7c12651"
+    },
+    {
+      "path": "apps/web/dist/services/widow-attestation/index.html",
+      "bytes": 14885,
+      "sha256": "3524f82c06d7b572fcefa623b41c17c299de70f6691295a4110cfb43dec5a684"
+    },
+    {
+      "path": "apps/web/dist/sitemap.xml",
+      "bytes": 6009,
+      "sha256": "75166bd32ef8d32a6c39d3353b964beb0c3f5e50d23d07ba227e802ffae4c0f0"
+    },
+    {
+      "path": "apps/web/dist/verify/index.html",
+      "bytes": 4638,
+      "sha256": "232c9d3bdbd5e90192acc941f5c9237b0d7992cbc85e6cfe54073e7e7144d0c8"
+    }
+  ]
+}

@@ -8,6 +8,7 @@ import {
   getCatalogPreviewSchema,
   validateForm,
   citizenProfileCompleteness,
+  applicationProfileGaps,
   completenessLabels,
 } from "@astra/shared-schemas";
 import { pool, transaction, audit, type DB } from "./db.js";
@@ -28,7 +29,7 @@ import {
 import { generatePdf, DEMO_TEMPLATE_VERSION } from "./pdf.js";
 import { publicManagementRouter, managementRouter } from "./management.js";
 import { publicToolsRouter, protectedToolsRouter } from "./portal-tools.js";
-import { httpHardening } from "./http-hardening.js";
+import { createHttpsRedirect, httpHardening } from "./http-hardening.js";
 import { paymentsRouter, publicPaymentsRouter } from "./payments.js";
 import {
   attachmentsRouter,
@@ -76,6 +77,7 @@ import { applySubscriptionAction } from "./subscriptions.js";
 import { rechargeRouter } from "./recharge.js";
 import { merchantRouter } from "./gateways.js";
 import { applyOrderSettlement } from "./order-settlement.js";
+import { releaseInfo, publicRelease, processStartedAt } from "./release.js";
 import {
   orderPaymentsRouter,
   publicOrderPaymentsRouter,
@@ -146,6 +148,7 @@ const webhookSecret =
   process.env.DEMO_WEBHOOK_SECRET ?? fs.readFileSync(secretFile, "utf8").trim();
 export const app = express();
 app.disable("x-powered-by");
+app.use(createHttpsRedirect());
 app.use(httpHardening);
 app.use((req, res, next) => {
   res.setHeader("X-Content-Type-Options", "nosniff");
@@ -537,10 +540,31 @@ app.get(
   "/api/v1/health",
   wrap(async (_req, res) => {
     await pool.query("SELECT 1");
+    // A-002: the applied migration version is public release metadata (a
+    // version number, never data). A missing schema_migrations table means
+    // the database predates migration tracking; health stays "ok" and the
+    // version reports null instead of failing the probe.
+    let migrationVersion: string | null = null;
+    try {
+      migrationVersion =
+        (
+          await pool.query(
+            "SELECT name FROM schema_migrations ORDER BY name DESC LIMIT 1",
+          )
+        ).rows[0]?.name ?? null;
+    } catch {
+      migrationVersion = null;
+    }
     res.json({
       status: "ok",
       database: "PostgreSQL",
       mode: issuanceMode() === "official" ? "OFFICIAL" : "DEMO_ONLY",
+      // A-002 release traceability: app version, packaged commit, build
+      // time, release package id, process start (= deploy timestamp as far
+      // as this server knows it), and the applied DB migration version.
+      // Only non-sensitive values; see GET /api/v1/admin/release for the
+      // detailed operational view (admin role only).
+      release: publicRelease(migrationVersion),
       // Whether each optional server key is in place (true/false only, never a value), so an operator can
       // confirm a deployment without signing in.
       features: {
@@ -552,6 +576,9 @@ app.get(
         // Phase 7: whether online subscription/credit order payment is configured.
         orderPayments: await orderPaymentsEnabled(),
       },
+      // REG-UX Phase 1 (K3): the office the signup screen preselects, as a default
+      // the citizen can change — configured, never hard-coded. A public slug only.
+      signup: { defaultOffice: process.env.DEFAULT_SIGNUP_OFFICE_SLUG?.trim() || null },
     });
   }),
 );
@@ -712,10 +739,17 @@ app.post(
           "IDENTIFIERS_UNAVAILABLE",
           "Sign-in with mobile, NID or birth registration is not configured on this server. Use your email.",
         );
+      // S-001: a mobile signs in only once a code sent to that handset proved
+      // it (verified_at NOT NULL). A pending mobile resolves to no account at
+      // all, so the failure is indistinguishable from an unknown number or a
+      // wrong password — no oracle for whether the number is registered or
+      // merely unverified. NID / birth registration keep their existing
+      // password-bound behaviour (they are set only from an authenticated
+      // session, never self-declared at signup).
       email =
         (
           await pool.query(
-            "SELECT u.email FROM account_identifiers i JOIN platform_users u ON u.id=i.user_id WHERE i.kind=$1 AND i.digest=$2",
+            "SELECT u.email FROM account_identifiers i JOIN platform_users u ON u.id=i.user_id WHERE i.kind=$1 AND i.digest=$2 AND (i.kind<>'mobile' OR i.verified_at IS NOT NULL)",
             [kind, identifierDigest(kind, normalized)],
           )
         ).rows[0]?.email ?? "";
@@ -751,6 +785,24 @@ app.post(
   }),
 );
 app.use("/api/v1", publicMfaRouter);
+// QAFIX-09 (B3): /auth/me for a request carrying NO session cookie
+// is answered anonymously (200, user: null) instead of 401. Public
+// pages probe it on every load to attempt session restore, and a
+// logged-out visitor is not an error — the 401 was console noise
+// on every public page view. BUNDLE06-R5 D3 keeps the probe
+// itself (a browser can hold a valid cookie with no client-side
+// trace, so restore must ask), but it need not fail. A request
+// WITH a cookie falls through to the auth middleware and the
+// handler below: an invalid or inactive session still 401s,
+// which the client's session-drop logic depends on.
+app.get("/api/v1/auth/me", (req, res, next) => {
+  const hasSessionCookie = (req.headers.cookie ?? "")
+    .split(";")
+    .map((x) => x.trim())
+    .some((x) => x.startsWith("astra_session=") && x.length > 14);
+  if (hasSessionCookie) return next();
+  res.json({ user: null, tenant: null, csrfToken: null, anonymous: true });
+});
 app.use(
   "/api/v1",
   (req: Req, res: express.Response, next: express.NextFunction) => {
@@ -865,6 +917,38 @@ app.post(
     res.json({ ok: true });
   }),
 );
+/**
+ * A-002: detailed release metadata for operators. Admin role only — the
+ * public health endpoint carries the non-sensitive subset. The full applied
+ * migration list and the packaged web-asset manifest let an operator prove
+ * which bundle is running and whether the database matches it, without
+ * exposing any secret, credential, or environment value.
+ */
+app.get(
+  "/api/v1/admin/release",
+  wrap(async (req, res) => {
+    roles(req, ["admin"]);
+    const migrations = (
+      await pool.query(
+        "SELECT name, applied_at FROM schema_migrations ORDER BY name",
+      )
+    ).rows.map((r: any) => ({ name: r.name, appliedAt: r.applied_at }));
+    res.json({
+      release: {
+        ...publicRelease(migrations.at(-1)?.name ?? null),
+        branch: releaseInfo.branch,
+        files: releaseInfo.files,
+        bytes: releaseInfo.bytes,
+      },
+      mode: issuanceMode() === "official" ? "OFFICIAL" : "DEMO_ONLY",
+      nodeVersion: process.version,
+      uptimeSeconds: Math.floor(process.uptime()),
+      startedAt: processStartedAt().toISOString(),
+      migrations,
+      assets: releaseInfo.assets,
+    });
+  }),
+);
 /** Phase 3b: the citizen with profile completeness under this office's rules. */
 async function completenessFor(db: DB, citizenId: string) {
   const citizen = citizenRow((await db.query("SELECT * FROM citizens WHERE id=$1", [citizenId])).rows[0]);
@@ -922,6 +1006,103 @@ app.patch(
       await reachableCitizen(db, a, id, "id");
       const row = await updateCitizenDetails(db, a.tenantId!, id, details);
       await audit(db, a.tenantId!, a.userId, "CITIZEN_DETAILS_UPDATED", id, { fields: Object.keys(details) });
+      return citizenRow(row);
+    });
+    res.json(item);
+  }),
+);
+/**
+ * REG-UX Phase 1 (§2.3): profile completion for a short-signup account. Fills the
+ * deferred items — second-script name, date of birth, permanent address and the
+ * citizen's own ward — and only where the value is still empty (fill-only): a value
+ * already on record is never rewritten here, so data a certificate may already carry
+ * cannot be changed through this path.
+ */
+const profileCompletionInput = z
+  .object({
+    nameBn: z.string().trim().min(2, "নাম কমপক্ষে ২ অক্ষরের হতে হবে। / Name must be at least 2 characters.").max(120),
+    nameEn: z.string().trim().min(2, "Name must be at least 2 characters. / নাম কমপক্ষে ২ অক্ষরের হতে হবে।").max(120),
+    dateOfBirth: z
+      .string()
+      .regex(/^\d{4}-\d{2}-\d{2}$/, "জন্ম তারিখ দিন। / Enter a date of birth.")
+      .refine(
+        (v) =>
+          Number.isFinite(Date.parse(v)) &&
+          new Date(v).toISOString().slice(0, 10) === v &&
+          v <= new Date().toISOString().slice(0, 10) &&
+          v >= "1900-01-01",
+        "জন্ম তারিখ আজকের বা তার আগের হতে হবে। / Date of birth must be today or earlier.",
+      ),
+    addressBn: z.string().trim().min(4, "ঠিকানা কমপক্ষে ৪ অক্ষরের হতে হবে। / Address must be at least 4 characters.").max(500),
+    addressEn: z.string().trim().min(4, "Address must be at least 4 characters. / ঠিকানা কমপক্ষে ৪ অক্ষরের হতে হবে।").max(500),
+    geography: geographyInput,
+  })
+  .partial()
+  .strict();
+app.patch(
+  "/api/v1/citizens/:id/profile",
+  wrap(async (req, res) => {
+    const a = roles(req, ["staff", "admin", "citizen"]);
+    const id = uuid.parse(req.params.id);
+    const input = profileCompletionInput.parse(req.body);
+    const item = await transaction(tenant(req), async (db) => {
+      const current = await reachableCitizen(db, a, id, "*");
+      const office = (
+        await db.query("SELECT * FROM tenants WHERE id=$1", [a.tenantId])
+      ).rows[0];
+      const sets: string[] = [];
+      const values: unknown[] = [];
+      const fill = (column: string, value: unknown) => {
+        if (value === undefined) return;
+        if (current[column] !== null && current[column] !== undefined && current[column] !== "")
+          throw new ApiError(
+            409,
+            "PROFILE_VALUE_PRESENT",
+            "এই তথ্যটি আগে থেকেই আছে; পরিবর্তনের জন্য অফিসে যোগাযোগ করুন। / This value is already on record; contact the office to change it.",
+            undefined,
+            column,
+          );
+        values.push(value);
+        sets.push(column + "=$" + (values.length + 2));
+      };
+      fill("full_name_bn", input.nameBn);
+      fill("full_name_en", input.nameEn);
+      fill("date_of_birth", input.dateOfBirth);
+      fill("address_bn", input.addressBn);
+      fill("address_en", input.addressEn);
+      if (input.geography) {
+        if (current.ward_code)
+          throw new ApiError(
+            409,
+            "PROFILE_VALUE_PRESENT",
+            "ওয়ার্ড আগে থেকেই দেওয়া আছে। / The ward is already on record.",
+            undefined,
+            "geography",
+          );
+        await validateGeography(db, input.geography, "citizen");
+        validateOfficeJurisdiction(office, input.geography);
+        const [division, district, upazila, union, ward] = geographyValues(input.geography);
+        for (const [column, value] of [
+          ["division_code", division],
+          ["district_code", district],
+          ["upazila_code", upazila],
+          ["union_code", union],
+          ["ward_code", ward],
+        ] as const) {
+          values.push(value);
+          sets.push(column + "=$" + (values.length + 2));
+        }
+      }
+      if (!sets.length) return citizenRow(current);
+      const row = (
+        await db.query(
+          "UPDATE citizens SET " + sets.join(",") + " WHERE tenant_id=$1 AND id=$2 RETURNING *",
+          [a.tenantId, id, ...values],
+        )
+      ).rows[0];
+      await audit(db, a.tenantId!, a.userId, "CITIZEN_PROFILE_COMPLETED", id, {
+        fields: Object.keys(input),
+      });
       return citizenRow(row);
     });
     res.json(item);
@@ -1338,6 +1519,26 @@ app.post(
         )
       ).rows[0];
       if (!citizen) fail(404, "NOT_FOUND", "Citizen not found.");
+      // REG-UX Phase 1 (§2.3): a short-signup profile is completed at the first
+      // application, not at signup. Only the deferred items are required here; the
+      // full-profile issuance gate (require_complete_profile) is unchanged.
+      const officeGeo = (
+        await db.query("SELECT division_code FROM tenants WHERE id=$1", [a.tenantId])
+      ).rows[0];
+      const gaps = applicationProfileGaps(citizenRow(citizen), {
+        geographyRequired: !!officeGeo?.division_code,
+      });
+      if (gaps.length)
+        throw new ApiError(
+          409,
+          "PROFILE_INCOMPLETE",
+          "আবেদনের আগে প্রোফাইলের বাকি তথ্য দিন: " +
+            gaps.map((item) => completenessLabels[item].bn).join(", ") +
+            " / Complete your profile before applying: " +
+            gaps.map((item) => completenessLabels[item].en).join(", ") +
+            ".",
+          { missing: gaps },
+        );
       const schemaVersion = getServiceSchema(
         z.number().int().min(1).max(47).parse(data.serviceNo),
       ).version;
@@ -1609,14 +1810,35 @@ app.post(
           let latestError: unknown = null;
           if (upgrade.status !== "UNRESOLVED")
             try {
+              // QAFIX-01: the purpose pair (purpose_bn/purpose_en) became a
+              // single `purpose` + `purpose_language`. Carry the citizen's
+              // own words over — Bangla first, the product is Bangla-first —
+              // so a pre-QAFIX application can still renew onto the current
+              // form instead of staying pinned to the old one forever.
+              const migrated = { ...upgrade.payload };
+              if (
+                migrated.purpose === undefined &&
+                (typeof migrated.purpose_bn === "string" ||
+                  typeof migrated.purpose_en === "string")
+              ) {
+                const bnText =
+                  typeof migrated.purpose_bn === "string" &&
+                  migrated.purpose_bn.trim()
+                    ? migrated.purpose_bn
+                    : undefined;
+                migrated.purpose = bnText ?? migrated.purpose_en;
+                migrated.purpose_language = bnText ? "bn" : "en";
+                delete migrated.purpose_bn;
+                delete migrated.purpose_en;
+              }
               await validatePayload(
                 db,
                 parent.service_no,
-                upgrade.payload,
+                migrated,
                 latestVersion,
                 parent.citizen_id,
               );
-              payload = upgrade.payload;
+              payload = migrated;
             } catch (error) {
               if (!(error instanceof ApiError && error.code === "FORM_INVALID"))
                 throw error;
@@ -3025,6 +3247,7 @@ app.use(
           code,
           message,
           ...(issues ? { issues } : {}),
+          ...(error instanceof ApiError && error.field ? { field: error.field } : {}),
           ...(errorId ? { errorId } : {}),
         },
       });

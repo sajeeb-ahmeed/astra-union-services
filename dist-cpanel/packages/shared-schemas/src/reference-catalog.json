@@ -11558,7 +11558,7 @@
     },
     {
       "service_no": 43,
-      "name_bn": "ভোটার তালিকা বাদ পড়ায় অন্তর্ভুক্তির প্রত্যয়ন",
+      "name_bn": "ভোটার তালিকা বাদ পড়ায় অন্তর্ভুক্তির প্রত্যয়ন",
       "name_en": "Omitted Voter Inclusion Attestation",
       "category_en": "Voter and identity records",
       "initial_form_path_pattern": "/portal/udcUser/application/create/{user_track_id}/{certificate_id}",

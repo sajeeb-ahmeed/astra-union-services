@@ -104,7 +104,14 @@ template instructs. The critical ones:
   `emailDelivery:false`). Never set `EMAIL_PROVIDER=log` in production
   (Audit 01, F1): the log provider delivers nothing.
 
-## 5. Initialise the database (once)
+## 5. Initialise the database (after EVERY deploy, not just once)
+
+> **MUST — never skip.** Every bundle deploy ends with this step, even
+> when the bundle contains no new migration. Schema versions live in the
+> `service_versions` DB table and reach it ONLY through this publish
+> step. Skipping it after the r9 deploy (24 Nov 2026) broke live
+> applications with 422 `SCHEMA_UNAVAILABLE` ("Operational schema
+> version is unavailable") until it was run.
 
 Open cPanel **Terminal** (or SSH), go to the application directory, put
 the same variables into the shell (a `.env` file in the app directory,
@@ -115,9 +122,20 @@ npm run db:initialize-cpanel
 ```
 
 Expected output ends with the single-role migration totals and
-"Published catalog and demo plan initialized". This creates the service
+"Published catalog and standard plan initialized". This creates the service
 catalog (47 services) and the platform owner account from `OWNER_EMAIL` /
-`OWNER_PASSWORD`.
+`OWNER_PASSWORD`, and publishes every schema version the bundle's code
+defines.
+
+If `initialize` throws `Service N version V is immutable; publish a new
+schema version`, do NOT edit `initialize.ts` and do NOT re-run it hoping
+it passes. Generate a reconcile publish migration from the DEPLOYED
+bundle's code (pattern: migrations 054 and 057 — update differing known
+`(service_no, version)` rows to canonical, insert missing rows, raise
+only on unknown keys or newer-than-canonical versions), drop the file
+into `db/migrations/`, run `db:migrate-cpanel`, then re-run
+`db:initialize-cpanel`. Verify the initialize output before calling the
+deploy done.
 
 Do **not** run `npm run db:seed` in production: it loads synthetic demo
 tenants, and it expects a bypass-RLS admin connection that single-role
@@ -135,13 +153,60 @@ folder inside the application directory before running it.)
 
 ## 6. Start and verify
 
-Restart the application in **Setup Node.js App**, then check:
+Restart the application in **Setup Node.js App**, then run the post-deployment
+readiness checks — a deployment is **not signed off** until they pass. They
+catch incomplete deployments, in particular the `SCHEMA_UNAVAILABLE`
+recurrence: after the r9 deploy (24 Nov 2026) live applications failed with
+422 `SCHEMA_UNAVAILABLE` because step 5 (`db:initialize-cpanel`) had been
+skipped, so the service versions the bundle's code defines were never
+published. The checks below verify applied migrations and published service
+versions directly.
+
+On the server (in the application directory, with the app environment loaded):
+
+```sh
+node --import tsx scripts/verify-deployment-readiness.ts --db
+```
+
+Expected: `Deployment readiness PASS: 4/4 checks passed` (every migration file
+applied; every canonical schema version published with matching hashes;
+47 services; an owner account exists). If `migrations-applied` fails, run
+`npm run db:migrate-cpanel` and re-check. If `service-versions-published`
+fails, run `npm run db:initialize-cpanel` and re-check (see the reconcile
+note in step 5 if initialize itself throws).
+
+From outside, against the live origin (public endpoints only, no credentials;
+`packageId` and `commit` come from the bundle's `release.json`):
+
+```sh
+node --import tsx scripts/verify-deployment-readiness.ts --live https://your-domain \
+  --expect-commit <full commit sha from release.json> \
+  --expect-package <packageId from release.json>
+```
+
+Expected: `Deployment readiness PASS: 7/7 checks passed` — health reports the
+deployed commit/package and the latest migration, the homepage returns the
+real app shell, the services list has 47 entries, and service 1's schema
+resolves (a 422 here is the `SCHEMA_UNAVAILABLE` recurrence: run
+`db:initialize-cpanel` on the server and re-check).
+
+Then check:
 
 - [ ] `https://your-domain/api/v1/health` returns
       `{"status":"ok","database":"PostgreSQL","mode":"DEMO_ONLY", ...}`
       with `features` all `true` (mode flips to `OFFICIAL` only when the
-      owner later sets `ISSUANCE_MODE=official`).
+      owner later sets `ISSUANCE_MODE=official`) and a `release` object whose
+      `commit` and `packageId` match the bundle just uploaded (`release.json`
+      at the bundle root) and whose `migrationVersion` is the latest file in
+      `db/migrations/`.
 - [ ] The public homepage loads at `https://your-domain/`.
+- [ ] Plain HTTP redirects to HTTPS:
+      `curl -sI http://your-domain/login` must answer `301` with
+      `Location: https://your-domain/login`. The app redirects when the
+      proxy sends `X-Forwarded-Proto: http`. If the answer is still `200`,
+      this LiteSpeed setup does not send that header: turn on
+      cPanel → **Domains** → **Force HTTPS Redirect** for the domain and
+      check again.
 - [ ] Sign in with the owner account created in step 5.
 - [ ] Open the services list — it shows the 47-service catalog.
 - [ ] Issue one test certificate for a test citizen and download the PDF.
@@ -166,23 +231,45 @@ a managed backup tool (`node scripts/backup/backup.mjs backup`, driven by
 
 ## 8. Updating and rollback
 
-- **Update:** rebuild the bundle (`node scripts/package-cpanel.mjs`),
-  upload over the app directory, run `npm run db:migrate-cpanel` from a
-  terminal (it applies only migrations that are not yet recorded), then
-  restart the app and re-check step 6.
+- **Update:** rebuild the bundle (`node scripts/package-cpanel.mjs` — it writes
+  a fresh `release.json` with the new package id, commit, build time and asset
+  manifest), upload over the app directory, run `npm run db:migrate-cpanel`
+  from a terminal (it applies only migrations that are not yet recorded), then
+  run `npm run db:initialize-cpanel` (step 5 — never skip, even with no new
+  migration), restart the app, run the step-6 readiness checks
+  (`--db` on the server, `--live` with the new `--expect-commit` /
+  `--expect-package`), and record the new bundle→commit mapping in the
+  [hosted deployment record](HOSTED_DEPLOYMENT.md) before calling the deploy done.
 - **Rollback:** the previous bundle is the rollback unit — keep the last
-  known-good upload (e.g. `astra-app-prev/`) and point the Node.js app's
-  root back to it, then restart. Database changes from migrations are
-  additive; if a rollback must also undo data, restore the latest nightly
-  `pg_dump` into a fresh database and repoint the two `DATABASE_*_URL`
-  variables. Never edit files inside `db/migrations/` — merged migrations
+  known-good upload (e.g. `astra-app-prev/`, **including its `release.json`**,
+  so health keeps reporting the rolled-back release truthfully) and point the
+  Node.js app's root back to it, then restart. Before rolling back, take a
+  fresh `pg_dump` (step 7) so the pre-rollback state is recoverable.
+  Database changes from migrations are additive and are **not** undone by a
+  bundle rollback: if a rollback must also undo data, restore the latest
+  nightly `pg_dump` into a fresh database and repoint the two `DATABASE_*_URL`
+  variables — never hand-edit the live database to "unapply" a migration.
+  After a rollback, run the step-6 readiness checks again (`--db` and
+  `--live` with the previous bundle's `--expect-commit` / `--expect-package`
+  from its `release.json`) and record the rollback in the hosted deployment
+  record. Never edit files inside `db/migrations/` — merged migrations
   are immutable; fixes ship as new migrations.
 
 ## 9. Going official
 
-Certificates carry DEMO wording and health reports `DEMO_ONLY` until the
-owner decides the platform is live for a real office. Flipping is one
-variable — `ISSUANCE_MODE=official` in the app environment, then restart.
-The template keeps its factual "not a government-issued document" honesty
-lines in both modes; only the demo branding changes. Activation is the
-owner's call, not part of this deployment.
+Owner decision (23 Nov 2026, PORTAL-E): production is official, and
+`.env.cpanel.example` now sets `ISSUANCE_MODE=official`. Two steps make a
+running server official:
+
+1. Set `ISSUANCE_MODE=official` in the app environment, then restart.
+   New certificates get plain 16-digit numbers (no `DEMO-` prefix) and the
+   emblem artwork; health reports `OFFICIAL`. Certificate PDFs carry no demo
+   wording in either mode (since 17 Nov 2026).
+2. Mark each office that is really live as non-demo. Public verification
+   reads the office's flag (`tenants.demo`, migration 041); while it is
+   `true`, that office's certificates verify as a demo certificate. There is
+   no owner screen for it — after a backup, run per office:
+   `UPDATE tenants SET demo = false WHERE slug = '<office-slug>';`
+
+Certificates already issued are never rewritten: their stored PDFs and
+numbers stay as they are, so a `DEMO-` number keeps verifying as demo.

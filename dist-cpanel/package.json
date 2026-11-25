@@ -18,11 +18,13 @@
     "db:seed": "node scripts/decode-assets.mjs && tsx scripts/seed.ts",
     "test:forms": "node --import tsx --test packages/shared-schemas/test/*.test.ts",
     "test:api": "node --import tsx --test --test-concurrency=1 apps/api/test/*.test.ts",
+    "test:openapi": "node scripts/update-batch-c-openapi.mjs --check && node --import tsx scripts/check-openapi-coverage.mjs",
+    "openapi:generate": "node scripts/update-batch-c-openapi.mjs",
     "test:web": "tsx scripts/test-web.ts",
     "test:backup": "node --test scripts/backup/*.test.mjs",
     "db:backup": "node scripts/backup/backup.mjs backup",
     "db:recovery-drill": "node scripts/backup/recovery-drill.mjs",
-    "test": "npm run test:backup && npm run test:scanner && npm run test:forms && npm run test:api && npm run test:web",
+    "test": "npm run test:backup && npm run test:scanner && npm run test:forms && npm run test:api && npm run test:support && npm run test:web",
     "start": "node --import tsx apps/api/src/server.ts",
     "db:bootstrap-role": "tsx scripts/bootstrap-db.ts",
     "db:initialize": "npm run db:bootstrap-role && npm run db:migrate && tsx scripts/initialize.ts",
@@ -34,7 +36,8 @@
     "db:initialize-cpanel": "npm run db:bootstrap-cpanel && npm run db:migrate-cpanel && tsx scripts/initialize.ts",
     "build:seo": "node --import tsx apps/web/scripts/prerender-public.mjs",
     "build:api": "tsc -p packages/shared-schemas/tsconfig.build.json && tsc -p apps/api/tsconfig.build.json",
-    "db:backup:offsite": "node scripts/backup/offsite-backup.mjs"
+    "db:backup:offsite": "node scripts/backup/offsite-backup.mjs",
+    "test:support": "node --import tsx --test scripts/test-support/*.test.ts"
   },
   "dependencies": {
     "@react-pdf/renderer": "^4.9.0",
