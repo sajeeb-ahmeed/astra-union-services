@@ -81,33 +81,59 @@ export function createRateLimiter(options: {
   };
 }
 
-/**
- * Production HTTP -> HTTPS redirect. The reverse proxy (Render, LiteSpeed/cPanel)
- * terminates TLS and reports the client's scheme in X-Forwarded-Proto. When that
- * header says "http", the request is redirected to PUBLIC_ORIGIN, never to the
- * client-supplied Host. With no header the request passes through unchanged, so
- * a proxy that does not send it cannot cause a redirect loop. GET/HEAD use 301;
- * other methods use 308 so the method and body are not silently changed.
- */
-export function createHttpsRedirect(env: NodeJS.ProcessEnv = process.env) {
-  let origin: string | null = null;
-  if (env.NODE_ENV === "production") {
-    try {
-      const parsed = new URL(env.PUBLIC_ORIGIN ?? "");
-      if (parsed.protocol === "https:") origin = parsed.origin;
-    } catch { /* enforceRuntimeConfig reports the invalid origin */ }
-  }
-  return (req: Request, res: Response, next: NextFunction) => {
-    if (!origin) { next(); return; }
-    const proto = req.header("X-Forwarded-Proto")?.split(",")[0]?.trim().toLowerCase();
-    if (proto !== "http") { next(); return; }
-    res.redirect(["GET", "HEAD"].includes(req.method) ? 301 : 308, `${origin}${req.originalUrl}`);
-  };
-}
-
 const publicLimiter = createRateLimiter({ limit: 120, windowMs: 60_000 });
 const mutationLimiter = createRateLimiter({ limit: 60, windowMs: 60_000 });
+
+/**
+ * SEC-HTTPS (r10-live fix): redirect plain-HTTP requests to HTTPS when the
+ * public origin is HTTPS. The app sits behind LiteSpeed (cPanel), which
+ * terminates TLS and proxies to Node over loopback, so the original scheme
+ * is only visible via X-Forwarded-Proto — and only when the front proxy
+ * sends it. The redirect therefore fires ONLY on a positive plain-HTTP
+ * signal and fails open otherwise:
+ *   - req.secure (trust-proxy-aware) or a first X-Forwarded-Proto of
+ *     "https" -> already HTTPS, pass through;
+ *   - first X-Forwarded-Proto of "http" -> 301 (GET/HEAD) or 308 (other
+ *     methods, so a POST keeps its method and body) to the canonical
+ *     HTTPS apex origin;
+ *   - no X-Forwarded-Proto header at all -> pass through. Redirecting
+ *     here would loop every HTTPS request the proxy forwards without the
+ *     header, so a missing header means "cannot tell", never "redirect".
+ * That fail-open case is covered by the .htaccess fallback in
+ * deployment/htaccess-https-redirect.txt (LiteSpeed knows the real scheme
+ * via %{HTTPS}); the post-deploy curl check in docs/DEPLOY-CPANEL.md
+ * section 6 decides which layer did the job. Inactive whenever
+ * PUBLIC_ORIGIN is not HTTPS, so local/dev hosts are never redirected.
+ * Returns true when it sent the redirect (caller must stop).
+ */
+export function enforceHttps(
+  req: Request,
+  res: Response,
+  env: NodeJS.ProcessEnv = process.env,
+): boolean {
+  let apexHost: string | null = null;
+  try {
+    const origin = new URL(env.PUBLIC_ORIGIN ?? "");
+    if (origin.protocol === "https:") apexHost = origin.host;
+  } catch {
+    /* no HTTPS origin — no redirect */
+  }
+  if (!apexHost) return false;
+  if (req.secure) return false;
+  const forwarded = req.headers["x-forwarded-proto"];
+  const first = String(Array.isArray(forwarded) ? forwarded[0] : (forwarded ?? ""))
+    .split(",")[0]
+    .trim()
+    .toLowerCase();
+  if (first === "https") return false;
+  if (first !== "http") return false;
+  const status = req.method === "GET" || req.method === "HEAD" ? 301 : 308;
+  res.redirect(status, `https://${apexHost}${req.originalUrl}`);
+  return true;
+}
+
 export function httpHardening(req: Request, res: Response, next: NextFunction) {
+  if (enforceHttps(req, res)) return;
   res.setHeader("X-Content-Type-Options", "nosniff");
   res.setHeader("X-Frame-Options", "DENY");
   res.setHeader("Referrer-Policy", "no-referrer");

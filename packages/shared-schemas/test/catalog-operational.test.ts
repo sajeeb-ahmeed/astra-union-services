@@ -12,6 +12,7 @@ import {
   legacyLocationFieldIds,
   legacyOperationalSchemas,
   operationalServiceNumbers,
+  operationalSchemas,
   serviceCatalog,
   stableSchemaJson,
   validateServicePayload,
@@ -148,14 +149,17 @@ test("published historical versions remain pinned while new applications select 
   // land one at a time, so the list grows with each form).
   // + QAFIX-09 repairs (one new version per repaired service; services
   // land one at a time, so the list grows with each form).
-  assert.equal(allServiceSchemaVersions.length, 220);
+  // + QAFIX-10 repairs (one new version per repaired service; services
+  // 2, 42 and 45 publish a unicode-only version, service 33 publishes
+  // none — see the QAFIX-10 tests at the end of this file).
+  assert.equal(allServiceSchemaVersions.length, 234);
   assert.equal(
     new Set(
       allServiceSchemaVersions.map(
         (schema) => `${schema.serviceNo}:${schema.version}`,
       ),
     ).size,
-    220,
+    234,
   );
   for (const historical of legacyOperationalSchemas) {
     assert.equal(historical.version, 1);
@@ -177,7 +181,10 @@ test("published historical versions remain pinned while new applications select 
     // and QAFIX-07 one more for each service it repairs (mirrors
     // qaFix7Services), and QAFIX-08 one more for each service it
     // repairs (mirrors qaFix8Services), and QAFIX-09 one more for
-    // each service it repairs (mirrors qaFix9Services).
+    // each service it repairs (mirrors qaFix9Services), and QAFIX-10
+    // one more for each service it repairs (mirrors qaFix10Services;
+    // services 2, 42 and 45 are hand-authored and outside this loop,
+    // covered by the separate assertions below).
     const wasV3 = [36, 41, 4, 7, 23, 29, 31];
     const refined = [
       1, 3, 4, 5, 6, 10, 11, 13, 16, 18, 19, 20, 21, 24, 25, 26, 30, 32, 36,
@@ -191,6 +198,7 @@ test("published historical versions remain pinned while new applications select 
     const qaFix7 = [31, 32, 33, 34, 35, 36];
     const qaFix8 = [37, 38, 39, 40, 41, 42];
     const qaFix9 = [43, 44, 45, 46, 47];
+    const qaFix10 = [2, 14, 15, 18, 27, 29, 31, 34, 37, 38, 40, 42, 43, 45];
     assert.equal(
       getServiceSchema(historical.serviceNo).version,
       (wasV3.includes(historical.serviceNo) ? 3 : 2) +
@@ -203,14 +211,16 @@ test("published historical versions remain pinned while new applications select 
         (qaFix6.includes(historical.serviceNo) ? 1 : 0) +
         (qaFix7.includes(historical.serviceNo) ? 1 : 0) +
         (qaFix8.includes(historical.serviceNo) ? 1 : 0) +
-        (qaFix9.includes(historical.serviceNo) ? 1 : 0),
+        (qaFix9.includes(historical.serviceNo) ? 1 : 0) +
+        (qaFix10.includes(historical.serviceNo) ? 1 : 0),
     );
     assert.throws(() => getServiceSchema(historical.serviceNo, 99), RangeError);
   }
-  assert.equal(getServiceSchema(42).version, 6);
-  assert.equal(getServiceSchema(2).version, 5);
-  // QAFIX-09 published v3 of the hand-authored service 45.
-  assert.equal(getServiceSchema(45).version, 3);
+  assert.equal(getServiceSchema(42).version, 7);
+  assert.equal(getServiceSchema(2).version, 6);
+  // QAFIX-09 published v3 of the hand-authored service 45;
+  // QAFIX-10 publishes its unicode-only v4.
+  assert.equal(getServiceSchema(45).version, 4);
 });
 
 test("trade v2 maps all 37 captured fields, keeps v1 payloads valid and validates optional expanded facts", () => {
@@ -828,7 +838,7 @@ test("QAFIX-03: service 12 (citizenship) takes the basis of claim from the share
 });
 
 test("QAFIX-04: service 14 (landless) carries structured landlessness evidence, not one free-text box", () => {
-  assert.equal(getServiceSchema(14).version, 4);
+  assert.equal(getServiceSchema(14).version, 5);
   const fields = flattenFields(getServiceSchema(14));
   // The single free-text declaration box is gone from the latest version.
   assert.ok(
@@ -971,10 +981,13 @@ test("QAFIX-04: service 17 (profession) takes the profession from a closed selec
 });
 
 test("QAFIX-04: service 18 (community) takes the community from a closed select, not free text", () => {
-  assert.equal(getServiceSchema(18).version, 5);
+  assert.equal(getServiceSchema(18).version, 6);
   const fields = flattenFields(getServiceSchema(18));
   // The Bangla/English text pair collapses into one bilingual select.
-  assert.ok(!fields.some((field) => field.id === "community_name_en"), "no English text twin");
+  // QAFIX-10 adds the English community-name field back (required only
+  // when "other" is chosen — see the QAFIX-10 test below), so the
+  // "no English text twin" pin now lives on the pinned v5.
+  assert.ok(fields.some((field) => field.id === "community_name_en"), "English community-name field present");
   const community = fields.find((field) => field.id === "community_name");
   assert.equal(community?.type, "select");
   assert.equal(community?.constraints?.required, true);
@@ -984,8 +997,7 @@ test("QAFIX-04: service 18 (community) takes the community from a closed select,
       "chakma", "marma", "tripura", "tanchangya", "barua", "mro",
       "bawm", "khumi", "chak", "pankho", "lushei", "khyang", "garo",
       "hajong", "koch", "rajbanshi", "santal", "oraon", "munda",
-      "khasi", "manipuri", "muslim", "hindu", "buddhist", "christian",
-      "other",
+      "khasi", "manipuri", "other",
     ],
   );
   // The select keeps the observed names of the two text fields it
@@ -1000,8 +1012,14 @@ test("QAFIX-04: service 18 (community) takes the community from a closed select,
   assert.equal(payload.community_name, "chakma");
   assert.equal(validateServicePayload(18, payload).valid, true);
   assert.equal(
-    validateServicePayload(18, { ...payload, community_name: "muslim" }).valid,
+    validateServicePayload(18, { ...payload, community_name: "santal" }).valid,
     true,
+  );
+  assert.ok(
+    validateServicePayload(18, { ...payload, community_name: "muslim" }).issues.some(
+      (issue) => issue.path === "community_name" && issue.code === "option",
+    ),
+    "a religion is not a community and cannot be selected",
   );
   assert.ok(
     validateServicePayload(18, { ...payload, community_name: "অচেনা" }).issues.some(
@@ -1019,6 +1037,16 @@ test("QAFIX-04: service 18 (community) takes the community from a closed select,
     pinned.find((field) => field.id === "community_name_en")?.type,
     "text",
   );
+  // The pinned v5 (QAFIX-04) keeps the religions in the list and no
+  // English field.
+  const pinned5 = flattenFields(getServiceSchema(18, 5));
+  assert.ok(
+    (pinned5.find((field) => field.id === "community_name")?.options ?? []).some(
+      (option) => option.value === "muslim",
+    ),
+    "pinned v5 still lists the religions",
+  );
+  assert.ok(!pinned5.some((field) => field.id === "community_name_en"));
 });
 
 test("QAFIX-05: service 19 (guardian consent) asks the child's name once and takes the relationship from the guardian list", () => {
@@ -1744,9 +1772,10 @@ test("PAR-05 geography selector versions replace free-text locations without cha
     // CERT-REFINE-01 published v4 for these services on top of the
     // geography v3, and QAFIX-01 published v5; QAFIX-07 published v6
     // for service 36 (the NOC subject gating) and QAFIX-08 v6 for
-    // services 41 and 42. The geography structure assertions below
-    // are unchanged.
-    assert.equal(current.version, 6);
+    // services 41 and 42; QAFIX-10 published v7 for service 42
+    // (unicode-only — the geography structure assertions below are
+    // unchanged).
+    assert.equal(current.version, no === 42 ? 7 : 6);
     assert.equal(getServiceSchema(no, 2).version, 2);
     const ids = current.sections.flatMap((section) =>
       section.fields.map((field) => field.id),
@@ -2090,7 +2119,7 @@ test("QAFIX-06: service 26 (dowry-free marriage) takes the marriage repair and a
 });
 
 test("QAFIX-06: service 27 (passport) takes its purpose from a fixed select the letter's label map carries", () => {
-  assert.equal(getServiceSchema(27).version, 4);
+  assert.equal(getServiceSchema(27).version, 5);
   const fields = flattenFields(getServiceSchema(27));
   const purpose = fields.find((field) => field.id === "passport_purpose");
   assert.equal(purpose?.type, "select");
@@ -2180,7 +2209,7 @@ test("QAFIX-06: service 28 (living person) structures the witness and bars a fut
 });
 
 test("QAFIX-06: service 29 (monthly income) unhides its core evidence, requires its amount and captures the other person's amount", () => {
-  assert.equal(getServiceSchema(29).version, 5);
+  assert.equal(getServiceSchema(29).version, 6);
   const fields = flattenFields(getServiceSchema(29));
   // (§3.29, §4 item 6) Both opt-in checkboxes are gone — optradio is
   // recorded in qaFix6RemovedObserved; other_person lives on in the
@@ -2410,7 +2439,7 @@ test("QAFIX-06: service 30 (financial solvency) breaks the totals down, captures
 });
 
 test("QAFIX-07: service 31 (death while unmarried) unhides the death date, fixes the relationship list and names the deceased", () => {
-  assert.equal(getServiceSchema(31).version, 5);
+  assert.equal(getServiceSchema(31).version, 6);
   const schema = getServiceSchema(31);
   const fields = flattenFields(schema);
   const byId = new Map(fields.map((field) => [field.id, field]));
@@ -2632,7 +2661,7 @@ test("QAFIX-07: service 33 (NID correction) captures the NID number, widens the 
 });
 
 test("QAFIX-07: service 34 (childless) replaces the free-text paragraph with structured facts and a fixed declaration", () => {
-  assert.equal(getServiceSchema(34).version, 4);
+  assert.equal(getServiceSchema(34).version, 5);
   const schema = getServiceSchema(34);
   const fields = flattenFields(schema);
   const byId = new Map(fields.map((field) => [field.id, field]));
@@ -2647,6 +2676,7 @@ test("QAFIX-07: service 34 (childless) replaces the free-text paragraph with str
       "childless_spouse_name_bn",
       "childless_spouse_name",
       "childless_marriage_date",
+      "childless_children_count",
       "childless_declaration_confirmed",
       "supporting_documents",
     ],
@@ -2900,7 +2930,7 @@ test("QAFIX-07: service 36 (NOC) keys the land and address blocks off a required
 });
 
 test("QAFIX-08: service 37 (voter area transfer) aligns the previous-area pair and keeps the corrected reason label", () => {
-  assert.equal(getServiceSchema(37).version, 5);
+  assert.equal(getServiceSchema(37).version, 6);
   const schema = getServiceSchema(37);
   const fields = flattenFields(schema);
   const byId = new Map(fields.map((field) => [field.id, field]));
@@ -2945,10 +2975,13 @@ test("QAFIX-08: service 37 (voter area transfer) aligns the previous-area pair a
         issue.path === "previous_voter_area_en" && issue.code === "required",
     ),
   );
-  // No identity fields were added: the certificate chassis prints
-  // the applicant's identity from the citizen record (Form 15
-  // precedent), so the form carries no name/parents/DOB/NID/mobile
-  // field of its own.
+  // QAFIX-10 overturns the QAFIX-08 "no identity fields" decision
+  // (the live QA found no identity asked or re-confirmed anywhere):
+  // the pinned v5 still carries none of them — the v6 identity
+  // fields are pinned in the QAFIX-10 test below.
+  const pinned5ById = new Map(
+    flattenFields(getServiceSchema(37, 5)).map((field) => [field.id, field]),
+  );
   for (const id of [
     "applicant_name_bn",
     "father_name_bn",
@@ -2957,7 +2990,7 @@ test("QAFIX-08: service 37 (voter area transfer) aligns the previous-area pair a
     "nid_number",
     "mobile",
   ])
-    assert.equal(byId.has(id), false, `${id} must not be a form field`);
+    assert.equal(pinned5ById.has(id), false, `${id} was not a v5 form field`);
   // The pinned v4 keeps the optional textarea companion.
   const pinnedById = new Map(
     flattenFields(getServiceSchema(37, 4)).map((field) => [field.id, field]),
@@ -2970,7 +3003,7 @@ test("QAFIX-08: service 37 (voter area transfer) aligns the previous-area pair a
 });
 
 test("QAFIX-08: service 38 (disability) states who the application is for, grades severity, captures the diagnosis and names its medical evidence", () => {
-  assert.equal(getServiceSchema(38).version, 5);
+  assert.equal(getServiceSchema(38).version, 6);
   const schema = getServiceSchema(38);
   const fields = flattenFields(schema);
   const byId = new Map(fields.map((field) => [field.id, field]));
@@ -2978,7 +3011,10 @@ test("QAFIX-08: service 38 (disability) states who the application is for, grade
     (section) => section.id === "service_details",
   );
   // The relation heads the form; the subject pair is gated on
-  // "other"; severity and the diagnosis pair follow the type.
+  // "other"; the diagnosis pair follows the type, then the
+  // support-needs pair, then the severity grade (QAFIX-10 seats
+  // the support pair in one grid row by moving the severity after
+  // it — the diagnosis pair lands side by side as well).
   assert.deepEqual(
     (details?.fields ?? []).map((field) => field.id),
     [
@@ -2986,11 +3022,11 @@ test("QAFIX-08: service 38 (disability) states who the application is for, grade
       "disability_subject_name_bn",
       "disability_subject_name",
       "application_autistic_type",
-      "disability_severity",
       "disability_diagnosis_bn",
       "disability_diagnosis",
       "support_needs",
       "support_needs_en",
+      "disability_severity",
       "supporting_documents",
     ],
   );
@@ -3149,7 +3185,7 @@ test("QAFIX-08: service 39 (same person) explains its name slots, reseats the se
 });
 
 test("QAFIX-08: service 40 (tribal) takes its community from the recognised list and names its identity proof", () => {
-  assert.equal(getServiceSchema(40).version, 5);
+  assert.equal(getServiceSchema(40).version, 6);
   const schema = getServiceSchema(40);
   const fields = flattenFields(schema);
   const byId = new Map(fields.map((field) => [field.id, field]));
@@ -3170,7 +3206,10 @@ test("QAFIX-08: service 40 (tribal) takes its community from the recognised list
   );
   assert.ok((community?.options ?? []).some((opt) => opt.value === "chakma"));
   assert.ok((community?.options ?? []).some((opt) => opt.value === "other"));
-  assert.equal(byId.has("community_name_en"), false);
+  // QAFIX-10 adds the English community-name field back (required only
+  // when "other" is chosen — see the QAFIX-10 test below); the pinned
+  // v5 pin below keeps the old absence.
+  assert.equal(byId.has("community_name_en"), true);
   assert.deepEqual(community?.evidence?.fieldNames, [
     "community_name",
     "community_name_en",
@@ -3199,6 +3238,18 @@ test("QAFIX-08: service 40 (tribal) takes its community from the recognised list
     pinnedById.get("supporting_documents")?.constraints?.minRows,
     undefined,
   );
+  // The pinned v5 keeps the religions in the shared list and no
+  // English field.
+  const pinned5ById = new Map(
+    flattenFields(getServiceSchema(40, 5)).map((field) => [field.id, field]),
+  );
+  assert.ok(
+    (pinned5ById.get("community_name")?.options ?? []).some(
+      (option) => option.value === "hindu",
+    ),
+    "pinned v5 still lists the religions",
+  );
+  assert.equal(pinned5ById.has("community_name_en"), false);
 });
 
 test("QAFIX-08: service 41 (premises licence) drops the citizen-typed fee fields and corrects its labels and help texts", () => {
@@ -3267,7 +3318,7 @@ test("QAFIX-08: service 41 (premises licence) drops the citizen-typed fee fields
 });
 
 test("QAFIX-08: service 42 (trade licence) drops its fee and family extras, fixes its organisation type and gains the purpose section", () => {
-  assert.equal(getServiceSchema(42).version, 6);
+  assert.equal(getServiceSchema(42).version, 7);
   const schema = getServiceSchema(42);
   const fields = flattenFields(schema);
   const byId = new Map(fields.map((field) => [field.id, field]));
@@ -3353,7 +3404,7 @@ test("QAFIX-08: service 42 (trade licence) drops its fee and family extras, fixe
 });
 
 test("QAFIX-09: service 43 (voter list inclusion) captures the dropped entry's identifiers and aligns the omission pair", () => {
-  assert.equal(getServiceSchema(43).version, 5);
+  assert.equal(getServiceSchema(43).version, 6);
   const schema = getServiceSchema(43);
   const fields = flattenFields(schema);
   const byId = new Map(fields.map((field) => [field.id, field]));
@@ -3376,7 +3427,9 @@ test("QAFIX-09: service 43 (voter list inclusion) captures the dropped entry's i
   assert.equal(byId.get("omission_date")?.constraints?.required, true);
   assert.equal(byId.get("omission_date")?.constraints?.notFuture, true);
   // The identifiers sit between the reference and the omission
-  // pair, in service_details.
+  // pair, in service_details; the ward number follows the pair
+  // (QAFIX-10 seats the omission pair in one grid row by moving
+  // the ward number after it).
   const details = schema.sections.find(
     (section) => section.id === "service_details",
   );
@@ -3385,10 +3438,10 @@ test("QAFIX-09: service 43 (voter list inclusion) captures the dropped entry's i
     "previous_voter_reference",
     "previous_voter_id",
     "previous_voter_serial",
-    "omission_ward_no",
     "omission_date",
     "omission_details",
     "omission_details_en",
+    "omission_ward_no",
   ]);
   // One required-ness rule per pair (§4 item 11): the English
   // omission details are required like the Bangla original, and
@@ -3540,7 +3593,7 @@ test("QAFIX-09: service 44 (non-remarriage) offers the divorce path, gates each 
 });
 
 test("QAFIX-09: service 45 (permanent resident) gains the address select and the residence-proof documents step", () => {
-  assert.equal(getServiceSchema(45).version, 3);
+  assert.equal(getServiceSchema(45).version, 4);
   const schema = getServiceSchema(45);
   const fields = flattenFields(schema);
   const byId = new Map(fields.map((field) => [field.id, field]));
@@ -3730,6 +3783,601 @@ test("QAFIX-09: service 47 (miscellaneous) names the closing statement and expla
   );
   assert.equal(pinnedById.get("certificate_footer_bn")?.label.bn, "পরিশেষ (বাংলায়)");
   assert.equal(pinnedById.get("certificate_footer_bn")?.description, undefined);
+});
+
+test("QAFIX-10: every service's permanent-address option label is the precomposed form (U+09DF), never the decomposed one", () => {
+  // The bullet this layer closes: the "permanent address" option
+  // label existed in two Unicode encodings across services. The
+  // codepoint-level scan found the decomposed carriers (2, 42, 45);
+  // this test pins the normalised state for all 47 services at once.
+  // Both strings are written as escapes so the two forms can never
+  // be confused in this file.
+  const precomposed =
+    "স\u09CD\u09A5\u09BE\u09DF\u09C0 \u09A0\u09BF\u0995\u09BE\u09A8\u09BE";
+  const decomposed = "স\u09CD\u09A5\u09BE\u09AF\u09BC\u09C0";
+  for (const schema of operationalSchemas) {
+    const addressSource = flattenFields(schema).find(
+      (field) => field.id === "address_source",
+    );
+    assert.ok(
+      addressSource,
+      `service ${schema.serviceNo} has address_source`,
+    );
+    for (const option of addressSource?.options ?? []) {
+      assert.ok(
+        !option.label.bn.includes(decomposed),
+        `service ${schema.serviceNo} option ${option.value} never uses the decomposed form`,
+      );
+    }
+    const permanent = (addressSource?.options ?? []).find(
+      (option) => option.value === "permanent",
+    );
+    assert.equal(permanent?.label.bn, precomposed);
+  }
+});
+
+test("QAFIX-10: service 2 (family) publishes a unicode-only version — no field added, removed or reordered", () => {
+  assert.equal(getServiceSchema(2).version, 6);
+  const ids = (version: number) =>
+    flattenFields(getServiceSchema(2, version)).map((field) => field.id);
+  assert.deepEqual(ids(6), ids(5));
+  const addressSource = flattenFields(getServiceSchema(2)).find(
+    (field) => field.id === "address_source",
+  );
+  assert.equal(
+    addressSource?.options?.find((option) => option.value === "permanent")
+      ?.label.bn,
+    "স\u09CD\u09A5\u09BE\u09DF\u09C0 \u09A0\u09BF\u0995\u09BE\u09A8\u09BE",
+  );
+  assert.equal(validateServicePayload(2, getDemoPayload(2)).valid, true);
+});
+
+test("QAFIX-10: service 14 (landless) captures the land amount with its unit and the khatian number", () => {
+  assert.equal(getServiceSchema(14).version, 5);
+  const schema = getServiceSchema(14);
+  const fields = flattenFields(schema);
+  const byId = new Map(fields.map((field) => [field.id, field]));
+  // The new fields sit after the years lived there, ahead of the
+  // declaration.
+  const details = schema.sections.find(
+    (section) => section.id === "service_details",
+  );
+  assert.deepEqual(
+    (details?.fields ?? []).map((field) => field.id),
+    [
+      "residence_mouza",
+      "residence_holding_no",
+      "residence_duration_years",
+      "land_amount",
+      "land_amount_unit",
+      "land_khatian_no",
+      "land_ownership_declaration",
+      "supporting_documents",
+    ],
+  );
+  const amount = byId.get("land_amount");
+  assert.equal(amount?.type, "number");
+  assert.equal(amount?.constraints?.required, true);
+  assert.equal(amount?.constraints?.min, 0);
+  assert.equal(amount?.constraints?.max, 1_000_000);
+  const unit = byId.get("land_amount_unit");
+  assert.equal(unit?.type, "select");
+  assert.equal(unit?.constraints?.required, true);
+  assert.deepEqual(
+    (unit?.options ?? []).map((option) => option.value),
+    ["decimal", "acre", "bigha", "katha"],
+  );
+  const khatian = byId.get("land_khatian_no");
+  assert.equal(khatian?.type, "text");
+  assert.notEqual(khatian?.constraints?.required, true);
+  assert.equal(khatian?.constraints?.maxLength, 40);
+  // The demo payload validates; an unstated amount, a negative
+  // amount, or an unstated unit is rejected — a zero amount is a
+  // stated fact, not an omission.
+  const payload = getDemoPayload(14);
+  assert.equal(payload.land_amount, 1);
+  assert.equal(payload.land_amount_unit, "decimal");
+  assert.equal(validateServicePayload(14, payload).valid, true);
+  const { land_amount: _amount, ...withoutAmount } = payload;
+  assert.ok(
+    validateServicePayload(14, withoutAmount).issues.some(
+      (issue) => issue.path === "land_amount" && issue.code === "required",
+    ),
+  );
+  assert.ok(
+    validateServicePayload(14, { ...payload, land_amount: -1 }).issues.some(
+      (issue) => issue.path === "land_amount" && issue.code === "range",
+    ),
+  );
+  assert.equal(
+    validateServicePayload(14, { ...payload, land_amount: 0 }).valid,
+    true,
+    "an explicit zero amount is valid on a landless attestation",
+  );
+  const { land_amount_unit: _unit, ...withoutUnit } = payload;
+  assert.ok(
+    validateServicePayload(14, withoutUnit).issues.some(
+      (issue) =>
+        issue.path === "land_amount_unit" && issue.code === "required",
+    ),
+  );
+  // The pinned v4 has none of the new fields.
+  const pinnedById = new Map(
+    flattenFields(getServiceSchema(14, 4)).map((field) => [field.id, field]),
+  );
+  assert.equal(pinnedById.has("land_amount"), false);
+  assert.equal(pinnedById.has("land_amount_unit"), false);
+  assert.equal(pinnedById.has("land_khatian_no"), false);
+});
+
+test("QAFIX-10: service 15 (new voter) captures the date of birth, age and NID number the eligibility judgement needs", () => {
+  assert.equal(getServiceSchema(15).version, 4);
+  const schema = getServiceSchema(15);
+  const fields = flattenFields(schema);
+  const byId = new Map(fields.map((field) => [field.id, field]));
+  // The three facts head the form, ahead of the reason.
+  const details = schema.sections.find(
+    (section) => section.id === "service_details",
+  );
+  assert.deepEqual(
+    (details?.fields ?? []).map((field) => field.id),
+    [
+      "date_of_birth",
+      "voter_age",
+      "nid_number",
+      "voter_registration_reason",
+      "supporting_documents",
+    ],
+  );
+  const dob = byId.get("date_of_birth");
+  assert.equal(dob?.type, "date");
+  assert.equal(dob?.constraints?.required, true);
+  assert.equal(dob?.constraints?.notFuture, true);
+  const age = byId.get("voter_age");
+  assert.equal(age?.type, "number");
+  assert.equal(age?.constraints?.required, true);
+  assert.equal(age?.constraints?.min, 0);
+  assert.equal(age?.constraints?.max, 120);
+  const nid = byId.get("nid_number");
+  assert.equal(nid?.type, "text");
+  assert.equal(nid?.constraints?.required, true);
+  assert.equal(nid?.constraints?.minLength, 10);
+  assert.equal(nid?.constraints?.maxLength, 17);
+  // The demo payload validates; a missing date of birth, a future
+  // one, a missing age or a short NID is rejected.
+  const payload = getDemoPayload(15);
+  assert.equal(validateServicePayload(15, payload).valid, true);
+  const { date_of_birth: _dob, ...withoutDob } = payload;
+  assert.ok(
+    validateServicePayload(15, withoutDob).issues.some(
+      (issue) => issue.path === "date_of_birth" && issue.code === "required",
+    ),
+  );
+  assert.ok(
+    validateServicePayload(15, {
+      ...payload,
+      date_of_birth: "2999-01-01",
+    }).issues.some((issue) => issue.path === "date_of_birth"),
+    "a birth cannot be dated in the future",
+  );
+  const { voter_age: _age, ...withoutAge } = payload;
+  assert.ok(
+    validateServicePayload(15, withoutAge).issues.some(
+      (issue) => issue.path === "voter_age" && issue.code === "required",
+    ),
+  );
+  assert.ok(
+    validateServicePayload(15, { ...payload, nid_number: "12345" }).issues.some(
+      (issue) => issue.path === "nid_number",
+    ),
+    "a five-character NID number is rejected",
+  );
+  // The pinned v3 has none of the three facts — only the reason.
+  const pinnedById = new Map(
+    flattenFields(getServiceSchema(15, 3)).map((field) => [field.id, field]),
+  );
+  assert.equal(pinnedById.has("date_of_birth"), false);
+  assert.equal(pinnedById.has("voter_age"), false);
+  assert.equal(pinnedById.has("nid_number"), false);
+});
+
+test("QAFIX-10: services 18 + 40 add the English community-name field, required only when 'Other' is chosen", () => {
+  for (const no of [18, 40]) {
+    assert.equal(getServiceSchema(no).version, 6);
+    const schema = getServiceSchema(no);
+    const fields = flattenFields(schema);
+    const byId = new Map(fields.map((field) => [field.id, field]));
+    // The field sits directly after the select.
+    const ids = fields.map((field) => field.id);
+    assert.equal(
+      ids.indexOf("community_name_en"),
+      ids.indexOf("community_name") + 1,
+    );
+    const en = byId.get("community_name_en");
+    assert.equal(en?.type, "text");
+    assert.equal(en?.constraints?.maxLength, 160);
+    assert.deepEqual(en?.requiredWhen, {
+      field: "community_name",
+      equals: "other",
+    });
+    // The religions are gone from the shared list on both services.
+    const community = byId.get("community_name");
+    for (const religion of ["muslim", "hindu", "buddhist", "christian"])
+      assert.ok(
+        !(community?.options ?? []).some(
+          (option) => option.value === religion,
+        ),
+        `service ${no} no longer lists ${religion}`,
+      );
+    // The demo payload (a listed community) validates without the
+    // English field; choosing "other" without it fails, with it
+    // passes.
+    const payload = getDemoPayload(no);
+    assert.equal(payload.community_name, "chakma");
+    assert.equal(validateServicePayload(no, payload).valid, true);
+    assert.ok(
+      validateServicePayload(no, {
+        ...payload,
+        community_name: "other",
+      }).issues.some(
+        (issue) =>
+          issue.path === "community_name_en" && issue.code === "required",
+      ),
+      "choosing 'Other' demands the English community name",
+    );
+    assert.equal(
+      validateServicePayload(no, {
+        ...payload,
+        community_name: "other",
+        community_name_en: "Bede community",
+      }).valid,
+      true,
+    );
+  }
+  // The shared list is one list: service 40's options equal service
+  // 18's, value for value.
+  const optionsOf = (no: number) =>
+    (
+      flattenFields(getServiceSchema(no)).find(
+        (field) => field.id === "community_name",
+      )?.options ?? []
+    ).map((option) => option.value);
+  assert.deepEqual(optionsOf(40), optionsOf(18));
+  // The pinned v5 schemas keep the religions and no English field.
+  for (const no of [18, 40]) {
+    const pinnedById = new Map(
+      flattenFields(getServiceSchema(no, 5)).map((field) => [field.id, field]),
+    );
+    assert.ok(
+      (pinnedById.get("community_name")?.options ?? []).some(
+        (option) => option.value === "muslim",
+      ),
+    );
+    assert.equal(pinnedById.has("community_name_en"), false);
+  }
+});
+
+test("QAFIX-10: service 27 (passport) captures identity fields and asks the purpose once, from the fixed select", () => {
+  assert.equal(getServiceSchema(27).version, 5);
+  const schema = getServiceSchema(27);
+  const fields = flattenFields(schema);
+  const byId = new Map(fields.map((field) => [field.id, field]));
+  // The identity fields head the form, ahead of the fixed select.
+  const details = schema.sections.find(
+    (section) => section.id === "service_details",
+  );
+  assert.deepEqual(
+    (details?.fields ?? []).map((field) => field.id),
+    [
+      "nid_number",
+      "date_of_birth",
+      "passport_number",
+      "passport_purpose",
+      "supporting_documents",
+    ],
+  );
+  const nid = byId.get("nid_number");
+  assert.equal(nid?.type, "text");
+  assert.equal(nid?.constraints?.required, true);
+  assert.equal(nid?.constraints?.minLength, 10);
+  assert.equal(nid?.constraints?.maxLength, 17);
+  const dob = byId.get("date_of_birth");
+  assert.equal(dob?.type, "date");
+  assert.equal(dob?.constraints?.required, true);
+  assert.equal(dob?.constraints?.notFuture, true);
+  const passportNumber = byId.get("passport_number");
+  assert.equal(passportNumber?.type, "text");
+  assert.notEqual(passportNumber?.constraints?.required, true);
+  assert.equal(passportNumber?.constraints?.maxLength, 30);
+  // The free-text purpose and its language choice are gone from the
+  // whole form — the fixed select is the only purpose asked.
+  assert.equal(byId.has("purpose"), false);
+  assert.equal(byId.has("purpose_language"), false);
+  const purpose = byId.get("passport_purpose");
+  assert.equal(purpose?.type, "select");
+  assert.equal(purpose?.constraints?.required, true);
+  assert.deepEqual(
+    (purpose?.options ?? []).map((option) => option.value),
+    ["travel", "employment", "hajj", "umrah", "study", "treatment", "business", "other"],
+  );
+  // The demo payload validates with no purpose keys at all; a
+  // carried-over free-text purpose is now an unknown field.
+  const payload = getDemoPayload(27);
+  assert.equal("purpose" in payload, false);
+  assert.equal("purpose_language" in payload, false);
+  assert.equal(validateServicePayload(27, payload).valid, true);
+  assert.ok(
+    validateServicePayload(27, { ...payload, purpose: "travel" }).issues.some(
+      (issue) => issue.path === "purpose" && issue.code === "unknown_field",
+    ),
+  );
+  const { nid_number: _nid, ...withoutNid } = payload;
+  assert.ok(
+    validateServicePayload(27, withoutNid).issues.some(
+      (issue) => issue.path === "nid_number" && issue.code === "required",
+    ),
+  );
+  // The pinned v4 keeps the free-text purpose pair and no identity
+  // fields.
+  const pinnedById = new Map(
+    flattenFields(getServiceSchema(27, 4)).map((field) => [field.id, field]),
+  );
+  assert.equal(pinnedById.has("purpose"), true);
+  assert.equal(pinnedById.has("purpose_language"), true);
+  assert.equal(pinnedById.has("nid_number"), false);
+  assert.equal(pinnedById.has("date_of_birth"), false);
+  assert.equal(pinnedById.has("passport_number"), false);
+});
+
+test("QAFIX-10: service 29 (monthly income) names the monthly income in both amount labels", () => {
+  assert.equal(getServiceSchema(29).version, 6);
+  const schema = getServiceSchema(29);
+  const fields = flattenFields(schema);
+  const byId = new Map(fields.map((field) => [field.id, field]));
+  // "আয়" here is the file's established decomposed spelling
+  // (আ + য + ়), the same bytes as the neighbouring labels — written
+  // as escapes so the form can never be confused.
+  const incomePrefix =
+    "\u09AE\u09BE\u09B8\u09BF\u0995 \u0986\u09AF\u09BC ";
+  const amount = byId.get("income_info_amount");
+  const amountWord = byId.get("income_info_amount_word");
+  assert.ok(amount?.label.bn.startsWith(incomePrefix));
+  assert.ok(amountWord?.label.bn.startsWith(incomePrefix));
+  // The prefix is the only change: each label is the pinned v5
+  // label with "মাসিক আয় " ahead of it, byte-identically.
+  for (const id of ["income_info_amount", "income_info_amount_word"]) {
+    const pinned = flattenFields(getServiceSchema(29, 5)).find(
+      (field) => field.id === id,
+    );
+    assert.equal(byId.get(id)?.label.bn, `${incomePrefix}${pinned?.label.bn}`);
+    assert.equal(byId.get(id)?.label.en, pinned?.label.en);
+    assert.deepEqual(byId.get(id)?.constraints, pinned?.constraints);
+  }
+  assert.equal(validateServicePayload(29, getDemoPayload(29)).valid, true);
+});
+
+test("QAFIX-10: service 31 (death while unmarried) captures the age at death beside the date of death", () => {
+  assert.equal(getServiceSchema(31).version, 6);
+  const schema = getServiceSchema(31);
+  const fields = flattenFields(schema);
+  const byId = new Map(fields.map((field) => [field.id, field]));
+  const ids = fields.map((field) => field.id);
+  assert.equal(
+    ids.indexOf("dead_info_age_at_death"),
+    ids.indexOf("dead_info_dod") + 1,
+  );
+  const age = byId.get("dead_info_age_at_death");
+  assert.equal(age?.type, "number");
+  assert.equal(age?.constraints?.required, true);
+  assert.equal(age?.constraints?.min, 0);
+  assert.equal(age?.constraints?.max, 120);
+  const payload = getDemoPayload(31);
+  assert.equal(validateServicePayload(31, payload).valid, true);
+  const { dead_info_age_at_death: _age, ...withoutAge } = payload;
+  assert.ok(
+    validateServicePayload(31, withoutAge).issues.some(
+      (issue) =>
+        issue.path === "dead_info_age_at_death" && issue.code === "required",
+    ),
+  );
+  assert.ok(
+    validateServicePayload(31, {
+      ...payload,
+      dead_info_age_at_death: 121,
+    }).issues.some(
+      (issue) =>
+        issue.path === "dead_info_age_at_death" && issue.code === "range",
+    ),
+  );
+  const pinnedById = new Map(
+    flattenFields(getServiceSchema(31, 5)).map((field) => [field.id, field]),
+  );
+  assert.equal(pinnedById.has("dead_info_age_at_death"), false);
+});
+
+test("QAFIX-10: service 33 (NID correction) publishes no version — the NID prefill has no schema-side lever", () => {
+  // The prescribed fix (prefill the NID field from the profile)
+  // lives in ServiceFlow's CITIZEN_FIELD_SOURCES (WS-B), and the A2
+  // limit stands: the full NID is never exposed to the web client
+  // (masked hint + audited reveal only), so no prefill mechanism can
+  // fill it today. This test pins the deliberate non-change: the
+  // version stays v4, and the field already carries the canonical
+  // `nid_number` id, so a future wiring needs no schema change.
+  assert.equal(getServiceSchema(33).version, 4);
+  const byId = new Map(
+    flattenFields(getServiceSchema(33)).map((field) => [field.id, field]),
+  );
+  assert.equal(byId.get("nid_number")?.constraints?.required, true);
+  assert.equal(validateServicePayload(33, getDemoPayload(33)).valid, true);
+});
+
+test("QAFIX-10: service 34 (childless) captures the number of children as a structured required number", () => {
+  assert.equal(getServiceSchema(34).version, 5);
+  const schema = getServiceSchema(34);
+  const fields = flattenFields(schema);
+  const byId = new Map(fields.map((field) => [field.id, field]));
+  const ids = fields.map((field) => field.id);
+  assert.equal(
+    ids.indexOf("childless_children_count"),
+    ids.indexOf("childless_declaration_confirmed") - 1,
+  );
+  const count = byId.get("childless_children_count");
+  assert.equal(count?.type, "number");
+  assert.equal(count?.constraints?.required, true);
+  assert.equal(count?.constraints?.min, 0);
+  assert.equal(count?.constraints?.max, 30);
+  const payload = getDemoPayload(34);
+  assert.equal(validateServicePayload(34, payload).valid, true);
+  const { childless_children_count: _count, ...withoutCount } = payload;
+  assert.ok(
+    validateServicePayload(34, withoutCount).issues.some(
+      (issue) =>
+        issue.path === "childless_children_count" &&
+        issue.code === "required",
+    ),
+  );
+  assert.ok(
+    validateServicePayload(34, {
+      ...payload,
+      childless_children_count: 31,
+    }).issues.some(
+      (issue) =>
+        issue.path === "childless_children_count" && issue.code === "range",
+    ),
+  );
+  const pinnedById = new Map(
+    flattenFields(getServiceSchema(34, 4)).map((field) => [field.id, field]),
+  );
+  assert.equal(pinnedById.has("childless_children_count"), false);
+});
+
+test("QAFIX-10: service 37 (voter area transfer) captures the NID number and date of birth", () => {
+  assert.equal(getServiceSchema(37).version, 6);
+  const schema = getServiceSchema(37);
+  const fields = flattenFields(schema);
+  const byId = new Map(fields.map((field) => [field.id, field]));
+  // The identity fields head the form.
+  const details = schema.sections.find(
+    (section) => section.id === "service_details",
+  );
+  assert.deepEqual(
+    (details?.fields ?? []).map((field) => field.id).slice(0, 2),
+    ["nid_number", "date_of_birth"],
+  );
+  const nid = byId.get("nid_number");
+  assert.equal(nid?.type, "text");
+  assert.equal(nid?.constraints?.required, true);
+  assert.equal(nid?.constraints?.minLength, 10);
+  assert.equal(nid?.constraints?.maxLength, 17);
+  const dob = byId.get("date_of_birth");
+  assert.equal(dob?.type, "date");
+  assert.equal(dob?.constraints?.required, true);
+  assert.equal(dob?.constraints?.notFuture, true);
+  const payload = getDemoPayload(37);
+  assert.equal(validateServicePayload(37, payload).valid, true);
+  const { nid_number: _nid, ...withoutNid } = payload;
+  assert.ok(
+    validateServicePayload(37, withoutNid).issues.some(
+      (issue) => issue.path === "nid_number" && issue.code === "required",
+    ),
+  );
+  assert.ok(
+    validateServicePayload(37, {
+      ...payload,
+      date_of_birth: "2999-01-01",
+    }).issues.some((issue) => issue.path === "date_of_birth"),
+    "a birth cannot be dated in the future",
+  );
+  // The pinned v5 has neither identity field (the QAFIX-08
+  // decision this layer overturns).
+  const pinnedById = new Map(
+    flattenFields(getServiceSchema(37, 5)).map((field) => [field.id, field]),
+  );
+  assert.equal(pinnedById.has("nid_number"), false);
+  assert.equal(pinnedById.has("date_of_birth"), false);
+});
+
+test("QAFIX-10: services 38 + 43 seat the English description beside its Bangla pair as text fields", () => {
+  for (const [no, bnId, enId, movedId] of [
+    [38, "support_needs", "support_needs_en", "disability_severity"],
+    [43, "omission_details", "omission_details_en", "omission_ward_no"],
+  ] as const) {
+    assert.equal(getServiceSchema(no).version, 6);
+    const schema = getServiceSchema(no);
+    const fields = flattenFields(schema);
+    const byId = new Map(fields.map((field) => [field.id, field]));
+    // Both halves are text fields now — textareas span the full grid
+    // row, so no textarea pair can sit side by side.
+    const bn = byId.get(bnId);
+    const en = byId.get(enId);
+    assert.equal(bn?.type, "text");
+    assert.equal(en?.type, "text");
+    // Labels and limits are unchanged from the pinned v5.
+    const pinnedById = new Map(
+      flattenFields(getServiceSchema(no, 5)).map((field) => [
+        field.id,
+        field,
+      ]),
+    );
+    assert.deepEqual(bn?.constraints, pinnedById.get(bnId)?.constraints);
+    assert.deepEqual(en?.constraints, pinnedById.get(enId)?.constraints);
+    assert.deepEqual(bn?.label, pinnedById.get(bnId)?.label);
+    assert.deepEqual(en?.label, pinnedById.get(enId)?.label);
+    // The pair sits adjacently, Bangla first — and starts on an
+    // EVEN index inside its section, so the two-column grid puts
+    // both halves in one row. Adjacency alone does not seat the
+    // pair: in v5 the pair started at an odd index and straddled
+    // the row boundary (probe-proven). The moved field sits just
+    // after the English half.
+    const details = schema.sections.find(
+      (section) => section.id === "service_details",
+    );
+    const ids = (details?.fields ?? []).map((field) => field.id);
+    assert.equal(ids.indexOf(enId), ids.indexOf(bnId) + 1);
+    assert.equal(ids.indexOf(bnId) % 2, 0);
+    assert.equal(ids.indexOf(movedId), ids.indexOf(enId) + 1);
+    assert.equal(validateServicePayload(no, getDemoPayload(no)).valid, true);
+    // The pinned v5 keeps both halves as textareas.
+    assert.equal(pinnedById.get(bnId)?.type, "textarea");
+    assert.equal(pinnedById.get(enId)?.type, "textarea");
+  }
+});
+
+test("QAFIX-10: service 42 (trade licence) publishes a unicode-only version — no field added, removed or reordered", () => {
+  assert.equal(getServiceSchema(42).version, 7);
+  const ids = (version: number) =>
+    flattenFields(getServiceSchema(42, version)).map((field) => field.id);
+  assert.deepEqual(ids(7), ids(6));
+  const addressSource = flattenFields(getServiceSchema(42)).find(
+    (field) => field.id === "address_source",
+  );
+  assert.equal(
+    addressSource?.options?.find((option) => option.value === "permanent")
+      ?.label.bn,
+    "স\u09CD\u09A5\u09BE\u09DF\u09C0 \u09A0\u09BF\u0995\u09BE\u09A8\u09BE",
+  );
+  assert.equal(validateServicePayload(42, getDemoPayload(42)).valid, true);
+});
+
+test("QAFIX-10: service 45 (permanent resident) publishes a unicode-only version — no field added, removed or reordered", () => {
+  assert.equal(getServiceSchema(45).version, 4);
+  const ids = (version: number) =>
+    flattenFields(getServiceSchema(45, version)).map((field) => field.id);
+  assert.deepEqual(ids(4), ids(3));
+  const addressSource = flattenFields(getServiceSchema(45)).find(
+    (field) => field.id === "address_source",
+  );
+  assert.equal(
+    addressSource?.options?.find((option) => option.value === "permanent")
+      ?.label.bn,
+    "স\u09CD\u09A5\u09BE\u09DF\u09C0 \u09A0\u09BF\u0995\u09BE\u09A8\u09BE",
+  );
+  assert.equal(
+    addressSource?.options?.find((option) => option.value === "both")
+      ?.label.bn.includes("স\u09CD\u09A5\u09BE\u09DF\u09C0"),
+    true,
+  );
+  assert.equal(validateServicePayload(45, getDemoPayload(45)).valid, true);
 });
 
 test("Phase 0: every service has a capture file headed with its number", async () => {

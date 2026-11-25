@@ -837,3 +837,71 @@ tr.ax-row-new td {
   gap: 10px;
   margin-top: 20px;
 }
+/* WS-D2 (item 16): the decision dialog's reason fields — full-width,
+   labelled, stacked like the workspace's other forms. */
+.ws-confirm label {
+  display: block;
+  font-weight: 600;
+  margin: 12px 0 4px;
+}
+.ws-confirm select,
+.ws-confirm input,
+.ws-confirm textarea {
+  width: 100%;
+}
+/* WS-D2 (item 9): the applicant-identity block on the detail page —
+   a definition list like the read-only payload summary. */
+.detail-identity dl {
+  display: grid;
+  grid-template-columns: 160px minmax(0, 1fr);
+  gap: 6px 16px;
+  margin: 12px 0 0;
+}
+.detail-identity dt {
+  font-weight: 600;
+  color: var(--du-muted);
+}
+.detail-identity dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.detail-identity-photo {
+  max-width: 120px;
+  border-radius: 8px;
+  border: 1px solid var(--du-line);
+}
+.detail-attachment {
+  border-top: 1px solid var(--du-line);
+  padding-top: 12px;
+  margin-top: 12px;
+}
+.detail-attachment:first-of-type {
+  border-top: 0;
+  padding-top: 0;
+  margin-top: 0;
+}
+/* WS-D2 (item 14): printing an application detail prints the record —
+   the sidebar, decision rail, tab bar and on-screen buttons stay on
+   screen only. Scoped to the detail view so other pages print as
+   before (the guide keeps its own print rules). */
+@media print {
+  body:has(.detail-print-scope) .shell {
+    display: block;
+  }
+  body:has(.detail-print-scope) .shell > aside,
+  body:has(.detail-print-scope) .detail-rail,
+  body:has(.detail-print-scope) .ws-tabbar,
+  body:has(.detail-print-scope) .no-print {
+    display: none !important;
+  }
+  body:has(.detail-print-scope) .shell main {
+    padding: 0;
+  }
+  body:has(.detail-print-scope) .detail-layout {
+    display: block;
+  }
+  body:has(.detail-print-scope) .detail-identity,
+  body:has(.detail-print-scope) .detail-attachments {
+    break-inside: avoid;
+  }
+}

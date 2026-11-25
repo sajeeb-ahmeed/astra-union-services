@@ -81,9 +81,14 @@ export function securityEventLabel(action: string): string {
 /** Setup secrets and recovery codes exist only in this mounted component's memory. */
 export function AccountMfa({
   revision = 0,
+  isApprover = false,
   onChange,
 }: {
   revision?: number;
+  /** WS-D3: an approver account without 2FA is called out explicitly —
+      it can issue certificates, so the gap matters more than for other
+      roles. Enabling 2FA itself stays the owner's action (OWNER-GATED). */
+  isApprover?: boolean;
   onChange?: () => void;
 }) {
   const [language] = useLanguage();
@@ -213,6 +218,14 @@ export function AccountMfa({
           </span>
         )}
       </div>
+      {isApprover && status && !status.enabled && (
+        <p className="notice" role="alert">
+          {choose({
+            bn: "এই অ্যাকাউন্ট দিয়ে সনদ অনুমোদন করা হয়। দুই ধাপের নিরাপত্তা চালু না থাকলে অনুমোদনকারীর অ্যাকাউন্ট ঝুঁকিতে থাকে — নিচে authenticator সেটআপ করুন।",
+            en: "This account approves certificates. Without two-step security, an approver account is at risk — set up your authenticator below.",
+          })}
+        </p>
+      )}
       {loadFailed && (
         <div className="notice error" role="alert">
           <p>

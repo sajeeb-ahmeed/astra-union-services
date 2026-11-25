@@ -31,6 +31,8 @@ import {
   qaFix8Services,
   buildQaFix9Version,
   qaFix9Services,
+  buildQaFix10Version,
+  qaFix10Services,
   certRefineServices,
   conditionalGroupServices,
   geographySelectorServices,
@@ -534,9 +536,21 @@ const latestWithQaFix9 = (schema: FormSchema) =>
   qaFix9Schemas.find((item) => item.serviceNo === schema.serviceNo) ??
   latestWithQaFix8(schema);
 
+export const qaFix10SupersededSchemas: readonly FormSchema[] = deepFreeze(
+  [permanentResidentV1, familyV2, tradeLicenseV2, ...expandedOperationalSchemas]
+    .map(latestWithQaFix9)
+    .filter((schema) => qaFix10Services.includes(schema.serviceNo)),
+);
+export const qaFix10Schemas: readonly FormSchema[] = deepFreeze(
+  qaFix10SupersededSchemas.map(buildQaFix10Version),
+);
+const latestWithQaFix10 = (schema: FormSchema) =>
+  qaFix10Schemas.find((item) => item.serviceNo === schema.serviceNo) ??
+  latestWithQaFix9(schema);
+
 export const operationalSchemas: readonly FormSchema[] = deepFreeze(
   [permanentResidentV1, familyV2, tradeLicenseV2, ...expandedOperationalSchemas].map(
-    latestWithQaFix9,
+    latestWithQaFix10,
   ),
 );
 
@@ -583,7 +597,7 @@ export const demoPayloads: Readonly<
   Record<number, Readonly<Record<string, unknown>>>
 > = deepFreeze({
   ...Object.fromEntries(
-    expandedOperationalSchemas.map(latestWithQaFix9).map((schema) => [
+    expandedOperationalSchemas.map(latestWithQaFix10).map((schema) => [
       schema.serviceNo,
       createSyntheticPayload(schema),
     ]),

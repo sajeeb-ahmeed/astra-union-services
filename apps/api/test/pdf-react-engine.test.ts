@@ -150,15 +150,17 @@ test("splitScriptRuns: Bengali, Latin and neutral runs split by script", () => {
   assert.ok(en.every((r) => r.family === CERT_LATIN_FAMILY));
 });
 
-test("react-pdf layout: the digit strip and the issue date can never collide (CERT-REFINE-01 A8)", async () => {
-  // A 16-digit production number plus a citizen photo (which narrows the
-  // text column) is the tightest case for the shared header strip.
+test("react-pdf layout: the plain number and the issue date can never collide (CERT-REFINE-01 A8, strip superseded 25 Nov 2026)", async () => {
+  // The current production number (14 digits since CERTNO-DDMM) in the
+  // shared number/date row (the citizen photo now sits in the header
+  // row's top-right corner — PHOTO-CORNER 25 Nov 2026 — so it no longer
+  // narrows the body column).
   const photo =
     "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==";
   const pdf = await withEngine("react-pdf", () =>
     generatePdf(
       fixture(45, {
-        number: "2026111812345678",
+        number: "25111234567890",
         citizenPhoto: photo,
         payload: { delivery_language: "bn" },
       } as Partial<PdfInput>),
@@ -171,45 +173,27 @@ test("react-pdf layout: the digit strip and the issue date can never collide (CE
   const words = [...stdout.matchAll(/<word xMin="([\d.]+)" yMin="([\d.]+)" xMax="([\d.]+)" yMax="([\d.]+)">([^<]*)<\/word>/g)].map(
     (m) => ({ xMin: +m[1]!, yMin: +m[2]!, xMax: +m[3]!, yMax: +m[4]!, text: m[5]! }),
   );
-  const digitWords = words.filter((w) => /^[০-৯]$/.test(w.text));
-  const clusters: (typeof digitWords)[] = [];
-  for (const w of digitWords) {
-    const c = clusters.find((c) => Math.abs(c[0]!.yMin - w.yMin) < 4);
-    if (c) c.push(w);
-    else clusters.push([w]);
-  }
-  const digits = clusters.sort((a, b) => b.length - a.length)[0]!;
-  assert.ok(digits.length >= 16, `the 16-digit strip prints (saw ${digits.length} cells)`);
+  // Md's order of 25 Nov 2026: the number prints PLAIN — one word,
+  // never one-digit-per-box cells (14 digits since CERTNO-DDMM).
+  const numberWord = words.find((w) => /^[০-৯]{14}$/.test(w.text));
+  assert.ok(numberWord, "the plain 14-digit number prints as one word");
   const band = {
-    top: Math.min(...digits.map((w) => w.yMin)) - 3,
-    bottom: Math.max(...digits.map((w) => w.yMax)) + 3,
+    top: numberWord!.yMin - 3,
+    bottom: numberWord!.yMax + 3,
   };
-  const stripRight = Math.max(...digits.map((w) => w.xMax));
   const year = words.find((w) => w.text === "২০২৬" && w.yMin < 300);
   assert.ok(year, "the issue-date year prints");
-  // CERT-REFINE-02: the number/date row wraps (flexWrap) — the date group
-  // drops to its own right-aligned line when the strip + date cannot share
-  // the row (the EN svc45 case), which the old centre-within-band test
-  // misread as a same-line collision. A8's invariant is NON-COLLISION:
-  // no date-row word may overlap the strip's rectangle, and any word that
-  // does share the strip's line to its right keeps the 24 pt gap.
-  const stripLeft = Math.min(...digits.map((w) => w.xMin));
+  // A8's invariant is NON-COLLISION: no other word may overlap the
+  // number word's rectangle (the row wraps with flexWrap, so the date
+  // group may sit on its own right-aligned line instead).
   const rowWords = words.filter(
-    (w) => !/^[০-৯]$/.test(w.text) && w.yMin > band.top - 30 && w.yMin < band.bottom + 30,
+    (w) => w !== numberWord && w.yMin > band.top - 30 && w.yMin < band.bottom + 30,
   );
   for (const w of rowWords) {
     const overlaps =
-      w.xMin < stripRight && w.xMax > stripLeft && w.yMin < band.bottom && w.yMax > band.top;
-    assert.ok(!overlaps, `date-row word "${w.text}" overlaps the digit strip`);
+      w.xMin < numberWord!.xMax && w.xMax > numberWord!.xMin && w.yMin < band.bottom && w.yMax > band.top;
+    assert.ok(!overlaps, `date-row word "${w.text}" overlaps the plain number`);
   }
-  const sameLineNeighbours = rowWords.filter(
-    (w) => w.xMin > stripRight && w.yMin >= band.top && w.yMax <= band.bottom,
-  );
-  if (sameLineNeighbours.length > 0) {
-    const gap = Math.min(...sameLineNeighbours.map((w) => w.xMin)) - stripRight;
-    assert.ok(gap >= 24, `strip-to-date gap is ${gap.toFixed(1)}pt (A8 minimum 24pt)`);
-  }
-  // Otherwise the date sits on its own line — the other A8 remedy.
 });
 
 test("react-pdf layout: service 46 renders as a standard A4 family certificate (CERT-REFINE-02 R2-05)", async () => {
@@ -252,8 +236,9 @@ test("react-pdf engine renders a Bangla certificate: number, attestation, bundle
   // "চেয়ারম্যান" itself extracts with its pre-base sign first
   // ("েচয়ারম্যান"); the issuer surname extracts verbatim.
   assert.ok(text.includes("রহমান"), "signature block prints");
-  // CERT-REFINE-02 (R2-19): the footer verify label is "যাচাই করুন:".
-  assert.ok(text.includes("যাচাই করুন"), "verify line prints");
+  // REFINE (25 Nov 2026): one verify label in both engines, as on the
+  // references — "যাচাইকরণ:" (was "যাচাই করুন:" + a numerals line).
+  assert.ok(text.includes("যাচাইকরণ"), "verify line prints");
   const fonts = await pdfFonts(pdf);
   assert.ok(fonts.includes("NotoSansBengali"), "Bengali family embedded");
   assert.ok(fonts.includes("LiberationSans"), "Latin family embedded");
@@ -369,7 +354,7 @@ test("end-to-end: chairman approval under PDF_ENGINE=react-pdf issues a stored, 
   // CERT-REFINE-01 (A6): the printed verification URL now carries the
   // number in Latin digits (previously it printed Bengali digits, which is
   // what made the old bnDigits assertion pass); the number also prints in
-  // the boxed digit strip, whose cells extract space-separated.
+  // Latin digits in the footer line under the verify URL.
   assert.ok(
     text.includes(issued.number),
     "stored PDF carries the certificate number",

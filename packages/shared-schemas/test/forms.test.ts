@@ -125,9 +125,9 @@ test("all 47 proposed schemas enabled; versions remain pinned and cannot silentl
     Array.from({ length: 47 }, (_, index) => index + 1),
   );
   assert.throws(() => getServiceSchema(48), RangeError);
-  // QAFIX-01 published v2 of service 45 and QAFIX-09 v3; v4 does
-  // not exist.
-  assert.throws(() => getServiceSchema(45, 4), RangeError);
+  // QAFIX-01 published v2 of service 45 and QAFIX-09 v3 and
+  // QAFIX-10 v4 (unicode-only); v5 does not exist.
+  assert.throws(() => getServiceSchema(45, 5), RangeError);
   assert.throws(() => getReferencePreview(48), RangeError);
   assert.equal(validateServicePayload(1, {}).valid, false);
 });
@@ -150,7 +150,7 @@ test("published schema and catalog metadata are recursively immutable", () => {
   const isolated = clone(schema);
   (isolated as unknown as { version: number }).version = 99;
   assert.equal(hash(), before);
-  assert.equal(getServiceSchema(45).version, 3);
+  assert.equal(getServiceSchema(45).version, 4);
 });
 
 test("canonical schema serialization ignores object key insertion order", () => {

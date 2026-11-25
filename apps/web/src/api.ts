@@ -108,6 +108,21 @@ async function request<T>(
     .json()
     .catch(() => ({ message: "Server response could not be read." }));
   if (!response.ok) {
+    // WS-D1 (finding 6): a single transient 401 on a GET must not log the
+    // chairman out. Live showed one 401 on the ISSUED filter while the
+    // session was valid until 19:34, then a logout ~10 s later — the
+    // session-changed revalidation below is what drops the session. A GET
+    // is idempotent, so on a 401 it is re-read once after a session
+    // resync: if /auth/me still holds the same user, the 401 was spurious
+    // and the retry succeeds with no banner and no logout. If the session
+    // is really gone or belongs to someone else, the resync reports
+    // expired/changed and the existing path below drops to sign-in
+    // exactly as before. One retry only (retried), never a loop; POSTs
+    // are never retried on a 401 — a retry could double-apply them.
+    if (!retried && method === "GET" && response.status === 401) {
+      const outcome = await resyncSession();
+      if (outcome === "same") return request(path, method, body, true);
+    }
     if (
       !retried &&
       method !== "GET" &&

@@ -14,7 +14,6 @@ import {
   type PdfInput,
 } from "../src/certificate-template.js";
 import { resolveCertificateAssets, resolveCertificateAssetsBundle } from "../src/certificate-assets.js";
-import { governmentEmblemDataUrl } from "../src/template-assets.js";
 
 /**
  * CERTASSETS-01: office certificate assets (plan §6 steps A–C).
@@ -113,6 +112,9 @@ const signaturePng = drawPng(200, 80, (set) => {
 });
 const belaboSealPng = fs.readFileSync(
   new URL("../assets/offices/belabo-up/seal.png", import.meta.url),
+);
+const belaboSealWatermarkPng = fs.readFileSync(
+  new URL("../assets/offices/belabo-up/seal-watermark.png", import.meta.url),
 );
 const b64 = (bytes: Buffer) => bytes.toString("base64");
 const dataUrlOf = (bytes: Buffer) => `data:image/png;base64,${b64(bytes)}`;
@@ -313,6 +315,11 @@ test("certassets: tenant isolation — beta cannot see or fetch alpha's assets; 
 
 test("certassets: the engine-agnostic bundle carries artwork, emblem and chairman name + designation", async () => {
   // Runs after the upload tests: alpha holds LOGO v2, SEAL v2, SIGNATURE v1.
+  // Md's order of 25 Nov 2026, 12:12 (per-UP seal, re-confirmed): the
+  // profile SEAL is the bundle's seal/watermark first source, per tenant —
+  // alpha's SEAL v2 (the real Belabo seal bytes, uploaded in the test
+  // above) is the watermark, derived (full-strength seal, faded by the
+  // engines). Logo and signature still come from the profile uploads.
   const bundle = await transaction(alphaId, async (db) =>
     resolveCertificateAssetsBundle(db, alphaId, {
       nameBn: "মোঃ হাবিবুর রহমান",
@@ -321,9 +328,9 @@ test("certassets: the engine-agnostic bundle carries artwork, emblem and chairma
     }),
   );
   assert.equal(bundle.logo, dataUrlOf(logoPngV2));
-  assert.equal(bundle.seal, dataUrlOf(belaboSealPng));
-  assert.equal(bundle.watermark, dataUrlOf(belaboSealPng));
-  assert.equal(bundle.watermarkDerived, true, "profile seal watermark is engine-derived");
+  assert.equal(bundle.seal, dataUrlOf(belaboSealPng), "profile seal feeds the bundle seal");
+  assert.equal(bundle.watermark, dataUrlOf(belaboSealPng), "profile seal is the watermark first source");
+  assert.equal(bundle.watermarkDerived, true, "full-strength profile seal is derived by the engines");
   assert.equal(bundle.signature, dataUrlOf(signaturePng));
   assert.ok(bundle.emblem?.startsWith("data:image/png;base64,"), "shared emblem rides the bundle");
   assert.equal(bundle.chairmanNameBn, "মোঃ হাবিবুর রহমান");
@@ -362,7 +369,7 @@ const templateInput = (over: Partial<PdfInput> = {}): PdfInput =>
   }) as PdfInput;
 const qrStub = "data:image/png;base64,AAAA";
 
-test("certassets: template renders profile logo and signature; the watermark is the government emblem and the seal never prints (CERTNO-01)", () => {
+test("certassets: template renders the signature but no logo, and the profile seal as the watermark (Md's order 25 Nov 2026, 12:12)", () => {
   process.env.ISSUANCE_MODE = "official";
   try {
     const html = renderCertificateHtml(
@@ -371,16 +378,16 @@ test("certassets: template renders profile logo and signature; the watermark is 
       }),
       qrStub,
     );
-    assert.ok(html.includes(`<img class="office-logo" alt="" src="${dataUrlOf(logoPng)}"`), "logo in the header");
+    // Prottoyon references show no office logo anywhere on the certificate.
+    assert.ok(!html.includes('<img class="office-logo"'), "no logo in the header");
     assert.ok(html.includes(`<img class="sign-img" alt="" src="${dataUrlOf(signaturePng)}"`), "signature above the line");
-    // CERTNO-01 (owner decision): centre watermark = Government of Bangladesh
-    // emblem for every office; the office seal is not printed anywhere.
-    assert.ok(
-      html.includes(`<img class="emblem-wm" alt="" src="${governmentEmblemDataUrl()}"`),
-      "watermark is the government emblem",
-    );
-    assert.ok(!html.includes(dataUrlOf(belaboSealPng)), "the office seal appears nowhere");
-    assert.ok(!html.includes("seal-wm"), "no seal watermark element remains");
+    // Per-UP seal, profile first (Md 12:12): the profile seal IS the
+    // centre watermark, derived (full-strength seal faded to .08 by the
+    // HTML engine). Never the Government emblem.
+    assert.ok(html.includes('class="seal-wm"'), "seal watermark element present");
+    assert.ok(html.includes(dataUrlOf(belaboSealPng)), "the profile seal is the watermark source");
+    assert.ok(html.includes('style="opacity:.08"'), "full-strength profile seal is faded by the engine");
+    assert.ok(!html.includes("emblem-wm"), "no emblem watermark — CERTNO-01 superseded");
   } finally {
     delete process.env.ISSUANCE_MODE;
   }
@@ -392,30 +399,38 @@ test("certassets: template without profile assets matches the previous fallback 
     const html = renderCertificateHtml(templateInput(), qrStub);
     assert.ok(!html.includes('<img class="office-logo"'), "no logo slot content");
     assert.ok(!html.includes('<img class="sign-img"'), "blank signature line only");
-    assert.ok(!html.includes("seal-wm"), "no seal watermark element");
-    // The emblem watermark is office-independent: it prints even with no
-    // profile assets at all (CERTNO-01).
-    assert.ok(html.includes('<img class="emblem-wm"'), "emblem watermark prints without profile assets");
+    assert.ok(!html.includes('class="seal-wm"'), "no seal watermark element");
+    // No watermark of any kind when no seal resolves at all (Md's order
+    // 25 Nov 2026 supersedes the CERTNO-01 emblem watermark).
+    assert.ok(!html.includes("emblem-wm"), "no emblem watermark without a drop-in seal");
     assert.ok(html.includes('<div class="sign-line"></div>'), "the signature line itself remains");
   } finally {
     delete process.env.ISSUANCE_MODE;
   }
 });
 
-test("certassets: neither the drop-in seal nor a profile seal prints as a watermark (CERTNO-01)", () => {
+test("certassets: the profile seal outranks the drop-in; with no profile seal the drop-in seal prints (Md's order 25 Nov 2026, 12:12)", () => {
   process.env.ISSUANCE_MODE = "official";
   process.env.CERTIFICATE_OFFICE_ASSETS_DIR = fileURLToPath(
     new URL("../assets/offices/belabo-up/", import.meta.url),
   );
   try {
     const dropInOnly = renderCertificateHtml(templateInput(), qrStub);
-    assert.ok(!dropInOnly.includes("seal-wm"), "drop-in seal no longer renders as a watermark");
-    assert.ok(!dropInOnly.includes(dataUrlOf(belaboSealPng)), "drop-in seal image appears nowhere");
+    assert.ok(dropInOnly.includes('class="seal-wm"'), "drop-in seal-watermark renders as the watermark");
+    assert.ok(dropInOnly.includes(dataUrlOf(belaboSealWatermarkPng)), "the pre-faded drop-in watermark is the source when no profile seal is set");
+    assert.ok(!dropInOnly.includes("emblem-wm"), "no emblem watermark");
+    assert.ok(!dropInOnly.includes(dataUrlOf(belaboSealPng)), "the full-strength drop-in seal.png itself is not printed — only its pre-faded watermark form");
+    // A profile seal outranks the drop-in: the watermark is the profile
+    // seal (here deliberately a non-seal image, as in production where
+    // the profile seal is the platform logo until the owner removes it —
+    // the fix is operational, not a code substitution).
     const withProfileSeal = renderCertificateHtml(
       templateInput({ assets: { seal: dataUrlOf(logoPng) } }),
       qrStub,
     );
-    assert.ok(!withProfileSeal.includes("seal-wm"), "profile seal no longer renders as a watermark");
+    assert.ok(withProfileSeal.includes('class="seal-wm"'), "seal watermark element present");
+    assert.ok(withProfileSeal.includes(dataUrlOf(logoPng)), "the profile seal wins over the drop-in");
+    assert.ok(!withProfileSeal.includes(dataUrlOf(belaboSealWatermarkPng)), "the drop-in watermark is not used when a profile seal is set");
   } finally {
     delete process.env.ISSUANCE_MODE;
     delete process.env.CERTIFICATE_OFFICE_ASSETS_DIR;
@@ -432,7 +447,7 @@ test("certassets: demo mode prints no profile artwork (the official-mode gate is
   );
   assert.ok(!html.includes('<img class="office-logo"'));
   assert.ok(!html.includes('<img class="sign-img"'));
-  assert.ok(!html.includes("seal-wm"));
+  assert.ok(!html.includes('class="seal-wm"'));
   assert.ok(!html.includes('<img class="emblem-wm"'), "no emblem watermark outside official mode");
 });
 
@@ -522,7 +537,7 @@ async function approveAndFetch(id: string, approverWho: string) {
   return { cert, pdf: pdf.bytes };
 }
 
-test("certassets: end-to-end — alpha issues with logo, seal watermark and signature; beta is blocked by the A7 signature gate", async () => {
+test("certassets: end-to-end — alpha issues with signature and its profile-seal watermark (no logo on the certificate); beta is blocked by the A7 signature gate", async () => {
   process.env.ISSUANCE_MODE = "official";
   const proofDir = process.env.CERTASSETS_PROOF_DIR;
   try {
@@ -555,4 +570,236 @@ test("certassets: end-to-end — alpha issues with logo, seal watermark and sign
   } finally {
     delete process.env.ISSUANCE_MODE;
   }
+});
+
+/* --- WS-5 ASSETS-REMOVE: removal is a tombstone, never a physical delete ---
+ * These tests run last in the file, after every test that reads alpha's
+ * assets, and they never assume an absolute version: the shared dev database
+ * carries whatever earlier runs uploaded, so every version is read first and
+ * asserted relative to it. Each removal is followed by a re-upload, so the
+ * office is left with a live asset of every kind.
+ */
+const REMOVE_REASON = "Placeholder artwork no longer needed";
+async function overviewItem(who: string, kind: string) {
+  const overview = await req("GET", "/office/certificate-assets", undefined, who);
+  assert.equal(overview.status, 200, JSON.stringify(overview.body));
+  return overview.body.items.find((i: any) => i.kind === kind);
+}
+
+test("certassets: remove role gates — citizens, staff and anonymous callers cannot remove", async () => {
+  assert.equal(
+    (await req("DELETE", "/office/certificate-assets/logo", { reason: REMOVE_REASON }, "alphaCitizen")).status,
+    403,
+  );
+  assert.equal(
+    (await req("DELETE", "/office/certificate-assets/logo", { reason: REMOVE_REASON }, "alphaStaff")).status,
+    403,
+  );
+  assert.equal(
+    (await req("DELETE", "/office/certificate-assets/logo", { reason: REMOVE_REASON })).status,
+    401,
+  );
+});
+
+test("certassets: remove with no asset is 404; a short or missing reason is 422 and stores nothing", async () => {
+  // Beta never uploaded anything: there is nothing to remove.
+  assert.equal(
+    (await req("DELETE", "/office/certificate-assets/logo", { reason: REMOVE_REASON }, "betaAdmin")).status,
+    404,
+  );
+  const before = await overviewItem("alphaAdmin", "LOGO");
+  assert.ok(before.current, "alpha holds a logo to attempt the removal against");
+  const resolvedBefore = await transaction(alphaId, async (db) => resolveCertificateAssets(db, alphaId));
+  // A present-but-short reason fails input validation (same as PUT).
+  const short = await req("DELETE", "/office/certificate-assets/logo", { reason: "short" }, "alphaAdmin");
+  assert.equal(short.status, 422);
+  assert.equal(short.body.error.code, "INPUT_INVALID");
+  // A missing reason fails with REASON_REQUIRED — the same audit rule as a
+  // reason-less replace: the removal reason is the audit trail.
+  const noReasonBody = await req("DELETE", "/office/certificate-assets/logo", {}, "alphaAdmin");
+  assert.equal(noReasonBody.status, 422);
+  assert.equal(noReasonBody.body.error.code, "REASON_REQUIRED");
+  const noReasonAtAll = await req("DELETE", "/office/certificate-assets/logo", undefined, "alphaAdmin");
+  assert.equal(noReasonAtAll.status, 422);
+  assert.equal(noReasonAtAll.body.error.code, "REASON_REQUIRED");
+  const after = await overviewItem("alphaAdmin", "LOGO");
+  assert.equal(after.current.version, before.current.version, "rejected removals store nothing");
+  const resolvedAfter = await transaction(alphaId, async (db) => resolveCertificateAssets(db, alphaId));
+  assert.equal(resolvedAfter.logo, resolvedBefore.logo, "the logo still resolves after rejected removals");
+});
+
+test("certassets: remove tombstones the kind — resolve, overview and image all read null; history keeps REMOVED", async () => {
+  const before = await overviewItem("alphaAdmin", "LOGO");
+  const uploaded = await req(
+    "PUT",
+    "/office/certificate-assets/logo",
+    { mimeType: "image/png", base64: b64(logoPng), reason: "Fresh upload for the removal proof" },
+    "alphaAdmin",
+  );
+  assert.equal(uploaded.status, 200, JSON.stringify(uploaded.body));
+  assert.equal(uploaded.body.version, before.current.version + 1);
+  const removed = await req(
+    "DELETE",
+    "/office/certificate-assets/logo",
+    { reason: REMOVE_REASON },
+    "alphaAdmin",
+  );
+  assert.equal(removed.status, 200, JSON.stringify(removed.body));
+  assert.deepEqual(
+    { kind: removed.body.kind, version: removed.body.version, removed: removed.body.removed },
+    { kind: "LOGO", version: uploaded.body.version + 1, removed: true },
+  );
+  assert.ok(removed.body.removedAt, "the tombstone carries its removal time");
+
+  const resolved = await transaction(alphaId, async (db) => resolveCertificateAssets(db, alphaId));
+  assert.equal(resolved.logo, null, "a removed kind resolves to null, not to the previous version");
+  const overview = await overviewItem("alphaAdmin", "LOGO");
+  assert.equal(overview.current, null, "the overview shows the empty state after removal");
+  assert.equal(overview.history[0].action, "REMOVED");
+  assert.equal(overview.history[0].reason, REMOVE_REASON);
+  assert.equal(overview.history[0].version, removed.body.version);
+  assert.equal(
+    (await reqBytes("GET", "/office/certificate-assets/logo/image", "alphaAdmin")).status,
+    404,
+  );
+  // The owner view agrees: no current asset, REMOVED on top of the history.
+  const ownerView = await req("GET", `/owner/tenants/${alphaId}/certificate-assets`, undefined, "owner");
+  const ownerLogo = ownerView.body.items.find((i: any) => i.kind === "LOGO");
+  assert.equal(ownerLogo.current, null);
+  assert.equal(ownerLogo.history[0].action, "REMOVED");
+  // Depth: the tombstone row itself carries removed=true and is the latest
+  // version; the older rows are untouched. (No claim is made that it is the
+  // only tombstone ever: a previous proof run may have left its own.)
+  const rows = await admin.query(
+    "SELECT version, removed FROM office_certificate_assets WHERE tenant_id=$1 AND kind='LOGO' ORDER BY version",
+    [alphaId],
+  );
+  const tombstoneRow = rows.rows.find((r: any) => r.version === removed.body.version);
+  assert.equal(tombstoneRow?.removed, true, "the new version row is the tombstone");
+  assert.equal(rows.rows.at(-1).version, removed.body.version, "the tombstone is the latest version");
+  const changes = await admin.query(
+    "SELECT action, reason FROM office_certificate_asset_changes WHERE tenant_id=$1 AND kind='LOGO' ORDER BY version DESC LIMIT 1",
+    [alphaId],
+  );
+  assert.deepEqual(changes.rows.map((r: any) => [r.action, r.reason]), [["REMOVED", REMOVE_REASON]]);
+  const audits = await admin.query(
+    "SELECT action FROM audit_events WHERE tenant_id=$1 AND action='OFFICE_CERTIFICATE_ASSET_REMOVED' ORDER BY created_at DESC LIMIT 1",
+    [alphaId],
+  );
+  assert.equal(audits.rows.length, 1);
+});
+
+test("certassets: remove twice is 404 the second time", async () => {
+  assert.equal(
+    (await req("DELETE", "/office/certificate-assets/logo", { reason: REMOVE_REASON }, "alphaAdmin")).status,
+    404,
+  );
+});
+
+test("certassets: remove then re-upload works and still needs a reason", async () => {
+  const tombstone = await overviewItem("alphaAdmin", "LOGO");
+  assert.equal(tombstone.current, null, "the logo is still removed here");
+  const tombstoneVersion = tombstone.history[0].version;
+  const noReason = await req(
+    "PUT",
+    "/office/certificate-assets/logo",
+    { mimeType: "image/png", base64: b64(logoPngV2) },
+    "alphaAdmin",
+  );
+  assert.equal(noReason.status, 422);
+  assert.equal(noReason.body.error.code, "REASON_REQUIRED");
+  const reuploaded = await req(
+    "PUT",
+    "/office/certificate-assets/logo",
+    { mimeType: "image/png", base64: b64(logoPngV2), reason: "Real office logo received after staging" },
+    "alphaAdmin",
+  );
+  assert.equal(reuploaded.status, 200, JSON.stringify(reuploaded.body));
+  assert.equal(reuploaded.body.version, tombstoneVersion + 1);
+  const resolved = await transaction(alphaId, async (db) => resolveCertificateAssets(db, alphaId));
+  assert.equal(resolved.logo, dataUrlOf(logoPngV2));
+  const served = await reqBytes("GET", "/office/certificate-assets/logo/image", "alphaAdmin");
+  assert.equal(served.status, 200);
+  assert.ok(served.bytes.equals(logoPngV2));
+});
+
+test("certassets: remove never resurrects an older version", async () => {
+  const beforeAssets = await transaction(alphaId, async (db) => resolveCertificateAssets(db, alphaId));
+  assert.ok(beforeAssets.logo, "alpha holds a logo before the seal proof");
+  const v1 = await req(
+    "PUT",
+    "/office/certificate-assets/seal",
+    { mimeType: "image/png", base64: b64(belaboSealPng), reason: "Seal re-uploaded for the tombstone proof" },
+    "alphaAdmin",
+  );
+  assert.equal(v1.status, 200, JSON.stringify(v1.body));
+  const v2 = await req(
+    "PUT",
+    "/office/certificate-assets/seal",
+    { mimeType: "image/png", base64: b64(logoPngV2), reason: "Seal replaced with a different image" },
+    "alphaAdmin",
+  );
+  assert.equal(v2.status, 200, JSON.stringify(v2.body));
+  assert.equal(v2.body.version, v1.body.version + 1);
+  const removed = await req(
+    "DELETE",
+    "/office/certificate-assets/seal",
+    { reason: REMOVE_REASON },
+    "alphaAdmin",
+  );
+  assert.equal(removed.status, 200, JSON.stringify(removed.body));
+  assert.equal(removed.body.version, v2.body.version + 1);
+  const resolved = await transaction(alphaId, async (db) => resolveCertificateAssets(db, alphaId));
+  assert.equal(resolved.seal, null, "the tombstone hides v2's bytes as well as v1's");
+  assert.equal(resolved.logo, beforeAssets.logo, "removing the seal leaves the logo untouched");
+  // Restore a live seal so the office is not left without one.
+  const restored = await req(
+    "PUT",
+    "/office/certificate-assets/seal",
+    { mimeType: "image/png", base64: b64(belaboSealPng), reason: "Seal restored after the tombstone proof" },
+    "alphaAdmin",
+  );
+  assert.equal(restored.status, 200, JSON.stringify(restored.body));
+  assert.equal(restored.body.version, removed.body.version + 1);
+  assert.equal(
+    (await transaction(alphaId, async (db) => resolveCertificateAssets(db, alphaId))).seal,
+    dataUrlOf(belaboSealPng),
+  );
+});
+
+test("certassets: remove leaves the other kinds untouched and cannot cross tenants", async () => {
+  const before = await transaction(alphaId, async (db) => resolveCertificateAssets(db, alphaId));
+  assert.ok(before.logo && before.seal && before.signature, "alpha holds all three kinds here");
+  const removed = await req(
+    "DELETE",
+    "/office/certificate-assets/signature",
+    { reason: REMOVE_REASON },
+    "alphaApprover",
+  );
+  assert.equal(removed.status, 200, JSON.stringify(removed.body));
+  const after = await transaction(alphaId, async (db) => resolveCertificateAssets(db, alphaId));
+  assert.equal(after.logo, before.logo, "the logo survives a signature removal");
+  assert.equal(after.seal, before.seal, "the seal survives a signature removal");
+  assert.equal(after.signature, null, "only the signature is gone");
+  // Beta's admin cannot touch alpha's assets: beta has no signature of its
+  // own, so its DELETE 404s, and alpha's logo is byte-identical afterwards.
+  assert.equal(
+    (await req("DELETE", "/office/certificate-assets/signature", { reason: REMOVE_REASON }, "betaAdmin")).status,
+    404,
+  );
+  assert.equal(
+    (await req("DELETE", "/office/certificate-assets/logo", { reason: REMOVE_REASON }, "betaAdmin")).status,
+    404,
+  );
+  const untouched = await transaction(alphaId, async (db) => resolveCertificateAssets(db, alphaId));
+  assert.equal(untouched.logo, before.logo);
+  // Restore the chairman's signature.
+  const restored = await req(
+    "PUT",
+    "/office/certificate-assets/signature",
+    { mimeType: "image/png", base64: b64(signaturePng), reason: "Signature restored after the removal proof" },
+    "alphaApprover",
+  );
+  assert.equal(restored.status, 200, JSON.stringify(restored.body));
+  assert.equal(restored.body.version, removed.body.version + 1);
 });

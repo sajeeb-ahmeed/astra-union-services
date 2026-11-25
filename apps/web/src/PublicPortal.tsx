@@ -1247,6 +1247,32 @@ export function PublicPortal({
         return false;
       }
     })();
+    // WS-C (§4 item 3): the schema names the required document for 12
+    // services in the supporting-documents guidance (minRows 1 set); the
+    // detail page never showed it — only the generic "attach a scan"
+    // note below. Surface the form's own named evidence here. The
+    // per-office published list in serviceOfficeInfo stays the office
+    // authority; this is the form's guidance, shown only where it names
+    // specific evidence (the other 35 services carry no description).
+    const docsGuidance = (() => {
+      try {
+        const schema: any = getServiceSchema(selected.service_no);
+        for (const section of schema?.sections ?? []) {
+          for (const field of section.fields ?? []) {
+            if (
+              field.id === "supporting_documents" &&
+              typeof field.description?.bn === "string" &&
+              field.description.bn.trim().length > 0
+            ) {
+              return field.description as { bn: string; en: string };
+            }
+          }
+        }
+        return null;
+      } catch {
+        return null;
+      }
+    })();
     // SEO P3/D4: the visible FAQ comes from the SEO registry, so the page
     // and the FAQPage JSON-LD in the prerendered copy are the same data.
     const faqItems = selectedSeo ? faqFor(selectedSeo) : null;
@@ -1348,7 +1374,7 @@ export function PublicPortal({
             </div>
             <div>
               <dt>{choose({ bn: "যাচাই", en: "Verification" })}</dt>
-              <dd>{choose({ bn: "QR কোড ও ১৬ ডিজিটের নম্বর", en: "QR code and 16-digit number" })}</dd>
+              <dd>{choose({ bn: "QR কোড ও সনদ নম্বর", en: "QR code and certificate number" })}</dd>
             </div>
           </dl>
         </section>
@@ -1373,6 +1399,14 @@ export function PublicPortal({
                   bn: "ফরমে চাওয়া হলে প্রয়োজনীয় নথির স্ক্যান বা ছবি যুক্ত করতে হবে।",
                   en: "Where the form asks, you will attach a scan or photo of the required document.",
                 })}
+              </p>
+            )}
+            {docsGuidance && (
+              <p>
+                <strong>
+                  {choose({ bn: "প্রয়োজনীয় কাগজপত্র: ", en: "Required documents: " })}
+                </strong>
+                {choose(docsGuidance)}
               </p>
             )}
           </section>
@@ -2062,8 +2096,8 @@ export function PublicPortal({
                       <h1>{choose({ bn: "সনদ যাচাই করুন", en: "Verify a certificate" })}</h1>
                       <p>
                         {choose({
-                          bn: "সনদের QR লিংক, যাচাই কোড অথবা ১৬ ডিজিটের সনদ নম্বরটি লিখুন।",
-                          en: "Enter the certificate's QR link, verification code or its 16-digit certificate number.",
+                          bn: "সনদের QR লিংক, যাচাই কোড অথবা সনদ নম্বরটি লিখুন।",
+                          en: "Enter the certificate's QR link, verification code or its certificate number.",
                         })}
                       </p>
                       <form
@@ -2073,8 +2107,8 @@ export function PublicPortal({
                           const fail = () =>
                             setError(
                               choose({
-                                bn: "সঠিক QR লিংক, যাচাই কোড বা ১৬ ডিজিটের সনদ নম্বর লিখুন।",
-                                en: "Enter a valid verification link, code or 16-digit certificate number.",
+                                bn: "সঠিক QR লিংক, যাচাই কোড বা সনদ নম্বর লিখুন।",
+                                en: "Enter a valid verification link, code or certificate number.",
                               }),
                             );
                           // A shared link may carry the number as ?searchText=.
@@ -2085,12 +2119,13 @@ export function PublicPortal({
                             );
                             return;
                           }
-                          // The printed 16-digit number (Bangla digits and
-                          // spaces/dashes as printed are accepted).
+                          // The printed certificate number — 14 digits since
+                          // CERTNO-DDMM, 16 on older certificates (Bangla
+                          // digits and spaces/dashes as printed are accepted).
                           const digits = input
                             .replace(/[০-৯]/g, (d) => String("০১২৩৪৫৬৭৮৯".indexOf(d)))
                             .replace(/[\s-]/g, "");
-                          if (/^\d{16}$/.test(digits)) {
+                          if (/^(\d{14}|\d{16})$/.test(digits)) {
                             location.assign(`/verify?searchText=${digits}`);
                             return;
                           }
@@ -2141,8 +2176,8 @@ export function PublicPortal({
                         <ul>
                           <li>
                             {choose({
-                              bn: "সনদে ছাপা ১৬ ডিজিটের নম্বরটি, অথবা সনদের QR কোডের লিংকটি।",
-                              en: "The 16-digit number printed on the certificate, or the link from its QR code.",
+                              bn: "সনদে ছাপা নম্বরটি, অথবা সনদের QR কোডের লিংকটি।",
+                              en: "The number printed on the certificate, or the link from its QR code.",
                             })}
                           </li>
                           <li>

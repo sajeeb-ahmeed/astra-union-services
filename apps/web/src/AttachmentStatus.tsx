@@ -241,12 +241,16 @@ export function AttachmentStatus({
         {choose({ bn: "বাইট", en: "bytes" })}
       </p>
       {metadata && !canDownload && (
+        // R10LIVE-WSB: advance is never gated on scan state — only the
+        // download and the SUBMIT are blocked until the check passes.
+        // Moving between form steps and saving a draft stay allowed
+        // (step-1 verification note, section (b)).
         <p className="hint">
           {choose(
             pending(metadata.scanState) && !metadata.scannerAvailable
               ? {
-                  bn: "স্ক্যানারের অপেক্ষায় আছে। পরীক্ষা শেষ না হওয়া পর্যন্ত নথি ডাউনলোড বা আবেদন এগিয়ে নেওয়া যাবে না।",
-                  en: "Waiting for the scanner. The document cannot be downloaded or the application progressed until the check finishes.",
+                  bn: "স্ক্যানারের অপেক্ষায় আছে। পরীক্ষা শেষ না হওয়া পর্যন্ত নথিটি ডাউনলোড করা যাবে না এবং আবেদন জমা দেওয়া যাবে না; তবে ফরমের ধাপগুলোতে যাওয়া-আসা ও খসড়া সংরক্ষণ করা যাবে।",
+                  en: "Waiting for the scanner. The document cannot be downloaded and the application cannot be submitted until the check finishes; you can still move between the form steps and save a draft.",
                 }
               : metadata.scanState === "REJECTED"
                 ? {
@@ -264,8 +268,8 @@ export function AttachmentStatus({
                         en: "This document is unavailable for download. Contact the office.",
                       }
                     : {
-                        bn: "পরীক্ষা শেষ না হওয়া পর্যন্ত ডাউনলোড ও আবেদন এগিয়ে নেওয়া বন্ধ থাকবে। খসড়া সংরক্ষণ করতে পারবেন।",
-                        en: "Download and application progress remain blocked until the check finishes. You can save a draft.",
+                        bn: "পরীক্ষা শেষ না হওয়া পর্যন্ত নথিটি ডাউনলোড করা যাবে না এবং আবেদন জমা দেওয়া যাবে না। ফরমের ধাপগুলোতে যাওয়া-আসা ও খসড়া সংরক্ষণ করা যাবে।",
+                        en: "The document cannot be downloaded and the application cannot be submitted until the check finishes. You can still move between the form steps and save a draft.",
                       },
           )}
         </p>

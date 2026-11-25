@@ -130,6 +130,17 @@ export function citizenFormDefaults(schema: FormSchema, citizen: any): Record<st
   return defaults;
 }
 
+/**
+ * R10LIVE-WSB (S2): a checkbox with mustBeTrue is a declaration/attestation
+ * the citizen actively gives on the form step — its "হ্যাঁ/Yes" is not
+ * applicant data and must never render as a review data row. Plain
+ * checkboxes (is_minor, spi_is_dead, has_previous_license, …) carry real
+ * facts and stay. Group-controller checkboxes are filtered separately
+ * below (QAFIX-01); this covers the confirmation + service declarations.
+ */
+const isDeclarationField = (field: FieldDefinition): boolean =>
+  field.type === "checkbox" && field.constraints?.mustBeTrue === true;
+
 /** Human-readable rendering of one entered value, for the review step. */
 function detailText(
   field: FieldDefinition,
@@ -142,6 +153,9 @@ function detailText(
       .map((row: Record<string, any>, index: number) => {
         const parts = (field.children ?? [])
           .filter((child) => isFieldVisible(child, row ?? {}))
+          // R10LIVE-WSB (S2): declarations inside a repeating group are
+          // form mechanics too — same exclusion as the top-level filter.
+          .filter((child) => !isDeclarationField(child))
           .map((child) => {
             const childText = detailText(child, row?.[child.id], formatDate);
             return childText ? `${choose(child.label)}: ${childText}` : null;
@@ -161,7 +175,13 @@ function detailText(
       return value === true ? choose({ bn: "হ্যাঁ", en: "Yes" }) : null;
     case "select": {
       const option = field.options?.find((item) => item.value === value);
-      return option ? choose(option.label) : String(value);
+      // R10LIVE-WSB (service 27): a select whose resolved display text is
+      // empty must never render as a blank review row — skip it instead.
+      // (Live r10 reported a blank "উদ্দেশ্যের ভাষা" row; the current
+      // schema maps "bn" to "বাংলা" and the probe could not reproduce a
+      // blank, so this is a guard, not a reproduction fix.)
+      const resolved = option ? choose(option.label) : String(value);
+      return resolved.trim() ? resolved : null;
     }
     case "attachment":
       return typeof value?.byteLength === "number"
@@ -265,9 +285,14 @@ export function PayloadDetails({
         // QAFIX-01 (§4 item 10): group-controller checkboxes (the opt-in
         // toggles) are form mechanics — their "হ্যাঁ" never leaks onto the
         // review screen as if it were applicant data.
+        // R10LIVE-WSB (S2): the same holds for declaration/attestation
+        // checkboxes (confirmation + service declarations) — the box
+        // itself stays functional on the form step; only its review row
+        // goes away.
         .filter(
           (field) =>
-            !(field.type === "checkbox" && groupControllerIds.has(field.id)),
+            !(field.type === "checkbox" && groupControllerIds.has(field.id)) &&
+            !isDeclarationField(field),
         )
         .map((field) => ({
           field,

@@ -33,6 +33,16 @@ export function randomEightDigits(): string {
 }
 
 /**
+ * Ten cryptographically random digits, zero-padded — the random part of
+ * the certificate number since CERTNO-DDMM (owner order, 25 Nov 2026:
+ * DDMM + 10 random digits = 14 digits, never duplicated). Uses the same
+ * node:crypto source as randomEightDigits (never Math.random).
+ */
+export function randomTenDigits(): string {
+  return String(randomInt(0, 10_000_000_000)).padStart(10, "0");
+}
+
+/**
  * Mint a fresh 16-digit reference: Dhaka date + 8 random digits. `exists`
  * reports whether a candidate is already taken in the caller's scope; the
  * mint retries on collision and gives up after a bounded number of attempts

@@ -33,6 +33,10 @@ import { ProfileCompleteness } from "./ProfileCompleteness.js";
 import { WorkspaceWelcome } from "./WorkspaceWelcome.js";
 import { withoutOrderLanguage } from "./order-schema.js";
 import { ServiceFlow, PayloadDetails } from "./ServiceFlow.js";
+import {
+  AttachmentStatus,
+  type AttachmentHandle,
+} from "./AttachmentStatus.js";
 import { WorkspaceDashboard } from "./WorkspaceDashboard.js";
 import { SidebarNav } from "./ui/SidebarNav.js";
 import {
@@ -260,6 +264,14 @@ const transitionConfirmText: Record<string, { bn: string; en: string }> = {
     bn: "আবেদনটি প্রত্যাখ্যান করবেন? এটি ফেরানো যাবে না।",
     en: "Reject this application? This cannot be undone.",
   },
+  request_correction: {
+    bn: "আবেদনকারীকে জানানো হবে কোন তথ্য সংশোধন করতে হবে এবং কত দিনের মধ্যে।",
+    en: "The applicant will be told what to correct and by when.",
+  },
+  summon: {
+    bn: "আবেদনকারীকে জানানো হবে কবে ও কোথায় আসতে হবে। আবেদনটি জমা দেওয়া অবস্থায়ই থাকবে।",
+    en: "The applicant will be told when and where to come. The application stays submitted.",
+  },
 };
 const transitionConfirmTitle: Record<string, { bn: string; en: string }> = {
   approve: {
@@ -267,11 +279,166 @@ const transitionConfirmTitle: Record<string, { bn: string; en: string }> = {
     en: "Approve and issue certificate",
   },
   reject: { bn: "প্রত্যাখ্যান করুন", en: "Reject application" },
+  request_correction: { bn: "সংশোধন চান", en: "Request correction" },
+  summon: {
+    bn: "আবেদনকারীকে আসতে বলুন",
+    en: "Ask the applicant to come",
+  },
 };
 const transitionConfirmButton: Record<string, { bn: string; en: string }> = {
   approve: { bn: "হ্যাঁ, অনুমোদন করুন", en: "Confirm approval" },
   reject: { bn: "হ্যাঁ, প্রত্যাখ্যান করুন", en: "Confirm rejection" },
+  request_correction: { bn: "সংশোধনের অনুরোধ পাঠান", en: "Send correction request" },
+  summon: { bn: "আসতে বলুন", en: "Ask to come" },
 };
+/** WS-D2 (item 16): decision dialogs carry preset reasons — a rejection,
+    correction request or summons is never sent without a reason. The
+    presets are the reason the citizen reads; the free-text note adds
+    detail. "অন্যান্য" always needs the note (enforced in the dialog). */
+const rejectReasons: { value: string; bn: string; en: string }[] = [
+  { value: "incomplete", bn: "তথ্য অসম্পূর্ণ", en: "Information is incomplete" },
+  { value: "incorrect", bn: "ভুল তথ্য দেওয়া হয়েছে", en: "Incorrect information was given" },
+  { value: "missing-document", bn: "প্রয়োজনীয় নথি জমা হয়নি", en: "A required document was not submitted" },
+  { value: "ineligible", bn: "সেবার শর্ত পূরণ হয়নি", en: "The service conditions are not met" },
+  { value: "other", bn: "অন্যান্য", en: "Other" },
+];
+const correctionReasons: { value: string; bn: string; en: string }[] = [
+  { value: "wrong-info", bn: "তথ্যে ভুল আছে", en: "Some information is wrong" },
+  { value: "unreadable-document", bn: "নথি অস্পষ্ট বা পড়া যাচ্ছে না", en: "A document is unclear or unreadable" },
+  { value: "missing-document", bn: "প্রয়োজনীয় নথি জমা হয়নি", en: "A required document was not submitted" },
+  { value: "unverifiable", bn: "ঠিকানা বা পরিচয় যাচাই করা যায়নি", en: "The address or identity could not be verified" },
+  { value: "other", bn: "অন্যান্য", en: "Other" },
+];
+const summonReasons: { value: string; bn: string; en: string }[] = [
+  { value: "verify-originals", bn: "মূল নথি যাচাই করতে হবে", en: "Original documents must be verified" },
+  { value: "verify-info", bn: "তথ্য যাচাই করতে হবে", en: "Information must be verified" },
+  { value: "signature", bn: "স্বাক্ষর প্রয়োজন", en: "A signature is required" },
+  { value: "other", bn: "অন্যান্য", en: "Other" },
+];
+/** WS-D2 (item 16): correction deadlines are presets, never a date
+    picker — the chairman picks a window, the reason carries it. */
+const correctionDeadlines: { value: string; bn: string; en: string }[] = [
+  { value: "3", bn: "৩ দিন", en: "3 days" },
+  { value: "7", bn: "৭ দিন", en: "7 days" },
+  { value: "14", bn: "১৪ দিন", en: "14 days" },
+  { value: "30", bn: "৩০ দিন", en: "30 days" },
+];
+/** WS-D2 (item 9): the citizen's linked identity document (NID / birth
+    registration image) is an attachment like any other — its scan state
+    and gated download come from the shared AttachmentStatus display.
+    Only the handle (mime + bytes) is fetched here, from the status
+    endpoint; AttachmentStatus itself is untouched. */
+function IdentityDocumentStatus({
+  attachmentId,
+  kind,
+}: {
+  attachmentId: string;
+  kind: string;
+}) {
+  useLanguage();
+  const [handle, setHandle] = useState<AttachmentHandle | null>(null);
+  const [failed, setFailed] = useState(false);
+  useEffect(() => {
+    let live = true;
+    setHandle(null);
+    setFailed(false);
+    api(`/attachments/${attachmentId}/status`)
+      .then((status: any) => {
+        if (!live) return;
+        if (
+          typeof status?.mimeType === "string" &&
+          typeof status?.byteLength === "number"
+        )
+          setHandle({
+            attachmentId,
+            mimeType: status.mimeType,
+            byteLength: status.byteLength,
+          });
+        else setFailed(true);
+      })
+      .catch(() => {
+        if (live) setFailed(true);
+      });
+    return () => {
+      live = false;
+    };
+  }, [attachmentId]);
+  return (
+    <div className="detail-identity-document">
+      <dt>
+        {choose({
+          bn:
+            kind === "birth_reg"
+              ? "জন্ম নিবন্ধনের ছবি"
+              : "জাতীয় পরিচয়পত্রের ছবি",
+          en:
+            kind === "birth_reg"
+              ? "Birth registration image"
+              : "National ID image",
+        })}
+      </dt>
+      <dd>
+        {failed ? (
+          <p className="hint">
+            {choose({
+              bn: "পরিচয়পত্রের ছবির অবস্থা পাওয়া যায়নি।",
+              en: "The identity document status could not be loaded.",
+            })}
+          </p>
+        ) : handle ? (
+          <AttachmentStatus attachment={handle} />
+        ) : (
+          <p className="hint">
+            {choose({ bn: "লোড হচ্ছে…", en: "Loading…" })}
+          </p>
+        )}
+      </dd>
+    </div>
+  );
+}
+/** WS-D2 (item 9): every attachment handle in the application payload,
+    with the field label the chairman reads it under. Walks top-level
+    attachment fields and repeatable rows (supporting_documents); a row's
+    own description names the document when present. */
+function collectApplicationAttachments(
+  schema: any,
+  payload: Record<string, any>,
+): { title: { bn: string; en: string }; handle: AttachmentHandle }[] {
+  if (!schema || !payload) return [];
+  const found: { title: { bn: string; en: string }; handle: AttachmentHandle }[] = [];
+  const isHandle = (value: any): value is AttachmentHandle =>
+    !!value &&
+    typeof value === "object" &&
+    typeof value.attachmentId === "string" &&
+    typeof value.mimeType === "string" &&
+    typeof value.byteLength === "number";
+  const walk = (fields: any[], value: Record<string, any>, prefix: { bn: string; en: string } | null) => {
+    for (const field of fields ?? []) {
+      const fieldValue = value?.[field.id];
+      if (field.type === "attachment" && isHandle(fieldValue)) {
+        found.push({
+          title: prefix ?? { bn: field.label?.bn ?? field.id, en: field.label?.en ?? field.id },
+          handle: fieldValue,
+        });
+      } else if (Array.isArray(fieldValue) && field.children?.length) {
+        fieldValue.forEach((row: any, index: number) => {
+          const rowTitle =
+            typeof row?.description === "string" && row.description.trim()
+              ? { bn: row.description, en: row.description }
+              : {
+                  bn: `${field.label?.bn ?? field.id} ${index + 1}`,
+                  en: `${field.label?.en ?? field.id} ${index + 1}`,
+                };
+          walk(field.children, row, rowTitle);
+        });
+      } else if (field.children?.length) {
+        walk(field.children, fieldValue ?? {}, prefix);
+      }
+    }
+  };
+  for (const section of schema.sections ?? []) walk(section.fields, payload, null);
+  return found;
+}
 /* FULL-UIUX-01 · OWNER-DECISION 1: real workspace routes. Hash-based
    (production is an SPA behind LiteSpeed with no rewrite control):
    #/<page>, #/applications/<id>, #/applications?state=X&service=N,
@@ -437,12 +604,26 @@ export function WorkspaceApp({
     [detail, setDetail] = useState<any>(null),
     [confirmAction, setConfirmAction] = useState<string | null>(null),
     [reason, setReason] = useState(""),
+    // WS-D2 (item 16): decision-dialog fields — preset reason, free-text
+    // note, correction field + deadline, summons when/where, dialog error.
+    [dialogReason, setDialogReason] = useState(""),
+    [dialogNote, setDialogNote] = useState(""),
+    [dialogField, setDialogField] = useState(""),
+    [dialogDeadline, setDialogDeadline] = useState("7"),
+    [dialogWhen, setDialogWhen] = useState(""),
+    [dialogWhere, setDialogWhere] = useState(""),
+    [dialogError, setDialogError] = useState<{ bn: string; en: string } | null>(null),
     [filter, setFilter] = useState(""),
     [search, setSearch] = useState("");
   const [appSearch, setAppSearch] = useState(""),
     [appQuery, setAppQuery] = useState(""),
     [appPage, setAppPage] = useState(1),
     [appPageSize, setAppPageSize] = useState(25),
+    // WS-D1: list sort (default newest-first) and the list's own loading
+    // flag — the global `busy` also covers transitions, so the list needs
+    // its own signal to show a skeleton instead of stale rows/counts.
+    [appSort, setAppSort] = useState("newest"),
+    [appLoading, setAppLoading] = useState(false),
     // QAFIX-01 (§4 item 13): null until the first list answer arrives —
     // totals show a loading dash, never a confident 0 that later jumps.
     [appTotal, setAppTotal] = useState<number | null>(null);
@@ -456,7 +637,13 @@ export function WorkspaceApp({
   const [pendingCounts, setPendingCounts] = useState<any>(null),
     [pendingLists, setPendingLists] = useState<
       Record<string, { items: any[]; total: number }>
-    >({});
+    >({}),
+    // WS-D1: the pending queue's own loading flag — without it the two
+    // groups render their (genuinely empty) initial lists and flash the
+    // false "nothing is waiting" empty state on every visit (live QA
+    // defect (b)).
+    [pendingLoading, setPendingLoading] = useState(false);
+  const pendingEpoch = useRef(0);
   const [applicationReference, setApplicationReference] = useState("");
   /* FULL-UIUX-01 · OWNER-DECISION 2: one global header search — services
      from the loaded catalog, applications and citizens from the existing
@@ -511,6 +698,48 @@ export function WorkspaceApp({
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [globalQuery]);
+  /* WS-D3: Enter in the global search goes somewhere — the first loaded
+     application (a reference lookup), else the first citizen, else the
+     first service; with no loaded result it opens the applications list
+     filtered by the query. Before this, Enter did nothing at all: the
+     input had no key handler and was not in a form. */
+  function globalSearchEnter() {
+    const q = globalQuery.trim();
+    if (!q) return;
+    const firstApp = globalResults?.applications?.[0];
+    const firstCitizen = globalResults?.citizens?.[0];
+    const firstService = globalResults?.services?.[0];
+    setGlobalQuery("");
+    setGlobalFocus(false);
+    if (firstApp) {
+      void run(() => openApplication(firstApp.id));
+      return;
+    }
+    if (firstCitizen) {
+      // The citizens list is paged: filter it to this citizen so the
+      // details panel can find the record on the first page.
+      setCitizenSearch(
+        firstCitizen.nameBn || firstCitizen.name_bn || firstCitizen.nameEn || firstCitizen.name_en || "",
+      );
+      nav("citizens");
+      setDetailsCitizenId(firstCitizen.id);
+      return;
+    }
+    if (firstService) {
+      if (canApply) {
+        setSelectedService(firstService.service_no);
+        setFlowService(firstService.service_no);
+        setFlowCitizen(role === "citizen" ? ownCitizen() : null);
+        nav("flow");
+      } else {
+        nav("services");
+      }
+      return;
+    }
+    setAppSearch(q);
+    setAppPage(1);
+    nav("applications");
+  }
   const [renewalOrder, setRenewalOrder] = useState<IntakeOrderState | null>(
     null,
   );
@@ -527,8 +756,16 @@ export function WorkspaceApp({
   }, [appSearch]);
   const [citizenSearch, setCitizenSearch] = useState(""),
     [citizenQuery, setCitizenQuery] = useState("");
+  // WS-D3: the citizens register is paged (25/page) — the list endpoint
+  // caps at 100 rows with no page before this, so a large register simply
+  // stopped. Page state lives beside the applications paging above.
+  const [citizenPage, setCitizenPage] = useState(1),
+    [citizenPageSize, setCitizenPageSize] = useState(25);
   useEffect(() => {
-    const timer = setTimeout(() => setCitizenQuery(citizenSearch), 250);
+    const timer = setTimeout(() => {
+      setCitizenQuery(citizenSearch);
+      setCitizenPage(1);
+    }, 250);
     return () => clearTimeout(timer);
   }, [citizenSearch]);
   const [citizenForm, setCitizenForm] = useState({
@@ -575,45 +812,73 @@ export function WorkspaceApp({
     const role = session?.user?.role;
     if (!role) return;
     const epoch = ++refreshEpoch.current;
-    const [
-      servicesResult,
-      citizenResult,
-      applicationResult,
-      walletResult,
-      billingResult,
-      tenantResult,
-    ] = await Promise.all([
-      api("/services"),
-      !["owner", "finance"].includes(role)
-        ? api(`/citizens?q=${encodeURIComponent(citizenQuery)}`)
-        : Promise.resolve({ items: [] }),
-      !["owner", "finance"].includes(role)
-        ? api(
-            `/applications?${new URLSearchParams({ ...(filter ? { state: filter } : {}), ...(appService ? { serviceNo: appService } : {}), q: appQuery, page: String(appPage), pageSize: String(appPageSize), ...(appFrom ? { from: appFrom } : {}), ...(appTo ? { to: appTo } : {}), ...(appRenewals ? { renewal: "true" } : {}) })}`,
-          )
-        : Promise.resolve({ items: [], total: 0 }),
-      ["admin", "finance", "approver"].includes(role)
-        ? api("/wallet")
-        : Promise.resolve(null),
-      ["admin", "finance"].includes(role)
-        ? api("/billing")
-        : Promise.resolve(null),
-      role === "owner" ? api("/owner/tenants") : Promise.resolve({ items: [] }),
-    ]);
-    if (epoch !== refreshEpoch.current) return;
-    setCatalog(items(servicesResult));
-    setCitizens(items(citizenResult));
-    setCitizenTotal(citizenResult.total ?? items(citizenResult).length);
-    setApplications(items(applicationResult));
-    setAppTotal(applicationResult.total ?? items(applicationResult).length);
-    setWallet(walletResult);
-    setBilling(billingResult);
-    setTenants(items(tenantResult));
-    setPlans(tenantResult.plans ?? []);
+    // WS-D1: the list is about to be re-read — mark it loading and clear
+    // the total at once, so the old rows/counts are never presented as
+    // the current answer while the new one is in flight (live QA
+    // defect (a)). Roles that never fetch the list keep the old values.
+    const fetchesApplications = !["owner", "finance"].includes(role);
+    if (fetchesApplications) {
+      setAppLoading(true);
+      setAppTotal(null);
+    }
+    try {
+      const [
+        servicesResult,
+        citizenResult,
+        applicationResult,
+        walletResult,
+        billingResult,
+        tenantResult,
+      ] = await Promise.all([
+        api("/services"),
+        !["owner", "finance"].includes(role)
+          ? api(
+              `/citizens?${new URLSearchParams({ q: citizenQuery, page: String(citizenPage), pageSize: String(citizenPageSize) })}`,
+            )
+          : Promise.resolve({ items: [] }),
+        !["owner", "finance"].includes(role)
+          ? api(
+              `/applications?${new URLSearchParams({ ...(filter ? { state: filter } : {}), ...(appService ? { serviceNo: appService } : {}), q: appQuery, page: String(appPage), pageSize: String(appPageSize), sort: appSort, ...(appFrom ? { from: appFrom } : {}), ...(appTo ? { to: appTo } : {}), ...(appRenewals ? { renewal: "true" } : {}) })}`,
+            )
+          : Promise.resolve({ items: [], total: 0 }),
+        ["admin", "finance", "approver"].includes(role)
+          ? api("/wallet")
+          : Promise.resolve(null),
+        ["admin", "finance"].includes(role)
+          ? api("/billing")
+          : Promise.resolve(null),
+        role === "owner" ? api("/owner/tenants") : Promise.resolve({ items: [] }),
+      ]);
+      if (epoch !== refreshEpoch.current) return;
+      setCatalog(items(servicesResult));
+      setCitizens(items(citizenResult));
+      setCitizenTotal(citizenResult.total ?? items(citizenResult).length);
+      setApplications(items(applicationResult));
+      setAppTotal(applicationResult.total ?? items(applicationResult).length);
+      setWallet(walletResult);
+      setBilling(billingResult);
+      setTenants(items(tenantResult));
+      setPlans(tenantResult.plans ?? []);
+    } finally {
+      // Only the latest epoch may clear the flag — a stale epoch's
+      // return must not hide the newer fetch still in flight, and a
+      // failed latest fetch must not leave the skeleton up forever.
+      if (epoch === refreshEpoch.current && fetchesApplications)
+        setAppLoading(false);
+    }
   }
   useEffect(() => {
     if (session) run(refresh);
-  }, [session, filter, appService, appQuery, appPage, appPageSize, citizenQuery, appFrom, appTo, appRenewals]);
+  }, [session, filter, appService, appQuery, appPage, appPageSize, appSort, citizenQuery, citizenPage, citizenPageSize, appFrom, appTo, appRenewals]);
+  // WS-D1: if the total shrinks under the current page (a decision moved
+  // rows out of this filtered view), step back onto the last real page
+  // instead of showing an empty page. Null total means a load is in
+  // flight — never clamp on it.
+  useEffect(() => {
+    if (appTotal === null) return;
+    const maxPage = Math.max(1, Math.ceil(appTotal / appPageSize));
+    if (appPage > maxPage) setAppPage(maxPage);
+  }, [appTotal, appPageSize]);
   const paymentReturnHandled = useRef(false);
   useEffect(() => {
     if (!session || !paymentReturnApplication || paymentReturnHandled.current)
@@ -689,8 +954,12 @@ export function WorkspaceApp({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [role, page, appTotal]);
   // Phase 1 slice (ii), approved: staff get the UDC sidebar; staff and office admins get the dashboard home.
+  // WS-D3: the chairman (approver) gets the dashboard home too — before
+  // this the chairman's home was only action cards and an explainer, with
+  // no numbers at all, while the same counts fed the pending page and the
+  // sidebar badge.
   const udcPreview = usesUdcNavigation(role);
-  const dashboardHome = staff;
+  const dashboardHome = staff || approver;
   const udcCurrent =
     page === "home"
       ? "dashboard"
@@ -765,6 +1034,21 @@ export function WorkspaceApp({
     setAppSearch("");
     setAppQuery("");
     setAppPage(1);
+    // WS-D1: clearing the filters clears the address too — the old code
+    // left a stale ?state=SUBMITTED / ?state=ISSUED in the hash, so a
+    // reload or a shared link re-applied the "cleared" filter.
+    writeRoute("#/applications");
+  }
+  // WS-D1: one place that writes the applications hash from explicit
+  // (state, service) values — filter changes, chip removals and clears
+  // all go through it so the hash never disagrees with the list.
+  function writeApplicationsRoute(state: string, serviceNo: string) {
+    const params = new URLSearchParams({
+      ...(state ? { state } : {}),
+      ...(serviceNo ? { service: serviceNo } : {}),
+    });
+    const query = params.toString();
+    writeRoute(`#/applications${query ? `?${query}` : ""}`);
   }
   /* FULL-UIUX-01 · OWNER-DECISION 1: route writes. Every navigation keeps
      the hash truthful; applying a hash never writes one back. */
@@ -840,6 +1124,28 @@ export function WorkspaceApp({
   }
   const application = detail?.application || detail,
     detailPayload = detail?.payload || application?.payload || {};
+  /** WS-D2 (item 16): the correction dialog's field selector — the
+      top-level fields of this application's own schema version. */
+  const correctionFieldOptions: {
+    id: string;
+    label: { bn: string; en: string };
+  }[] = (() => {
+    if (!detail || !application) return [];
+    try {
+      const schema = getServiceSchema(
+        application.serviceNo || application.service_no,
+        application.schemaVersion || 1,
+      );
+      return (schema.sections ?? []).flatMap((section: any) =>
+        (section.fields ?? []).map((field: any) => ({
+          id: field.id,
+          label: field.label ?? { bn: field.id, en: field.id },
+        })),
+      );
+    } catch {
+      return [];
+    }
+  })();
   const renewalLanguage =
     renewalLanguageChoice && renewalLanguageChoice.id === application?.id
       ? renewalLanguageChoice.language
@@ -854,8 +1160,115 @@ export function WorkspaceApp({
   function closeDetail() {
     setActionError("");
     setConfirmAction(null);
+    resetDialog();
     setDetail(null);
     writeRoute(applicationsHash());
+  }
+  /** WS-D2 (item 16): the decision dialog starts empty every time — a
+      stale reason from an earlier decision must never leak into the
+      next one. The side reason box, when already filled, seeds the
+      dialog's note instead. */
+  function resetDialog() {
+    setDialogReason("");
+    setDialogNote("");
+    setDialogField("");
+    setDialogDeadline("7");
+    setDialogWhen("");
+    setDialogWhere("");
+    setDialogError(null);
+  }
+  /** WS-D2 (item 16): the single reason string the server stores and the
+      citizen reads, composed from the dialog's preset + note (+ field and
+      deadline for corrections, when/where for summons). */
+  function composeDialogReason(action: string): string {
+    if (action === "reject") {
+      const preset = rejectReasons.find((r) => r.value === dialogReason);
+      const label = preset ? choose(preset) : "";
+      const note = dialogNote.trim();
+      if (preset?.value === "other") return note;
+      return note ? `${label} — ${note}` : label;
+    }
+    if (action === "request_correction") {
+      const preset = correctionReasons.find((r) => r.value === dialogReason);
+      const field =
+        correctionFieldOptions.find((f) => f.id === dialogField)?.label ??
+        null;
+      const fieldLabel = dialogField === "__all__"
+        ? choose({ bn: "সব তথ্য", en: "All information" })
+        : field
+          ? choose(field)
+          : "";
+      const deadline = correctionDeadlines.find(
+        (d) => d.value === dialogDeadline,
+      );
+      const parts = [
+        choose({
+          bn: `সংশোধন প্রয়োজন: ${fieldLabel} — ${preset ? choose(preset) : ""}`,
+          en: `Correction needed: ${fieldLabel} — ${preset ? choose(preset) : ""}`,
+        }),
+      ];
+      if (dialogNote.trim()) parts.push(dialogNote.trim());
+      if (deadline)
+        parts.push(
+          choose({
+            bn: `সময়সীমা: ${choose(deadline)}`,
+            en: `Deadline: ${choose(deadline)}`,
+          }),
+        );
+      return parts.join("। ");
+    }
+    if (action === "summon") {
+      const preset = summonReasons.find((r) => r.value === dialogReason);
+      const parts = [
+        preset ? choose(preset) : "",
+        choose({
+          bn: `${dialogWhen.trim()} — ${dialogWhere.trim()}`,
+          en: `${dialogWhen.trim()} — ${dialogWhere.trim()}`,
+        }),
+      ];
+      if (dialogNote.trim()) parts.push(dialogNote.trim());
+      return parts.filter(Boolean).join(" — ");
+    }
+    return dialogNote.trim();
+  }
+  /** WS-D2 (item 16): the dialog blocks an empty reason in Bangla,
+      before anything reaches the server. */
+  function validateDialog(action: string): boolean {
+    const err = (bn: string, en: string) => {
+      setDialogError({ bn, en });
+      return false;
+    };
+    if (action === "reject") {
+      if (!dialogReason)
+        return err("প্রত্যাখ্যানের কারণ বেছে নিন।", "Choose a rejection reason.");
+      if (dialogReason === "other" && dialogNote.trim().length < 3)
+        return err("কারণটি লিখুন।", "Write the reason.");
+      return true;
+    }
+    if (action === "request_correction") {
+      if (!dialogField)
+        return err(
+          "কোন তথ্য সংশোধন করতে হবে তা বেছে নিন।",
+          "Choose which information needs correction.",
+        );
+      if (!dialogReason)
+        return err("সংশোধনের কারণ বেছে নিন।", "Choose a correction reason.");
+      if (dialogReason === "other" && dialogNote.trim().length < 3)
+        return err("কারণটি লিখুন।", "Write the reason.");
+      return true;
+    }
+    if (action === "summon") {
+      if (dialogWhen.trim().length < 3)
+        return err("কবে আসতে হবে তা লিখুন।", "Write when the applicant should come.");
+      if (dialogWhere.trim().length < 3)
+        return err("কোথায় আসতে হবে তা লিখুন।", "Write where the applicant should come.");
+      if (!dialogReason)
+        return err("আসতে বলার কারণ বেছে নিন।", "Choose a reason for asking them to come.");
+      if (dialogReason === "other" && dialogNote.trim().length < 3)
+        return err("কারণটি লিখুন।", "Write the reason.");
+      return true;
+    }
+    return true;
   }
   async function transition(action: string) {
     // QAFIX-09 (B1): decisions that cannot be undone (QA-13) ask
@@ -863,19 +1276,28 @@ export function WorkspaceApp({
     // rendered below, not window.confirm: the native dialog is
     // auto-cancelled by automated browsers, which silently
     // stranded the chairman's approve/reject, and it cannot show
-    // the application reference. Other transitions run at once.
+    // the application reference.
+    // WS-D2 (item 16): correction and summons ask in the same modal —
+    // a reason is required, so the dialog collects it instead of the
+    // click failing with the server's English error. Other transitions
+    // run at once.
     if (transitionConfirmText[action]) {
+      resetDialog();
+      if (reason.trim()) setDialogNote(reason.trim());
+      if (action === "summon")
+        setDialogWhere(recordName(session.tenant) || "");
       setConfirmAction(action);
       return;
     }
     await runTransition(action);
   }
-  async function runTransition(action: string) {
+  async function runTransition(action: string, reasonOverride?: string) {
     setActionError("");
+    const finalReason = (reasonOverride ?? reason).trim();
     try {
       await api(`/applications/${application.id}/transition`, "POST", {
         action,
-        ...(reason.trim() ? { reason: reason.trim() } : {}),
+        ...(finalReason ? { reason: finalReason } : {}),
       });
     } catch (e) {
       // F2 (FULL-LIVE-QA-R5 finding, 21 Nov): a rejected transition —
@@ -893,6 +1315,7 @@ export function WorkspaceApp({
     }
     await openApplication(application.id);
     await refresh();
+    resetDialog();
     setMessage(choose(actionDone[action] ?? actionText[action] ?? { bn: "সম্পন্ন হয়েছে।", en: "Done." }));
   }
   // CHAIRMAN-DASH-01: the Pending applications queue. Counts always come from the
@@ -907,20 +1330,38 @@ export function WorkspaceApp({
     setPendingCounts(counts);
   }
   async function loadPending() {
-    await loadPendingCounts();
-    const lists: Record<string, { items: any[]; total: number }> = {};
-    await Promise.all(
-      [...pendingReviewStates, ...pendingIssuanceStates].map(async (state) => {
-        const r = await api(
-          `/applications?${new URLSearchParams({ state, page: "1", pageSize: "100" })}`,
-        );
-        lists[state] = {
-          items: items(r),
-          total: r.total ?? items(r).length,
-        };
-      }),
-    );
-    setPendingLists(lists);
+    const epoch = ++pendingEpoch.current;
+    // WS-D1: loading flag + cleared counts first — the groups must show a
+    // skeleton, never the previous visit's counts or the false empty
+    // state, while the new answers are in flight (live QA defect (b)).
+    setPendingLoading(true);
+    setPendingCounts(null);
+    try {
+      await loadPendingCounts();
+      const lists: Record<string, { items: any[]; total: number }> = {};
+      await Promise.all(
+        [...pendingReviewStates, ...pendingIssuanceStates].map(async (state) => {
+          const r = await api(
+            // WS-D1: the queue triages oldest-first, so the fetched page
+            // must BE the oldest rows — with the list default (newest
+            // first) a 242-deep queue would show the newest 100 and hide
+            // the most urgent work.
+            `/applications?${new URLSearchParams({ state, page: "1", pageSize: "100", sort: "oldest" })}`,
+          );
+          lists[state] = {
+            items: items(r),
+            total: r.total ?? items(r).length,
+          };
+        }),
+      );
+      if (epoch !== pendingEpoch.current) return;
+      setPendingLists(lists);
+    } finally {
+      // Only the latest load may clear the flag — a stale load's return
+      // must not hide the newer fetch, and a failed load must not leave
+      // the skeleton up forever.
+      if (epoch === pendingEpoch.current) setPendingLoading(false);
+    }
   }
   useEffect(() => {
     if (!session) return;
@@ -928,7 +1369,7 @@ export function WorkspaceApp({
     /* The dashboard's pending-applications tile (P1-8) reads pendingCounts,
        which only the pending page loaded — on home it sat at "—" forever.
        Load the counts for the staff dashboard too. */
-    else if (page === "home" && staff) void run(loadPendingCounts);
+    else if (page === "home" && dashboardHome) void run(loadPendingCounts);
   }, [page, session]);
   // FULL-UIUX-01 (B24/P1-14): one row presentation for application lists,
   // shared by the applications page and the Pending queue. A row is
@@ -953,13 +1394,26 @@ export function WorkspaceApp({
       (a.reference === lastSubmittedReference || a.id === lastSubmittedReference)
     );
   }
+  // WS-D1: the only reference a row may show is the numeric public
+  // reference. Pre-047 rows carry reference NULL, and the old fallback
+  // (`reference || id`) printed the raw UUID as the reference (live QA
+  // finding 17). Migration 059 backfills those rows; this guard keeps a
+  // UUID from ever leaking as a reference on any database, before or
+  // after the backfill — an unreferenceable row shows a dash, never a
+  // UUID. (The id itself stays the internal key for opening the row.)
+  function displayReference(a: any): string {
+    const ref = String(a?.reference ?? "").trim();
+    if (/^[0-9][0-9\- ]*$/.test(ref) && ref.replace(/[\- ]/g, "").length >= 10)
+      return ref;
+    return "—";
+  }
   function applicationRow(a: any, hideCitizen = false) {
     const serviceNo = a.serviceNo || a.service_no;
     const isNew = isNewApplication(a);
     return (
       <tr key={a.id} className={isNew ? "ax-row-new" : undefined}>
         <td>
-          <RefChip value={a.reference || a.id} />
+          <RefChip value={displayReference(a)} />
           <small>{applicationDate(a.createdAt || a.created_at)}</small>
           {isNew && (
             <span className="ax-new-badge">
@@ -979,6 +1433,36 @@ export function WorkspaceApp({
               supplies it); otherwise the chip stays neutral. */}
           {!hideCitizen &&
             (() => {
+              const state = String(a.state || a.status || "");
+              // WS-D1: a waiting chip belongs only to a row that is
+              // actually waiting. Issued rows used to carry e.g. "২ দিন
+              // অপেক্ষমাণ" next to "সনদ ইস্যু হয়েছে" (live QA defect
+              // (d)); an issued row shows its issue date instead.
+              if (state === "ISSUED") {
+                const issuedAt =
+                  a.certificateIssuedAt ||
+                  a.certificate_issued_at ||
+                  a.issuedAt;
+                return (
+                  <span className="age-chip">
+                    {issuedAt
+                      ? choose({
+                          bn: `সনদ ইস্যু: ${applicationDate(issuedAt)}`,
+                          en: `Issued ${applicationDate(issuedAt)}`,
+                        })
+                      : choose({
+                          bn: "সনদ ইস্যু হয়েছে",
+                          en: "Certificate issued",
+                        })}
+                  </span>
+                );
+              }
+              if (
+                !["SUBMITTED", "RESUBMITTED", "UNDER_REVIEW", "APPROVED"].includes(
+                  state,
+                )
+              )
+                return null;
               const created = new Date(a.createdAt || a.created_at);
               if (Number.isNaN(created.getTime())) return null;
               const days = Math.max(
@@ -1020,7 +1504,7 @@ export function WorkspaceApp({
     return (
       <article className={`ax-card${isNew ? " ax-card-new" : ""}`} key={a.id}>
         <div className="ax-card-head">
-          <RefChip value={a.reference || a.id} />
+          <RefChip value={displayReference(a)} />
           <ApplicationStatus state={String(a.state || a.status || "")} />
         </div>
         <strong>
@@ -1073,7 +1557,13 @@ export function WorkspaceApp({
             {choose({ bn: "পুরনো আবেদন আগে", en: "Oldest first" })}
           </span>
         </div>
-        {rows.length ? (
+        {/* WS-D1: while the queue is loading, a skeleton — never the
+            empty state, which used to flash on every visit before the
+            rows arrived (live QA defect (b)). The empty state renders
+            only once loading has finished with genuinely no rows. */}
+        {pendingLoading ? (
+          <SkeletonRows rows={4} />
+        ) : rows.length ? (
           <>
             <div className="table-wrap responsive-table">
               <table>
@@ -1114,8 +1604,11 @@ export function WorkspaceApp({
         {count !== null && count > rows.length && (
           <p className="hint">
             {choose({
-              bn: "সাম্প্রতিকগুলো দেখানো হচ্ছে — বাকিগুলো আবেদনের তালিকায়:",
-              en: "Showing the most recent — see the rest in the applications list:",
+              // WS-D1: the rows shown are the OLDEST in the group (the
+              // fetch sorts oldest-first); the old "most recent" wording
+              // contradicted the section's own "Oldest first" heading.
+              bn: "পুরনো আবেদনগুলো দেখানো হচ্ছে — বাকিগুলো আবেদনের তালিকায়:",
+              en: "Showing the oldest first — see the rest in the applications list:",
             })}
             {tx(" ")}
             {states.map((state) => (
@@ -1327,6 +1820,37 @@ export function WorkspaceApp({
                       ) : null}
                     </button>
                   ))}
+                  {/* WS-D3: issued certificates get their own sidebar entry
+                      — before this they were reachable only through the
+                      slow status filter on the applications list. Same
+                      filtered-destination pattern as the UDC "renewal"
+                      entry; the phone "More" sheet lists pages only, so on
+                      phone the issued list stays reachable via Applications. */}
+                  {group.title.en === "Main" &&
+                    ["staff", "admin", "reviewer", "approver"].includes(
+                      role,
+                    ) && (
+                      <button
+                        key="issued"
+                        data-page="issued"
+                        aria-current={
+                          page === "applications" &&
+                          filter === "ISSUED" &&
+                          !appService
+                            ? "page"
+                            : undefined
+                        }
+                        onClick={() => openTask("applications", "ISSUED")}
+                      >
+                        <NavIcon name="renewal" />
+                        <span>
+                          {choose({
+                            bn: "ইস্যুকৃত সনদ",
+                            en: "Issued certificates",
+                          })}
+                        </span>
+                      </button>
+                    )}
                 </div>
               );
             }),
@@ -1398,10 +1922,21 @@ export function WorkspaceApp({
                 ? choose({ bn: "নতুন আবেদন", en: "New application" })
                 : page === "applications" && detail
                   ? choose({ bn: "আবেদনের বিবরণ", en: "Application details" })
-                  : page === "applications" && filter === "ISSUED"
-                    ? appService === "42"
+                  : page === "applications" && filter
+                    ? filter === "ISSUED" && appService === "42"
                       ? choose({ bn: "ট্রেড লাইসেন্স নবায়ন", en: "Trade licence renewal" })
-                      : choose({ bn: "সনদ নবায়ন", en: "Certificate renewal" })
+                      : // WS-D1: a filtered list is headed by its own
+                        // filter — the old code headed EVERY issued view
+                        // "সনদ নবায়ন" (Certificate renewal), which is a
+                        // staff sidebar entry, not this list (live QA
+                        // finding 8). The unfiltered heading stays the
+                        // stable "আবেদন" from pageTitles below.
+                        choose(
+                          applicationStatusMeta(filter) ?? {
+                            bn: "আবেদন",
+                            en: "Applications",
+                          },
+                        )
                     : dashboardHome && page === "home"
                       ? choose({ bn: "ড্যাশবোর্ড", en: "Dashboard" })
                       : choose(pageTitles[page] ?? { bn: localized[page] ?? page, en: labels[page] ?? page })}
@@ -1421,6 +1956,12 @@ export function WorkspaceApp({
                 type="search"
                 value={globalQuery}
                 onChange={(e) => setGlobalQuery(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    globalSearchEnter();
+                  }
+                }}
                 onFocus={() => setGlobalFocus(true)}
                 onBlur={() => window.setTimeout(() => setGlobalFocus(false), 180)}
                 placeholder={choose({
@@ -1467,7 +2008,7 @@ export function WorkspaceApp({
                             void run(() => openApplication(a.id));
                           }}
                         >
-                          {a.reference || a.id} ·{" "}
+                          {displayReference(a)} ·{" "}
                           {choose(applicationStatusMeta(String(a.state || a.status || "")))}
                         </button>
                       ))}
@@ -1482,6 +2023,11 @@ export function WorkspaceApp({
                           type="button"
                           onClick={() => {
                             setGlobalQuery("");
+                            // WS-D3: the citizens list is paged — filter it
+                            // to this citizen so the details panel finds it.
+                            setCitizenSearch(
+                              c.nameBn || c.name_bn || c.nameEn || c.name_en || "",
+                            );
                             nav("citizens");
                             setDetailsCitizenId(c.id);
                           }}
@@ -1559,8 +2105,29 @@ export function WorkspaceApp({
                   (pendingCounts.awaitingIssuance ?? 0)
                 : null
             }
+            // WS-D3: the workload breakdown and the oldest-pending age read
+            // the same /applications/counts answer as the pending tile, the
+            // pending page and the sidebar badge — one source, one number.
+            pendingBreakdown={
+              pendingCounts != null
+                ? {
+                    awaitingReview: pendingCounts.awaitingReview ?? 0,
+                    awaitingIssuance: pendingCounts.awaitingIssuance ?? 0,
+                    correctionRequired:
+                      pendingCounts.counts?.CORRECTION_REQUIRED ?? 0,
+                    issued: pendingCounts.counts?.ISSUED ?? 0,
+                  }
+                : null
+            }
+            oldestPendingAt={pendingCounts?.oldestPendingAt ?? null}
             creditBalance={wallet?.balance ?? null}
             onStartService={(serviceNo) => {
+              // WS-D3: an approver cannot start applications — the service
+              // cards open the view-only catalog instead of a flow.
+              if (!canApply) {
+                nav("services");
+                return;
+              }
               setSelectedService(serviceNo);
               setFlowService(serviceNo);
               setFlowCitizen(role === "citizen" ? ownCitizen() : null);
@@ -1707,7 +2274,7 @@ export function WorkspaceApp({
                     <ul>
                       {applications.slice(0, 5).map((a) => (
                         <li key={a.id}>
-                          <RefChip value={a.reference || a.id} />
+                          <RefChip value={displayReference(a)} />
                           <span>
                             {tx(
                               recordName(
@@ -2030,6 +2597,60 @@ export function WorkspaceApp({
                   )}
                 </div>
                 )}
+                {/* WS-D3: real pagination for the register — the same
+                    prev/next + per-page pattern as the applications list,
+                    reading the total from the list endpoint (never the
+                    length of the fetched page). */}
+                <div className="pagination">
+                  <button
+                    className="secondary"
+                    disabled={busy || citizenPage <= 1}
+                    onClick={() => setCitizenPage(citizenPage - 1)}
+                  >
+                    {t("Previous citizens ")}
+                  </button>
+                  <span>
+                    {tx(citizenTotal ?? "—")}
+                    {t(" results · Page ")}
+                    {tx(citizenPage)}
+                    {t(" /")}
+                    {tx(" ")}
+                    {tx(
+                      Math.max(1, Math.ceil((citizenTotal ?? 0) / citizenPageSize)),
+                    )}
+                  </span>
+                  <button
+                    className="secondary"
+                    disabled={
+                      busy || citizenPage * citizenPageSize >= (citizenTotal ?? 0)
+                    }
+                    onClick={() => setCitizenPage(citizenPage + 1)}
+                  >
+                    {t("Next citizens ")}
+                  </button>
+                  <label htmlFor="citizen-page-size">
+                    {choose({
+                      bn: "প্রতি পৃষ্ঠায় নাগরিক",
+                      en: "Citizens per page",
+                    })}
+                  </label>
+                  <select
+                    id="citizen-page-size"
+                    value={citizenPageSize}
+                    onChange={(e) => {
+                      setCitizenPageSize(Number(e.target.value));
+                      setCitizenPage(1);
+                    }}
+                  >
+                    {tx(
+                      [10, 25, 50, 100].map((n) => (
+                        <option key={n} value={n}>
+                          {tx(n)}
+                        </option>
+                      )),
+                    )}
+                  </select>
+                </div>
               </section>
               {(() => {
                 const open = citizens.find((c) => c.id === detailsCitizenId);
@@ -2277,14 +2898,7 @@ export function WorkspaceApp({
                       onChange={(e) => {
                         setFilter(e.target.value);
                         setAppPage(1);
-                        writeRoute(
-                          e.target.value || appService
-                            ? `#/applications?${new URLSearchParams({
-                                ...(e.target.value ? { state: e.target.value } : {}),
-                                ...(appService ? { service: appService } : {}),
-                              })}`
-                            : "#/applications",
-                        );
+                        writeApplicationsRoute(e.target.value, appService);
                       }}
                     >
                       <option value="">{choose({ bn: "সব অবস্থা", en: "All states" })}</option>
@@ -2296,7 +2910,10 @@ export function WorkspaceApp({
                           "CORRECTION_REQUIRED",
                           "RESUBMITTED",
                           "APPROVED",
-                          "ISSUANCE_PENDING",
+                          // WS-D1: ISSUANCE_PENDING is not a state in the
+                          // state machine (migration 001 CHECK) — the old
+                          // option 422'd on every select, exactly like
+                          // the citizen-home probe that had to drop it.
                           "ISSUED",
                           "REJECTED",
                           "CANCELLED",
@@ -2319,14 +2936,7 @@ export function WorkspaceApp({
                       onChange={(e) => {
                         setAppService(e.target.value);
                         setAppPage(1);
-                        writeRoute(
-                          filter || e.target.value
-                            ? `#/applications?${new URLSearchParams({
-                                ...(filter ? { state: filter } : {}),
-                                ...(e.target.value ? { service: e.target.value } : {}),
-                              })}`
-                            : "#/applications",
-                        );
+                        writeApplicationsRoute(filter, e.target.value);
                       }}
                     >
                       <option value="">
@@ -2341,6 +2951,38 @@ export function WorkspaceApp({
                       )}
                     </select>
                   </div>
+                  {/* WS-D1: real sort controls — date, status, service,
+                      reference. They re-query (sort is part of the list
+                      request), not decoration. */}
+                  <div className="app-toolbar-field">
+                    <label htmlFor="sort-applications">
+                      {choose({ bn: "সাজান", en: "Sort" })}
+                    </label>
+                    <select
+                      id="sort-applications"
+                      value={appSort}
+                      onChange={(e) => {
+                        setAppSort(e.target.value);
+                        setAppPage(1);
+                      }}
+                    >
+                      <option value="newest">
+                        {choose({ bn: "নতুন আগে", en: "Newest first" })}
+                      </option>
+                      <option value="oldest">
+                        {choose({ bn: "পুরনো আগে", en: "Oldest first" })}
+                      </option>
+                      <option value="status">
+                        {choose({ bn: "অবস্থা অনুযায়ী", en: "By status" })}
+                      </option>
+                      <option value="service">
+                        {choose({ bn: "সেবা অনুযায়ী", en: "By service" })}
+                      </option>
+                      <option value="reference">
+                        {choose({ bn: "রেফারেন্স অনুযায়ী", en: "By reference" })}
+                      </option>
+                    </select>
+                  </div>
                 </div>
                 {(filter || appService || appSearch || appFrom || appTo || appRenewals) && (
                   <div className="app-filter-chips">
@@ -2353,6 +2995,7 @@ export function WorkspaceApp({
                           onClick={() => {
                             setFilter("");
                             setAppPage(1);
+                            writeApplicationsRoute("", appService);
                           }}
                         >
                           ×
@@ -2374,6 +3017,7 @@ export function WorkspaceApp({
                           onClick={() => {
                             setAppService("");
                             setAppPage(1);
+                            writeApplicationsRoute(filter, "");
                           }}
                         >
                           ×
@@ -2556,78 +3200,96 @@ export function WorkspaceApp({
                   </p>
                 </div>
               </div>
-              <div className="table-wrap responsive-table">
-                <table>
-                  <thead>
-                    <tr>
-                      <th>{choose({ bn: "রেফারেন্স", en: "Reference" })}</th>
-                      {/* P2-3: role-shaped columns — a citizen's own list
-                          drops the Citizen column (every row is them). */}
-                      {role !== "citizen" && (
-                        <th>{choose({ bn: "নাগরিক", en: "Citizen" })}</th>
-                      )}
-                      <th>{choose({ bn: "সেবা", en: "Service" })}</th>
-                      <th>{choose({ bn: "অবস্থা", en: "Status" })}</th>
-                      <th>
-                        <span className="visually-hidden">
-                          {choose({ bn: "খুলুন", en: "Open" })}
-                        </span>
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {tx(applications.map((a) => applicationRow(a, role === "citizen")))}
-                  </tbody>
-                </table>
-              </div>
-              {tx(busy && !applications.length && <SkeletonRows rows={5} />)}
-              {tx(
-                !busy && !applications.length && (
-                  <EmptyState
-                    title={choose(
-                      filter || appService || appSearch
-                        ? {
-                            bn: "মিলে এমন আবেদন নেই",
-                            en: "No matching applications",
-                          }
-                        : {
-                            bn: "এখনও কোনো আবেদন নেই",
-                            en: "No applications yet",
-                          },
-                    )}
-                    hint={choose(
-                      filter || appService || appSearch
-                        ? {
-                            bn: "অন্য নাম দিয়ে খুঁজুন অথবা ফিল্টার মুছে সব আবেদন দেখুন।",
-                            en: "Try another name or clear the filters to see all applications.",
-                          }
-                        : {
-                            bn: "নতুন আবেদন শুরু করলে এখানে সেটির অবস্থা দেখা যাবে।",
-                            en: "Applications will appear here with their progress.",
-                          },
-                    )}
-                    action={
-                      !filter && !appService && !appSearch && canApply ? (
-                        <button onClick={() => nav("services")}>
-                          {choose({
-                            bn: "প্রথম আবেদন শুরু করুন",
-                            en: "Start your first application",
-                          })}
-                        </button>
-                      ) : undefined
-                    }
-                  />
-                ),
-              )}
-              {phoneLayout && (
-                <div className="ax-card-list">
-                  {tx(applications.map(applicationCard))}
+              {/* WS-D1: while the list is loading, a skeleton with a
+                  loading status — never the stale rows with the stale
+                  count, and never the empty state (live QA defects (a)
+                  and (b)). The empty state renders only after loading
+                  finishes with genuinely no rows. */}
+              {appLoading ? (
+                <div role="status" className="app-loading">
+                  <p className="hint">
+                    {choose({
+                      bn: "আবেদন লোড হচ্ছে…",
+                      en: "Loading applications…",
+                    })}
+                  </p>
+                  <SkeletonRows rows={5} />
                 </div>
+              ) : (
+                <>
+                  <div className="table-wrap responsive-table">
+                    <table>
+                      <thead>
+                        <tr>
+                          <th>{choose({ bn: "রেফারেন্স", en: "Reference" })}</th>
+                          {/* P2-3: role-shaped columns — a citizen's own list
+                              drops the Citizen column (every row is them). */}
+                          {role !== "citizen" && (
+                            <th>{choose({ bn: "নাগরিক", en: "Citizen" })}</th>
+                          )}
+                          <th>{choose({ bn: "সেবা", en: "Service" })}</th>
+                          <th>{choose({ bn: "অবস্থা", en: "Status" })}</th>
+                          <th>
+                            <span className="visually-hidden">
+                              {choose({ bn: "খুলুন", en: "Open" })}
+                            </span>
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {tx(applications.map((a) => applicationRow(a, role === "citizen")))}
+                      </tbody>
+                    </table>
+                  </div>
+                  {tx(
+                    !busy && !applications.length && (
+                      <EmptyState
+                        title={choose(
+                          filter || appService || appSearch
+                            ? {
+                                bn: "মিলে এমন আবেদন নেই",
+                                en: "No matching applications",
+                              }
+                            : {
+                                bn: "এখনও কোনো আবেদন নেই",
+                                en: "No applications yet",
+                              },
+                        )}
+                        hint={choose(
+                          filter || appService || appSearch
+                            ? {
+                                bn: "অন্য নাম দিয়ে খুঁজুন অথবা ফিল্টার মুছে সব আবেদন দেখুন।",
+                                en: "Try another name or clear the filters to see all applications.",
+                              }
+                            : {
+                                bn: "নতুন আবেদন শুরু করলে এখানে সেটির অবস্থা দেখা যাবে।",
+                                en: "Applications will appear here with their progress.",
+                              },
+                        )}
+                        action={
+                          !filter && !appService && !appSearch && canApply ? (
+                            <button onClick={() => nav("services")}>
+                              {choose({
+                                bn: "প্রথম আবেদন শুরু করুন",
+                                en: "Start your first application",
+                              })}
+                            </button>
+                          ) : undefined
+                        }
+                      />
+                    ),
+                  )}
+                  {phoneLayout && (
+                    <div className="ax-card-list">
+                      {tx(applications.map(applicationCard))}
+                    </div>
+                  )}
+                </>
               )}
               <div className="pagination">
                 <button
                   className="secondary"
-                  disabled={busy || appPage <= 1}
+                  disabled={busy || appLoading || appPage <= 1}
                   onClick={() => setAppPage(appPage - 1)}
                 >
                   {t("Previous applications ")}
@@ -2642,7 +3304,7 @@ export function WorkspaceApp({
                 </span>
                 <button
                   className="secondary"
-                  disabled={busy || appPage * appPageSize >= (appTotal ?? 0)}
+                  disabled={busy || appLoading || appPage * appPageSize >= (appTotal ?? 0)}
                   onClick={() => setAppPage(appPage + 1)}
                 >
                   {t("Next applications ")}
@@ -2658,11 +3320,20 @@ export function WorkspaceApp({
                   is a two-column surface — the record in the main column,
                   a sticky decision rail beside it (status, reference,
                   completeness, reason, decision actions). */}
-              <div className="detail-layout">
+              <div className="detail-layout detail-print-scope">
               <div className="detail-main">
               <section className="panel">
                 <button className="text-button" onClick={closeDetail}>
                   {choose({ bn: "← সব আবেদন", en: "← All applications" })}
+                </button>
+                {/* WS-D2 (item 14): print the detail view. */}
+                <button
+                  type="button"
+                  className="secondary no-print"
+                  data-testid="print-application"
+                  onClick={() => window.print()}
+                >
+                  {choose({ bn: "প্রিন্ট করুন", en: "Print" })}
                 </button>
                 <div className="section-heading">
                   <div>
@@ -2677,21 +3348,135 @@ export function WorkspaceApp({
                         ) || "Application details",
                       )}
                     </h2>
-                    <RefChip value={application.reference || application.id} />
+                    <RefChip value={displayReference(application)} />
                   </div>
                   <ApplicationStatus
                     state={String(application.state || application.status || "")}
                   />
                 </div>
+                {/* WS-D2 (item 9): the chairman decides from this page —
+                    so the citizen's identity is shown here in full (name,
+                    birth date, masked NID / birth registration, mobile,
+                    permanent address, photo and identity-document image
+                    with its scan state) instead of a single name line. The
+                    full NID is never printed here — only the masked hint
+                    the API returns. */}
                 {tx(
                   detail.citizen && (
-                    <p>
-                      {t("Citizen: ")}
-                      {detail.citizen.nameBn || detail.citizen.name_bn}
-                      {t(" /")}
-                      {tx(" ")}
-                      {detail.citizen.nameEn || detail.citizen.name_en}
-                    </p>
+                    <section
+                      className="detail-identity"
+                      aria-label={choose({
+                        bn: "আবেদনকারীর পরিচয়",
+                        en: "Applicant identity",
+                      })}
+                    >
+                      <h3>
+                        {choose({
+                          bn: "আবেদনকারীর পরিচয়",
+                          en: "Applicant identity",
+                        })}
+                      </h3>
+                      <dl>
+                        <dt>
+                          {choose({ bn: "নাম", en: "Name" })}
+                        </dt>
+                        <dd>
+                          {detail.citizen.nameBn || detail.citizen.name_bn}
+                          {detail.citizen.nameEn || detail.citizen.name_en
+                            ? ` / ${detail.citizen.nameEn || detail.citizen.name_en}`
+                            : ""}
+                        </dd>
+                        <dt>
+                          {choose({ bn: "জন্ম তারিখ", en: "Date of birth" })}
+                        </dt>
+                        <dd>
+                          {formatDate(
+                            detail.citizen.dateOfBirth ||
+                              detail.citizen.date_of_birth,
+                            language,
+                          )}
+                        </dd>
+                        <dt>
+                          {choose({
+                            bn: "জাতীয় পরিচয়পত্র",
+                            en: "National ID",
+                          })}
+                        </dt>
+                        <dd>
+                          {detail.citizen.nidHint ||
+                            detail.citizen.nid_hint ||
+                            "—"}
+                        </dd>
+                        <dt>
+                          {choose({
+                            bn: "জন্ম নিবন্ধন",
+                            en: "Birth registration",
+                          })}
+                        </dt>
+                        <dd>
+                          {detail.citizen.birthRegHint ||
+                            detail.citizen.birth_reg_hint ||
+                            "—"}
+                        </dd>
+                        <dt>
+                          {choose({ bn: "মোবাইল", en: "Mobile" })}
+                        </dt>
+                        <dd>
+                          {detail.citizen.contactMobile ||
+                            detail.citizen.contact_mobile ||
+                            "—"}
+                        </dd>
+                        <dt>
+                          {choose({
+                            bn: "স্থায়ী ঠিকানা",
+                            en: "Permanent address",
+                          })}
+                        </dt>
+                        <dd>
+                          {choose({
+                            bn:
+                              detail.citizen.addressBn ||
+                              detail.citizen.address_bn ||
+                              "—",
+                            en:
+                              detail.citizen.addressEn ||
+                              detail.citizen.address_en ||
+                              detail.citizen.addressBn ||
+                              detail.citizen.address_bn ||
+                              "—",
+                          })}
+                        </dd>
+                        {detail.citizen.hasPhoto && (
+                          <>
+                            <dt>
+                              {choose({ bn: "ছবি", en: "Photo" })}
+                            </dt>
+                            <dd>
+                              <img
+                                className="detail-identity-photo"
+                                src={`/api/v1/citizens/${detail.citizen.id}/photo/image`}
+                                alt={choose({
+                                  bn: "আবেদনকারীর ছবি",
+                                  en: "Applicant photo",
+                                })}
+                              />
+                            </dd>
+                          </>
+                        )}
+                      </dl>
+                      {detail.citizen.identityDocument?.attachmentId && (
+                        <dl>
+                          <IdentityDocumentStatus
+                            attachmentId={
+                              detail.citizen.identityDocument.attachmentId
+                            }
+                            kind={
+                              detail.citizen.identityDocument.kind ?? "nid"
+                            }
+                          />
+                        </dl>
+                      )}
+                    </section>
                   ),
                 )}
                 {(() => {
@@ -2715,14 +3500,6 @@ export function WorkspaceApp({
                     </p>
                   ) : null;
                 })()}
-                {["APPROVED", "ISSUED"].includes(application.state) && (
-                  <p className="hint wet-sign-notice">
-                    {choose({
-                      bn: "সনদ প্রিন্ট করার পরে চেয়ারম্যান নিজ হাতে স্বাক্ষর করবেন।",
-                      en: "After the certificate is printed, the Chairman signs it by hand.",
-                    })}
-                  </p>
-                )}
                 <ApplicationGuidance
                   state={application.state || application.status}
                   role={role}
@@ -2818,6 +3595,66 @@ export function WorkspaceApp({
                       schema={detailSchema}
                       payload={detailPayload}
                     />
+                  );
+                })()}
+                {/* WS-D2 (item 9): attached documents with their scan
+                    state and gated download — the decision guidance says
+                    to decide from the information and attachments, so
+                    they are listed here with the shared scan-status
+                    display instead of bare links. Download stays gated
+                    while quarantined (server-side 409; the display only
+                    offers it once CLEAN). */}
+                {(() => {
+                  let docs: {
+                    title: { bn: string; en: string };
+                    handle: AttachmentHandle;
+                  }[] = [];
+                  try {
+                    docs = collectApplicationAttachments(
+                      getServiceSchema(
+                        application.serviceNo || application.service_no,
+                        application.schemaVersion || 1,
+                      ),
+                      detailPayload,
+                    );
+                  } catch {
+                    docs = [];
+                  }
+                  return (
+                    <section
+                      className="detail-attachments"
+                      aria-label={choose({
+                        bn: "সংযুক্ত নথি",
+                        en: "Attached documents",
+                      })}
+                    >
+                      <h3>
+                        {choose({
+                          bn: "সংযুক্ত নথি",
+                          en: "Attached documents",
+                        })}
+                      </h3>
+                      {docs.length ? (
+                        docs.map((doc) => (
+                          <div
+                            key={doc.handle.attachmentId}
+                            className="detail-attachment"
+                          >
+                            <p>
+                              <strong>{choose(doc.title)}</strong>
+                            </p>
+                            <AttachmentStatus attachment={doc.handle} />
+                          </div>
+                        ))
+                      ) : (
+                        <p className="hint">
+                          {choose({
+                            bn: "এই আবেদনে কোনো নথি সংযুক্ত হয়নি।",
+                            en: "No documents are attached to this application.",
+                          })}
+                        </p>
+                      )}
+                    </section>
                   );
                 })()}
                 {!approver && <div id="application-actions" tabIndex={-1} />}
@@ -3069,7 +3906,7 @@ export function WorkspaceApp({
                   </span>
                   {/* FULL-UIUX-01 (C32/P2-8): the reference is copyable
                       text (RefChip), never a read-only form input. */}
-                  <RefChip value={application.reference || application.id} />
+                  <RefChip value={displayReference(application)} />
                   <p className="hint">
                     {choose({
                       bn: "এই রেফারেন্স দিয়ে সর্বজনীন অবস্থা পৃষ্ঠায় আবেদনের অবস্থা দেখা যায় — শুধু অবস্থা ও সেবার তথ্য ফেরত আসে।",
@@ -3604,7 +4441,7 @@ export function WorkspaceApp({
               <PaymentsWorkspace role={role} />
             )}
           {tx(page === "admin" && role === "admin" && <AdminWorkspace />)}
-          {tx(page === "security" && <AccountSecurity />)}
+          {tx(page === "security" && <AccountSecurity role={role} />)}
           {/* FULL-UIUX-01: the staff guide opens as a themed in-workspace
               page (the accordion), not a trip out to the public shell. */}
           {tx(
@@ -4048,13 +4885,16 @@ export function WorkspaceApp({
         confirmAction && application && (
           <div
             className="ws-confirm-backdrop"
-            onClick={() => setConfirmAction(null)}
+            onClick={() => {
+              setConfirmAction(null);
+              resetDialog();
+            }}
           >
             <div
               className="ws-confirm"
               role="dialog"
               aria-modal="true"
-              aria-label={actionText[confirmAction]}
+              aria-label={choose(transitionConfirmTitle[confirmAction])}
               onClick={(event) => event.stopPropagation()}
             >
               <h2>{choose(transitionConfirmTitle[confirmAction])}</h2>
@@ -4064,11 +4904,277 @@ export function WorkspaceApp({
                 <strong>{tx(application.reference)}</strong>
               </p>
               <p>{choose(transitionConfirmText[confirmAction])}</p>
+              {/* WS-D2 (item 16): reject / correction / summons collect
+                  their reason here — a decision is never sent without
+                  one. Approve keeps the plain confirmation above. */}
+              {confirmAction === "reject" && (
+                <>
+                  <label htmlFor="dialog-reason">
+                    {choose({
+                      bn: "প্রত্যাখ্যানের কারণ",
+                      en: "Rejection reason",
+                    })}
+                  </label>
+                  <select
+                    id="dialog-reason"
+                    data-testid="dialog-reason"
+                    value={dialogReason}
+                    onChange={(e) => {
+                      setDialogReason(e.target.value);
+                      setDialogError(null);
+                    }}
+                  >
+                    <option value="">
+                      {choose({
+                        bn: "— কারণ বেছে নিন —",
+                        en: "— Choose a reason —",
+                      })}
+                    </option>
+                    {rejectReasons.map((r) => (
+                      <option key={r.value} value={r.value}>
+                        {choose(r)}
+                      </option>
+                    ))}
+                  </select>
+                  <label htmlFor="dialog-note">
+                    {choose({
+                      bn:
+                        dialogReason === "other"
+                          ? "কারণটি লিখুন (আবশ্যক)"
+                          : "বিস্তারিত (ঐচ্ছিক)",
+                      en:
+                        dialogReason === "other"
+                          ? "Write the reason (required)"
+                          : "Details (optional)",
+                    })}
+                  </label>
+                  <textarea
+                    id="dialog-note"
+                    data-testid="dialog-note"
+                    value={dialogNote}
+                    maxLength={300}
+                    onChange={(e) => {
+                      setDialogNote(e.target.value);
+                      setDialogError(null);
+                    }}
+                    placeholder={choose({
+                      bn: "নাগরিককে জানানো হবে এমন ভাষায় লিখুন",
+                      en: "Write it as the citizen will read it",
+                    })}
+                  />
+                </>
+              )}
+              {confirmAction === "request_correction" && (
+                <>
+                  <label htmlFor="dialog-field">
+                    {choose({
+                      bn: "কোন তথ্য সংশোধন করতে হবে",
+                      en: "What needs correction",
+                    })}
+                  </label>
+                  <select
+                    id="dialog-field"
+                    data-testid="dialog-field"
+                    value={dialogField}
+                    onChange={(e) => {
+                      setDialogField(e.target.value);
+                      setDialogError(null);
+                    }}
+                  >
+                    <option value="">
+                      {choose({
+                        bn: "— তথ্য বেছে নিন —",
+                        en: "— Choose the information —",
+                      })}
+                    </option>
+                    <option value="__all__">
+                      {choose({ bn: "সব তথ্য", en: "All information" })}
+                    </option>
+                    {correctionFieldOptions.map((f) => (
+                      <option key={f.id} value={f.id}>
+                        {choose(f.label)}
+                      </option>
+                    ))}
+                  </select>
+                  <label htmlFor="dialog-reason">
+                    {choose({
+                      bn: "সংশোধনের কারণ",
+                      en: "Correction reason",
+                    })}
+                  </label>
+                  <select
+                    id="dialog-reason"
+                    data-testid="dialog-reason"
+                    value={dialogReason}
+                    onChange={(e) => {
+                      setDialogReason(e.target.value);
+                      setDialogError(null);
+                    }}
+                  >
+                    <option value="">
+                      {choose({
+                        bn: "— কারণ বেছে নিন —",
+                        en: "— Choose a reason —",
+                      })}
+                    </option>
+                    {correctionReasons.map((r) => (
+                      <option key={r.value} value={r.value}>
+                        {choose(r)}
+                      </option>
+                    ))}
+                  </select>
+                  <label htmlFor="dialog-deadline">
+                    {choose({
+                      bn: "সংশোধনের সময়সীমা",
+                      en: "Correction deadline",
+                    })}
+                  </label>
+                  <select
+                    id="dialog-deadline"
+                    data-testid="dialog-deadline"
+                    value={dialogDeadline}
+                    onChange={(e) => setDialogDeadline(e.target.value)}
+                  >
+                    {correctionDeadlines.map((d) => (
+                      <option key={d.value} value={d.value}>
+                        {choose(d)}
+                      </option>
+                    ))}
+                  </select>
+                  <label htmlFor="dialog-note">
+                    {choose({
+                      bn:
+                        dialogReason === "other"
+                          ? "কারণটি লিখুন (আবশ্যক)"
+                          : "বিস্তারিত (ঐচ্ছিক)",
+                      en:
+                        dialogReason === "other"
+                          ? "Write the reason (required)"
+                          : "Details (optional)",
+                    })}
+                  </label>
+                  <textarea
+                    id="dialog-note"
+                    data-testid="dialog-note"
+                    value={dialogNote}
+                    maxLength={300}
+                    onChange={(e) => {
+                      setDialogNote(e.target.value);
+                      setDialogError(null);
+                    }}
+                    placeholder={choose({
+                      bn: "কী বদলাতে হবে তা পরিষ্কার করে লিখুন",
+                      en: "Say clearly what must change",
+                    })}
+                  />
+                </>
+              )}
+              {confirmAction === "summon" && (
+                <>
+                  <label htmlFor="dialog-when">
+                    {choose({ bn: "কবে আসতে হবে", en: "When to come" })}
+                  </label>
+                  <input
+                    id="dialog-when"
+                    data-testid="dialog-when"
+                    type="text"
+                    value={dialogWhen}
+                    maxLength={120}
+                    onChange={(e) => {
+                      setDialogWhen(e.target.value);
+                      setDialogError(null);
+                    }}
+                    placeholder={choose({
+                      bn: "যেমন: আগামী সোমবার, সকাল ১০টা",
+                      en: "For example: next Monday, 10 AM",
+                    })}
+                  />
+                  <label htmlFor="dialog-where">
+                    {choose({ bn: "কোথায় আসতে হবে", en: "Where to come" })}
+                  </label>
+                  <input
+                    id="dialog-where"
+                    data-testid="dialog-where"
+                    type="text"
+                    value={dialogWhere}
+                    maxLength={200}
+                    onChange={(e) => {
+                      setDialogWhere(e.target.value);
+                      setDialogError(null);
+                    }}
+                    placeholder={choose({
+                      bn: "অফিসের নাম ও ঠিকানা",
+                      en: "Office name and address",
+                    })}
+                  />
+                  <label htmlFor="dialog-reason">
+                    {choose({
+                      bn: "আসতে বলার কারণ",
+                      en: "Reason for asking them to come",
+                    })}
+                  </label>
+                  <select
+                    id="dialog-reason"
+                    data-testid="dialog-reason"
+                    value={dialogReason}
+                    onChange={(e) => {
+                      setDialogReason(e.target.value);
+                      setDialogError(null);
+                    }}
+                  >
+                    <option value="">
+                      {choose({
+                        bn: "— কারণ বেছে নিন —",
+                        en: "— Choose a reason —",
+                      })}
+                    </option>
+                    {summonReasons.map((r) => (
+                      <option key={r.value} value={r.value}>
+                        {choose(r)}
+                      </option>
+                    ))}
+                  </select>
+                  <label htmlFor="dialog-note">
+                    {choose({
+                      bn:
+                        dialogReason === "other"
+                          ? "কারণটি লিখুন (আবশ্যক)"
+                          : "বিস্তারিত (ঐচ্ছিক)",
+                      en:
+                        dialogReason === "other"
+                          ? "Write the reason (required)"
+                          : "Details (optional)",
+                    })}
+                  </label>
+                  <textarea
+                    id="dialog-note"
+                    data-testid="dialog-note"
+                    value={dialogNote}
+                    maxLength={300}
+                    onChange={(e) => {
+                      setDialogNote(e.target.value);
+                      setDialogError(null);
+                    }}
+                    placeholder={choose({
+                      bn: "সঙ্গে কী আনতে হবে তা লিখতে পারেন",
+                      en: "You can note what to bring",
+                    })}
+                  />
+                </>
+              )}
+              {dialogError && (
+                <p className="field-error" role="alert">
+                  {choose(dialogError)}
+                </p>
+              )}
               <div className="ws-confirm-actions">
                 <button
                   type="button"
                   className="secondary"
-                  onClick={() => setConfirmAction(null)}
+                  onClick={() => {
+                    setConfirmAction(null);
+                    resetDialog();
+                  }}
                 >
                   {choose({ bn: "বাতিল", en: "Cancel" })}
                 </button>
@@ -4079,8 +5185,21 @@ export function WorkspaceApp({
                   disabled={busy}
                   onClick={() => {
                     const action = confirmAction;
+                    if (
+                      ["reject", "request_correction", "summon"].includes(
+                        action,
+                      ) &&
+                      !validateDialog(action)
+                    )
+                      return;
+                    const composed =
+                      ["reject", "request_correction", "summon"].includes(
+                        action,
+                      )
+                        ? composeDialogReason(action)
+                        : undefined;
                     setConfirmAction(null);
-                    void run(() => runTransition(action));
+                    void run(() => runTransition(action, composed));
                   }}
                 >
                   {choose(transitionConfirmButton[confirmAction])}

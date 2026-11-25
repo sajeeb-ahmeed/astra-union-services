@@ -27,7 +27,11 @@ import type { Auth } from "./app.js";
  * PNG/JPEG artwork. Versions are append-only: a replace INSERTs the next
  * version and an immutable change row (reason mandatory), and the same event
  * lands in audit_events, so asset changes show in the office audit log and
- * the owner's audit view. The full citizen-attachment antivirus queue is not
+ * the owner's audit view. Removal (WS-5, migration 059) is a tombstone, not
+ * a delete: DELETE INSERTs the next version with removed = true, copying the
+ * previous row's bytes, plus a REMOVED change row and an audit event — the
+ * latest version decides, so a removed kind resolves to nothing and an older
+ * version can never resurrect. The full citizen-attachment antivirus queue is not
  * reused: its schema binds every row to a citizen document, while these are
  * office-supplied brand assets uploaded by the office's own chairman/admin.
  *
@@ -82,7 +86,9 @@ export interface CertificateArtwork {
 /**
  * The office's current profile artwork as data URLs (null per kind when the
  * office has not uploaded it). Runs inside the caller's tenant transaction so
- * RLS scopes the read to that office alone.
+ * RLS scopes the read to that office alone. A kind whose LATEST version is a
+ * removal tombstone (WS-5, migration 059) resolves to null — the previous
+ * version's bytes are never resurrected.
  */
 export async function resolveCertificateAssets(
   db: DB,
@@ -90,16 +96,17 @@ export async function resolveCertificateAssets(
 ): Promise<CertificateArtwork> {
   const rows = (
     await db.query(
-      "SELECT DISTINCT ON (kind) kind, mime_type, bytes FROM office_certificate_assets WHERE tenant_id=$1 ORDER BY kind, version DESC",
+      "SELECT DISTINCT ON (kind) kind, mime_type, bytes, removed FROM office_certificate_assets WHERE tenant_id=$1 ORDER BY kind, version DESC",
       [tenantId],
     )
   ).rows;
   const artwork: CertificateArtwork = { logo: null, seal: null, signature: null };
   for (const row of rows)
-    artwork[row.kind.toLowerCase() as keyof CertificateArtwork] = dataUrl(
-      row.mime_type,
-      row.bytes,
-    );
+    if (!row.removed)
+      artwork[row.kind.toLowerCase() as keyof CertificateArtwork] = dataUrl(
+        row.mime_type,
+        row.bytes,
+      );
   return artwork;
 }
 
@@ -123,7 +130,7 @@ export async function resolveCertificateAssetsBundle(
 async function currentAsset(db: DB, tenantId: string, kind: CertificateAssetKind) {
   return (
     await db.query(
-      "SELECT id, version, mime_type, byte_length, content_sha256, uploaded_by, created_at FROM office_certificate_assets WHERE tenant_id=$1 AND kind=$2 ORDER BY version DESC LIMIT 1",
+      "SELECT id, version, mime_type, byte_length, content_sha256, removed, uploaded_by, created_at FROM office_certificate_assets WHERE tenant_id=$1 AND kind=$2 ORDER BY version DESC LIMIT 1",
       [tenantId, kind],
     )
   ).rows[0];
@@ -143,7 +150,10 @@ async function assetOverview(db: DB, tenantId: string) {
     ).rows;
     items.push({
       kind,
-      current: current
+      // A removal tombstone is the latest version, so the kind has no
+      // current asset (the UI shows the empty state); the REMOVED entry
+      // stays in history below.
+      current: current && !current.removed
         ? {
             version: current.version,
             mimeType: current.mime_type,
@@ -165,12 +175,15 @@ async function assetOverview(db: DB, tenantId: string) {
 }
 
 async function currentBytes(db: DB, tenantId: string, kind: CertificateAssetKind) {
-  return (
+  const row = (
     await db.query(
-      "SELECT mime_type, bytes FROM office_certificate_assets WHERE tenant_id=$1 AND kind=$2 ORDER BY version DESC LIMIT 1",
+      "SELECT mime_type, bytes, removed FROM office_certificate_assets WHERE tenant_id=$1 AND kind=$2 ORDER BY version DESC LIMIT 1",
       [tenantId, kind],
     )
   ).rows[0];
+  // A removed kind serves nothing — the image endpoint 404s like a kind
+  // that was never uploaded.
+  return row && !row.removed ? row : undefined;
 }
 
 export const certificateAssetsRouter = express.Router();
@@ -264,6 +277,89 @@ certificateAssetsRouter.put(
     });
     const { replaced, ...body } = result;
     res.status(replaced ? 200 : 201).json(body);
+  }),
+);
+
+/**
+ * WS-5 ASSETS-REMOVE: remove one kind's current asset. Nothing is ever
+ * deleted — the endpoint INSERTs a tombstone version (removed = true,
+ * previous row's bytes copied so the table CHECKs still pass) plus a REMOVED
+ * change row (reason mandatory, 8–500 chars, same rule as replace) and an
+ * audit event. A missing reason fails 422 REASON_REQUIRED, exactly like a
+ * reason-less replace; a re-upload afterwards is a replace of the tombstone,
+ * so it needs a reason and takes version = tombstone.version + 1.
+ */
+certificateAssetsRouter.delete(
+  "/office/certificate-assets/:kind",
+  wrap(async (req, res) => {
+    const a = officeActor(req);
+    const kind = kindOf(String(req.params.kind).toLowerCase());
+    // The reason is mandatory for a removal — the same audit rule as a
+    // replace (8–500 chars). It is optional in the schema so a missing
+    // reason fails below with REASON_REQUIRED, exactly like PUT does for a
+    // replace; a present-but-short reason fails here with INPUT_INVALID.
+    // A body-less DELETE has req.body undefined: treat it as an empty
+    // object so it also fails REASON_REQUIRED, not INPUT_INVALID.
+    const input = z
+      .object({ reason: z.string().trim().min(8).max(500).optional() })
+      .strict()
+      .parse(req.body ?? {});
+    const result = await transaction(a.tenantId, async (db) => {
+      // Same serialisation key as PUT, so a remove can never race an upload.
+      await db.query("SELECT pg_advisory_xact_lock(hashtext($1))", [
+        `cert-assets:${a.tenantId}:${kind}`,
+      ]);
+      const current = await currentAsset(db, a.tenantId, kind);
+      if (!current || current.removed)
+        fail(404, "NOT_FOUND", "No such certificate asset.");
+      if (!input.reason)
+        fail(
+          422,
+          "REASON_REQUIRED",
+          "Removing a certificate asset requires a reason (at least 8 characters).",
+        );
+      const source = (
+        await db.query(
+          "SELECT mime_type, byte_length, content_sha256, bytes FROM office_certificate_assets WHERE id=$1",
+          [current.id],
+        )
+      ).rows[0];
+      const version = current.version + 1;
+      const row = (
+        await db.query(
+          "INSERT INTO office_certificate_assets(tenant_id,kind,version,mime_type,byte_length,content_sha256,bytes,removed,uploaded_by) VALUES($1,$2,$3,$4,$5,$6,$7,true,$8) RETURNING id, created_at",
+          [
+            a.tenantId,
+            kind,
+            version,
+            source.mime_type,
+            source.byte_length,
+            source.content_sha256,
+            source.bytes,
+            a.userId,
+          ],
+        )
+      ).rows[0];
+      await db.query(
+        "INSERT INTO office_certificate_asset_changes(tenant_id,asset_id,kind,version,action,reason,changed_by) VALUES($1,$2,$3,$4,'REMOVED',$5,$6)",
+        [a.tenantId, row.id, kind, version, input.reason, a.userId],
+      );
+      await audit(
+        db,
+        a.tenantId,
+        a.userId,
+        "OFFICE_CERTIFICATE_ASSET_REMOVED",
+        row.id,
+        { kind, version, byteLength: source.byte_length },
+      );
+      return {
+        kind,
+        version,
+        removed: true,
+        removedAt: row.created_at,
+      };
+    });
+    res.json(result);
   }),
 );
 

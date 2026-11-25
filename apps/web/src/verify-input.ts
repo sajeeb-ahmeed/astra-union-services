@@ -18,7 +18,9 @@ export function certificateNumberInput(input: string): string | null {
   const fromUrl = value.match(/[?&]searchText=([^&#\s]+)/)?.[1];
   const number = (fromUrl ? decodeURIComponent(fromUrl) : value).toUpperCase();
   if (/^[A-F0-9]{64}$/.test(number)) return null; // that is a QR token, not a number
-  if (/^\d{16}$/.test(number)) return number; // official format: dashless 16 digits
+  // Official format: dashless digits — 14 since CERTNO-DDMM (25 Nov 2026);
+  // already-issued 16-digit CERTNO-01 numbers keep resolving.
+  if (/^\d{14}$/.test(number) || /^\d{16}$/.test(number)) return number;
   return /^[A-Z0-9][A-Z0-9-]{3,79}$/.test(number) && number.includes("-")
     ? number
     : null;

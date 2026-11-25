@@ -5655,6 +5655,638 @@ export function buildQaFix9Version(previous: FormSchema): FormSchema {
   }
 }
 
+/* ---------- QAFIX-10: r10 live-QA follow-ups (Workstream A) ----------
+ * Source: the 25 Nov 2026 live QA of r10
+ * (`~/workspace/your_files/DigitalUnion-Live-QA-r10-Report-2026-11-25.md`).
+ * The 24 Nov fix pass verified 40/47 services live; the remaining
+ * service-specific defects land here, one new version per repaired
+ * service; the previous version stays pinned.
+ *  - 14: land amount (with unit) + khatian number beside the
+ *    residence evidence;
+ *  - 15: date of birth + age + NID number, the eligibility facts;
+ *  - 18 + 40: the religions leave the SHARED recognised-community
+ *    list, and an English community-name field joins both services;
+ *  - 27: NID + date of birth + passport number; the free-text
+ *    purpose (and its language choice) goes — the fixed
+ *    passport-purpose select is the only purpose asked;
+ *  - 29: both income labels name the monthly income (আয়);
+ *  - 31: age at death beside the date of death;
+ *  - 34: number of children as a structured required number;
+ *  - 37: NID + date of birth, overturning the QAFIX-08 decision to
+ *    carry no identity fields (the live QA found no identity asked
+ *    or re-confirmed anywhere);
+ *  - 38 + 43: the English description sits NEXT TO its Bangla pair
+ *    (both become text fields — see the builder notes);
+ *  - unicode: the "permanent address" option label is normalised to
+ *    the single precomposed য় (U+09DF) form (see below).
+ * Service 33 publishes NO version here: its prescribed fix (prefill
+ * the NID field from the profile) has no schema-side lever — the
+ * field already carries the canonical `nid_number` id, and the
+ * prefill mapping lives in ServiceFlow (WS-B) — and the A2 limit
+ * stands: the full NID is never exposed to the web client (a masked
+ * hint + audited reveal only), so no prefill mechanism can fill it
+ * today. Recorded plainly in the r10live-33 note; the wiring needs a
+ * coordinator decision, not a schema version.
+ * Prefill ids: new date-of-birth fields use the id `date_of_birth`,
+ * which CITIZEN_FIELD_SOURCES already maps to the citizen's
+ * dateOfBirth, so they prefill with no web change. New NID fields
+ * all use the id `nid_number` (the same id service 33 already
+ * carries), so one future mapping covers services 15/27/33/37 —
+ * once the exposure decision above is made.
+ * Date fields stay text inputs with engine validation (the standing
+ * QAFIX-01 decision); no date pickers are added anywhere. */
+
+/** Services whose next version carries the QAFIX-10 repairs. */
+export const qaFix10Services: readonly number[] = deepFreeze([
+  2, 14, 15, 18, 27, 29, 31, 34, 37, 38, 40, 42, 43, 45,
+]);
+
+/**
+ * Unicode normalisation (the "permanent address" option label).
+ * The base builder writes the word with the precomposed য় (U+09DF),
+ * but the shared QAFIX-02 address_source (services 2 and 42) and the
+ * QAFIX-09 service-45 address_source write it decomposed (য U+09AF
+ * + ় U+09BC) — the same visible word in two encodings across
+ * services, found by a codepoint-level scan of all 47 latest
+ * schemas (the only decomposed carriers are 2, 42 and 45; the other
+ * 44 services already carry U+09DF). The post-pass in
+ * buildQaFix10Version replaces the exact decomposed word with the
+ * precomposed one in every label, description and option label of
+ * the new version — written as escapes so the two forms can never
+ * be confused in this file, and scoped to this exact word so the
+ * QAFIX-01 decomposed spellings of other words (নেওয়ার, বাদ পড়ার,
+ * সম্প্রদায়ের, সহায়তার) are untouched. The pinned JSON evidence
+ * files and the certificate templates' own permanent-address wordings are NOT
+ * rewritten here: the JSONs are pinned evidence, and the templates
+ * are outside this workstream's scope.
+ */
+const qaFix10SthayiDecomposed = "\u09B8\u09CD\u09A5\u09BE\u09AF\u09BC\u09C0";
+const qaFix10SthayiPrecomposed = "\u09B8\u09CD\u09A5\u09BE\u09DF\u09C0";
+const qaFix10NormaliseText = (value: string): string =>
+  value.split(qaFix10SthayiDecomposed).join(qaFix10SthayiPrecomposed);
+function qaFix10NormaliseField(field: FieldDefinition): FieldDefinition {
+  const next: FieldDefinition = {
+    ...field,
+    label: {
+      bn: qaFix10NormaliseText(field.label.bn),
+      en: field.label.en,
+    },
+    ...(field.description
+      ? {
+          description: {
+            bn: qaFix10NormaliseText(field.description.bn),
+            en: field.description.en,
+          },
+        }
+      : {}),
+    ...(field.options
+      ? {
+          options: field.options.map((item) => ({
+            ...item,
+            label: {
+              bn: qaFix10NormaliseText(item.label.bn),
+              en: item.label.en,
+            },
+          })),
+        }
+      : {}),
+  };
+  if (next.type === "repeatable" && next.children)
+    return {
+      ...next,
+      children: next.children.map(qaFix10NormaliseField),
+    };
+  return next;
+}
+
+/** The shared identity fields new QAFIX-10 forms carry. */
+const qaFix10NidNumber: FieldDefinition = {
+  id: "nid_number",
+  type: "text",
+  label: t("জাতীয় পরিচয়পত্র (এনআইডি) নম্বর", "National ID (NID) number"),
+  constraints: { required: true, minLength: 10, maxLength: 17 },
+  evidence: { status: "proposed" },
+};
+const qaFix10DateOfBirth: FieldDefinition = {
+  id: "date_of_birth",
+  type: "date",
+  label: t("জন্ম তারিখ", "Date of birth"),
+  constraints: { required: true, notFuture: true },
+  evidence: { status: "proposed" },
+};
+
+/** Land-amount units (Bangladeshi land measures) for service 14. */
+const qaFix10LandAmountUnitOptions: FieldDefinition["options"] = [
+  option("decimal", "শতাংশ", "Decimal"),
+  option("acre", "একর", "Acre"),
+  option("bigha", "বিঘা", "Bigha"),
+  option("katha", "কাঠা", "Katha"),
+];
+
+/** Religions that are not communities — removed from the shared list. */
+const qaFix10ReligionValues: readonly string[] = [
+  "muslim",
+  "hindu",
+  "buddhist",
+  "christian",
+];
+
+/**
+ * Service 14 (§r10-14): the land amount (with unit) and the khatian
+ * number join the residence evidence, so the office judges the
+ * landlessness claim against stated figures instead of no figures
+ * at all. The amount is required with an explicit zero allowed — a
+ * landless applicant states 0, they do not omit the fact — and the
+ * unit is required with it (an amount without a unit means
+ * nothing); the khatian number stays optional, since a truly
+ * landless applicant may have none. The certificate's attestation
+ * is a fixed sentence reading no payload field (the QAFIX-04 limit
+ * stands), so the new figures are office evidence.
+ */
+function buildQaFix10Landless(previous: FormSchema): FormSchema {
+  const landAmount: FieldDefinition = {
+    id: "land_amount",
+    type: "number",
+    label: t("জমির পরিমাণ", "Land amount"),
+    constraints: { required: true, min: 0, max: 1_000_000 },
+    evidence: { status: "proposed" },
+  };
+  const landAmountUnit: FieldDefinition = {
+    id: "land_amount_unit",
+    type: "select",
+    label: t("জমির পরিমাণের একক", "Land amount unit"),
+    constraints: { required: true },
+    options: qaFix10LandAmountUnitOptions,
+    evidence: { status: "proposed" },
+  };
+  const landKhatianNo: FieldDefinition = {
+    id: "land_khatian_no",
+    type: "text",
+    label: t("খতিয়ান নম্বর", "Khatian number"),
+    constraints: { maxLength: 40 },
+    evidence: { status: "proposed" },
+  };
+  return deepFreeze({
+    ...previous,
+    version: previous.version + 1,
+    evidence: {
+      ...previous.evidence,
+      limitation: `${previous.evidence.limitation} Version ${previous.version + 1} (QAFIX-10) adds the land amount with its unit and the khatian number beside the residence evidence, so the office judges the landlessness claim against stated figures instead of no figures at all. The certificate's attestation is a fixed sentence reading no payload field, so the new figures are office evidence.`,
+    },
+    sections: previous.sections.map((section) => {
+      if (section.id !== "service_details") return section;
+      return {
+        ...section,
+        fields: section.fields.flatMap((field) =>
+          field.id === "residence_duration_years"
+            ? [field, landAmount, landAmountUnit, landKhatianNo]
+            : [field],
+        ),
+      };
+    }),
+  });
+}
+
+/**
+ * Service 15 (§r10-15): the date of birth, the age and the NID
+ * number head the form — the three facts the eligibility judgement
+ * needs (until now the form carried only a free-text reason, so
+ * eligibility could not be established from the form at all). The
+ * age is a plain number (0–120): no 18+ gate is invented here, the
+ * office judges eligibility from the date of birth against the
+ * qualifying date. The certificate is a fixed sentence reading no
+ * payload field, so the three facts are office evidence. The date
+ * of birth uses the prefill-mapped id `date_of_birth`; the NID uses
+ * the canonical `nid_number` id but cannot prefill (see the section
+ * header — the full NID is never exposed to the web client).
+ */
+function buildQaFix10NewVoter(previous: FormSchema): FormSchema {
+  const voterAge: FieldDefinition = {
+    id: "voter_age",
+    type: "number",
+    label: t("বয়স (বছর)", "Age (years)"),
+    constraints: { required: true, min: 0, max: 120 },
+    evidence: { status: "proposed" },
+  };
+  return deepFreeze({
+    ...previous,
+    version: previous.version + 1,
+    evidence: {
+      ...previous.evidence,
+      limitation: `${previous.evidence.limitation} Version ${previous.version + 1} (QAFIX-10) captures the date of birth, age and NID number the eligibility judgement needs. The certificate is a fixed sentence reading no payload field, so the three facts are office evidence. The date of birth prefills from the profile through the existing date_of_birth mapping; the NID cannot prefill — the full NID is never exposed to the web client (masked hint only) — so it is typed by the citizen.`,
+    },
+    sections: previous.sections.map((section) => {
+      if (section.id !== "service_details") return section;
+      return {
+        ...section,
+        fields: [
+          qaFix10DateOfBirth,
+          voterAge,
+          qaFix10NidNumber,
+          ...section.fields,
+        ],
+      };
+    }),
+  });
+}
+
+/**
+ * Services 18 + 40 (§r10-18/40): the religions leave the SHARED
+ * recognised-community list (the same option list object feeds both
+ * services — filtered here in the new version, never by editing the
+ * shared QAFIX-04 constant, which would rewrite the pinned v5
+ * schemas), and an English community-name field joins both
+ * services, seated directly after the select. The field is required
+ * exactly when "other" is chosen: a listed community's English name
+ * already prints on the certificate from the label map, so asking
+ * every citizen to retype it would be pure duplication; the field
+ * exists for the case the closed list cannot express. The label map
+ * keeps the removed codes, so applications pinned to earlier
+ * versions still render.
+ */
+function buildQaFix10Community(previous: FormSchema): FormSchema {
+  const communityNameEn: FieldDefinition = {
+    id: "community_name_en",
+    type: "text",
+    label: t("সম্প্রদায়ের নাম (ইংরেজি)", "Community name (English)"),
+    description: t(
+      "সম্প্রদায়ের নাম ইংরেজিতে লিখুন — তালিকায় 'অন্যান্য' বেছে নিলে এটি অবশ্যই দিতে হবে; তালিকার সম্প্রদায়ের ইংরেজি নাম সনদে স্বয়ংক্রিয়ভাবে ছাপা হয়।",
+      "Write the community name in English — required when 'Other' is chosen from the list; a listed community's English name prints on the certificate automatically.",
+    ),
+    constraints: { maxLength: 160 },
+    requiredWhen: { field: "community_name", equals: "other" },
+    evidence: { status: "proposed" },
+  };
+  return deepFreeze({
+    ...previous,
+    version: previous.version + 1,
+    evidence: {
+      ...previous.evidence,
+      limitation: `${previous.evidence.limitation} Version ${previous.version + 1} (QAFIX-10) removes the religions (Muslim, Hindu, Buddhist, Christian) from the shared recognised-community list — they are religions, not communities — and adds an English community-name field, required when 'Other' is chosen (a listed community's English name already prints from the certificate's label map). The label map keeps the removed codes so applications pinned to earlier versions still render.`,
+    },
+    sections: previous.sections.map((section) => ({
+      ...section,
+      fields: section.fields.flatMap((field) => {
+        if (field.id === "community_name")
+          return [
+            {
+              ...field,
+              options: (field.options ?? []).filter(
+                (item) => !qaFix10ReligionValues.includes(item.value),
+              ),
+            },
+            communityNameEn,
+          ];
+        return [field];
+      }),
+    })),
+  });
+}
+
+/**
+ * Service 27 (§r10-27): the NID number, date of birth and passport
+ * number head the form, and the free-text purpose (with its language
+ * choice) is removed — the fixed passport-purpose select is now the
+ * only purpose asked, ending the ask-twice the live QA found (and
+ * with it the blank purpose-language row: the language choice
+ * described the removed free-text field). The passport number is
+ * optional — a first issuance has none — while the NID and the date
+ * of birth are required. Template-first check: the v7 letter reads
+ * the fixed select through its label map and takes identity from the
+ * citizen record (the legacy template's generic purpose row renders
+ * only for resident services), so no template change is needed and
+ * the new identity fields are office evidence. Renewal note: a v4
+ * application renewing onto this version carries its old free-text
+ * purpose, which the new schema rejects as unknown — the renew
+ * handler's designed pinned fallback keeps it on v4 (no error);
+ * carrying the purpose forward would need the handler to drop the
+ * two fields, which is outside this schema workstream — flagged in
+ * the r10live-27 note.
+ */
+function buildQaFix10Passport(previous: FormSchema): FormSchema {
+  const passportNumber: FieldDefinition = {
+    id: "passport_number",
+    type: "text",
+    label: t("পাসপোর্ট নম্বর (যদি থাকে)", "Passport number (if any)"),
+    constraints: { maxLength: 30 },
+    evidence: { status: "proposed" },
+  };
+  return deepFreeze({
+    ...previous,
+    version: previous.version + 1,
+    evidence: {
+      ...previous.evidence,
+      limitation: `${previous.evidence.limitation} Version ${previous.version + 1} (QAFIX-10) captures the NID number, date of birth and passport number, and removes the free-text purpose and its language choice — the fixed passport-purpose select is now the only purpose asked. The recommendation letter reads the fixed select through its label map and takes identity from the citizen record, so the new identity fields are office evidence.`,
+    },
+    sections: previous.sections.map((section) => {
+      if (section.id === "service_details")
+        return {
+          ...section,
+          fields: [
+            qaFix10NidNumber,
+            qaFix10DateOfBirth,
+            passportNumber,
+            ...section.fields,
+          ],
+        };
+      if (section.id === "application_context")
+        return {
+          ...section,
+          fields: section.fields.filter(
+            (field) =>
+              field.id !== "purpose" && field.id !== "purpose_language",
+          ),
+        };
+      return section;
+    }),
+  });
+}
+
+/**
+ * Service 29 (§r10-29): both income labels now name the monthly
+ * income — the amount in figures and the amount in words can no
+ * longer be mistaken for any other amount. The labels are prefixed
+ * onto the existing Bangla strings (never retyped), so their
+ * existing codepoints are preserved byte-identically; the English
+ * labels are unchanged.
+ */
+function buildQaFix10MonthlyIncome(previous: FormSchema): FormSchema {
+  return deepFreeze({
+    ...previous,
+    version: previous.version + 1,
+    evidence: {
+      ...previous.evidence,
+      limitation: `${previous.evidence.limitation} Version ${previous.version + 1} (QAFIX-10) names the monthly income in both amount labels, so the figures cannot be mistaken for any other amount.`,
+    },
+    sections: previous.sections.map((section) => ({
+      ...section,
+      fields: section.fields.map((field) => {
+        if (
+          field.id === "income_info_amount" ||
+          field.id === "income_info_amount_word"
+        )
+          return {
+            ...field,
+            label: {
+              bn: `মাসিক আয় ${field.label.bn}`,
+              en: field.label.en,
+            },
+          };
+        return field;
+      }),
+    })),
+  });
+}
+
+/**
+ * Service 31 (§r10-31): the age at death joins the date of death —
+ * the form carried the date but never the age, and the age cannot be
+ * derived (no birth date is captured). Required, 0–120, seated
+ * directly after the date. The certificate prints the applicant and
+ * the relationship only, so the age is office evidence.
+ */
+function buildQaFix10DeathWhileUnmarried(previous: FormSchema): FormSchema {
+  const ageAtDeath: FieldDefinition = {
+    id: "dead_info_age_at_death",
+    type: "number",
+    label: t("মৃত্যুর সময় বয়স (বছর)", "Age at death (years)"),
+    constraints: { required: true, min: 0, max: 120 },
+    evidence: { status: "proposed" },
+  };
+  return deepFreeze({
+    ...previous,
+    version: previous.version + 1,
+    evidence: {
+      ...previous.evidence,
+      limitation: `${previous.evidence.limitation} Version ${previous.version + 1} (QAFIX-10) captures the age at death beside the date of death. The certificate prints the applicant and the relationship only, so the age is office evidence.`,
+    },
+    sections: previous.sections.map((section) => {
+      if (section.id !== "service_details") return section;
+      return {
+        ...section,
+        fields: section.fields.flatMap((field) =>
+          field.id === "dead_info_dod" ? [field, ageAtDeath] : [field],
+        ),
+      };
+    }),
+  });
+}
+
+/**
+ * Service 34 (§r10-34): the number of children becomes a structured
+ * required number, seated directly before the fixed no-children
+ * declaration it corroborates — until now the form carried only the
+ * declaration checkbox, so the office had no stated count behind
+ * the attested sentence. Required, 0–30 (the truthful value on this
+ * attestation is 0). The certificate prints the fixed sentence
+ * only, so the count is office evidence.
+ */
+function buildQaFix10Childless(previous: FormSchema): FormSchema {
+  const childrenCount: FieldDefinition = {
+    id: "childless_children_count",
+    type: "number",
+    label: t("সন্তানের সংখ্যা", "Number of children"),
+    constraints: { required: true, min: 0, max: 30 },
+    evidence: { status: "proposed" },
+  };
+  return deepFreeze({
+    ...previous,
+    version: previous.version + 1,
+    evidence: {
+      ...previous.evidence,
+      limitation: `${previous.evidence.limitation} Version ${previous.version + 1} (QAFIX-10) captures the number of children as a structured required number beside the fixed no-children declaration it corroborates. The certificate prints the fixed sentence only, so the count is office evidence.`,
+    },
+    sections: previous.sections.map((section) => {
+      if (section.id !== "service_details") return section;
+      return {
+        ...section,
+        fields: section.fields.flatMap((field) =>
+          field.id === "childless_declaration_confirmed"
+            ? [childrenCount, field]
+            : [field],
+        ),
+      };
+    }),
+  });
+}
+
+/**
+ * Service 37 (§r10-37): the NID number and date of birth head the
+ * form — overturning the QAFIX-08 decision to carry no identity
+ * fields, which the live QA proved wrong (no identity asked or
+ * re-confirmed anywhere, only the applicant name). The certificate's
+ * fields line prints the NID from the citizen identity record, so
+ * the form fields are the citizen's re-confirmation. The date of
+ * birth uses the prefill-mapped id `date_of_birth`; the NID uses
+ * the canonical `nid_number` id but cannot prefill (see the section
+ * header — the full NID is never exposed to the web client).
+ */
+function buildQaFix10VoterAreaTransfer(previous: FormSchema): FormSchema {
+  return deepFreeze({
+    ...previous,
+    version: previous.version + 1,
+    evidence: {
+      ...previous.evidence,
+      limitation: `${previous.evidence.limitation} Version ${previous.version + 1} (QAFIX-10) captures the NID number and date of birth, overturning the QAFIX-08 decision to carry no identity fields — the live QA found no identity asked or re-confirmed anywhere. The certificate's fields line prints the NID from the citizen identity record, so the form fields are the citizen's re-confirmation; the date of birth prefills from the profile through the existing mapping, the NID cannot prefill (masked hint only).`,
+    },
+    sections: previous.sections.map((section) => {
+      if (section.id !== "service_details") return section;
+      return {
+        ...section,
+        fields: [qaFix10NidNumber, qaFix10DateOfBirth, ...section.fields],
+      };
+    }),
+  });
+}
+
+/**
+ * Services 38 + 43 (§r10-38/43): the English description becomes a
+ * text field beside its Bangla pair, instead of a textarea stacked
+ * below it. Two changes, not one. (1) Type: the stylesheet spans
+ * every textarea across the full row (`.form-grid >
+ * .field[data-field-type="textarea"]` `grid-column: 1 / -1`), so no
+ * textarea pair can ever sit side by side — both halves become
+ * text fields. (2) Seating: a pair shares a row only when the
+ * Bangla half starts in the first column, an even index inside its
+ * section. The probe proved the type change alone does NOT seat
+ * the pair: in v5 the pair starts at an odd index, so the Bangla
+ * half lands in the second column and the English half wraps to
+ * the next row. `seatByMoving` names the one field moved from
+ * before the pair to just after the English half so the pair
+ * starts on an even index. Labels and limits are unchanged
+ * (required, 2–1000), and the issuance gate still sees both halves
+ * required. The web stylesheet itself is WS-B's — this change
+ * needs no web edit.
+ */
+function buildQaFix10PairToText(
+  previous: FormSchema,
+  bnId: string,
+  enId: string,
+  seatByMoving?: string,
+): FormSchema {
+  return deepFreeze({
+    ...previous,
+    version: previous.version + 1,
+    evidence: {
+      ...previous.evidence,
+      limitation: `${previous.evidence.limitation} Version ${previous.version + 1} (QAFIX-10) seats the English description beside its Bangla pair: both halves are now text fields, because the form grid spans every textarea across the full row, so no textarea pair can sit side by side. Labels and limits are unchanged, and the issuance gate still sees both halves required.${seatByMoving ? ` The pair is also seated in one grid row by moving ${seatByMoving} to just after the English half — a pair starting in the second column straddles the row boundary, so the type change alone does not seat it.` : ""}`,
+    },
+    sections: previous.sections.map((section) => {
+      let fields = section.fields.map((field) =>
+        field.id === bnId || field.id === enId
+          ? { ...field, type: "text" as const }
+          : field,
+      );
+      if (seatByMoving) {
+        const at = fields.findIndex((field) => field.id === seatByMoving);
+        const enAt = fields.findIndex((field) => field.id === enId);
+        if (at !== -1 && enAt !== -1 && at < enAt) {
+          const [moved] = fields.splice(at, 1);
+          const enNow = fields.findIndex((field) => field.id === enId);
+          fields = [
+            ...fields.slice(0, enNow + 1),
+            moved,
+            ...fields.slice(enNow + 1),
+          ];
+        }
+      }
+      return { ...section, fields };
+    }),
+  });
+}
+
+/**
+ * Services 2, 42, 45 (§r10-unicode): these three publish a new
+ * version carrying ONLY the unicode normalisation (see the section
+ * header — they are the only decomposed carriers of the "permanent
+ * address" option label). No field is added, removed or reordered.
+ */
+function buildQaFix10UnicodeOnly(previous: FormSchema): FormSchema {
+  return deepFreeze({
+    ...previous,
+    version: previous.version + 1,
+    evidence: {
+      ...previous.evidence,
+      limitation: `${previous.evidence.limitation} Version ${previous.version + 1} (QAFIX-10) normalises the "permanent address" option label to the single precomposed য় (U+09DF) form, ending the two-encoding split across services. Nothing else changes.`,
+    },
+    sections: previous.sections,
+  });
+}
+
+/** QAFIX-10: publish the repair version of a service's current schema. */
+export function buildQaFix10Version(previous: FormSchema): FormSchema {
+  let repaired: FormSchema;
+  switch (previous.serviceNo) {
+    case 2:
+    case 42:
+    case 45:
+      repaired = buildQaFix10UnicodeOnly(previous);
+      break;
+    case 14:
+      repaired = buildQaFix10Landless(previous);
+      break;
+    case 15:
+      repaired = buildQaFix10NewVoter(previous);
+      break;
+    case 18:
+    case 40:
+      repaired = buildQaFix10Community(previous);
+      break;
+    case 27:
+      repaired = buildQaFix10Passport(previous);
+      break;
+    case 29:
+      repaired = buildQaFix10MonthlyIncome(previous);
+      break;
+    case 31:
+      repaired = buildQaFix10DeathWhileUnmarried(previous);
+      break;
+    case 34:
+      repaired = buildQaFix10Childless(previous);
+      break;
+    case 37:
+      repaired = buildQaFix10VoterAreaTransfer(previous);
+      break;
+    case 38:
+      repaired = buildQaFix10PairToText(
+        previous,
+        "support_needs",
+        "support_needs_en",
+        // Seat the pair: move the severity grade to just after the
+        // English half so the pair starts on an even grid index
+        // (the diagnosis pair lands side by side as well).
+        "disability_severity",
+      );
+      break;
+    case 43:
+      repaired = buildQaFix10PairToText(
+        previous,
+        "omission_details",
+        "omission_details_en",
+        // Seat the pair: move the ward number to just after the
+        // English half so the pair starts on an even grid index.
+        "omission_ward_no",
+      );
+      break;
+    default:
+      throw new RangeError(
+        `Service ${previous.serviceNo} has no QAFIX-10 version.`,
+      );
+  }
+  // Unicode post-pass (see the section header): normalise the
+  // decomposed "permanent address" word to the precomposed form in
+  // every label, description and option label of the new version.
+  // For the repaired services this is a guard (they already carry
+  // U+09DF); for 2, 42 and 45 it is the change itself.
+  return deepFreeze({
+    ...repaired,
+    sections: repaired.sections.map((section) => ({
+      ...section,
+      fields: section.fields.map(qaFix10NormaliseField),
+    })),
+  });
+}
+
 /** An example fixture builder. Optional uploads are omitted because only the API can create authorized handles. */
 export function createSyntheticPayload(
   schema: FormSchema,

@@ -42,6 +42,7 @@
   "Subscription & credits": "সাবস্ক্রিপশন ও ক্রেডিট",
   "Platform management": "প্ল্যাটফর্ম ব্যবস্থাপনা",
   "Office administration": "অফিস ব্যবস্থাপনা",
+  "Account display name": "অ্যাকাউন্টের প্রদর্শিত নাম",
   "Account security": "অ্যাকাউন্ট নিরাপত্তা",
   "My profile": "আমার প্রোফাইল",
   "Print requests": "প্রিন্ট অনুরোধ",
@@ -340,5 +341,9 @@
   "Coupons": "কুপন",
   "Online payments": "অনলাইন পেমেন্ট",
   "Ask the applicant to come": "আবেদনকারীকে আসতে বলুন",
-  "summon": "আবেদনকারীকে তলব"
+  "summon": "আবেদনকারীকে তলব",
+  "A correction reason is required.": "সংশোধনের কারণ লিখুন।",
+  "Say when and where the applicant should come.": "কবে ও কোথায় আসতে হবে তা লিখুন।",
+  "A rejection reason is required.": "প্রত্যাখ্যানের কারণ লিখুন।",
+  "A cancellation reason is required.": "বাতিলের কারণ লিখুন।"
 }

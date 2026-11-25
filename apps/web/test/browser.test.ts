@@ -145,6 +145,22 @@ async function action(page: Page, text: string) {
     (r) => r.url().includes("/transition") && r.request().method() === "POST",
   );
   await page.getByRole("button", { name: text, exact: true }).click();
+  // WS-D2 (item 16): correction/summon/reject open a reason dialog before
+  // the transition POSTs — complete it when it appears. Plain transitions
+  // (submit/resubmit) post at once and never show it; the response waiter
+  // above was registered before the click, so it captures either path.
+  const confirm = page.locator('[data-testid="confirm-transition"]');
+  if (await confirm.waitFor({ timeout: 2000 }).then(() => true).catch(() => false)) {
+    const field = page.locator('[data-testid="dialog-field"]');
+    if (await field.count()) await field.selectOption("__all__");
+    const reasonSelect = page.locator('[data-testid="dialog-reason"]');
+    if (await reasonSelect.count()) await reasonSelect.selectOption({ index: 1 });
+    const when = page.locator('[data-testid="dialog-when"]');
+    if (await when.count()) await when.fill("Sunday at 10 am");
+    const where = page.locator('[data-testid="dialog-where"]');
+    if (await where.count()) await where.fill("Belabo Union Parishad office");
+    await confirm.click();
+  }
   const result = await response;
   assert.equal(result.status(), 200, await result.text());
   // The same sentence also appears as a timeline entry heading on the
