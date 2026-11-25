@@ -133,6 +133,65 @@ async function dbMode() {
     // 4. Owner account exists.
     const owners = (await pool.query("SELECT count(*)::int AS n FROM platform_users WHERE platform_role='owner'")).rows[0].n as number;
     check("owner-account", owners >= 1, `${owners} platform owner account(s)`);
+    // 5. S-012: tenant isolation is actually enforced by the database, not
+    //    just by application WHERE clauses. Migration 055 scope-gates the
+    //    definer policies; without it, any office-scoped request could read
+    //    other offices' applications/certificates/attachments. This is the
+    //    same assertion the API suite runs (tenant-isolation-055.test.ts),
+    //    against whichever database this script is pointed at.
+    const isolationTables = [
+      "applications",
+      "certificates",
+      "citizens",
+      "attachments",
+      "point_wallets",
+      "tenant_service_configuration",
+      "notices",
+      "password_recovery_tokens",
+      "application_refunds",
+      "point_ledger",
+      "service_order_policies",
+      "application_order_snapshots",
+      "audit_events",
+    ];
+    const migration055 = (
+      await pool.query("SELECT 1 FROM schema_migrations WHERE name=$1", [
+        "055_definer_read_scope_and_verify_holder.sql",
+      ])
+    ).rowCount;
+    const flags = (
+      await pool.query(
+        "SELECT relname,relrowsecurity,relforcerowsecurity FROM pg_class WHERE relname=ANY($1)",
+        [isolationTables],
+      )
+    ).rows as Array<{ relname: string; relrowsecurity: boolean; relforcerowsecurity: boolean }>;
+    const unforced = flags.filter((r) => !r.relrowsecurity || !r.relforcerowsecurity).map((r) => r.relname);
+    const missingTables = isolationTables.filter((t) => !flags.some((r) => r.relname === t));
+    const openDefiner = (
+      await pool.query(
+        `SELECT policyname FROM pg_policies WHERE policyname IN
+         ('public_definer_owner_read','definer_operations_read','callback_owner_read',
+          'definer_ledger_read','definer_wallet_maintenance','definer_queue_read',
+          'definer_office_info_read') AND (qual = 'true' OR qual NOT LIKE '%astra.tenant_id%')`,
+      )
+    ).rows as Array<{ policyname: string }>;
+    const isolationOk =
+      migration055 === 1 &&
+      missingTables.length === 0 &&
+      unforced.length === 0 &&
+      openDefiner.length === 0;
+    check(
+      "tenant-isolation-rls",
+      isolationOk,
+      isolationOk
+        ? `migration 055 applied; RLS + FORCE RLS on ${flags.length} tenant tables; all definer policies scope-gated`
+        : [
+            ...(migration055 !== 1 ? ["migration 055 NOT recorded in schema_migrations — tenant isolation is pre-055"] : []),
+            ...(missingTables.length ? [`tables missing: ${missingTables.join(", ")}`] : []),
+            ...(unforced.length ? [`RLS/FORCE RLS missing on: ${unforced.join(", ")}`] : []),
+            ...(openDefiner.length ? [`definer policies not scope-gated: ${[...new Set(openDefiner.map((r) => r.policyname))].join(", ")}`] : []),
+          ].join("; "),
+    );
   } finally {
     await pool.end();
   }
