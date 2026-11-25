@@ -8,6 +8,22 @@ import { digest } from "./security.js";
 import { renderHtmlPdf } from "./pdf.js";
 import { geographyInput, geographyRow, geographyValues, validateGeography, validateOfficeJurisdiction, presentAddressInput, presentAddressRow, presentAddressValues, presentAddressColumns } from "./geography.js";
 import { parseReferenceInput } from "./references.js";
+import {
+  createFailureBudget,
+  sharedRateLimitsEnabled,
+} from "./shared-rate-limit.js";
+
+// S-006: the same per-number failure budget as /verify/by-number in
+// app.ts (10 failed lookups of one number in 15 minutes lock that number
+// out; a success clears it). UUID lookups skip the budget — a UUID is
+// not enumerable, so there is nothing to bound there.
+const lookupBudget = createFailureBudget({
+  pool,
+  limit: 10,
+  windowMs: 15 * 60_000,
+  keyPrefix: "lookup:",
+  shared: sharedRateLimitsEnabled(),
+});
 
 type Req = express.Request & { auth?: Auth };
 const wrap = (fn: (req: Req, res: express.Response) => Promise<unknown>) => (req: Req, res: express.Response, next: express.NextFunction) => { Promise.resolve(fn(req, res)).catch(next); };
@@ -36,8 +52,16 @@ publicToolsRouter.get("/track/:id",wrap(async(req,res)=>{
   }
   const reference=parseReferenceInput(req.params.id);
   if(!reference)fail(404,"NOT_FOUND","Application status not found.");
+  // S-006: see the note on lookupBudget above. Malformed input is refused
+  // without recording (it cannot match a real record).
+  if(await lookupBudget.blocked(reference))
+    fail(429,"TRACK_RATE_LIMIT","Too many failed lookups for this number. Try again later.");
   const r=(await pool.query("SELECT * FROM public_track_by_reference($1)",[reference])).rows[0];
-  if(!r)fail(404,"NOT_FOUND","Application status not found.");
+  if(!r){
+    await lookupBudget.recordFailure(reference);
+    fail(404,"NOT_FOUND","Application status not found.");
+  }
+  await lookupBudget.clear(reference);
   res.json(camelRow(r));
 }));
 publicToolsRouter.post("/public/feedback", wrap(async (req,res) => {

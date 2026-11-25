@@ -663,8 +663,18 @@ app.get(
     // CERTNO-01: the printed 16-digit number may be typed plain, grouped with
     // spaces/hyphens, or in Bengali digits (folded above). Try the exact form
     // first (legacy numbers keep their hyphens), then the plain-digit form.
+    // S-006: the per-number failure budget. A malformed number is refused
+    // without recording (it cannot match a real record); a well-formed
+    // guess that misses records one failure against this number only.
     const candidates = [number];
     const digitsOnly = number.replace(/\D/g, "");
+    const budgetKey = digitsOnly.length === 16 ? digitsOnly : number;
+    if (await lookupBudget.blocked(budgetKey))
+      fail(
+        429,
+        "VERIFY_RATE_LIMIT",
+        "Too many failed lookups for this number. Try again later.",
+      );
     if (digitsOnly.length === 16) {
       candidates.push(digitsOnly, `DEMO-${digitsOnly}`);
     }
@@ -679,7 +689,10 @@ app.get(
         break;
       }
     }
-    if (!record) fail(404, "NOT_FOUND", "Verification record not found.");
+    if (!record) {
+      await lookupBudget.recordFailure(budgetKey);
+      fail(404, "NOT_FOUND", "Verification record not found.");
+    }
     // QA-06: a demo-mode number must never verify as a real document, and the
     // verifier gets a masked holder name to compare against the paper.
     const holder = (
@@ -687,6 +700,9 @@ app.get(
         matched,
       ])
     ).rows[0];
+    // S-006: a successful lookup clears this number's failure budget, so a
+    // holder who mistyped twice is not punished for eventually succeeding.
+    await lookupBudget.clear(budgetKey);
     res.json({
       ...camelRow(record),
       demo: Boolean(record.demo) || matched.startsWith("DEMO-"),
@@ -710,6 +726,21 @@ function maskName(name: unknown): string | null {
     })
     .join(" ");
 }
+// S-006: per-number failure budget for the public verify/track lookups.
+// Ten failed lookups of one number in 15 minutes lock that number out;
+// a success clears it. The budget is shared across processes when
+// shared limits are enabled (same store as S-004). This bounds guessing
+// against a single number; it does NOT stop distributed enumeration
+// across distinct numbers — that needs a CAPTCHA/challenge step, which
+// no provider in this stack supplies (owner decision, see the batch-D
+// fragment). Re-keying legacy references is likewise an owner decision.
+const lookupBudget = createFailureBudget({
+  pool,
+  limit: 10,
+  windowMs: 15 * 60_000,
+  keyPrefix: "lookup:",
+  shared: sharedRateLimitsEnabled(),
+});
 // S-004: sign-in budgets. The per-IP budget (60/min) and the
 // per-identifier failure budget (10 failures/5 min) are shared across
 // server processes through rate_limit_buckets when shared limits are
