@@ -386,6 +386,15 @@ test(
             .isVisible(),
         );
       } finally {
+        // The review step renders immediately while the advisory
+        // fee-preview is still in flight through this proxy route; the
+        // test can reach this close within milliseconds of the preview
+        // firing, and route.fetch then rejects with "Target page,
+        // context or browser has been closed". Dropping the routes
+        // with ignoreErrors lets the in-flight proxy finish (or die)
+        // without failing the test — the preview is advisory, the
+        // review UI never blocks on it.
+        await hosted.unrouteAll({ behavior: "ignoreErrors" }).catch(() => {});
         await hosted.close();
       }
     } finally {
