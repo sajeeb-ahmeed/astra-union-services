@@ -89,19 +89,37 @@ function NavLink({
 }) {
   const active = current === href;
   if (onNavigate && !HARD_LINKS.has(href))
+    // L-006 follow-up: navigation stays a real <a href> — a <button>
+    // broke link semantics (screen readers, middle-click / new tab,
+    // right-click copy-link, crawlers) and every getByRole("link")
+    // query in the browser suite. A plain left-click is intercepted
+    // here (preventDefault + onNavigate, no reload); the delegated
+    // interceptor in navigate.ts sees defaultPrevented and stands down,
+    // so the navigation runs exactly once. Modified clicks keep the
+    // browser default (new tab).
     return (
-      <button
-        type="button"
+      <a
         className={className}
+        href={href}
         aria-current={active ? "page" : undefined}
         aria-label={ariaLabel}
-        onClick={() => {
+        onClick={(event) => {
+          if (
+            event.defaultPrevented ||
+            event.button !== 0 ||
+            event.metaKey ||
+            event.ctrlKey ||
+            event.shiftKey ||
+            event.altKey
+          )
+            return;
+          event.preventDefault();
           onDone?.();
           onNavigate(href);
         }}
       >
         {children}
-      </button>
+      </a>
     );
   return (
     <a
