@@ -685,10 +685,36 @@ test(
       const citizens = Array.isArray(citizenList.data)
         ? citizenList.data
         : citizenList.data.items;
+      // T-003: the suites share one seeded database, and an earlier suite
+      // may have published an order policy for alpha/42 (test:api's
+      // certificate-assets publishes a zero-fee one). Read the current
+      // policy — exactly as the API suite's FOR-02 does — and supply
+      // matching order preferences when one exists, instead of assuming
+      // none does (that assumption 409s with ORDER_REQUIRED).
+      const options = await request(staff, "/services/42/order-options");
+      assert.equal(options.status, 200, JSON.stringify(options.data));
+      let payload: Record<string, unknown> = demoPayloads[42];
+      let order: Record<string, unknown> | undefined;
+      if (options.data.configured) {
+        const policy = options.data.policy;
+        payload = { ...payload, delivery_language: "en" };
+        order = {
+          policyVersion: policy.version,
+          preferences: {
+            addressBasis: "registered_profile",
+            certificateLanguage: "en",
+            deliveryMode: policy.deliveryModes.includes("office_collection")
+              ? "office_collection"
+              : policy.deliveryModes[0],
+            urgency: policy.urgencies[0],
+          },
+        };
+      }
       const created = await request(staff, "/applications", "POST", {
         citizenId: citizens[0].id,
         serviceNo: 42,
-        payload: demoPayloads[42],
+        payload,
+        ...(order ? { order } : {}),
       });
       assert.equal(created.status, 201, JSON.stringify(created.data));
       const source = created.data;
@@ -734,12 +760,37 @@ test(
       await staff
         .getByRole("button", { name: "Find record", exact: true })
         .click();
-      await staff
-        .getByRole("button", {
-          name: "Start trade license renewal",
-          exact: true,
-        })
-        .waitFor();
+      const renewalButton = staff.getByRole("button", {
+        name: "Start trade license renewal",
+        exact: true,
+      });
+      await renewalButton.waitFor();
+      if (options.data.configured) {
+        // T-003 (continued): with an order policy configured, the renewal
+        // order panel on the issued record must be completed before the
+        // renewal button enables — language, fee quote, acceptance.
+        // Without a policy the panel reports ready at load and this block
+        // is skipped. The renewal then carries the order snapshot, so its
+        // submit passes validateApplicationOrder.
+        const orderPanel = staff.locator(
+          'section.order-panel[aria-label="Certificate options and fees"]',
+        );
+        await orderPanel.locator("#order-language").waitFor();
+        await orderPanel.locator("#order-language").selectOption("en");
+        await orderPanel
+          .getByRole("button", { name: "Review fees", exact: true })
+          .click();
+        const accept = orderPanel.getByLabel(
+          "I have reviewed the certificate options and fee breakdown.",
+        );
+        await accept.waitFor();
+        await accept.check();
+        for (let i = 0; i < 120; i++) {
+          if (await renewalButton.isEnabled().catch(() => false)) break;
+          await staff.waitForTimeout(250);
+        }
+        assert.equal(await renewalButton.isEnabled(), true);
+      }
       const renewalResponse = staff.waitForResponse(
         (r) => r.url().endsWith("/renew") && r.request().method() === "POST",
       );
