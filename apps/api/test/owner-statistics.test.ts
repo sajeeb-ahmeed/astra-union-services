@@ -318,8 +318,16 @@ test("W-020: platform health reports database, scanner, providers and absent bac
   const h = r.body;
   assert.equal(h.database.ok, true);
   assert.ok(typeof h.database.latencyMs === "number" && h.database.latencyMs >= 0);
-  assert.ok(h.database.migrationsApplied >= 67, `migrations applied: ${h.database.migrationsApplied}`);
-  assert.ok(/^068_/.test(String(h.database.latestMigration)), h.database.latestMigration);
+  // Compare against the database itself (same count(*) + max(name) the
+  // endpoint runs) instead of hard-coding the latest migration number —
+  // the previous ^068_ assertion broke the moment F-001 added 069.
+  const migrations = (
+    await admin.query(
+      "SELECT count(*)::int AS applied, max(name) AS latest FROM schema_migrations",
+    )
+  ).rows[0];
+  assert.equal(h.database.migrationsApplied, migrations.applied);
+  assert.equal(h.database.latestMigration, migrations.latest);
   assert.ok(typeof h.app.version === "string" && h.app.version.length > 0);
   assert.ok(typeof h.app.node === "string" && h.app.node.startsWith("v"));
   assert.ok(["ok", "stale", "offline"].includes(h.scanner.status), h.scanner.status);

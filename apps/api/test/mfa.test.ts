@@ -775,11 +775,22 @@ test("MFA-OWNER-AUDIT: owner MFA works without tenant; own security history is d
     ),
   );
   assert.ok(!JSON.stringify(response.body).includes(enrolled.secret));
-  assert.deepEqual(
-    (await request("GET", "/auth/security-events", undefined, neighbor.session))
-      .body.items,
-    [],
-  );
+  // CH-007: a plain-password sign-in is now recorded (SIGNED_IN), and
+  // createUser mints the neighbour's session with exactly such a sign-in —
+  // so the neighbour's history holds that one event, and nothing of the
+  // owner's. Isolation is that no MFA event leaks across, not that the
+  // neighbour's own sign-in is invisible.
+  const neighborItems = (
+    await request("GET", "/auth/security-events", undefined, neighbor.session)
+  ).body.items;
+  assert.equal(neighborItems.length, 1);
+  assert.equal(neighborItems[0].action, "SIGNED_IN");
+  assert.deepEqual(Object.keys(neighborItems[0]).sort(), [
+    "action",
+    "createdAt",
+    "id",
+    "metadata",
+  ]);
   assert.equal((await request("GET", "/auth/security-events")).status, 401);
   const client = await pool.connect();
   try {

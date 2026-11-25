@@ -486,8 +486,13 @@ test("W-005: the citizen-pays flip is refused — no unsupported config can bric
   // deployment predating the fix) still refuses the submit with 402 and
   // leaves the application a draft — nothing is charged. The API flip
   // above is what prevents this state from being created anew.
+  // Upsert, not a bare UPDATE: a fresh seed has no application_fee_payer
+  // row at all (the default "office" is the row's absence), so an UPDATE
+  // would silently affect 0 rows and the backstop would never be exercised.
   await admin.query(
-    "UPDATE platform_settings SET value='citizen' WHERE key='application_fee_payer'",
+    `INSERT INTO platform_settings(key, value, updated_by, updated_at)
+     VALUES('application_fee_payer','citizen',(SELECT id FROM platform_users WHERE email='owner@astra.demo.test'),now())
+     ON CONFLICT (key) DO UPDATE SET value=EXCLUDED.value, updated_at=now()`,
   );
   const id2 = await draftApplication(officeQ);
   const blocked = await transition(officeQ, id2, "submit", officeQ.staff);
@@ -497,7 +502,9 @@ test("W-005: the citizen-pays flip is refused — no unsupported config can bric
   assert.equal((await detail(officeQ, id2)).state, "DRAFT");
   assert.equal((await feeEntries(officeQ.tenant.id)).length, 2, "only the earlier paid submits are in the ledger");
   await admin.query(
-    "UPDATE platform_settings SET value='office' WHERE key='application_fee_payer'",
+    `INSERT INTO platform_settings(key, value, updated_by, updated_at)
+     VALUES('application_fee_payer','office',(SELECT id FROM platform_users WHERE email='owner@astra.demo.test'),now())
+     ON CONFLICT (key) DO UPDATE SET value=EXCLUDED.value, updated_at=now()`,
   );
   const unblocked = await transition(officeQ, id2, "submit", officeQ.staff);
   assert.equal(unblocked.status, 200, JSON.stringify(unblocked.body));

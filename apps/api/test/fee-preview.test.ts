@@ -212,8 +212,13 @@ test("W-006: a zero price is free, and no order policy is configured yet", async
 });
 
 test("W-006: a stored citizen-pays value surfaces as a block", async () => {
+  // Upsert, not a bare UPDATE: a fresh seed has no application_fee_payer
+  // row at all (the default "office" is the row's absence), so an UPDATE
+  // would silently affect 0 rows and the block would never be exercised.
   await admin.query(
-    "UPDATE platform_settings SET value='citizen' WHERE key='application_fee_payer'",
+    `INSERT INTO platform_settings(key, value, updated_by, updated_at)
+     VALUES('application_fee_payer','citizen',(SELECT id FROM platform_users WHERE email='owner@astra.demo.test'),now())
+     ON CONFLICT (key) DO UPDATE SET value=EXCLUDED.value, updated_at=now()`,
   );
   try {
     const r = await preview(officeA, 44);
@@ -225,7 +230,9 @@ test("W-006: a stored citizen-pays value surfaces as a block", async () => {
     assert.match(r.body.blockReason, /not available yet/);
   } finally {
     await admin.query(
-      "UPDATE platform_settings SET value='office' WHERE key='application_fee_payer'",
+      `INSERT INTO platform_settings(key, value, updated_by, updated_at)
+       VALUES('application_fee_payer','office',(SELECT id FROM platform_users WHERE email='owner@astra.demo.test'),now())
+       ON CONFLICT (key) DO UPDATE SET value=EXCLUDED.value, updated_at=now()`,
     );
   }
   const cleared = await preview(officeA, 44);
