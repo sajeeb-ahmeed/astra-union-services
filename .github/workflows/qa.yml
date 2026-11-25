@@ -136,6 +136,10 @@ jobs:
       - run: npm run db:migrate
       - run: npm run db:seed
       - run: npm run build
+      # T-002: the browser fixture stands in for the scanner worker over
+      # the internal scanner API. The secret is random per run, lives only
+      # in this isolated job, and is never persisted or deployed.
+      - run: echo "ATTACHMENT_SCANNER_SECRET=$(openssl rand -hex 32)" >> "$GITHUB_ENV"
       - run: npm test
       # Audit gate covers production dependencies. The picomatch advisory
       # GHSA-fc5q-39xc-vjpf affects only dev build tooling (vite chain) and has

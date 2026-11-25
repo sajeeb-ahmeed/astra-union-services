@@ -127,6 +127,14 @@ node scripts/backup/recovery-drill.mjs
 
 Tests create synthetic rows and sandbox payments; use test/development databases. Clean-bootstrap creates a new DB, applies all migrations, seeds twice, verifies every schema hash and runs the entire API suite. Recovery restores into a new DB without dropping the source. `test:web` starts the local stack if necessary.
 
+Document-bearing browser tests need a scanner verdict path, or uploads stay quarantined and submissions fail with 409 `ATTACHMENT_NOT_READY`. For isolated test environments only, generate a throwaway fixture secret and export it before running the suite — the browser-test fixture then stands in for the scanner worker over the internal scanner API (`scripts/scanner/preflight.ts` fails fast with a clear message when no verdict path exists). Never set this secret in production; production uses its own provisioned secret and the real outbound worker (see [scanner runtime](docs/ATTACHMENT_SCANNER_RUNTIME.md)).
+
+```powershell
+$env:ATTACHMENT_SCANNER_SECRET = (openssl rand -hex 32)  # test environments only
+```
+
+`test:web` also resets test-created order policies before the suite runs (`scripts/test-support/reset-test-order-policies.ts`, loopback test database only), so one suite's published fee policy cannot break a later suite's no-policy assumption (T-003).
+
 ## Source map
 
 | Folder                  | Contents                                                                             |
