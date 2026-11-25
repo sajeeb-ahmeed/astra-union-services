@@ -801,10 +801,18 @@ export function ServiceFlow({
               <dd>{recordName(tenant)}</dd>
               <dt>{choose({ bn: "সনদে যে ঠিকানা যাবে", en: "Address on the certificate" })}</dt>
               <dd>{choose(chosenCitizenAddress(citizen, payload.address_source))}</dd>
-              {(payload.delivery_language === "bn" || payload.delivery_language === "en") && (
+              {(payload.delivery_language === "bn" ||
+                payload.delivery_language === "en" ||
+                payload.delivery_language === "bilingual") && (
                 <>
                   <dt>{choose({ bn: "নথির ভাষা", en: "Document language" })}</dt>
-                  <dd>{payload.delivery_language === "en" ? "English" : "বাংলা"}</dd>
+                  <dd>
+                    {payload.delivery_language === "en"
+                      ? "English"
+                      : payload.delivery_language === "bilingual"
+                        ? choose({ bn: "দ্বিভাষিক", en: "Bilingual" })
+                        : "বাংলা"}
+                  </dd>
                 </>
               )}
               <dt>{choose({ bn: "ফি", en: "Fees" })}</dt>

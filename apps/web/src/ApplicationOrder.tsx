@@ -159,16 +159,19 @@ export function ApplicationOrder({
   // The citizen can still switch to English in the same step.
   // An order is issued in exactly one language (bn or en). A form value the
   // order cannot carry — e.g. the trade form's "bilingual" document language
-  // (QAFIX-08) — must be normalised too: otherwise the select has no matching
-  // option, the browser DISPLAYS the first enabled one ("Bangla") while the
-  // state stays "bilingual", and "Review fees" is disabled with no way out.
-  useEffect(() => {
-    if (certificateLanguage !== "bn" && certificateLanguage !== "en")
-      onLanguageChange("bn");
-  }, [certificateLanguage, onLanguageChange]);
+  // (QAFIX-08) — must not dead-end this step: the select would have no
+  // matching option and "Review fees" would stay disabled with no way out.
+  // R13-UI: the order therefore works with its own effective language
+  // (bn unless the form chose en) and NEVER writes that back into the form
+  // answer — the earlier auto-normalisation overwrote the citizen's
+  // "bilingual" (দ্বিভাষিক) choice with "bn" on entering this step, so the
+  // review screen showed বাংলা for a bilingual selection. Only an explicit
+  // change in the select below syncs to the form (onLanguageChange).
+  const effectiveLanguage: "bn" | "en" =
+    certificateLanguage === "en" ? "en" : "bn";
   const requestEpoch = useRef(0);
   const currentPreferences = JSON.stringify({
-    certificateLanguage,
+    certificateLanguage: effectiveLanguage,
     deliveryMode,
     urgency,
     coupon: coupon.trim().toUpperCase(),
@@ -283,7 +286,7 @@ export function ApplicationOrder({
           </label>
           <select
             id="order-language"
-            value={certificateLanguage || ""}
+            value={effectiveLanguage}
             onChange={(e) => onLanguageChange(e.target.value as "bn" | "en")}
           >
             <option value="" disabled>
@@ -351,7 +354,7 @@ export function ApplicationOrder({
       <button
         type="button"
         className="secondary"
-        disabled={busy || !["bn", "en"].includes(certificateLanguage || "")}
+        disabled={busy}
         onClick={async () => {
           const epoch = ++requestEpoch.current;
           const expectedPreferences = currentPreferences;
@@ -366,7 +369,7 @@ export function ApplicationOrder({
               {
                 preferences: {
                   addressBasis: "registered_profile",
-                  certificateLanguage,
+                  certificateLanguage: effectiveLanguage,
                   deliveryMode,
                   urgency,
                 },

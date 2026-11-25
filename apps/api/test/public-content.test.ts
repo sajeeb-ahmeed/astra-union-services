@@ -90,3 +90,49 @@ test("Phase 6b: an office's public page names its designated issuing officers wi
   assert.ok(officer.services.length >= 1);
   assert.equal(JSON.stringify(page.body.officers).includes("@"), false, "no email addresses");
 });
+
+test("R13-GAPS: in OFFICIAL mode demo-flagged offices leave every public surface; demo mode is unchanged", async () => {
+  // alpha is a seed office (demo=true). Demo mode (default here): listed.
+  const demoList = await req("GET", "/offices?pageSize=100");
+  assert.equal(demoList.status, 200);
+  assert.ok(
+    demoList.body.items.some((o: any) => o.slug === "alpha"),
+    "demo mode lists the seed office",
+  );
+  const demoInfo = await req("GET", "/services/12/office-info");
+  assert.equal(demoInfo.status, 200);
+  const demoInfoHasAlpha = demoInfo.body.offices.some((o: any) => o.slug === "alpha");
+
+  process.env.ISSUANCE_MODE = "official";
+  try {
+    const officialList = await req("GET", "/offices?pageSize=100");
+    assert.equal(officialList.status, 200);
+    assert.equal(
+      officialList.body.items.some((o: any) => o.slug === "alpha"),
+      false,
+      "official mode hides the demo office from the public list",
+    );
+    assert.ok(
+      officialList.body.items.every((o: any) => o.demo === false),
+      "official mode lists only non-demo offices",
+    );
+    assert.equal(
+      (await req("GET", "/offices/alpha")).status,
+      404,
+      "official mode has no public page for a demo office",
+    );
+    const officialInfo = await req("GET", "/services/12/office-info");
+    assert.equal(officialInfo.status, 200);
+    assert.equal(
+      officialInfo.body.offices.some((o: any) => o.slug === "alpha"),
+      false,
+      "official mode hides the demo office from service pages",
+    );
+    if (demoInfoHasAlpha)
+      assert.ok(officialInfo.body.offices.length < demoInfo.body.offices.length);
+  } finally {
+    delete process.env.ISSUANCE_MODE;
+  }
+  // Demo mode restored: the seed office is public again.
+  assert.equal((await req("GET", "/offices/alpha")).status, 200);
+});
