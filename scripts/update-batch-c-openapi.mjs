@@ -3961,7 +3961,7 @@ const ROUTES = [
     "method": "post",
     "path": "/api/v1/recharges",
     "summary": "Request a points recharge with a deposit slip",
-    "description": "Office admin/finance requests a points recharge with the bank deposit slip (amount, bank, reference, date, proof image). The slip enters the scan pipeline before the owner can decide it.",
+    "description": "W-016: PAUSED — always returns 410 POINTS_RECHARGE_DISABLED. Office admin/finance used to request a points recharge with the bank deposit slip (amount, bank, reference, date, proof image); the slip entered the scan pipeline before the owner could decide it. Recharge stays paused until a points spend path exists (owner decision).",
     "tag": "Recharges",
     "visibility": "authenticated",
     "source": "recharge.ts:96",
@@ -3979,6 +3979,7 @@ const ROUTES = [
       201
     ],
     "errorCodes": [
+      "410:POINTS_RECHARGE_DISABLED",
       "422:DEPOSIT_DATE_INVALID",
       "422:BANK_UNAVAILABLE",
       "409:DEPOSIT_ALREADY_USED"

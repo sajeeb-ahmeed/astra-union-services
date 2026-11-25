@@ -171,6 +171,12 @@
   background: #fdf3d7;
   color: #6b5310;
 }
+/* W-015: charter overdue — red, stronger than the amber "due today" warn. */
+.age-chip-overdue {
+  border-color: #d98a8a;
+  background: #fdecec;
+  color: #7a1f1f;
+}
 /* REFINEMENT-02 P2-7: a full-strength primary submit. */
 button.primary-strong {
   background: var(--du-green-700);

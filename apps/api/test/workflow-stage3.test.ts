@@ -285,3 +285,161 @@ test("W-014: reapply from a non-rejected application is rejected", async () => {
   assert.equal(reapplied.status, 409, JSON.stringify(reapplied.body));
   assert.equal(reapplied.body.error.code, "REAPPLY_SOURCE_INVALID");
 });
+
+// W-015: the charter clock runs from the latest submit/resubmit, and the
+// list, detail and counts all expose the due date and the overdue flag.
+// Service 42 is the shared policy testbed in alpha (the seed ships a
+// zero-fee v1; certificate-assets and integration publish further versions
+// the same way), so the policy versions published here persist like theirs
+// — policies are append-only by design (migration 011) and are never
+// deleted. The overdue fixture is built with INSERTs only: application
+// events are append-only too, so the backdated submit event is inserted
+// with its old timestamp rather than created-then-updated.
+async function alphaTenantId() {
+  const approverId = (
+    await admin.query("SELECT id FROM platform_users WHERE email='approver@alpha.local.test'")
+  ).rows[0].id;
+  return (
+    await admin.query("SELECT tenant_id FROM staff_memberships WHERE user_id=$1", [approverId])
+  ).rows[0].tenant_id as string;
+}
+async function publishCharterPolicy() {
+  const tenantId = await alphaTenantId();
+  const currentVersion = (
+    await admin.query(
+      "SELECT COALESCE(MAX(version),0)::int v FROM service_order_policies WHERE tenant_id=$1 AND service_no=42",
+      [tenantId],
+    )
+  ).rows[0].v as number;
+  const published = await req(
+    "POST",
+    "/admin/services/42/order-policies",
+    {
+      expectedVersion: currentVersion,
+      reason: "Synthetic charter regression; not a government tariff",
+      statutoryFeeMinor: 0,
+      processingFeeMinor: 0,
+      emergencySurchargeMinor: 0,
+      deliveryFeesMinor: { office_collection: 0, digital_copy: 0 },
+      deliveryModes: ["office_collection", "digital_copy"],
+      urgencies: ["normal"],
+      charterDays: 5,
+    },
+    "admin",
+  );
+  assert.equal(published.status, 201, JSON.stringify(published.body));
+  return published.body.policy.version as number;
+}
+const w015Preferences = {
+  addressBasis: "registered_profile",
+  certificateLanguage: "en",
+  deliveryMode: "office_collection",
+  urgency: "normal",
+};
+
+test("W-015: charter due date is exposed on list/detail/counts", async () => {
+  const version = await publishCharterPolicy();
+  let id = "";
+  try {
+    const created = await req(
+      "POST",
+      "/applications",
+      {
+        citizenId,
+        serviceNo: 42,
+        payload: { ...demoPayloads[42], delivery_language: "en" },
+        order: { policyVersion: version, preferences: w015Preferences },
+      },
+      "staff",
+    );
+    assert.equal(created.status, 201, JSON.stringify(created.body));
+    id = created.body.id as string;
+    const submitted = await req("POST", `/applications/${id}/transition`, { action: "submit" }, "staff");
+    assert.equal(submitted.status, 200, JSON.stringify(submitted.body));
+    const list = (await req("GET", "/applications?state=SUBMITTED&pageSize=100", undefined, "approver")).body;
+    const row = list.items.find((item: any) => item.id === id);
+    assert.ok(row, "submitted application missing from the list");
+    assert.equal(row.charterDays, 5);
+    const due = new Date(row.dueAt as string).getTime();
+    assert.ok(Math.abs(due - (Date.now() + 5 * 86_400_000)) < 120_000, `dueAt ${row.dueAt} is not ~5 days out`);
+    assert.equal(row.overdue, false);
+    const detail = (await req("GET", `/applications/${id}`, undefined, "approver")).body;
+    assert.equal(detail.application.charterDays, 5);
+    assert.equal(detail.application.dueAt, row.dueAt);
+    assert.equal(detail.application.overdue, false);
+    const counts = (await req("GET", "/applications/counts", undefined, "approver")).body;
+    assert.equal(counts.overdue, 0);
+  } finally {
+    if (id) await req("POST", `/applications/${id}/transition`, { action: "cancel" }, "citizen");
+  }
+});
+
+test("W-015: an application past its charter date is flagged overdue", async () => {
+  const version = await publishCharterPolicy();
+  const tenantId = await alphaTenantId();
+  const staffId = (
+    await admin.query("SELECT id FROM platform_users WHERE email='staff@alpha.local.test'")
+  ).rows[0].id as string;
+  const schema = (
+    await admin.query(
+      "SELECT version, schema_hash FROM service_versions WHERE service_no=42 ORDER BY version DESC LIMIT 1",
+    )
+  ).rows[0];
+  const countsBefore = (await req("GET", "/applications/counts", undefined, "approver")).body;
+  // A submit event ten days ago against a 5-day charter: due five days ago.
+  // The application + its order snapshot + the event go in one transaction:
+  // a POLICY application requires a snapshot (deferred constraint), and the
+  // snapshot must match the published policy's zero fees.
+  const id = randomUUID();
+  const reference = `2026${String(Math.floor(Math.random() * 1e12)).padStart(12, "0")}`;
+  const fixture = await admin.connect();
+  try {
+    await fixture.query("BEGIN");
+    await fixture.query(
+      "INSERT INTO applications(id,tenant_id,citizen_id,service_no,schema_version,schema_hash,state,created_by,order_mode,reference) VALUES($1,$2,$3,42,$4,$5,'SUBMITTED',$6,'POLICY',$7)",
+      [id, tenantId, citizenId, schema.version, schema.schema_hash, staffId, reference],
+    );
+    await fixture.query(
+      "INSERT INTO application_order_snapshots(tenant_id,application_id,service_no,policy_version,address_basis,certificate_language,delivery_mode,urgency,statutory_fee_minor,processing_fee_minor,emergency_surcharge_minor,delivery_fee_minor,total_minor,currency) VALUES($1,$2,42,$3,'registered_profile','en','office_collection','normal',0,0,0,0,0,'BDT')",
+      [tenantId, id, version],
+    );
+    await fixture.query(
+      "INSERT INTO application_events(tenant_id,application_id,actor_id,action,from_state,to_state,created_at) VALUES($1,$2,$3,'submit','DRAFT','SUBMITTED',now() - interval '10 days')",
+      [tenantId, id, staffId],
+    );
+    await fixture.query("COMMIT");
+  } catch (error) {
+    await fixture.query("ROLLBACK");
+    throw error;
+  } finally {
+    fixture.release();
+  }
+  try {
+    const list = (await req("GET", "/applications?state=SUBMITTED&pageSize=100", undefined, "approver")).body;
+    const row = list.items.find((item: any) => item.id === id);
+    assert.ok(row, "overdue application missing from the list");
+    assert.equal(row.charterDays, 5);
+    assert.equal(row.overdue, true);
+    const due = new Date(row.dueAt as string).getTime();
+    assert.ok(Math.abs(due - (Date.now() - 5 * 86_400_000)) < 120_000, `dueAt ${row.dueAt} is not ~5 days ago`);
+    const detail = (await req("GET", `/applications/${id}`, undefined, "approver")).body;
+    assert.equal(detail.application.overdue, true);
+    const countsAfter = (await req("GET", "/applications/counts", undefined, "approver")).body;
+    assert.equal(countsAfter.overdue, countsBefore.overdue + 1);
+    assert.equal(version > 0, true);
+  } finally {
+    // Cancelling through the API leaves a coherent CANCELLED row behind
+    // (its events are append-only); the overdue count drops back.
+    await req("POST", `/applications/${id}/transition`, { action: "cancel" }, "citizen");
+  }
+});
+
+test("W-015: without a charter policy there is no due date and nothing is overdue", async () => {
+  const id = await submittedApplication(45);
+  const list = (await req("GET", "/applications?state=SUBMITTED&pageSize=100", undefined, "approver")).body;
+  const row = list.items.find((item: any) => item.id === id);
+  assert.ok(row, "submitted application missing from the list");
+  assert.equal(row.charterDays, null);
+  assert.equal(row.dueAt, null);
+  assert.equal(row.overdue, false);
+});

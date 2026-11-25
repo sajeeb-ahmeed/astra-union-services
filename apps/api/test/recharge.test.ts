@@ -106,36 +106,67 @@ after(async () => {
   await db.end();
 });
 
-test("Phase 5b: an office submits a recharge with its deposit slip; bad input and reused deposits are refused", async () => {
+
+// W-016: new recharge requests are refused while the spend path is paused —
+// the API gate runs before any validation or slip storage, so no deposit
+// evidence is accepted for a paused product. The confirm/reject paths below
+// use requests inserted directly: they stand in for requests that were
+// PENDING before the pause, whose deposits were already made.
+async function insertPendingRequest(officeKey: "one" | "two", reference: string) {
+  const tenantId = offices[officeKey];
+  const adminId = (
+    await db.query("SELECT id FROM platform_users WHERE email=$1", [
+      `admin@recharge-${officeKey}-${run}.test`,
+    ])
+  ).rows[0].id as string;
+  const sha = createHash("sha256").update(jpeg).digest("hex");
+  const proof = (
+    await db.query(
+      "INSERT INTO attachments(tenant_id,citizen_id,uploaded_by,mime_type,byte_length,bytes,content_sha256,purpose,scan_state) VALUES($1,NULL,$2,'image/jpeg',$3,$4,$5,'recharge_proof','QUARANTINED') RETURNING id",
+      [tenantId, adminId, jpeg.length, jpeg, sha],
+    )
+  ).rows[0].id as string;
+  return (
+    await db.query(
+      "INSERT INTO recharge_requests(tenant_id,amount_minor,bank_code,deposit_reference,deposit_date,proof_attachment_id,requested_by) VALUES($1,50000,$2,$3,$4,$5,$6) RETURNING *",
+      [tenantId, bank, reference, today, proof, adminId],
+    )
+  ).rows[0];
+}
+
+test("W-016: new recharge requests are refused while the points spend path is paused", async () => {
   assert.equal((await req("PUT", `/owner/recharge-banks/${bank}`, { nameBn: "x", nameEn: "x", accountName: "x", accountNumber: "1", active: true }, s.one)).status, 403);
   const banks = (await req("GET", "/recharge-banks", undefined, s.one)).body.items;
   assert.ok(banks.some((b: any) => b.code === bank && b.accountNumber === "0000 1111 2222"));
 
-  const created = await req("POST", "/recharges", request(`DEP-${run}-1`), s.one);
-  assert.equal(created.status, 201, JSON.stringify(created.body));
-  assert.equal(created.body.status, "PENDING");
-  assert.equal(created.body.proofScanState, "QUARANTINED");
   const tomorrow = new Date(Date.now() + 3 * 86400000).toISOString().slice(0, 10);
-  for (const [body, code] of [
-    [request(`DEP-${run}-1`), 409],
-    [request(`dep-${run}-1`), 409],
-    [request(`DEP-${run}-x`, { depositDate: tomorrow }), 422],
-    [request(`DEP-${run}-y`, { amountMinor: 50 }), 422],
-    [request(`DEP-${run}-z`, { bankCode: "no-such-bank" }), 422],
-    [request(`DEP-${run}-w`, { proof: { mimeType: "image/jpeg", base64: Buffer.from("not an image").toString("base64") } }), 422],
-  ] as const)
-    assert.equal((await req("POST", "/recharges", body, s.one)).status, code, JSON.stringify(body).slice(0, 80));
-  // The slip is an office document: it is not reachable through the citizen attachment routes.
-  const proof = await proofOf(created.body.id);
-  assert.equal((await req("GET", `/attachments/${proof}/status`, undefined, s.one)).status, 404);
-  // Each office sees only its own requests.
-  assert.equal((await req("GET", "/recharges", undefined, s.two)).body.items.length, 0);
-  assert.equal((await req("GET", "/recharges", undefined, s.one)).body.items.length, 1);
+  for (const body of [
+    request(`DEP-${run}-1`),
+    request(`DEP-${run}-x`, { depositDate: tomorrow }),
+    request(`DEP-${run}-y`, { amountMinor: 50 }),
+    request(`DEP-${run}-z`, { bankCode: "no-such-bank" }),
+    request(`DEP-${run}-w`, { proof: { mimeType: "image/jpeg", base64: Buffer.from("not an image").toString("base64") } }),
+  ]) {
+    const refused = await req("POST", "/recharges", body, s.one);
+    assert.equal(refused.status, 410, JSON.stringify(refused.body));
+    assert.equal(refused.body.error.code, "POINTS_RECHARGE_DISABLED");
+  }
+  // Nothing was stored: no request row, and the slip never reached quarantine.
+  assert.equal(
+    Number((await db.query("SELECT count(*)::int n FROM recharge_requests WHERE tenant_id=$1", [offices.one])).rows[0].n),
+    0,
+  );
+  assert.equal(
+    Number((await db.query("SELECT count(*)::int n FROM attachments WHERE tenant_id=$1 AND purpose='recharge_proof'", [offices.one])).rows[0].n),
+    0,
+  );
+  assert.equal((await req("GET", "/recharges", undefined, s.one)).body.items.length, 0);
 });
 
 test("Phase 5b: the owner confirms only after a clean scan, crediting points exactly once", async () => {
+  const inserted = await insertPendingRequest("one", `DEP-${run}-1`);
   const queue = (await req("GET", "/owner/recharges", undefined, s.owner)).body.items;
-  const item = queue.find((x: any) => x.tenantId === offices.one);
+  const item = queue.find((x: any) => x.id === inserted.id);
   assert.ok(item, "the request is in the owner queue");
   assert.equal(item.amountMinor, 50000);
   assert.equal((await req("GET", "/owner/recharges", undefined, s.one)).status, 403);
@@ -174,20 +205,23 @@ test("Phase 5b: the owner confirms only after a clean scan, crediting points exa
 });
 
 test("Phase 5b: rejection needs a reason, frees the deposit reference, and decisions are final", async () => {
-  const created = await req("POST", "/recharges", request(`DEP-${run}-2`), s.two);
-  assert.equal(created.status, 201, JSON.stringify(created.body));
+  const inserted = await insertPendingRequest("two", `DEP-${run}-2`);
   const decide = (body: Record<string, unknown>) =>
-    req("POST", `/owner/recharges/${created.body.id}/decision`, { tenantId: offices.two, ...body }, s.owner);
+    req("POST", `/owner/recharges/${inserted.id}/decision`, { tenantId: offices.two, ...body }, s.owner);
   assert.equal((await decide({ decision: "REJECTED" })).status, 422);
   const rejected = await decide({ decision: "REJECTED", note: "Deposit not found on the statement" });
   assert.equal(rejected.status, 200, JSON.stringify(rejected.body));
   assert.equal(rejected.body.decisionNote, "Deposit not found on the statement");
   assert.equal(await balance(offices.two), 0, "nothing credited");
-  // A rejected reference may be submitted again (for example with a corrected slip).
-  assert.equal((await req("POST", "/recharges", request(`DEP-${run}-2`), s.two)).status, 201);
+  // A rejected reference may be submitted again (for example with a corrected slip):
+  // the partial unique index excludes REJECTED rows, so a second request with the
+  // same reference inserts cleanly. (New requests go through the paused POST
+  // endpoint in production; this asserts the index rule directly.)
+  const again = await insertPendingRequest("two", `DEP-${run}-2`);
+  assert.equal(again.status, "PENDING");
   await assert.rejects(
-    db.query("UPDATE recharge_requests SET status='CONFIRMED',decided_at=now() WHERE id=$1", [created.body.id]),
+    db.query("UPDATE recharge_requests SET status='CONFIRMED',decided_at=now() WHERE id=$1", [inserted.id]),
     /final/,
   );
-  await assert.rejects(db.query("DELETE FROM recharge_requests WHERE id=$1", [created.body.id]), /Append-only/);
+  await assert.rejects(db.query("DELETE FROM recharge_requests WHERE id=$1", [inserted.id]), /Append-only/);
 });

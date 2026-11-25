@@ -255,6 +255,28 @@ async function authorization(db: DB, a: Auth, no: number) {
       "An active service-specific approval authorization is required.",
     );
 }
+// W-015: charter-deadline columns for an `applications a` row — the
+// office's current charter days for the service (migration 027; the latest
+// policy version wins) and the last time the application reached the office
+// (submit/resubmit event). The clock runs from the latest submission, not
+// from creation: a correction cycle sends the application back to the
+// citizen, and the office's promised time restarts when it is resubmitted.
+// States waiting on the citizen (DRAFT, CORRECTION_REQUIRED) and terminal
+// states never count as overdue — nothing is due from the office then.
+const CHARTER_DEADLINE_COLUMNS = `
+  (SELECT p.charter_days FROM service_order_policies p WHERE p.tenant_id=a.tenant_id AND p.service_no=a.service_no ORDER BY p.version DESC LIMIT 1) AS charter_days,
+  (SELECT MAX(e.created_at) FROM application_events e WHERE e.tenant_id=a.tenant_id AND e.application_id=a.id AND e.to_state IN ('SUBMITTED','RESUBMITTED')) AS last_submitted_at`;
+const OFFICE_WAITING_STATES = ["SUBMITTED", "RESUBMITTED", "UNDER_REVIEW", "APPROVED"];
+function charterDeadline(row: any) {
+  const days = Number(row.charterDays ?? row.charter_days ?? NaN);
+  const last = row.lastSubmittedAt ?? row.last_submitted_at;
+  if (!Number.isFinite(days) || !last) return { dueAt: null, overdue: false };
+  const due = new Date(new Date(last).getTime() + days * 86_400_000);
+  return {
+    dueAt: due.toISOString(),
+    overdue: OFFICE_WAITING_STATES.includes(row.state) && due.getTime() < Date.now(),
+  };
+}
 async function loadApplication(db: DB, id: string, a: Auth, lock = false) {
   uuid.parse(id);
   const r = (
@@ -1573,10 +1595,13 @@ app.get(
       const from = `FROM applications a JOIN citizens c ON c.id=a.citizen_id AND c.tenant_id=a.tenant_id WHERE a.tenant_id=$1 AND ($2::text IS NULL OR a.state=$2) AND ($3::int IS NULL OR a.service_no=$3) AND ($4::uuid IS NULL OR c.user_id=$4) AND (a.id::text ILIKE $5 OR a.reference ILIKE $5 OR ($6::text IS NOT NULL AND replace(a.reference,'-','') ILIKE $6) OR c.full_name_bn ILIKE $5 OR c.full_name_en ILIKE $5 OR c.synthetic_reference ILIKE $5 OR ($6::text IS NOT NULL AND replace(c.synthetic_reference,'-','') ILIKE $6) OR c.contact_mobile ILIKE $5 OR ($7::int[] IS NOT NULL AND a.service_no = ANY($7)))${rangeFilter}${renewalOnly ? " AND EXISTS(SELECT 1 FROM renewal_links l WHERE l.tenant_id=a.tenant_id AND l.application_id=a.id)" : ""}`;
       const items = (
         await db.query(
-          `SELECT a.*,EXISTS(SELECT 1 FROM renewal_links l WHERE l.tenant_id=a.tenant_id AND l.application_id=a.id) AS is_renewal ${from} ORDER BY a.updated_at DESC,a.id LIMIT $${values.length + 1} OFFSET $${values.length + 2}`,
+          `SELECT a.*,EXISTS(SELECT 1 FROM renewal_links l WHERE l.tenant_id=a.tenant_id AND l.application_id=a.id) AS is_renewal,${CHARTER_DEADLINE_COLUMNS} ${from} ORDER BY a.updated_at DESC,a.id LIMIT $${values.length + 1} OFFSET $${values.length + 2}`,
           [...values, pageSize, (page - 1) * pageSize],
         )
-      ).rows.map(camelRow);
+      ).rows.map((r: any) => {
+        const row = camelRow(r);
+        return { ...row, ...charterDeadline(row) };
+      });
       const total = (
         await db.query(`SELECT count(*)::int total ${from}`, values)
       ).rows[0].total;
@@ -1617,10 +1642,25 @@ app.get(
         REVOKED: 0,
       };
       for (const row of rows) byState[row.state] = row.count;
+      // W-015: how many office-waiting applications are past their charter
+      // due date (latest submit/resubmit + the service's current charter
+      // days). A NULL charter policy or no submit event makes the sum NULL,
+      // which is never < now(), so those rows are excluded.
+      const overdue = (
+        await db.query(
+          `SELECT count(*)::int AS overdue FROM applications a WHERE a.tenant_id=$1 AND a.state IN ('SUBMITTED','RESUBMITTED','UNDER_REVIEW','APPROVED') AND (SELECT MAX(e.created_at) FROM application_events e WHERE e.tenant_id=a.tenant_id AND e.application_id=a.id AND e.to_state IN ('SUBMITTED','RESUBMITTED')) + ((SELECT p.charter_days FROM service_order_policies p WHERE p.tenant_id=a.tenant_id AND p.service_no=a.service_no ORDER BY p.version DESC LIMIT 1) || ' days')::interval < now()`,
+          [a.tenantId],
+        )
+      ).rows[0].overdue;
+      // (Kept on the byState record rather than spread into a new object:
+      // TypeScript drops index signatures through spread, and the counts
+      // below read named states off this record.)
+      byState.overdue = overdue;
       return byState;
     });
     res.json({
       counts,
+      overdue: counts.overdue,
       awaitingReview:
         counts.SUBMITTED + counts.RESUBMITTED + counts.UNDER_REVIEW,
       // ISSUANCE_PENDING is not a state in the current state machine (migration
@@ -1870,6 +1910,14 @@ app.get(
     const a = roles(req, [...staffRead, "citizen"]);
     const result = await transaction(tenant(req), async (db) => {
       const r = await loadApplication(db, String(req.params.id), a);
+      // W-015: charter deadline for this application (same rule as the list).
+      const deadlineRow = (
+        await db.query(
+          `SELECT ${CHARTER_DEADLINE_COLUMNS} FROM applications a WHERE a.id=$1 AND a.tenant_id=$2`,
+          [r.id, a.tenantId],
+        )
+      ).rows[0];
+      const applicationRow = { ...camelRow(r), ...camelRow(deadlineRow) };
       const versions = (
         await db.query(
           "SELECT version,payload,payload_hash,created_at FROM application_payload_versions WHERE application_id=$1 ORDER BY version",
@@ -1877,7 +1925,7 @@ app.get(
         )
       ).rows.map(camelRow);
       return {
-        application: camelRow(r),
+        application: { ...applicationRow, ...charterDeadline(applicationRow) },
         order: await getApplicationOrder(db, r.id),
         serviceConfiguration: camelRow(
           (

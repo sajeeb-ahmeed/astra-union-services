@@ -1106,6 +1106,32 @@ export function WorkspaceApp({
             (() => {
               const created = new Date(a.createdAt || a.created_at);
               if (Number.isNaN(created.getTime())) return null;
+              // W-015: when the office has a charter due date for this
+              // application, the chip counts down to it (or flags the
+              // overrun) instead of counting up from creation.
+              const dueAt = a.dueAt ? new Date(a.dueAt) : null;
+              if (dueAt && !Number.isNaN(dueAt.getTime())) {
+                const daysLeft = Math.ceil(
+                  (dueAt.getTime() - Date.now()) / 86_400_000,
+                );
+                return (
+                  <span
+                    className={`age-chip${daysLeft < 0 ? " age-chip-overdue" : daysLeft === 0 ? " age-chip-warn" : ""}`}
+                  >
+                    {daysLeft < 0
+                      ? choose({
+                          bn: `${localDigits(String(-daysLeft), language)} দিন বিলম্বিত`,
+                          en: `Overdue by ${-daysLeft} day${-daysLeft === 1 ? "" : "s"}`,
+                        })
+                      : daysLeft === 0
+                        ? choose({ bn: "আজ নির্ধারিত সময়", en: "Due today" })
+                        : choose({
+                            bn: `${localDigits(String(daysLeft), language)} দিন বাকি`,
+                            en: `Due in ${daysLeft} day${daysLeft === 1 ? "" : "s"}`,
+                          })}
+                  </span>
+                );
+              }
               const days = Math.max(
                 0,
                 Math.floor((Date.now() - created.getTime()) / 86_400_000),
@@ -2897,6 +2923,24 @@ export function WorkspaceApp({
                     </p>
                   ),
                 )}
+                {tx(
+                  application.dueAt &&
+                    ["SUBMITTED", "RESUBMITTED", "UNDER_REVIEW", "APPROVED"].includes(
+                      application.state,
+                    ) && (
+                      <p className={application.overdue ? "notice message error" : undefined}>
+                        {application.overdue
+                          ? choose({
+                              bn: `নির্ধারিত সময় পেরিয়েছে — চার্টার সময়সীমা ছিল ${applicationDate(application.dueAt)}।`,
+                              en: `Overdue — the charter due date was ${applicationDate(application.dueAt)}.`,
+                            })
+                          : choose({
+                              bn: `চার্টার সময়সীমা: ${applicationDate(application.dueAt)}`,
+                              en: `Charter due: ${applicationDate(application.dueAt)}`,
+                            })}
+                      </p>
+                    ),
+                )}
                 {(() => {
                   // Phase 6a/W: the latest summons, while the Chairman's decision is still pending.
                   const summons = [...(detail.events || [])]
@@ -3495,6 +3539,16 @@ export function WorkspaceApp({
         {tx(
           page === "pending" && (
             <>
+              {/* W-015: the queue-level overdue flag — how many office-waiting
+                  applications are past their charter due date. */}
+              {pendingCounts && pendingCounts.overdue > 0 && (
+                <p className="notice message error" role="status">
+                  {choose({
+                    bn: `${localDigits(String(pendingCounts.overdue), language)}টি আবেদন নির্ধারিত সময় পেরিয়েছে।`,
+                    en: `${pendingCounts.overdue} application${pendingCounts.overdue === 1 ? "" : "s"} past the charter due date.`,
+                  })}
+                </p>
+              )}
               {pendingGroupSection(
                 { bn: "পর্যালোচনার অপেক্ষায়", en: "Awaiting review" },
                 pendingCounts ? pendingCounts.awaitingReview : null,
