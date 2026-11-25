@@ -98,6 +98,21 @@ const AdditionalWorkspace = lazyWithRetry(() => import("./AdditionalWorkspace.js
 const UserGuide = lazyWithRetry(() => import("./UserGuide.js"), (m) => m.UserGuide);
 const ApplicationPayment = lazyWithRetry(() => import("./OnlinePayments.js"), (m) => m.ApplicationPayment);
 const PaymentsWorkspace = lazyWithRetry(() => import("./OnlinePayments.js"), (m) => m.PaymentsWorkspace);
+// W-009: one idempotency key per intended wallet adjustment, keyed by
+// tenant. The adjust form lives inside a tenants.map, so it cannot hold
+// per-form state; the key is minted on first submit, reused on retry (a
+// lost response replays instead of applying twice), and rotated only
+// after a successful apply. A rejected attempt consumes no key, so the
+// same key stays valid for a corrected resubmit.
+const walletAdjustKeys = new Map<string, string>();
+function walletAdjustKey(tenantId: string): string {
+  let key = walletAdjustKeys.get(tenantId);
+  if (!key) {
+    key = crypto.randomUUID();
+    walletAdjustKeys.set(tenantId, key);
+  }
+  return key;
+}
 const labels: Record<string, string> = {
   home: "Overview",
   services: "Service catalog",
@@ -3927,14 +3942,17 @@ export function WorkspaceApp({
                         e.preventDefault();
                         const data = new FormData(e.currentTarget);
                         run(async () => {
+                          const requestKey = walletAdjustKey(officeTenant.id);
                           await api(
                             `/owner/tenants/${officeTenant.id}/adjust`,
                             "POST",
                             {
                               delta: Number(data.get("delta")),
                               reason: data.get("reason"),
+                              requestKey,
                             },
                           );
+                          walletAdjustKeys.delete(officeTenant.id);
                           await refresh();
                           setMessage(
                             choose({

@@ -257,6 +257,11 @@
             "type": "string",
             "minLength": 8,
             "maxLength": 500
+          },
+          "requestKey": {
+            "type": "string",
+            "format": "uuid",
+            "description": "W-009: one key per intended adjustment; a retried request replays the original entry instead of applying twice. Optional for backward compatibility."
           }
         },
         "required": [

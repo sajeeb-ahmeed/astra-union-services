@@ -3121,14 +3121,48 @@ app.post(
           .max(10000)
           .refine((n) => n !== 0),
         reason: z.string().trim().min(8).max(500),
+        // W-009: the caller mints one key per intended adjustment, like the
+        // points adjustment. A retried request replays the original entry
+        // instead of applying twice; without a key the old behaviour
+        // (server-generated key, every call applies) is preserved.
+        requestKey: uuid.optional(),
       })
       .strict()
       .parse(req.body);
     if (!(await pool.query("SELECT 1 FROM tenants WHERE id=$1", [id])).rowCount)
       fail(404, "NOT_FOUND", "Tenant not found.");
+    const key = data.requestKey
+      ? `adjustment:${data.requestKey}`
+      : `adjustment:${randomUUID()}`;
     const result = await transaction(
       id,
       async (db) => {
+        // A replay returns the original entry: same key, same payload.
+        // The same key with a different payload is a client error, not a
+        // replay — the operator must mint a fresh key for a new adjustment.
+        const replay = async () => {
+          const existing = (
+            await db.query(
+              "SELECT id,delta,kind,reason,balance_after,created_at FROM credit_ledger WHERE tenant_id=$1 AND idempotency_key=$2",
+              [id, key],
+            )
+          ).rows[0];
+          if (!existing) return null;
+          if (
+            existing.delta !== data.delta ||
+            existing.reason !== data.reason
+          )
+            fail(
+              409,
+              "IDEMPOTENCY_CONFLICT",
+              "This adjustment key was already used for a different adjustment. Mint a fresh key for a new adjustment. / এই সমন্বয় কীটি ইতিমধ্যে অন্য একটি সমন্বয়ের জন্য ব্যবহৃত হয়েছে। নতুন সমন্বয়ের জন্য নতুন কী ব্যবহার করুন।",
+            );
+          return { row: camelRow(existing), replayed: true };
+        };
+        if (data.requestKey) {
+          const found = await replay();
+          if (found) return found;
+        }
         const balance = (
           await db.query("SELECT balance FROM lock_tenant_wallet()")
         ).rows[0]?.balance;
@@ -3138,27 +3172,33 @@ app.post(
             "NEGATIVE_BALANCE",
             "Adjustment cannot create a negative wallet.",
           );
-        const r = (
-          await db.query(
-            "INSERT INTO credit_ledger(tenant_id,delta,kind,idempotency_key,actor_id,reason,balance_after) VALUES($1,$2,'ADJUSTMENT',$3,$4,$5,0) RETURNING id,delta,kind,reason,balance_after,created_at",
-            [
-              id,
-              data.delta,
-              `adjustment:${randomUUID()}`,
-              a.userId,
-              data.reason,
-            ],
-          )
-        ).rows[0];
+        let r: any;
+        try {
+          r = (
+            await db.query(
+              "INSERT INTO credit_ledger(tenant_id,delta,kind,idempotency_key,actor_id,reason,balance_after) VALUES($1,$2,'ADJUSTMENT',$3,$4,$5,0) RETURNING id,delta,kind,reason,balance_after,created_at",
+              [id, data.delta, key, a.userId, data.reason],
+            )
+          ).rows[0];
+        } catch (error: any) {
+          // A concurrent retry with the same key can lose the insert race
+          // (unique violation) after the lookup above; the row it raced
+          // with is the replay, not an error.
+          if (error?.code !== "23505") throw error;
+          const found = await replay();
+          if (found) return found;
+          throw error;
+        }
         await audit(db, id, a.userId, "WALLET_ADJUSTMENT", r.id, {
           delta: data.delta,
           reason: data.reason,
         });
-        return camelRow(r);
+        return { row: camelRow(r), replayed: false };
       },
       true,
     );
-    res.status(201).json(result);
+    if (result.replayed) res.setHeader("X-Idempotency-Replayed", "true");
+    res.status(201).json(result.row);
   }),
 );
 app.post(
