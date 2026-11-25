@@ -419,7 +419,11 @@ export function WorkspaceApp({
     [appTotal, setAppTotal] = useState<number | null>(null),
     // CH-004: the last applications-list failure, if any — the section
     // renders it with a retry instead of a stale/empty list.
-    [appLoadError, setAppLoadError] = useState("");
+    [appLoadError, setAppLoadError] = useState(""),
+    // CH-005: true while a list fetch is in flight (filter/page/search
+    // change) — the list renders skeletons instead of the previous
+    // filter's rows, and the total reads "—" until the answer arrives.
+    [appListLoading, setAppListLoading] = useState(false);
   // Phase 6c: date range and renewals-only filters for the applications list.
   const [appFrom, setAppFrom] = useState(""),
     [appTo, setAppTo] = useState(""),
@@ -430,7 +434,19 @@ export function WorkspaceApp({
   const [pendingCounts, setPendingCounts] = useState<any>(null),
     [pendingLists, setPendingLists] = useState<
       Record<string, { items: any[]; total: number }>
-    >({});
+    >({}),
+    // CH-003: true while the Pending queue is loading — the queue
+    // renders skeletons, never the "nothing is waiting" empty state,
+    // until the counts and lists have actually arrived.
+    [pendingLoading, setPendingLoading] = useState(false);
+  // CH-009: the Citizens directory paginates on its own fetch (pageSize
+  // 25) — the shared `citizens` list stays the unpaginated register the
+  // flow and the citizen home read from, so a citizen's own record is
+  // never hidden by the directory's page.
+  const [citizenPage, setCitizenPage] = useState(1),
+    [directoryCitizens, setDirectoryCitizens] = useState<any[]>([]),
+    [directoryTotal, setDirectoryTotal] = useState<number | null>(null),
+    [directoryLoading, setDirectoryLoading] = useState(false);
   const [applicationReference, setApplicationReference] = useState("");
   /* FULL-UIUX-01 · OWNER-DECISION 2: one global header search — services
      from the loaded catalog, applications and citizens from the existing
@@ -507,6 +523,31 @@ export function WorkspaceApp({
     const timer = setTimeout(() => setCitizenQuery(citizenSearch), 250);
     return () => clearTimeout(timer);
   }, [citizenSearch]);
+  // CH-009: the directory's own paginated fetch (25 per page). A new
+  // search resets to page 1; the shared `citizens` register is untouched.
+  useEffect(() => {
+    setCitizenPage(1);
+  }, [citizenQuery]);
+  useEffect(() => {
+    if (!session || page !== "citizens") return;
+    let active = true;
+    setDirectoryLoading(true);
+    (async () => {
+      try {
+        const r = await api(
+          `/citizens?${new URLSearchParams({ q: citizenQuery, page: String(citizenPage), pageSize: "25" })}`,
+        );
+        if (!active) return;
+        setDirectoryCitizens(items(r));
+        setDirectoryTotal(r.total ?? items(r).length);
+      } finally {
+        if (active) setDirectoryLoading(false);
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, [session, page, citizenQuery, citizenPage]);
   const [citizenForm, setCitizenForm] = useState({
     nameBn: "",
     nameEn: "",
@@ -551,6 +592,11 @@ export function WorkspaceApp({
     const role = session?.user?.role;
     if (!role) return;
     const epoch = ++refreshEpoch.current;
+    // CH-005: the list is loading from here until its own fetch settles
+    // (cleared in the finally below, epoch-guarded so a stale refresh
+    // cannot clear a newer one).
+    const loadsApplications = !["owner", "finance"].includes(role);
+    if (loadsApplications) setAppListLoading(true);
     const [
       servicesResult,
       citizenResult,
@@ -579,6 +625,12 @@ export function WorkspaceApp({
             .catch((e) => {
               setAppLoadError((e as Error).message);
               return null;
+            })
+            // CH-005: clear the loading flag when this fetch settles —
+            // on failure the flag clears and the old rows + error +
+            // retry render as before.
+            .finally(() => {
+              if (epoch === refreshEpoch.current) setAppListLoading(false);
             })
         : Promise.resolve({ items: [], total: 0 }),
       ["admin", "finance", "approver"].includes(role)
@@ -681,9 +733,13 @@ export function WorkspaceApp({
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [role, page, appTotal]);
-  // Phase 1 slice (ii), approved: staff get the UDC sidebar; staff and office admins get the dashboard home.
+  // Phase 1 slice (ii), approved: staff get the UDC sidebar; staff, office
+  // admins and the Chairman (approver) get the dashboard home.
   const udcPreview = usesUdcNavigation(role);
-  const dashboardHome = staff;
+  // CH-001: the approver never got the dashboard home — the home branch
+  // below rendered only the welcome panel and the citizen-oriented
+  // counts, so the Chairman's overview had no counters at all.
+  const dashboardHome = staff || approver;
   const udcCurrent =
     page === "home"
       ? "dashboard"
@@ -920,20 +976,27 @@ export function WorkspaceApp({
     setPendingCounts(counts);
   }
   async function loadPending() {
-    await loadPendingCounts();
-    const lists: Record<string, { items: any[]; total: number }> = {};
-    await Promise.all(
-      [...pendingReviewStates, ...pendingIssuanceStates].map(async (state) => {
-        const r = await api(
-          `/applications?${new URLSearchParams({ state, page: "1", pageSize: "100" })}`,
-        );
-        lists[state] = {
-          items: items(r),
-          total: r.total ?? items(r).length,
-        };
-      }),
-    );
-    setPendingLists(lists);
+    // CH-003: the queue is loading until both the counts and the lists
+    // have arrived — the sections render skeletons meanwhile.
+    setPendingLoading(true);
+    try {
+      await loadPendingCounts();
+      const lists: Record<string, { items: any[]; total: number }> = {};
+      await Promise.all(
+        [...pendingReviewStates, ...pendingIssuanceStates].map(async (state) => {
+          const r = await api(
+            `/applications?${new URLSearchParams({ state, page: "1", pageSize: "100" })}`,
+          );
+          lists[state] = {
+            items: items(r),
+            total: r.total ?? items(r).length,
+          };
+        }),
+      );
+      setPendingLists(lists);
+    } finally {
+      setPendingLoading(false);
+    }
   }
   useEffect(() => {
     if (!session) return;
@@ -941,7 +1004,7 @@ export function WorkspaceApp({
     /* The dashboard's pending-applications tile (P1-8) reads pendingCounts,
        which only the pending page loaded — on home it sat at "—" forever.
        Load the counts for the staff dashboard too. */
-    else if (page === "home" && staff) void run(loadPendingCounts);
+    else if (page === "home" && dashboardHome) void run(loadPendingCounts);
   }, [page, session]);
   // FULL-UIUX-01 (B24/P1-14): one row presentation for application lists,
   // shared by the applications page and the Pending queue. A row is
@@ -959,6 +1022,17 @@ export function WorkspaceApp({
       (c) => c.id === (a.citizenId ?? a.citizen_id),
     );
     return found ? recordName(found) : "";
+  }
+  /** CH-009: the directory's "Identity state" column used to read
+      "Registered" on every row — a constant, not a state. Derive it from
+      what the row actually carries (masked hints only; the full numbers
+      stay behind GET /citizens/:id/identity, which is audited). */
+  function citizenIdentityState(c: any): { bn: string; en: string } {
+    if (c.identityDocument ?? c.identity_document)
+      return { bn: "পরিচয়পত্রের নথি আছে", en: "Identity document on file" };
+    if (c.nidHint ?? c.nid_hint ?? c.birthRegHint ?? c.birth_reg_hint)
+      return { bn: "পরিচয় নম্বর আছে", en: "Identity number on file" };
+    return { bn: "পরিচয়পত্র নেই", en: "No identity on file" };
   }
   function isNewApplication(a: any): boolean {
     return (
@@ -989,8 +1063,15 @@ export function WorkspaceApp({
           {/* REFINEMENT-02 P2-9: queue triage — an age chip on staff
               rows. Amber ONLY when the wait exceeds the office's stated
               service time for the service (a.statedDays, when the API
-              supplies it); otherwise the chip stays neutral. */}
+              supplies it); otherwise the chip stays neutral.
+              CH-009: the chip reads "N days waiting" only while the
+              application is actually waiting on the office — on an
+              issued, rejected, cancelled or revoked row it claimed a
+              wait that had already ended. */}
           {!hideCitizen &&
+            ["SUBMITTED", "RESUBMITTED", "UNDER_REVIEW", "APPROVED"].includes(
+              String(a.state || a.status || ""),
+            ) &&
             (() => {
               const created = new Date(a.createdAt || a.created_at);
               if (Number.isNaN(created.getTime())) return null;
@@ -1086,7 +1167,12 @@ export function WorkspaceApp({
             {choose({ bn: "পুরনো আবেদন আগে", en: "Oldest first" })}
           </span>
         </div>
-        {rows.length ? (
+        {/* CH-003: while the queue is still loading, skeletons — the
+            "nothing is waiting" empty state only renders once the lists
+            have actually arrived and are empty. */}
+        {pendingLoading && rows.length === 0 ? (
+          <SkeletonRows rows={3} />
+        ) : rows.length ? (
           <>
             <div className="table-wrap responsive-table">
               <table>
@@ -1573,6 +1659,9 @@ export function WorkspaceApp({
                 : null
             }
             creditBalance={wallet?.balance ?? null}
+            // CH-001: the per-state partition behind the summary tiles.
+            stateCounts={pendingCounts?.counts ?? null}
+            onOpenState={(state) => openTask("applications", state)}
             onStartService={(serviceNo) => {
               setSelectedService(serviceNo);
               setFlowService(serviceNo);
@@ -1942,6 +2031,12 @@ export function WorkspaceApp({
                   value={citizenSearch}
                   onChange={(e) => setCitizenSearch(e.target.value)}
                 />
+                {/* CH-009: the directory paginates (25 per page) on its own
+                    fetch — while a page loads, skeletons replace the
+                    rows instead of the previous page's citizens. */}
+                {directoryLoading ? (
+                  <SkeletonRows rows={5} />
+                ) : (
                 <div className="table-wrap responsive-table">
                   <table>
                     <thead>
@@ -1959,7 +2054,7 @@ export function WorkspaceApp({
                         // client-side substring filter over the serialized citizen could
                         // only hide server matches — the phone card list below never
                         // applied it, so the two layouts could disagree.
-                        citizens.map((c) => (
+                        directoryCitizens.map((c) => (
                             <tr key={c.id}>
                               <td>
                                 {c.nameBn || c.name_bn}
@@ -1967,10 +2062,7 @@ export function WorkspaceApp({
                               </td>
                               <td>
                                 <span className="status">
-                                  {choose({
-                                    bn: "নিবন্ধিত",
-                                    en: "Registered",
-                                  })}
+                                  {choose(citizenIdentityState(c))}
                                 </span>
                               </td>
                               <td>
@@ -2004,17 +2096,16 @@ export function WorkspaceApp({
                       )}
                     </tbody>
                   </table>
-                </div>
-                {busy && !citizens.length && <SkeletonRows rows={5} />}
-                {phoneLayout && (
+                </div>)}
+                {phoneLayout && !directoryLoading && (
                   <div className="ax-card-list">
                   {tx(
-                    citizens.map((c) => (
+                    directoryCitizens.map((c) => (
                       <article className="ax-card" key={c.id}>
                         <div className="ax-card-head">
                           <strong>{c.nameBn || c.name_bn}</strong>
                           <span className="status">
-                            {choose({ bn: "নিবন্ধিত", en: "Registered" })}
+                            {choose(citizenIdentityState(c))}
                           </span>
                         </div>
                         <small>{c.nameEn || c.name_en}</small>
@@ -2043,20 +2134,55 @@ export function WorkspaceApp({
                   )}
                 </div>
                 )}
+                {/* CH-009: the directory shows its real total and pages
+                    (25 per page) — the old page never showed a total and
+                    stopped at the first 100 rows with no way forward. */}
+                <div className="pagination">
+                  <button
+                    className="secondary"
+                    disabled={directoryLoading || citizenPage <= 1}
+                    onClick={() => setCitizenPage(citizenPage - 1)}
+                  >
+                    {t("Previous citizens ")}
+                  </button>
+                  <span>
+                    {tx(directoryLoading ? "—" : (directoryTotal ?? "—"))}
+                    {t(" results · Page ")}
+                    {tx(citizenPage)}
+                    {t(" /")}
+                    {tx(" ")}
+                    {tx(Math.max(1, Math.ceil((directoryTotal ?? 0) / 25)))}
+                  </span>
+                  <button
+                    className="secondary"
+                    disabled={directoryLoading || citizenPage * 25 >= (directoryTotal ?? 0)}
+                    onClick={() => setCitizenPage(citizenPage + 1)}
+                  >
+                    {t("Next citizens ")}
+                  </button>
+                </div>
               </section>
               {(() => {
-                const open = citizens.find((c) => c.id === detailsCitizenId);
+                // CH-009: the open record is on the directory's current
+                // page; fall back to the shared register if the page
+                // changed while the panel was open.
+                const open =
+                  directoryCitizens.find((c) => c.id === detailsCitizenId) ??
+                  citizens.find((c) => c.id === detailsCitizenId);
                 return open ? (
                   <CitizenDetailsEditor
                     citizen={open}
                     canEdit={staff || role === "citizen"}
                     geographyRequired={!!session?.tenant?.divisionCode}
                     onClose={() => setDetailsCitizenId("")}
-                    onSaved={(updated) =>
+                    onSaved={(updated) => {
                       setCitizens((list) =>
                         list.map((c) => (c.id === updated.id ? updated : c)),
-                      )
-                    }
+                      );
+                      setDirectoryCitizens((list) =>
+                        list.map((c) => (c.id === updated.id ? updated : c)),
+                      );
+                    }}
                   />
                 ) : null;
               })()}
@@ -2580,6 +2706,13 @@ export function WorkspaceApp({
                   </div>
                 ),
               )}
+              {/* CH-005: while a list fetch is in flight (filter, page or
+                  search change), skeletons replace the rows — the
+                  previous filter's rows and total are not shown as if
+                  they were the new answer. */}
+              {appListLoading ? (
+                <SkeletonRows rows={5} />
+              ) : (
               <div className="table-wrap responsive-table">
                 <table>
                   <thead>
@@ -2603,10 +2736,10 @@ export function WorkspaceApp({
                     {tx(applications.map((a) => applicationRow(a, role === "citizen")))}
                   </tbody>
                 </table>
-              </div>
-              {tx(busy && !applications.length && <SkeletonRows rows={5} />)}
+              </div>)}
+              {tx(!appListLoading && busy && !applications.length && <SkeletonRows rows={5} />)}
               {tx(
-                !busy && !applications.length && !appLoadError && (
+                !busy && !appListLoading && !applications.length && !appLoadError && (
                   <EmptyState
                     title={choose(
                       filter || appService || appSearch
@@ -2643,7 +2776,7 @@ export function WorkspaceApp({
                   />
                 ),
               )}
-              {phoneLayout && (
+              {phoneLayout && !appListLoading && (
                 <div className="ax-card-list">
                   {tx(applications.map(applicationCard))}
                 </div>
@@ -2657,7 +2790,7 @@ export function WorkspaceApp({
                   {t("Previous applications ")}
                 </button>
                 <span>
-                  {tx(appTotal ?? "—")}
+                  {tx(appListLoading ? "—" : (appTotal ?? "—"))}
                   {t(" results · Page ")}
                   {tx(appPage)}
                   {t(" /")}

@@ -1,6 +1,7 @@
 import type { DB } from "./db.js";
 
 export type SecurityAction =
+  | "SIGNED_IN"
   | "PASSWORD_CHANGED"
   | "OTHER_SESSIONS_REVOKED"
   | "PASSWORD_RECOVERY_COMPLETED"

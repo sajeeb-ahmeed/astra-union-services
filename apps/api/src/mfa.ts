@@ -277,6 +277,11 @@ export async function passwordLogin(email: string, password: string) {
       };
     }
     const session = await createSession(db, user, membership);
+    // CH-007: plain password sign-ins were never recorded, so Recent
+    // security activity stayed empty for accounts that never changed a
+    // password or touched MFA — even though they sign in every day.
+    // (MFA sign-ins already audit MFA_LOGIN_SUCCEEDED on verify.)
+    await securityAudit(db, user.id, "SIGNED_IN");
     await db.query("COMMIT");
     return { session };
   } catch (error) {

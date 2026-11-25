@@ -216,6 +216,29 @@ const normalizeSearchQuery = (raw: string): string =>
     .trim()
     .replace(/\s+/g, " ")
     .replace(/[\\%_]/g, (c) => `\\${c}`);
+// CH-002: the free-text search also matches service names ("Citizenship
+// Certificate"), which the applications table cannot match in SQL —
+// resolve the query to service numbers from the catalog and match
+// a.service_no against them. Same normalization as the text search
+// (Bangla digits, case, NFC) but without LIKE escaping, which is only
+// for the SQL pattern.
+const matchingServiceNumbers = (raw: string): number[] => {
+  const q = raw
+    .replace(/[০-৯]/g, (d) => String(d.charCodeAt(0) - 0x09e6))
+    .trim()
+    .replace(/\s+/g, " ")
+    .toLowerCase()
+    .normalize("NFC");
+  if (!q) return [];
+  return serviceCatalog
+    .filter((s) =>
+      `${s.service_no} ${s.name_bn} ${s.name_en}`
+        .toLowerCase()
+        .normalize("NFC")
+        .includes(q),
+    )
+    .map((s) => s.service_no);
+};
 async function authorization(db: DB, a: Auth, no: number) {
   const current = await db.query(
     "SELECT 1 FROM approval_authorizations aa JOIN staff_memberships m ON m.tenant_id=aa.tenant_id AND m.user_id=aa.user_id JOIN platform_users u ON u.id=m.user_id JOIN tenants t ON t.id=m.tenant_id WHERE aa.tenant_id=$1 AND aa.user_id=$2 AND aa.service_no=$3 AND aa.active AND m.active AND m.role='approver' AND u.active AND t.status='ACTIVE' FOR SHARE OF aa,m,u,t",
@@ -1309,6 +1332,11 @@ app.get(
     // digits-only form, so the grouped Phase 5 reference can be pasted with or without hyphens.
     const q = normalizeSearchQuery(String(req.query.q ?? "").slice(0, 100));
     const digits = referenceDigits(q);
+    // CH-009: the Citizens directory paginates — page/pageSize are
+    // optional and default to the previous behaviour (first 100 rows),
+    // so existing callers (dashboard totals, global search) are unaffected.
+    const page = z.coerce.number().int().min(1).max(100000).default(1).parse(req.query.page);
+    const pageSize = z.coerce.number().int().min(1).max(100).default(100).parse(req.query.pageSize);
     const { items, total } = await transaction(tenant(req), async (db) => {
       const nameParam = a.role === "citizen" ? "$3" : "$2";
       const digitsParam = a.role === "citizen" ? "$4" : "$3";
@@ -1320,8 +1348,8 @@ app.get(
       return {
         items: (
           await db.query(
-            `SELECT * FROM citizens ${filter} ORDER BY created_at DESC LIMIT 100`,
-            params,
+            `SELECT * FROM citizens ${filter} ORDER BY created_at DESC LIMIT $${params.length + 1} OFFSET $${params.length + 2}`,
+            [...params, pageSize, (page - 1) * pageSize],
           )
         ).rows.map(citizenRow),
         // Phase 1: the dashboard shows the real count, not the length of this 100-row page.
@@ -1330,7 +1358,7 @@ app.get(
         ).rows[0].n as number,
       };
     });
-    res.json({ items, total });
+    res.json({ items, total, page, pageSize });
   }),
 );
 app.post(
@@ -1455,6 +1483,11 @@ app.get(
       z.string().max(100).default("").parse(req.query.q),
     );
     const searchDigits = referenceDigits(search);
+    // CH-002: resolve the raw query to catalog service numbers (the
+    // escaped `search` above is only for the SQL LIKE pattern).
+    const serviceNos = matchingServiceNumbers(
+      z.string().max(100).default("").parse(req.query.q),
+    );
     const state = req.query.state
       ? z
           .enum([
@@ -1485,6 +1518,9 @@ app.get(
         a.role === "citizen" ? a.userId : null,
         `%${search}%`,
         searchDigits ? `%${searchDigits}%` : null,
+        // CH-002: service numbers whose catalog name matches the query
+        // (null when none — the clause below then matches nothing extra).
+        serviceNos.length ? serviceNos : null,
       ];
       // Security Audit 01, F7: the (already Zod-validated) range bounds are bound
       // as parameters like every other value, never interpolated into the SQL text.
@@ -1497,7 +1533,7 @@ app.get(
         values.push(range.to);
         rangeFilter += ` AND (a.created_at AT TIME ZONE 'Asia/Dhaka')::date <= $${values.length}::date`;
       }
-      const from = `FROM applications a JOIN citizens c ON c.id=a.citizen_id AND c.tenant_id=a.tenant_id WHERE a.tenant_id=$1 AND ($2::text IS NULL OR a.state=$2) AND ($3::int IS NULL OR a.service_no=$3) AND ($4::uuid IS NULL OR c.user_id=$4) AND (a.id::text ILIKE $5 OR a.reference ILIKE $5 OR ($6::text IS NOT NULL AND replace(a.reference,'-','') ILIKE $6) OR c.full_name_bn ILIKE $5 OR c.full_name_en ILIKE $5 OR c.synthetic_reference ILIKE $5 OR ($6::text IS NOT NULL AND replace(c.synthetic_reference,'-','') ILIKE $6) OR c.contact_mobile ILIKE $5)${rangeFilter}${renewalOnly ? " AND EXISTS(SELECT 1 FROM renewal_links l WHERE l.tenant_id=a.tenant_id AND l.application_id=a.id)" : ""}`;
+      const from = `FROM applications a JOIN citizens c ON c.id=a.citizen_id AND c.tenant_id=a.tenant_id WHERE a.tenant_id=$1 AND ($2::text IS NULL OR a.state=$2) AND ($3::int IS NULL OR a.service_no=$3) AND ($4::uuid IS NULL OR c.user_id=$4) AND (a.id::text ILIKE $5 OR a.reference ILIKE $5 OR ($6::text IS NOT NULL AND replace(a.reference,'-','') ILIKE $6) OR c.full_name_bn ILIKE $5 OR c.full_name_en ILIKE $5 OR c.synthetic_reference ILIKE $5 OR ($6::text IS NOT NULL AND replace(c.synthetic_reference,'-','') ILIKE $6) OR c.contact_mobile ILIKE $5 OR ($7::int[] IS NOT NULL AND a.service_no = ANY($7)))${rangeFilter}${renewalOnly ? " AND EXISTS(SELECT 1 FROM renewal_links l WHERE l.tenant_id=a.tenant_id AND l.application_id=a.id)" : ""}`;
       const items = (
         await db.query(
           `SELECT a.*,EXISTS(SELECT 1 FROM renewal_links l WHERE l.tenant_id=a.tenant_id AND l.application_id=a.id) AS is_renewal ${from} ORDER BY a.updated_at DESC,a.id LIMIT $${values.length + 1} OFFSET $${values.length + 2}`,

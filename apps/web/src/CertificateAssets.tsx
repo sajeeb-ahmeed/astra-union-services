@@ -13,6 +13,9 @@ type AssetItem = {
     byteLength: number;
     contentSha256: string;
     uploadedAt: string;
+    // CH-006: the other kind whose current image is byte-identical to
+    // this one (logo uploaded as the seal, or vice versa).
+    duplicateOf?: string | null;
   } | null;
   history: Array<{
     version: number;
@@ -160,6 +163,14 @@ export function CertificateAssetsSettings() {
                   {Math.max(1, Math.round(item.current.byteLength / 1024))} KB ·{" "}
                   {formatDateTime(item.current.uploadedAt, language)}
                 </p>
+                {item.current.duplicateOf && (
+                  <p className="notice" role="alert">
+                    {pick({
+                      bn: `এই ছবিটি ${KIND_TEXT[item.current.duplicateOf as AssetKind]?.title.bn ?? item.current.duplicateOf} এর ছবির হুবহু একই — সনদে ভুল ছবি ছাপা হবে। আসল ${text.title.bn} আপলোড করুন।`,
+                      en: `This image is byte-identical to the ${KIND_TEXT[item.current.duplicateOf as AssetKind]?.title.en ?? item.current.duplicateOf} — certificates will print the wrong image. Upload the real ${text.title.en}.`,
+                    })}
+                  </p>
+                )}
               </div>
             ) : (
               <p className="hint">

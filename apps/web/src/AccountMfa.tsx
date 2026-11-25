@@ -56,6 +56,7 @@ export function securityEventLabel(action: string): string {
       bn: "নতুন recovery code তৈরি",
       en: "Recovery codes replaced",
     },
+    SIGNED_IN: { bn: "লগইন করা হয়েছে", en: "Signed in" },
     PASSWORD_CHANGED: { bn: "পাসওয়ার্ড পরিবর্তন", en: "Password changed" },
     PASSWORD_RECOVERED: {
       bn: "পাসওয়ার্ড পুনরুদ্ধার",

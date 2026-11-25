@@ -43,6 +43,50 @@
 .ax-stat-button .ax-stat {
   height: 100%;
 }
+/* CH-001: the per-state breakdown strip — ten compact tiles in workflow
+   order that open the filtered list. Small surface, same tokens as the
+   stat cards above. */
+.ax-dashboard-states {
+  background: var(--ax-surface);
+  border: 1px solid var(--ax-line);
+  border-radius: var(--ax-radius-lg);
+  padding: var(--ax-space-3);
+}
+.ax-dashboard-states-heading {
+  font-size: 1rem;
+  margin: 0 0 var(--ax-space-2);
+}
+.ax-dashboard-states-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ax-space-2);
+}
+.ax-state-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  min-width: 110px;
+  padding: var(--ax-space-2) var(--ax-space-3);
+  border: 1px solid var(--ax-line);
+  border-radius: var(--ax-radius-md);
+  background: var(--ax-surface);
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.ax-state-tile:hover,
+.ax-state-tile:focus-visible {
+  border-color: var(--ax-green-600);
+  box-shadow: var(--ax-shadow);
+}
+.ax-state-tile strong {
+  font-size: 1.25rem;
+  line-height: 1.2;
+}
+.ax-state-tile span {
+  font-size: 0.85rem;
+}
 
 .ax-dashboard-services {
   background: var(--ax-surface);

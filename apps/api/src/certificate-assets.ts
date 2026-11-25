@@ -161,6 +161,22 @@ async function assetOverview(db: DB, tenantId: string) {
       })),
     });
   }
+  // CH-006: the logo and the seal must be distinct images — an office
+  // that uploads the same bytes twice (e.g. the DigitalUnion logo as
+  // the seal) prints the wrong image on every certificate. Flag any
+  // kind whose bytes are identical to another kind's current bytes; the
+  // upload still succeeds (warn, don't block), but the profile page
+  // says so plainly and the office must upload the real image.
+  const byHash = new Map<string, string>();
+  for (const item of items) {
+    if (!item.current) continue;
+    const other = byHash.get(item.current.contentSha256);
+    if (other) {
+      (item.current as any).duplicateOf = other;
+      const otherItem = items.find((i) => i.kind === other);
+      if (otherItem?.current) (otherItem.current as any).duplicateOf = item.kind;
+    } else byHash.set(item.current.contentSha256, item.kind);
+  }
   return { items };
 }
 
@@ -252,6 +268,17 @@ certificateAssetsRouter.put(
         row.id,
         { kind, version, byteLength: bytes.length },
       );
+      // CH-006: warn when these bytes are identical to another kind's
+      // current image (logo uploaded as the seal, or vice versa).
+      let duplicateOf: CertificateAssetKind | null = null;
+      for (const other of CERTIFICATE_ASSET_KINDS) {
+        if (other === kind) continue;
+        const otherCurrent = await currentAsset(db, a.tenantId, other);
+        if (otherCurrent?.content_sha256 === sha256(bytes)) {
+          duplicateOf = other;
+          break;
+        }
+      }
       return {
         kind,
         version,
@@ -260,6 +287,7 @@ certificateAssetsRouter.put(
         byteLength: bytes.length,
         contentSha256: sha256(bytes),
         uploadedAt: row.created_at,
+        duplicateOf,
       };
     });
     const { replaced, ...body } = result;
