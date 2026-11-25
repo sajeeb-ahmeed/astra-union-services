@@ -77,6 +77,7 @@ import { applySubscriptionAction } from "./subscriptions.js";
 import { rechargeRouter } from "./recharge.js";
 import { merchantRouter } from "./gateways.js";
 import { applyOrderSettlement } from "./order-settlement.js";
+import { releaseInfo, publicRelease, processStartedAt } from "./release.js";
 import {
   orderPaymentsRouter,
   publicOrderPaymentsRouter,
@@ -539,10 +540,31 @@ app.get(
   "/api/v1/health",
   wrap(async (_req, res) => {
     await pool.query("SELECT 1");
+    // A-002: the applied migration version is public release metadata (a
+    // version number, never data). A missing schema_migrations table means
+    // the database predates migration tracking; health stays "ok" and the
+    // version reports null instead of failing the probe.
+    let migrationVersion: string | null = null;
+    try {
+      migrationVersion =
+        (
+          await pool.query(
+            "SELECT name FROM schema_migrations ORDER BY name DESC LIMIT 1",
+          )
+        ).rows[0]?.name ?? null;
+    } catch {
+      migrationVersion = null;
+    }
     res.json({
       status: "ok",
       database: "PostgreSQL",
       mode: issuanceMode() === "official" ? "OFFICIAL" : "DEMO_ONLY",
+      // A-002 release traceability: app version, packaged commit, build
+      // time, release package id, process start (= deploy timestamp as far
+      // as this server knows it), and the applied DB migration version.
+      // Only non-sensitive values; see GET /api/v1/admin/release for the
+      // detailed operational view (admin role only).
+      release: publicRelease(migrationVersion),
       // Whether each optional server key is in place (true/false only, never a value), so an operator can
       // confirm a deployment without signing in.
       features: {
@@ -893,6 +915,38 @@ app.post(
       "astra_session=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0",
     );
     res.json({ ok: true });
+  }),
+);
+/**
+ * A-002: detailed release metadata for operators. Admin role only — the
+ * public health endpoint carries the non-sensitive subset. The full applied
+ * migration list and the packaged web-asset manifest let an operator prove
+ * which bundle is running and whether the database matches it, without
+ * exposing any secret, credential, or environment value.
+ */
+app.get(
+  "/api/v1/admin/release",
+  wrap(async (req, res) => {
+    roles(req, ["admin"]);
+    const migrations = (
+      await pool.query(
+        "SELECT name, applied_at FROM schema_migrations ORDER BY name",
+      )
+    ).rows.map((r: any) => ({ name: r.name, appliedAt: r.applied_at }));
+    res.json({
+      release: {
+        ...publicRelease(migrations.at(-1)?.name ?? null),
+        branch: releaseInfo.branch,
+        files: releaseInfo.files,
+        bytes: releaseInfo.bytes,
+      },
+      mode: issuanceMode() === "official" ? "OFFICIAL" : "DEMO_ONLY",
+      nodeVersion: process.version,
+      uptimeSeconds: Math.floor(process.uptime()),
+      startedAt: processStartedAt().toISOString(),
+      migrations,
+      assets: releaseInfo.assets,
+    });
   }),
 );
 /** Phase 3b: the citizen with profile completeness under this office's rules. */

@@ -153,12 +153,52 @@ folder inside the application directory before running it.)
 
 ## 6. Start and verify
 
-Restart the application in **Setup Node.js App**, then check:
+Restart the application in **Setup Node.js App**, then run the post-deployment
+readiness checks — a deployment is **not signed off** until they pass. They
+catch incomplete deployments, in particular the `SCHEMA_UNAVAILABLE`
+recurrence: after the r9 deploy (24 Nov 2026) live applications failed with
+422 `SCHEMA_UNAVAILABLE` because step 5 (`db:initialize-cpanel`) had been
+skipped, so the service versions the bundle's code defines were never
+published. The checks below verify applied migrations and published service
+versions directly.
+
+On the server (in the application directory, with the app environment loaded):
+
+```sh
+node --import tsx scripts/verify-deployment-readiness.ts --db
+```
+
+Expected: `Deployment readiness PASS: 4/4 checks passed` (every migration file
+applied; every canonical schema version published with matching hashes;
+47 services; an owner account exists). If `migrations-applied` fails, run
+`npm run db:migrate-cpanel` and re-check. If `service-versions-published`
+fails, run `npm run db:initialize-cpanel` and re-check (see the reconcile
+note in step 5 if initialize itself throws).
+
+From outside, against the live origin (public endpoints only, no credentials;
+`packageId` and `commit` come from the bundle's `release.json`):
+
+```sh
+node --import tsx scripts/verify-deployment-readiness.ts --live https://your-domain \
+  --expect-commit <full commit sha from release.json> \
+  --expect-package <packageId from release.json>
+```
+
+Expected: `Deployment readiness PASS: 7/7 checks passed` — health reports the
+deployed commit/package and the latest migration, the homepage returns the
+real app shell, the services list has 47 entries, and service 1's schema
+resolves (a 422 here is the `SCHEMA_UNAVAILABLE` recurrence: run
+`db:initialize-cpanel` on the server and re-check).
+
+Then check:
 
 - [ ] `https://your-domain/api/v1/health` returns
       `{"status":"ok","database":"PostgreSQL","mode":"DEMO_ONLY", ...}`
       with `features` all `true` (mode flips to `OFFICIAL` only when the
-      owner later sets `ISSUANCE_MODE=official`).
+      owner later sets `ISSUANCE_MODE=official`) and a `release` object whose
+      `commit` and `packageId` match the bundle just uploaded (`release.json`
+      at the bundle root) and whose `migrationVersion` is the latest file in
+      `db/migrations/`.
 - [ ] The public homepage loads at `https://your-domain/`.
 - [ ] Plain HTTP redirects to HTTPS:
       `curl -sI http://your-domain/login` must answer `301` with
@@ -191,16 +231,28 @@ a managed backup tool (`node scripts/backup/backup.mjs backup`, driven by
 
 ## 8. Updating and rollback
 
-- **Update:** rebuild the bundle (`node scripts/package-cpanel.mjs`),
-  upload over the app directory, run `npm run db:migrate-cpanel` from a
-  terminal (it applies only migrations that are not yet recorded), then
-  restart the app and re-check step 6.
+- **Update:** rebuild the bundle (`node scripts/package-cpanel.mjs` — it writes
+  a fresh `release.json` with the new package id, commit, build time and asset
+  manifest), upload over the app directory, run `npm run db:migrate-cpanel`
+  from a terminal (it applies only migrations that are not yet recorded), then
+  run `npm run db:initialize-cpanel` (step 5 — never skip, even with no new
+  migration), restart the app, run the step-6 readiness checks
+  (`--db` on the server, `--live` with the new `--expect-commit` /
+  `--expect-package`), and record the new bundle→commit mapping in the
+  [hosted deployment record](HOSTED_DEPLOYMENT.md) before calling the deploy done.
 - **Rollback:** the previous bundle is the rollback unit — keep the last
-  known-good upload (e.g. `astra-app-prev/`) and point the Node.js app's
-  root back to it, then restart. Database changes from migrations are
-  additive; if a rollback must also undo data, restore the latest nightly
-  `pg_dump` into a fresh database and repoint the two `DATABASE_*_URL`
-  variables. Never edit files inside `db/migrations/` — merged migrations
+  known-good upload (e.g. `astra-app-prev/`, **including its `release.json`**,
+  so health keeps reporting the rolled-back release truthfully) and point the
+  Node.js app's root back to it, then restart. Before rolling back, take a
+  fresh `pg_dump` (step 7) so the pre-rollback state is recoverable.
+  Database changes from migrations are additive and are **not** undone by a
+  bundle rollback: if a rollback must also undo data, restore the latest
+  nightly `pg_dump` into a fresh database and repoint the two `DATABASE_*_URL`
+  variables — never hand-edit the live database to "unapply" a migration.
+  After a rollback, run the step-6 readiness checks again (`--db` and
+  `--live` with the previous bundle's `--expect-commit` / `--expect-package`
+  from its `release.json`) and record the rollback in the hosted deployment
+  record. Never edit files inside `db/migrations/` — merged migrations
   are immutable; fixes ship as new migrations.
 
 ## 9. Going official

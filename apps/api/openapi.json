@@ -16566,6 +16566,55 @@
           }
         }
       }
+    },
+    "/api/v1/admin/release": {
+      "get": {
+        "summary": "Read detailed release metadata",
+        "description": "Admin-only detailed release metadata for operators: the public release subset (version, packaged commit, build time, package id, process start, applied migration version) plus the full applied-migration list and the packaged web-asset manifest, so an operator can prove which bundle is running and whether the database matches it. No secrets, credentials, or environment values are ever included.",
+        "tags": [
+          "Admin"
+        ],
+        "x-visibility": "authenticated",
+        "x-source": "apps/api/src/app.ts:928",
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "x-roles": [
+          "admin"
+        ],
+        "responses": {
+          "200": {
+            "description": "Success; see apps/api/src/app.ts:928 for the response contract.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Session missing or inactive."
+          },
+          "403": {
+            "description": "Role, CSRF or Origin denied."
+          },
+          "404": {
+            "description": "Record unavailable in this scope."
+          },
+          "409": {
+            "description": "Duplicate or workflow conflict."
+          },
+          "422": {
+            "description": "Validated request failed."
+          }
+        },
+        "x-error-codes": [
+          "403:ROLE_DENIED"
+        ]
+      }
     }
   },
   "tags": [
@@ -16656,8 +16705,8 @@
     "All other authenticated mutations": "session + CSRF required; no additional global limiter (per-route limiters are listed on the operation)"
   },
   "x-coverage": {
-    "documentedOperations": 205,
-    "documentedPaths": 182,
+    "documentedOperations": 206,
+    "documentedPaths": 183,
     "generatedBy": "scripts/update-batch-c-openapi.mjs (Batch C / A-001)",
     "note": "Counts are spec-side only; live coverage is enforced by scripts/check-openapi-coverage.mjs against the running Express route table."
   }

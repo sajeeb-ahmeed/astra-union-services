@@ -27,6 +27,29 @@ const SPEC = "apps/api/openapi.json";
 // --- generated route table (method, path, summary, auth, schemas) -----------
 const ROUTES = [
   {
+    "method": "get",
+    "path": "/api/v1/admin/release",
+    "summary": "Read detailed release metadata",
+    "description": "Admin-only detailed release metadata for operators: the public release subset (version, packaged commit, build time, package id, process start, applied migration version) plus the full applied-migration list and the packaged web-asset manifest, so an operator can prove which bundle is running and whether the database matches it. No secrets, credentials, or environment values are ever included.",
+    "tag": "Admin",
+    "visibility": "authenticated",
+    "source": "app.ts:928",
+    "roles": ["admin"],
+    "officeActor": false,
+    "usesTenant": false,
+    "usesActor": false,
+    "usesAuth": true,
+    "limiters": [],
+    "inlineLimit": null,
+    "statuses": [],
+    "errorCodes": ["403:ROLE_DENIED"],
+    "queryParams": [],
+    "bodyKeys": null,
+    "queryKeys": null,
+    "hasBodyParse": false
+  },
+
+  {
     "method": "delete",
     "path": "/api/v1/account/identifiers/{kind}",
     "summary": "Remove one of the caller's own sign-in identifiers",

@@ -1,0 +1,14 @@
+-- Batch C / A-002: let the runtime read its own applied-migration version.
+--
+-- schema_migrations is created by scripts/migrate.ts, not by a migration
+-- file, so it never received the app-role grant that migration 001 gives
+-- every other table — the runtime (astra_app) could not SELECT from it, and
+-- /api/v1/health reported migrationVersion null. The health endpoint's
+-- public release subset and the admin release endpoint
+-- (GET /api/v1/admin/release) both read this table.
+--
+-- Read-only: the runtime must never record its own migrations; INSERT stays
+-- with the migration owner. In single-role (cPanel) mode the runner
+-- substitutes the single username for astra_app, where this is a no-op
+-- (the table owner already has the privilege).
+GRANT SELECT ON schema_migrations TO astra_app;
