@@ -22,7 +22,7 @@ const ROOT_FILE_EXTENSIONS = new Set([".txt", ".xml", ".png", ".ico", ".webp", "
 const SPA_EXACT_ROUTES = new Set([
   "/", "/services", "/offices", "/notices", "/help", "/witness", "/guide",
   "/tracking", "/verify", "/verify-email", "/login", "/register",
-  "/policies", "/recover", "/register-office", "/payments/return",
+  "/policies", "/privacy", "/terms", "/recover", "/register-office", "/payments/return",
 ]);
 const SPA_PREFIX_ROUTES = ["/services/", "/offices/", "/verify/"];
 function isKnownSpaRoute(requestPath: string): boolean {

@@ -595,6 +595,11 @@ export function ServiceFlow({
   // validation, no order input (only offered when no order policy exists, so
   // the server never has to refuse it for a missing order snapshot). The
   // server marks it partial; submit re-validates fully.
+  // W-013 follow-up (Stage 4): when the delivery options are already
+  // chosen (step 2), the order snapshot travels with the draft too — the
+  // server accepts partial+order (it skips only form validation), so a
+  // policy-configured service can now save mid-flow instead of waiting
+  // for the review step.
   async function savePartialDraft() {
     setBusy(true);
     setError("");
@@ -605,6 +610,7 @@ export function ServiceFlow({
         payload,
         requestKey,
         partial: true,
+        ...(order?.order ? { order: order.order } : {}),
       });
       const createdApplication = created.application || created;
       onChanged();
@@ -826,8 +832,8 @@ export function ServiceFlow({
             {orderPolicyConfigured === true && (
               <p className="hint">
                 {choose({
-                  bn: "এই সেবায় ডেলিভারি অপশন বেছে নেওয়ার পর যাচাই ধাপে খসড়া সংরক্ষণ করা যাবে।",
-                  en: "For this service, a draft can be saved at the review step, after the delivery options are chosen.",
+                  bn: "এই সেবায় ডেলিভারি অপশন বেছে নেওয়ার পর পরের ধাপেই খসড়া সংরক্ষণ করা যাবে।",
+                  en: "For this service, a draft can be saved once the delivery options are chosen, at the next step.",
                 })}
               </p>
             )}
@@ -851,6 +857,18 @@ export function ServiceFlow({
             <div className="ax-flow-actions">
               <button type="button" className="secondary" onClick={() => go(1)}>
                 {choose({ bn: "← আবেদনের তথ্য", en: "← Application form" })}
+              </button>
+              {/* W-013 follow-up (Stage 4): with a policy-configured
+                  service the draft can be saved here, once the delivery
+                  options are chosen — enabled on the same condition as
+                  "Next", so the order snapshot is always present. */}
+              <button
+                type="button"
+                className="secondary"
+                disabled={busy || order?.context !== context || !order.ready}
+                onClick={() => void savePartialDraft()}
+              >
+                {choose({ bn: "অসম্পূর্ণ খসড়া সংরক্ষণ", en: "Save incomplete draft" })}
               </button>
               <button
                 type="button"

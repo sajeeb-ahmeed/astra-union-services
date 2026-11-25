@@ -53,9 +53,14 @@ const {
   officeDescription,
   officeTitle,
   serviceDescription,
+  serviceFormFacts,
   servicePath,
   serviceTitle,
 } = registry;
+// F-004: the FAQ JSON-LD must carry the same schema-derived item the
+// client renders — the form facts come from the shared schemas package
+// (node-side here, so no bundle cost).
+const { getServiceSchema } = await import("@astra/shared-schemas");
 const catalog = JSON.parse(
   fs.readFileSync(path.join(webRoot, "src", "public-service-catalog.json"), "utf8"),
 );
@@ -332,7 +337,15 @@ writePage(
 for (const seo of SERVICE_SEO) {
   const entry = catalogEntry(seo.no);
   const canonicalPath = servicePath(seo.no);
-  const faq = faqFor(seo);
+  // F-004: same form facts the client page derives, so the FAQPage
+  // JSON-LD and the visible FAQ stay the same data.
+  let formFacts;
+  try {
+    formFacts = serviceFormFacts(getServiceSchema(seo.no));
+  } catch {
+    formFacts = undefined;
+  }
+  const faq = faqFor(seo, formFacts);
   const serviceOffices = await loadServiceOffices(seo.no);
   const offeringOffices = serviceOffices ?? offices;
   const related = seo.related.map((n) => ({

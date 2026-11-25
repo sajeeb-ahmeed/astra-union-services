@@ -22,8 +22,11 @@ import {
   officeTitle,
   relatedServices,
   serviceDescription,
+  serviceFormFacts,
   serviceSeo,
   serviceTitle,
+  stepsFor,
+  type ServiceFormFacts,
 } from "./seo/service-seo.js";
 import { applyPageHead } from "./seo/head.js";
 import { BrandLockup } from "./BrandLockup.js";
@@ -65,6 +68,8 @@ const publicPages: Record<string, [string, string]> = {
   login: ["লগইন", "Sign in"],
   register: ["নিবন্ধন", "Register"],
   policies: ["নীতি", "Policies"],
+  privacy: ["গোপনীয়তা নীতি", "Privacy policy"],
+  terms: ["ব্যবহারের শর্তাবলী", "Terms of use"],
   recover: ["অ্যাকাউন্ট পুনরুদ্ধার", "Account recovery"],
 };
 const value = (o: any, camel: string, snake: string) =>
@@ -1261,49 +1266,21 @@ export function PublicPortal({
      FAQ → সম্পর্কিত সেবা → sticky apply CTA. Exactly one H1. */
   const serviceDetailView = () => {
     if (!selected) return null;
-    // BUNDLE06-R5 C1: citizen-friendly "what you will need" — one plain
-    // checklist of the information the form asks for. Schema internals
-    // stay out: section titles are form machinery, upload fields are
-    // covered by the documents note below, and the declaration checkbox
-    // is a confirmation the citizen ticks in the form, not information
-    // they bring.
-    let infoNeeded: { bn: string; en: string }[] = [];
+    // BUNDLE06-R5 C1 / F-004: citizen-friendly "what you will need" — one
+    // plain checklist of the information the form asks for, derived from
+    // the service's own schema via serviceFormFacts (the same facts feed
+    // the service-specific FAQ item and apply step, so the three agree).
+    let formFacts: ServiceFormFacts = { fields: [], attachmentsAsked: false };
     try {
-      const schema: any = getServiceSchema(selected.service_no);
-      const seenLabels = new Set<string>();
-      for (const section of schema?.sections ?? []) {
-        for (const field of section.fields ?? []) {
-          if (
-            field.type === "attachment" ||
-            field.type === "repeatable" ||
-            field.type === "checkbox" ||
-            !field.label
-          )
-            continue;
-          const key = field.label.en ?? field.label.bn ?? "";
-          if (!key || seenLabels.has(key)) continue;
-          seenLabels.add(key);
-          infoNeeded.push(field.label);
-        }
-      }
+      formFacts = serviceFormFacts(getServiceSchema(selected.service_no));
     } catch {
-      infoNeeded = [];
+      formFacts = { fields: [], attachmentsAsked: false };
     }
-    const attachmentsAsked = (() => {
-      try {
-        const schema: any = getServiceSchema(selected.service_no);
-        return (schema?.sections ?? []).some((section: any) =>
-          (section.fields ?? []).some(
-            (f: any) => f.type === "attachment" || f.type === "repeatable",
-          ),
-        );
-      } catch {
-        return false;
-      }
-    })();
+    const infoNeeded = formFacts.fields;
+    const attachmentsAsked = formFacts.attachmentsAsked;
     // SEO P3/D4: the visible FAQ comes from the SEO registry, so the page
     // and the FAQPage JSON-LD in the prerendered copy are the same data.
-    const faqItems = selectedSeo ? faqFor(selectedSeo) : null;
+    const faqItems = selectedSeo ? faqFor(selectedSeo, formFacts) : null;
     // SEO D6: related services are the registry's editorial clusters;
     // the category siblings remain the fallback.
     const clusterSiblings = selectedSeo
@@ -1455,10 +1432,13 @@ export function PublicPortal({
         <section className="service-steps">
           <h2>{choose({ bn: "কীভাবে আবেদন করবেন", en: "How to apply" })}</h2>
           <ol>
-            <li>{choose({ bn: "আপনার অংশগ্রহণকারী অফিস বেছে অ্যাকাউন্ট খুলুন।", en: "Choose your participating office and create your account." })}</li>
-            <li>{choose({ bn: "সেবার ফরম পূরণ করুন এবং চাওয়া নথি যুক্ত করুন।", en: "Complete the service form and attach the requested documents." })}</li>
-            <li>{choose({ bn: "অফিসের যাচাইয়ের জন্য জমা দিন; সংশোধনের অনুরোধ এলে তা অনুসরণ করুন।", en: "Submit for office review; follow any correction request." })}</li>
-            <li>{choose({ bn: "অনুমোদিত হলে সনদ ইস্যু হবে। অ্যাকাউন্টে অবস্থা দেখুন এবং QR লিংক দিয়ে যাচাই করুন।", en: "Once approved, the certificate is issued. View status in your account and verify its QR link." })}</li>
+            {/* F-004: step 2 names this service's form and what it asks
+                for (from the schema), so the steps are no longer the same
+                four generic lines on all 47 pages. */}
+            {selectedSeo &&
+              stepsFor(selectedSeo, formFacts).map((step, i) => (
+                <li key={i}>{choose(step)}</li>
+              ))}
           </ol>
         </section>
         <section className="service-faq">
@@ -2407,32 +2387,115 @@ export function PublicPortal({
                   </>
                 ),
               )}
+              {/* F-012: /policies is now a hub — the combined page had no
+                  effective date and no retention/deletion/rights detail.
+                  The full texts live on /privacy and /terms (each dated
+                  with the version's publication date); nothing here
+                  invents fees, times, documents or contact details. */}
               {tx(
                 page === "policies" && (
                   <section className="panel prose">
                     <h1>{choose({ bn: "ব্যবহারের নীতি", en: "Policies" })}</h1>
-                    <h2>{choose({ bn: "সম্পর্কে", en: "About this service" })}</h2>
                     <p>
                       {choose({
-                        bn: "DigitalUnion ইউনিয়ন পরিষদের নাগরিক সেবা প্রদানের সফটওয়্যার। এখানে ইস্যু করা সনদ সংশ্লিষ্ট ইউনিয়ন পরিষদের দাপ্তরিক নথি; প্রতিটি সনদের QR কোড বা নম্বর দিয়ে সত্যতা যাচাই করা যায়।",
-                        en: "DigitalUnion is the software Union Parishads use to deliver citizen services. Certificates issued here are the issuing Union Parishad's official documents; every certificate can be checked by its QR code or number.",
+                        bn: "এই পৃষ্ঠা থেকে DigitalUnion ব্যবহারের শর্তাবলী ও গোপনীয়তা নীতি পড়ুন।",
+                        en: "Read the terms of use and the privacy policy for DigitalUnion from this page.",
                       })}
                     </p>
-                    <h2>{t("Data and privacy")}</h2>
+                    <ul>
+                      <li>
+                        <a href="/privacy">{choose({ bn: "গোপনীয়তা নীতি", en: "Privacy policy" })}</a>
+                        {" — "}
+                        {choose({
+                          bn: "আপনার তথ্য কী সংগ্রহ করা হয়, কে দেখতে পারে, কতদিন রাখা হয়।",
+                          en: "What information of yours is collected, who can see it, and how long it is kept.",
+                        })}
+                      </li>
+                      <li>
+                        <a href="/terms">{choose({ bn: "ব্যবহারের শর্তাবলী", en: "Terms of use" })}</a>
+                        {" — "}
+                        {choose({
+                          bn: "সেবাটি কী, ফি ও রসিদ কীভাবে কাজ করে, আপনার অ্যাকাউন্টের দায়িত্ব।",
+                          en: "What the service is, how fees and receipts work, and your account responsibilities.",
+                        })}
+                      </li>
+                    </ul>
+                  </section>
+                ),
+              )}
+              {tx(
+                page === "privacy" && (
+                  <section className="panel prose">
+                    <h1>{choose({ bn: "গোপনীয়তা নীতি", en: "Privacy policy" })}</h1>
+                    <p className="muted">
+                      {choose({
+                        bn: "সর্বশেষ হালনাগাদ: ২৬ নভেম্বর ২০২৬",
+                        en: "Last updated: 26 November 2026",
+                      })}
+                    </p>
+                    <h2>{choose({ bn: "কী তথ্য সংগ্রহ করা হয়", en: "What information is collected" })}</h2>
+                    <p>
+                      {choose({
+                        bn: "আপনি ফরমে যা লেখেন — সেবার জন্য চাওয়া তথ্য, আপনার মোবাইল নম্বর ও ইমেইল ঠিকানা — এবং আপনি যে নথি সংযুক্ত করেন, সেগুলোই সংগ্রহ করা হয়। আবেদনের অবস্থা পরিবর্তন ও সংশোধনের ইতিহাসও সংরক্ষিত থাকে।",
+                        en: "What you enter in the form — the information the service asks for, your mobile number and email address — and the documents you attach are what is collected. The history of status changes and corrections to your application is also kept.",
+                      })}
+                    </p>
+                    <h2>{choose({ bn: "কেন সংগ্রহ করা হয়", en: "Why it is collected" })}</h2>
+                    <p>
+                      {choose({
+                        bn: "আবেদনটি যাচাই ও নিষ্পত্তি, সনদ ইস্যু ও যাচাই, এবং সংশ্লিষ্ট ইউনিয়ন পরিষদের দাপ্তরিক নথি হিসেবে রাখার জন্য।",
+                        en: "To verify and decide your application, to issue and verify the certificate, and to keep the issuing Union Parishad's official record.",
+                      })}
+                    </p>
+                    <h2>{choose({ bn: "কে দেখতে পারে", en: "Who can see it" })}</h2>
                     <p>
                       {choose({
                         bn: "আবেদনের তথ্য, ব্যক্তিগত ফাইল ও ওয়ার্কফ্লো ইতিহাস নিরাপদে সংরক্ষিত থাকে। অফিসের ভূমিকা অনুযায়ী প্রবেশাধিকার নিয়ন্ত্রিত হয়। পাবলিক QR যাচাইয়ে নাম, পরিচয় নম্বর বা আবেদনের বিষয়বস্তু দেখানো হয় না।",
                         en: "Application data, private files and workflow history are stored securely. Access is controlled by office roles. Public QR verification never shows names, identity numbers or application contents.",
                       })}
                     </p>
-                    <h2>{t("Commercial and official use")}</h2>
+                    <h2>{choose({ bn: "সংরক্ষণ ও মুছে ফেলা", en: "Retention and deletion" })}</h2>
+                    <p>
+                      {choose({
+                        bn: "আবেদনের নথি সনদ ইস্যুকারী ইউনিয়ন পরিষদের দাপ্তরিক নথি হিসেবে রাখা হয়। এই সাইটে নিজে থেকে তথ্য মুছে ফেলার ব্যবস্থা নেই; সংশোধন বা মুছে ফেলার অনুরোধের জন্য সনদ ইস্যুকারী ইউনিয়ন পরিষদ অফিসের সঙ্গে যোগাযোগ করুন।",
+                        en: "Application records are kept as the issuing Union Parishad's official records. There is no self-service deletion on this site; to ask for a correction or deletion, contact the Union Parishad office that issued the certificate.",
+                      })}
+                    </p>
+                  </section>
+                ),
+              )}
+              {tx(
+                page === "terms" && (
+                  <section className="panel prose">
+                    <h1>{choose({ bn: "ব্যবহারের শর্তাবলী", en: "Terms of use" })}</h1>
+                    <p className="muted">
+                      {choose({
+                        bn: "সর্বশেষ হালনাগাদ: ২৬ নভেম্বর ২০২৬",
+                        en: "Last updated: 26 November 2026",
+                      })}
+                    </p>
+                    <h2>{choose({ bn: "সম্পর্কে", en: "About this service" })}</h2>
+                    <p>
+                      {choose({
+                        bn: "DigitalUnion ইউনিয়ন পরিষদের নাগরিক সেবা প্রদানের সফটওয়্যার। এখানে ইস্যু করা সনদ সংশ্লিষ্ট ইউনিয়ন পরিষদের দাপ্তরিক নথি; প্রতিটি সনদের QR কোড বা নম্বর দিয়ে সত্যতা যাচাই করা যায়। প্রদর্শনী সংস্করণে ইস্যু করা সনদে নমুনা লেখা থাকে এবং তা দাপ্তরিক কাজে বৈধ নয়।",
+                        en: "DigitalUnion is the software Union Parishads use to deliver citizen services. Certificates issued here are the issuing Union Parishad's official documents; every certificate can be checked by its QR code or number. Certificates issued in a demonstration deployment are marked as demo and are not valid for official use.",
+                      })}
+                    </p>
+                    <h2>{choose({ bn: "ফি ও রসিদ", en: "Fees and receipts" })}</h2>
                     <p>
                       {choose({
                         bn: "প্রতিটি সেবার ফি সংশ্লিষ্ট অফিসের প্রকাশিত ফি নীতি অনুযায়ী নির্ধারিত হয়। পরিশোধ যাচাইয়ের পরই রসিদ তৈরি হয়; শুধু পেমেন্ট পৃষ্ঠা থেকে ফিরে আসা পরিশোধের প্রমাণ নয়।",
                         en: "Each service's fee follows the office's published fee policy. A receipt is created only after the payment is verified; returning from a payment page alone is not proof of payment.",
                       })}
                     </p>
-                    <h2>{t("Security and access")}</h2>
+                    <h2>{choose({ bn: "তথ্যের সঠিকতা", en: "Accuracy of information" })}</h2>
+                    <p>
+                      {choose({
+                        bn: "আপনি যে তথ্য জমা দেন তার সঠিকতার দায়িত্ব আপনার। ভুল বা অসম্পূর্ণ তথ্য থাকলে অফিস সংশোধনের অনুরোধ পাঠাতে পারে; সংশোধন না হলে আবেদন বাতিল হতে পারে।",
+                        en: "You are responsible for the accuracy of the information you submit. If it is wrong or incomplete, the office may ask for a correction; an application that is not corrected may be rejected.",
+                      })}
+                    </p>
+                    <h2>{choose({ bn: "আপনার অ্যাকাউন্টের নিরাপত্তা", en: "Security of your account" })}</h2>
                     <p>
                       {t(
                         "Keep account credentials private, use a unique password and sign out on shared devices. You may change your password from Account security; doing so expires your other sessions. ",

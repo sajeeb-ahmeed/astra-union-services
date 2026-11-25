@@ -659,6 +659,28 @@ publicManagementRouter.get(
     res.json({ service: camelRow(service), offices });
   }),
 );
+// F-011: one aggregate fee/time summary per service across all ACTIVE
+// offices — the single request the catalog cards need. Previously the
+// client built this from /offices?pageSize=100 plus one detail request
+// per office (11+ requests per page load, refired on every navigation);
+// the aggregation now runs server-side in one query over the same
+// published-policy rows the office detail endpoint reads, so the numbers
+// cannot drift from the per-office view. Only offices with a published
+// policy for the service contribute; services with none are absent
+// (the cards then show the honest "not yet published" line).
+// The aggregate spans tenants, so it reads through the SECURITY DEFINER
+// function public_service_summaries() (migration 071) — the app role is
+// restricted by the tenant_scope RLS policy and a plain query here
+// would see nothing.
+publicManagementRouter.get(
+  "/services/summaries",
+  wrap(async (req, res) => {
+    const rows = (
+      await pool.query("SELECT * FROM public_service_summaries()")
+    ).rows.map(camelRow);
+    res.json({ items: rows });
+  }),
+);
 publicManagementRouter.get(
   "/notices",
   wrap(async (req, res) => {

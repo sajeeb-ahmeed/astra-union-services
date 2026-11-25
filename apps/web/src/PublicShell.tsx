@@ -6,6 +6,7 @@ import { choose, LanguageSwitcher, useLanguage } from "./i18n.js";
 import { useBranding } from "./branding.js";
 import { hasPageHead } from "./seo/head.js";
 import { GlobalNoticeBanner } from "./GlobalNotices.js";
+import { DemoModeBanner } from "./DemoModeBanner.js";
 import "./ui/kit.js";
 import { BrandLockup } from "./BrandLockup.js";
 import "./public-shell.css";
@@ -43,6 +44,8 @@ const DRAWER_EXTRA = [
   { href: "/witness", bn: "সাক্ষীর প্রত্যয়ন", en: "Witness statement" },
   { href: "/guide", bn: "ব্যবহার নির্দেশিকা", en: "User guide" },
   { href: "/policies", bn: "নীতি", en: "Policies" },
+  { href: "/privacy", bn: "গোপনীয়তা নীতি", en: "Privacy policy" },
+  { href: "/terms", bn: "ব্যবহারের শর্তাবলী", en: "Terms of use" },
   { href: "/register-office", bn: "অফিস অ্যাকাউন্ট খুলুন", en: "Open an office account" },
 ] as const;
 
@@ -359,6 +362,8 @@ export function SiteFooter({
             {link("/help", "সাধারণ জিজ্ঞাসা", "Help & FAQ")}
             {link("/guide", "ব্যবহার নির্দেশিকা", "User guide")}
             {link("/policies", "নীতি", "Policies")}
+            {link("/privacy", "গোপনীয়তা নীতি", "Privacy policy")}
+            {link("/terms", "ব্যবহারের শর্তাবলী", "Terms of use")}
           </ul>
           {(contact.phone || contact.email) && (
             <ul className="du-footer-contact">
@@ -418,6 +423,8 @@ export function PublicShell({
       </a>
       <UtilityBar />
       <SiteHeader current={current} onNavigate={onNavigate} />
+      {/* F-008: the issuance-mode banner — renders only in DEMO mode. */}
+      <DemoModeBanner />
       <main id="ax-content" className="ax-main">
         <GlobalNoticeBanner />
         {children}

@@ -17416,6 +17416,39 @@
           }
         }
       }
+    },
+    "/api/v1/services/summaries": {
+      "get": {
+        "summary": "Aggregate fee/time summary per service across offices",
+        "description": "F-011: one aggregate fee/time summary per service across all ACTIVE offices, for the catalog cards — fee range, charter-days range and the count of offices with a published policy for the service. Aggregated server-side from the same published-policy rows the office detail endpoint reads. Services with no published policy anywhere are absent; no values are inferred.",
+        "tags": [
+          "Public"
+        ],
+        "x-visibility": "public",
+        "x-source": "apps/api/src/management.ts:672",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Success; see apps/api/src/management.ts:672 for the response contract.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Record unavailable in this scope."
+          },
+          "409": {
+            "description": "Duplicate or workflow conflict."
+          },
+          "422": {
+            "description": "Validated request failed."
+          }
+        }
+      }
     }
   },
   "tags": [
@@ -17506,8 +17539,8 @@
     "All other authenticated mutations": "session + CSRF required; no additional global limiter (per-route limiters are listed on the operation)"
   },
   "x-coverage": {
-    "documentedOperations": 217,
-    "documentedPaths": 193,
+    "documentedOperations": 218,
+    "documentedPaths": 194,
     "generatedBy": "scripts/update-batch-c-openapi.mjs (Batch C / A-001)",
     "note": "Counts are spec-side only; live coverage is enforced by scripts/check-openapi-coverage.mjs against the running Express route table."
   }

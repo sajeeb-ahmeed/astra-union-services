@@ -250,6 +250,58 @@ test("W-013: a partial edit after a correction blocks resubmit until the form is
   assert.equal(resubmitted.body.state, "RESUBMITTED");
 });
 
+test("W-013 follow-up (Stage 4): a partial draft carries the order snapshot for a policy-configured service", async () => {
+  // Service 44 is unused elsewhere in this file, so publishing a policy
+  // for it cannot change the other tests' LEGACY creation path. The
+  // current version is read first so the test stays green on re-runs
+  // against a polluted seed (expectedVersion must match the latest).
+  const options = await req("GET", "/services/44/order-options", undefined, "admin");
+  const currentVersion = options.body.configured ? (options.body.policy.version as number) : 0;
+  const published = await req(
+    "POST",
+    "/admin/services/44/order-policies",
+    {
+      expectedVersion: currentVersion,
+      reason: "Synthetic W-013 follow-up policy; not a government tariff",
+      statutoryFeeMinor: 1000,
+      processingFeeMinor: 50,
+      emergencySurchargeMinor: 500,
+      deliveryFeesMinor: { office_collection: 0, digital_copy: 100 },
+      deliveryModes: ["office_collection", "digital_copy"],
+      urgencies: ["normal", "urgent"],
+      charterDays: 5,
+      requiredDocuments: [],
+    },
+    "admin",
+  );
+  assert.equal(published.status, 201, JSON.stringify(published.body));
+  const version = published.body.policy.version as number;
+  const order = {
+    policyVersion: version,
+    preferences: {
+      addressBasis: "registered_profile",
+      certificateLanguage: "bn",
+      deliveryMode: "office_collection",
+      urgency: "normal",
+    },
+  };
+  // A half-filled form with the delivery options chosen: the partial
+  // draft saves with the order snapshot instead of being refused.
+  const created = await req(
+    "POST",
+    "/applications",
+    { citizenId, serviceNo: 44, payload: {}, partial: true, order },
+    "staff",
+  );
+  assert.equal(created.status, 201, JSON.stringify(created.body));
+  assert.equal(created.body.state, "DRAFT");
+  assert.equal(created.body.partialPayload, true);
+  assert.equal(created.body.orderMode, "POLICY");
+  const read = await req("GET", `/applications/${created.body.id}`, undefined, "staff");
+  assert.ok(read.body.order, "the order snapshot is stored on the partial draft");
+  assert.equal(read.body.order.policyVersion, version);
+});
+
 test("W-014: a rejected application can be re-applied for, linked to the original", async () => {
   const id = await submittedApplication(45);
   const rejected = await req("POST", `/applications/${id}/transition`, { action: "reject", reason: "not eligible" }, "approver");

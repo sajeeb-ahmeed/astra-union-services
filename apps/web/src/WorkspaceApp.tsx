@@ -15,6 +15,7 @@ import {
 import { api, clearSessionToken, items } from "./api.js";
 import { useBranding } from "./branding.js";
 import { GlobalNoticeBanner } from "./GlobalNotices.js";
+import { DemoModeBanner } from "./DemoModeBanner.js";
 import emblem from "./assets/brand/emblem.webp";
 import { AsyncPanel, lazyWithRetry } from "./AsyncPanel.js";
 import { DynamicForm } from "./DynamicForm.js";
@@ -1549,6 +1550,8 @@ export function WorkspaceApp({
         </div>
       </aside>
       <main id="content" aria-busy={busy || undefined}>
+        {/* F-008: the issuance-mode banner — renders only in DEMO mode. */}
+        <DemoModeBanner />
         <GlobalNoticeBanner />
         <header>
           <div>

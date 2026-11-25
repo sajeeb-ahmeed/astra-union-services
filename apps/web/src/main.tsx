@@ -787,7 +787,7 @@ function PaymentReturnNotice() {
 
 /** QA-04: pages that render the public portal even when a session exists. */
 const PUBLIC_WHILE_SIGNED_IN =
-  /^\/(verify|tracking|services|offices|notices|help|guide|policies)(\/|$)/;
+  /^\/(verify|tracking|services|offices|notices|help|guide|policies|privacy|terms)(\/|$)/;
 
 function App() {
   // L-006: client-side public navigation. The App reads location.pathname
