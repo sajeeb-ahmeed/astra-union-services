@@ -7,6 +7,7 @@ import { workspacePage, goToWorkspacePage } from "./fixtures/workspace-nav.js";
 import { chromium, type Browser, type Page } from "playwright";
 import { signOut } from "./fixtures/session.js";
 import { fillApplicationForm } from "./fixtures/fill-form.js";
+import { ensureSyntheticSignature } from "./fixtures/issuance-fixtures.js";
 import { demoPayloads } from "@astra/shared-schemas";
 const origin = "http://127.0.0.1:5173";
 let ownedStack: ChildProcess | undefined;
@@ -272,6 +273,17 @@ test(
         0,
       );
       await login(approver, "approver");
+      // W-002: issuance needs a chairman signature for the office — the
+      // seed gives alpha only a SEAL, so upload the explicitly identified
+      // synthetic signature before the Chairman approves.
+      const approverSession = await (
+        await approver.request.get(`${origin}/api/v1/auth/me`)
+      ).json();
+      await ensureSyntheticSignature(
+        approver.request,
+        origin,
+        approverSession.csrfToken,
+      );
       await openById(approver, application.reference);
       await approver
         .getByLabel("Decision or revocation reason", { exact: true })

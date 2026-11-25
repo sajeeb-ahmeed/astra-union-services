@@ -7,6 +7,7 @@ import { demoPayloads } from "@astra/shared-schemas";
 import { fillApplicationForm } from "./fixtures/fill-form.js";
 import { goToWorkspacePage } from "./fixtures/workspace-nav.js";
 import { readOtpCode } from "./fixtures/otp-outbox.js";
+import { ensureSyntheticSignature } from "./fixtures/issuance-fixtures.js";
 
 /**
  * PORTAL-B: the whole citizen journey on a phone, end to end, as one person
@@ -162,6 +163,10 @@ test(
       });
       assert.equal(signedIn.status(), 200);
       const csrf = (await signedIn.json()).csrfToken;
+      // W-002: issuance needs a chairman signature for the office — the
+      // seed gives alpha only a SEAL, so upload the explicitly identified
+      // synthetic signature before the Chairman approves.
+      await ensureSyntheticSignature(office.request, origin, csrf);
       const listed = await (await office.request.get(`${origin}/api/v1/applications?q=${reference}`)).json();
       const application = listed.items.find((item: any) => String(item.reference ?? "").replace(/\D/g, "") === reference);
       assert.ok(application, `the approver finds ${reference}`);

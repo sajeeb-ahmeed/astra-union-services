@@ -7,6 +7,11 @@ import { chromium, type Browser, type Page } from "playwright";
 import { demoPayloads } from "@astra/shared-schemas";
 import { signOut } from "./fixtures/session.js";
 import { fillApplicationForm } from "./fixtures/fill-form.js";
+import {
+  SYNTHETIC_SIGNATURE_BASE64,
+  SYNTHETIC_SIGNATURE_REASON,
+  publishZeroFeePolicy,
+} from "./fixtures/issuance-fixtures.js";
 const origin = "http://127.0.0.1:5173";
 async function browserInstance(): Promise<Browser> {
   const local = path.join(process.env.LOCALAPPDATA || "", "ms-playwright");
@@ -680,18 +685,46 @@ test(
       publicPage = await publicContext.newPage();
     await staffContext.addInitScript(() => { if (!localStorage.getItem("astra.language")) localStorage.setItem("astra.language", "en"); });
     try {
-      await login(staff, "staff@alpha.local.test");
+      await login(staff, "staff@beta.local.test");
       const citizenList = await request(staff, "/citizens");
       const citizens = Array.isArray(citizenList.data)
         ? citizenList.data
         : citizenList.data.items;
-      // T-003: the suites share one seeded database, and an earlier suite
-      // may have published an order policy for alpha/42 (test:api's
-      // certificate-assets publishes a zero-fee one). Read the current
-      // policy — exactly as the API suite's FOR-02 does — and supply
-      // matching order preferences when one exists, instead of assuming
-      // none does (that assumption 409s with ORDER_REQUIRED).
-      const options = await request(staff, "/services/42/order-options");
+      // W-002: service 42 is a money service — issuance needs an order
+      // snapshot, which needs a published fee policy, and the seed
+      // configures none. This test runs on beta (no other browser test
+      // uses it) so its synthetic zero-fee policy cannot disturb alpha:
+      // the order-browser suite asserts alpha/42 has NO policy, and
+      // policies are append-only with no delete. Publish the explicitly
+      // identified synthetic policy when none is configured, then read
+      // the current policy — exactly as the API suite's FOR-02 does — and
+      // supply matching order preferences when one exists, instead of
+      // assuming none does (that assumption 409s with ORDER_REQUIRED).
+      let options = await request(staff, "/services/42/order-options");
+      if (!options.data.configured) {
+        const adminApi = await browser.newContext();
+        try {
+          const adminLogin = await adminApi.request.post(
+            `${origin}/api/v1/auth/login`,
+            {
+              data: {
+                email: "admin@beta.local.test",
+                password: "Demo-Phase1!",
+              },
+            },
+          );
+          assert.equal(adminLogin.status(), 200);
+          await publishZeroFeePolicy(
+            adminApi.request,
+            origin,
+            (await adminLogin.json()).csrfToken,
+            42,
+          );
+        } finally {
+          await adminApi.close();
+        }
+        options = await request(staff, "/services/42/order-options");
+      }
       assert.equal(options.status, 200, JSON.stringify(options.data));
       let payload: Record<string, unknown> = demoPayloads[42];
       let order: Record<string, unknown> | undefined;
@@ -731,7 +764,21 @@ test(
       );
       // Phase W: no secretary review — the Chairman approves the submitted
       // application and his approval issues the certificate.
-      await login(approver, "approver@alpha.local.test");
+      await login(approver, "approver@beta.local.test");
+      // W-002: issuance also needs a chairman signature for the office —
+      // the seed gives beta only a SEAL, so upload the explicitly
+      // identified synthetic signature before approving.
+      const sig = await request(
+        approver,
+        "/office/certificate-assets/signature",
+        "PUT",
+        {
+          mimeType: "image/png",
+          base64: SYNTHETIC_SIGNATURE_BASE64,
+          reason: SYNTHETIC_SIGNATURE_REASON,
+        },
+      );
+      assert.ok([200, 201].includes(sig.status), JSON.stringify(sig.data));
       assert.equal(
         (
           await request(
