@@ -1,8 +1,14 @@
 import {spawn, spawnSync, type ChildProcess} from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { assertScannerVerdictPath, probeFixtureSecret } from './scanner/preflight.js';
 import { resetTestOrderPolicies } from './test-support/reset-test-order-policies.js';
+// The Vite config resolves its root as path.resolve("apps/web"), i.e.
+// relative to the process working directory. Pin every spawned server
+// to the repo root (this file lives in <repo>/scripts) so a runner
+// invoked from any directory still serves the right tree.
+const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 let stack:ChildProcess[]=[];
 async function healthy(){try{return (await fetch('http://127.0.0.1:5173/api/v1/health',{signal:AbortSignal.timeout(2000)})).ok;}catch{return false;}}
 async function devHarnessHealthy(){try{return (await fetch('http://127.0.0.1:5174/',{signal:AbortSignal.timeout(2000)})).ok;}catch{return false;}}
@@ -27,12 +33,12 @@ try{
     // API). The build also exercises the real shipped artifact, which
     // is what the suite should be testing. A stack that is already
     // running is still reused untouched.
-    const build = spawnSync('npm', ['run', 'build'], { stdio: 'inherit', windowsHide: true });
+    const build = spawnSync('npm', ['run', 'build'], { stdio: 'inherit', windowsHide: true, cwd: repoRoot });
     if (build.status !== 0) throw Error('Browser QA stack did not start: production build failed.');
     // B2: the browser suite settles a sandbox order, so its stack enables the otherwise-off route.
     const env = {...process.env, DEMO_SETTLE_ENABLED:'true'};
-    stack.push(spawn(process.execPath,['--import','tsx','apps/api/src/server.ts'],{stdio:'inherit',windowsHide:true,env}));
-    stack.push(spawn(process.execPath,[path.resolve('node_modules/vite/bin/vite.js'),'preview','--config','apps/web/vite.config.ts'],{stdio:'inherit',windowsHide:true,env}));
+    stack.push(spawn(process.execPath,['--import','tsx','apps/api/src/server.ts'],{stdio:'inherit',windowsHide:true,env,cwd:repoRoot}));
+    stack.push(spawn(process.execPath,[path.resolve('node_modules/vite/bin/vite.js'),'preview','--config','apps/web/vite.config.ts'],{stdio:'inherit',windowsHide:true,env,cwd:repoRoot}));
     for(let i=0;i<80&&!await healthy();i++)await new Promise(r=>setTimeout(r,250));
     if(!await healthy())throw Error('Browser QA stack did not start. Initialize PostgreSQL first.');
   }
@@ -47,7 +53,7 @@ try{
   // once per test and never navigates rapidly, so the dev server's
   // resource-exhaustion path does not apply to it.
   if(!await devHarnessHealthy()){
-    stack.push(spawn(process.execPath,[path.resolve('node_modules/vite/bin/vite.js'),'--config','apps/web/vite.config.ts','--port','5174','--strictPort'],{stdio:'inherit',windowsHide:true,env:{...process.env,DEMO_SETTLE_ENABLED:'true'}}));
+    stack.push(spawn(process.execPath,[path.resolve('node_modules/vite/bin/vite.js'),'--config','apps/web/vite.config.ts','--port','5174','--strictPort'],{stdio:'inherit',windowsHide:true,env:{...process.env,DEMO_SETTLE_ENABLED:'true'},cwd:repoRoot}));
     for(let i=0;i<80&&!await devHarnessHealthy();i++)await new Promise(r=>setTimeout(r,250));
     if(!await devHarnessHealthy())throw Error('Browser QA stack did not start: attachment-harness dev server on 5174 did not come up.');
   }
