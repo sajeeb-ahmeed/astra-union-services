@@ -685,10 +685,31 @@ test(
       const citizens = Array.isArray(citizenList.data)
         ? citizenList.data
         : citizenList.data.items;
+      // When the office has an order policy for service 42 (the API suite's
+      // certificate-assets test publishes a zero-fee one on this seeded
+      // tenant earlier in the shared-DB `npm test` run, and a policy can
+      // never be removed), creation must carry a matching order — the API
+      // answers 409 ORDER_REQUIRED otherwise — and the form's document
+      // language must agree with the order's (integration.test.ts does the same).
+      const options = await request(staff, "/services/42/order-options");
+      assert.equal(options.status, 200, JSON.stringify(options.data));
       const created = await request(staff, "/applications", "POST", {
         citizenId: citizens[0].id,
         serviceNo: 42,
-        payload: demoPayloads[42],
+        ...(options.data.configured
+          ? {
+              payload: { ...demoPayloads[42], delivery_language: "en" },
+              order: {
+                policyVersion: options.data.policy.version,
+                preferences: {
+                  addressBasis: "registered_profile",
+                  certificateLanguage: "en",
+                  deliveryMode: options.data.policy.deliveryModes[0],
+                  urgency: options.data.policy.urgencies[0],
+                },
+              },
+            }
+          : { payload: demoPayloads[42] }),
       });
       assert.equal(created.status, 201, JSON.stringify(created.data));
       const source = created.data;
@@ -740,6 +761,18 @@ test(
           exact: true,
         })
         .waitFor();
+      if (options.data.configured) {
+        // Under an office order policy the renewal is gated on the order
+        // panel: the fees are reviewed and the breakdown accepted before
+        // the renewal can start (the source was issued under the same
+        // zero-fee policy, so nothing is charged either way).
+        await staff.getByRole("button", { name: "Review fees", exact: true }).click();
+        await staff
+          .getByRole("checkbox", {
+            name: "I have reviewed the certificate options and fee breakdown.",
+          })
+          .check();
+      }
       const renewalResponse = staff.waitForResponse(
         (r) => r.url().endsWith("/renew") && r.request().method() === "POST",
       );
