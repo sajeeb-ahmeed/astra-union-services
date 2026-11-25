@@ -6,7 +6,7 @@ import {
   useLanguage,
   LanguageSwitcher,
 } from "./i18n.js";
-import React, { lazy, useEffect, useRef, useState, useSyncExternalStore } from "react";
+import React, { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import {
   operationalServiceNumbers,
   getServiceSchema,
@@ -15,7 +15,7 @@ import { api, clearSessionToken, items } from "./api.js";
 import { useBranding } from "./branding.js";
 import { GlobalNoticeBanner } from "./GlobalNotices.js";
 import emblem from "./assets/brand/emblem.webp";
-import { AsyncPanel } from "./AsyncPanel.js";
+import { AsyncPanel, lazyWithRetry } from "./AsyncPanel.js";
 import { DynamicForm } from "./DynamicForm.js";
 import {
   PresentAddressFields,
@@ -71,97 +71,33 @@ import {
   geographyPayload,
   readGeography,
 } from "./GeographyFields.js";
-const AdminWorkspace = lazy(() =>
-  import("./AdminWorkspace.js").then((m) => ({ default: m.AdminWorkspace })),
-);
+const AdminWorkspace = lazyWithRetry(() => import("./AdminWorkspace.js"), (m) => m.AdminWorkspace);
 // UIUX-FIX-01 #15: owner-only and finance-only panels are lazy chunks, so
 // citizens/chairmen never download platform-management or finance code.
-const OwnerOperations = lazy(() =>
-  import("./OwnerOperations.js").then((m) => ({ default: m.OwnerOperations })),
-);
-const OwnerAccountRequests = lazy(() =>
-  import("./OwnerAccountRequests.js").then((m) => ({
-    default: m.OwnerAccountRequests,
-  })),
-);
-const OwnerRecharges = lazy(() =>
-  import("./Recharge.js").then((m) => ({ default: m.OwnerRecharges })),
-);
-const RechargeRequests = lazy(() =>
-  import("./Recharge.js").then((m) => ({ default: m.RechargeRequests })),
-);
-const OwnerInclusionRequests = lazy(() =>
-  import("./OfficeInclusion.js").then((m) => ({
-    default: m.OwnerInclusionRequests,
-  })),
-);
-const OwnerWitnessTypes = lazy(() =>
-  import("./WitnessGenerator.js").then((m) => ({
-    default: m.OwnerWitnessTypes,
-  })),
-);
-const PointsWallet = lazy(() =>
-  import("./PointsWallet.js").then((m) => ({ default: m.PointsWallet })),
-);
-const OwnerPricing = lazy(() =>
-  import("./OwnerPricing.js").then((m) => ({ default: m.OwnerPricing })),
-);
-const OwnerPlans = lazy(() =>
-  import("./OwnerPlans.js").then((m) => ({ default: m.OwnerPlans })),
-);
-const OwnerBranding = lazy(() =>
-  import("./OwnerBranding.js").then((m) => ({ default: m.OwnerBranding })),
-);
-const OwnerAudit = lazy(() =>
-  import("./OwnerAudit.js").then((m) => ({ default: m.OwnerAudit })),
-);
-const OwnerCoupons = lazy(() =>
-  import("./OwnerCoupons.js").then((m) => ({ default: m.OwnerCoupons })),
-);
-const OwnerNotices = lazy(() =>
-  import("./OwnerNotices.js").then((m) => ({ default: m.OwnerNotices })),
-);
-const OwnerDemand = lazy(() =>
-  import("./OwnerDemand.js").then((m) => ({ default: m.OwnerDemand })),
-);
-const OwnerPointsPanel = lazy(() =>
-  import("./PointsWallet.js").then((m) => ({ default: m.OwnerPointsPanel })),
-);
-const OwnerSubscriptionPanel = lazy(() =>
-  import("./OwnerSubscriptions.js").then((m) => ({
-    default: m.OwnerSubscriptionPanel,
-  })),
-);
-const OwnerPendingOrders = lazy(() =>
-  import("./OwnerSubscriptions.js").then((m) => ({
-    default: m.OwnerPendingOrders,
-  })),
-);
-const OfficeRefunds = lazy(() =>
-  import("./Refunds.js").then((m) => ({ default: m.OfficeRefunds })),
-);
-const AccountSecurity = lazy(() =>
-  import("./AdminWorkspace.js").then((m) => ({ default: m.AccountSecurity })),
-);
-const OwnerOnboarding = lazy(() =>
-  import("./AdminWorkspace.js").then((m) => ({ default: m.OwnerOnboarding })),
-);
-const AdditionalWorkspace = lazy(() =>
-  import("./AdditionalWorkspace.js").then((m) => ({
-    default: m.AdditionalWorkspace,
-  })),
-);
-const UserGuide = lazy(() =>
-  import("./UserGuide.js").then((m) => ({ default: m.UserGuide })),
-);
-const ApplicationPayment = lazy(() =>
-  import("./OnlinePayments.js").then((m) => ({
-    default: m.ApplicationPayment,
-  })),
-);
-const PaymentsWorkspace = lazy(() =>
-  import("./OnlinePayments.js").then((m) => ({ default: m.PaymentsWorkspace })),
-);
+const OwnerOperations = lazyWithRetry(() => import("./OwnerOperations.js"), (m) => m.OwnerOperations);
+const OwnerAccountRequests = lazyWithRetry(() => import("./OwnerAccountRequests.js"), (m) => m.OwnerAccountRequests);
+const OwnerRecharges = lazyWithRetry(() => import("./Recharge.js"), (m) => m.OwnerRecharges);
+const RechargeRequests = lazyWithRetry(() => import("./Recharge.js"), (m) => m.RechargeRequests);
+const OwnerInclusionRequests = lazyWithRetry(() => import("./OfficeInclusion.js"), (m) => m.OwnerInclusionRequests);
+const OwnerWitnessTypes = lazyWithRetry(() => import("./WitnessGenerator.js"), (m) => m.OwnerWitnessTypes);
+const PointsWallet = lazyWithRetry(() => import("./PointsWallet.js"), (m) => m.PointsWallet);
+const OwnerPricing = lazyWithRetry(() => import("./OwnerPricing.js"), (m) => m.OwnerPricing);
+const OwnerPlans = lazyWithRetry(() => import("./OwnerPlans.js"), (m) => m.OwnerPlans);
+const OwnerBranding = lazyWithRetry(() => import("./OwnerBranding.js"), (m) => m.OwnerBranding);
+const OwnerAudit = lazyWithRetry(() => import("./OwnerAudit.js"), (m) => m.OwnerAudit);
+const OwnerCoupons = lazyWithRetry(() => import("./OwnerCoupons.js"), (m) => m.OwnerCoupons);
+const OwnerNotices = lazyWithRetry(() => import("./OwnerNotices.js"), (m) => m.OwnerNotices);
+const OwnerDemand = lazyWithRetry(() => import("./OwnerDemand.js"), (m) => m.OwnerDemand);
+const OwnerPointsPanel = lazyWithRetry(() => import("./PointsWallet.js"), (m) => m.OwnerPointsPanel);
+const OwnerSubscriptionPanel = lazyWithRetry(() => import("./OwnerSubscriptions.js"), (m) => m.OwnerSubscriptionPanel);
+const OwnerPendingOrders = lazyWithRetry(() => import("./OwnerSubscriptions.js"), (m) => m.OwnerPendingOrders);
+const OfficeRefunds = lazyWithRetry(() => import("./Refunds.js"), (m) => m.OfficeRefunds);
+const AccountSecurity = lazyWithRetry(() => import("./AdminWorkspace.js"), (m) => m.AccountSecurity);
+const OwnerOnboarding = lazyWithRetry(() => import("./AdminWorkspace.js"), (m) => m.OwnerOnboarding);
+const AdditionalWorkspace = lazyWithRetry(() => import("./AdditionalWorkspace.js"), (m) => m.AdditionalWorkspace);
+const UserGuide = lazyWithRetry(() => import("./UserGuide.js"), (m) => m.UserGuide);
+const ApplicationPayment = lazyWithRetry(() => import("./OnlinePayments.js"), (m) => m.ApplicationPayment);
+const PaymentsWorkspace = lazyWithRetry(() => import("./OnlinePayments.js"), (m) => m.PaymentsWorkspace);
 const labels: Record<string, string> = {
   home: "Overview",
   services: "Service catalog",

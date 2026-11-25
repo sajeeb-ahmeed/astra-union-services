@@ -26,10 +26,11 @@ import {
 import { applyPageHead } from "./seo/head.js";
 import { BrandLockup } from "./BrandLockup.js";
 import { getServiceSchema } from "@astra/shared-schemas";
-import React, { Suspense, lazy, useEffect, useRef, useState } from "react";
+import { lazyWithRetry } from "./AsyncPanel.js";
+import React, { Suspense, useEffect, useRef, useState } from "react";
 // Phase 4c: the witness generator loads only on /witness, keeping the public start-up bundle small.
-const UserGuide = lazy(() => import("./UserGuide.js").then((m) => ({ default: m.UserGuide })));
-const WitnessGenerator = lazy(() => import("./WitnessGenerator.js").then((m) => ({ default: m.WitnessGenerator })));
+const UserGuide = lazyWithRetry(() => import("./UserGuide.js"), (m) => m.UserGuide);
+const WitnessGenerator = lazyWithRetry(() => import("./WitnessGenerator.js"), (m) => m.WitnessGenerator);
 import "./public-usability.css";
 import "./public-portal.css";
 // Public pages need names only; canonical metadata parity is checked by the web tests.

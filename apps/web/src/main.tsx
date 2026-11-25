@@ -1,28 +1,20 @@
-import React, { lazy, useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { api, adoptSession, clearSessionToken } from "./api.js";
 import { t, tx, choose, useLanguage } from "./i18n.js";
-const PublicPortal = lazy(() =>
-  import("./PublicPortal.js").then((module) => ({
-    default: module.PublicPortal,
-  })),
-);
+const PublicPortal = lazyWithRetry(() => import("./PublicPortal.js"), (module) => module.PublicPortal);
 import { VERIFY_SEO } from "./seo/service-seo.js";
 import { applyPageHead } from "./seo/head.js";
 import { IssuanceModeProvider } from "./mode.js";
 import { applicationStatusMeta } from "./ui/kit.js";
 import { formatDateTime } from "./ui/fmt.js";
-import { AsyncPanel, LoadingPanel } from "./AsyncPanel.js";
+import { AsyncPanel, LoadingPanel, lazyWithRetry } from "./AsyncPanel.js";
 import { MfaChallenge, type MfaLoginChallenge } from "./MfaChallenge.js";
 import "./fonts.css";
 import "./style.css";
 
 // Authenticated workflows and form history are downloaded only after a valid session.
-const WorkspaceApp = lazy(() =>
-  import("./WorkspaceApp.js").then((module) => ({
-    default: module.WorkspaceApp,
-  })),
-);
+const WorkspaceApp = lazyWithRetry(() => import("./WorkspaceApp.js"), (module) => module.WorkspaceApp);
 const returnedApplication =
   location.pathname === "/payments/return"
     ? new URLSearchParams(location.search).get("applicationId")
@@ -702,17 +694,18 @@ function SessionApp() {
 }
 
 // Phase 1 slice (i), approved: the new public home (loaded on demand).
-const PublicHome = lazy(() =>
-  import("./PublicHome.js").then((module) => ({ default: module.PublicHome })),
-);
-const OfficeRegistrationPage = lazy(() =>
-  Promise.all([import("./PublicShell.js"), import("./OfficeRegistration.js")]).then(([shell, page]) => ({
-    default: () => (
-      <shell.PublicShell current="/register-office">
-        <page.OfficeRegistration />
-      </shell.PublicShell>
-    ),
-  })),
+const PublicHome = lazyWithRetry(() => import("./PublicHome.js"), (module) => module.PublicHome);
+const OfficeRegistrationPage = lazyWithRetry(
+  () => Promise.all([import("./PublicShell.js"), import("./OfficeRegistration.js")]),
+  ([shell, page]) => () => (
+    <shell.PublicShell current="/register-office">
+      <page.OfficeRegistration />
+    </shell.PublicShell>
+  ),
+  // M-003: no cache-busting retry — a two-module load cannot be busted
+  // from the single failed URL in the import error, so this degrades to
+  // the boundary panel + Reload, as before.
+  { bust: false },
 );
 
 // FULL-UIUX-01 (A14): /home-preview no longer silently redirects — an
@@ -720,19 +713,17 @@ const OfficeRegistrationPage = lazy(() =>
 
 // Phase UX: the verify pages live inside the public shell, loaded lazily so
 // the shell stays out of the initial bundle (performance budget).
-const VerifyShell = lazy(() =>
-  import("./PublicShell.js").then((module) => ({
-    default: ({ children }: { children: React.ReactNode }) => (
-      <module.PublicShell current="/verify">{children}</module.PublicShell>
-    ),
-  })),
+const VerifyShell = lazyWithRetry(
+  () => import("./PublicShell.js"),
+  (module) => ({ children }: { children: React.ReactNode }) => (
+    <module.PublicShell current="/verify">{children}</module.PublicShell>
+  ),
 );
-const BareShell = lazy(() =>
-  import("./PublicShell.js").then((module) => ({
-    default: ({ children }: { children: React.ReactNode }) => (
-      <module.PublicShell current="">{children}</module.PublicShell>
-    ),
-  })),
+const BareShell = lazyWithRetry(
+  () => import("./PublicShell.js"),
+  (module) => ({ children }: { children: React.ReactNode }) => (
+    <module.PublicShell current="">{children}</module.PublicShell>
+  ),
 );
 
 /** FULL-UIUX-01 (A14/P2-13): the bare payment-return explanation. */
