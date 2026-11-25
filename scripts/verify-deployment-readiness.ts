@@ -30,6 +30,11 @@
  *     4. /api/v1/services returns the 47 services
  *     5. /api/v1/services/1/schema returns 200 — the direct probe for the
  *        SCHEMA_UNAVAILABLE recurrence (unpublished versions answer 422)
+ *     6. plain HTTP does not serve the app: /login over http:// must
+ *        redirect to https:// (301/308) or be refused with 421 (S-008
+ *        strict mode — the app fails closed when the proxy omits
+ *        X-Forwarded-Proto). A 200 here means credentials could travel in
+ *        cleartext: turn on cPanel Force HTTPS Redirect and re-check.
  *
  * Exit 0 only when every check passes; otherwise exit 1 with the failing
  * checks listed. Prints a PASS/FAIL line per check plus a JSON summary.
@@ -211,6 +216,36 @@ async function liveMode() {
     schemaRes.status === 200
       ? "service 1 schema resolves (initialization published it)"
       : `HTTP ${schemaRes.status} ${schemaText.slice(0, 120)} — ${schemaRes.status === 422 ? "SCHEMA_UNAVAILABLE recurrence: run db:initialize-cpanel on the server" : "schema endpoint not serving"}`,
+  );
+
+  // S-008: plain HTTP must never serve the app. 301/308 to https:// is the
+  // edge redirect; 421 is the app failing closed when the proxy omits
+  // X-Forwarded-Proto (strict mode) — still safe, but turn on cPanel Force
+  // HTTPS Redirect so the edge redirects instead of the app refusing.
+  let plainStatus = 0;
+  let plainLocation = "";
+  try {
+    const plainRes = await fetch(`http://${base.host}/login`, {
+      redirect: "manual",
+    });
+    plainStatus = plainRes.status;
+    plainLocation = plainRes.headers.get("location") ?? "";
+  } catch (error) {
+    plainStatus = 0;
+    plainLocation = `fetch failed: ${(error as Error).message}`;
+  }
+  const plainRedirects =
+    [301, 308].includes(plainStatus) && plainLocation.startsWith("https://");
+  check(
+    "live-plain-http-redirect",
+    plainRedirects || plainStatus === 421,
+    plainRedirects
+      ? `HTTP ${plainStatus} to ${plainLocation} — plain HTTP redirects to HTTPS`
+      : plainStatus === 421
+        ? "HTTP 421 — app refuses plain HTTP without X-Forwarded-Proto (S-008 strict mode, fail-closed); turn on cPanel Force HTTPS Redirect so the edge redirects instead"
+        : plainStatus === 0
+          ? `${plainLocation} — could not reach plain HTTP at all; verify the domain answers on port 80 and re-check`
+          : `HTTP ${plainStatus} — plain HTTP serves the app; credentials could travel in cleartext. Turn on cPanel Force HTTPS Redirect and re-check`,
   );
 }
 

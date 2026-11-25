@@ -118,6 +118,51 @@ test("Deployment: production rejects missing secrets, unsafe origins and broad p
     );
 });
 
+test("Security: HTTPS_STRICT=false restores the legacy pass-through (explicit opt-out only)", async () => {
+  const env = {
+    NODE_ENV: "production",
+    PUBLIC_ORIGIN: "https://digitalunion.example",
+    HTTPS_STRICT: "false",
+  } as NodeJS.ProcessEnv;
+  const app = express();
+  app.use(createHttpsRedirect(env));
+  app.all(/.*/, (_req, res) => res.json({ ok: true }));
+  const server = app.listen(0, "127.0.0.1");
+  await new Promise<void>((r) => server.once("listening", r));
+  try {
+    const url = `http://127.0.0.1:${(server.address() as any).port}`;
+    assert.equal((await fetch(`${url}/login`, { redirect: "manual" })).status, 200);
+    const get = await fetch(`${url}/login`, {
+      redirect: "manual",
+      headers: { "X-Forwarded-Proto": "http" },
+    });
+    assert.equal(get.status, 301, "explicit http is still redirected even with the opt-out");
+  } finally {
+    await new Promise<void>((r) => server.close(() => r()));
+  }
+});
+
+test("Security: HSTS carries a one-year max-age with includeSubDomains in production", async () => {
+  const previous = process.env.NODE_ENV;
+  process.env.NODE_ENV = "production";
+  const app = express();
+  app.use(httpHardening);
+  app.get("/", (_req, res) => res.json({ ok: true }));
+  const server = app.listen(0, "127.0.0.1");
+  await new Promise<void>((r) => server.once("listening", r));
+  try {
+    const res = await fetch(`http://127.0.0.1:${(server.address() as any).port}/`);
+    assert.equal(
+      res.headers.get("strict-transport-security"),
+      "max-age=31536000; includeSubDomains",
+    );
+  } finally {
+    await new Promise<void>((r) => server.close(() => r()));
+    if (previous === undefined) delete process.env.NODE_ENV;
+    else process.env.NODE_ENV = previous;
+  }
+});
+
 test("Security: mixed-case route aliases share public authentication and verification rate limits", async () => {
   const app = express();
   configureProxyTrust(app, { TRUST_PROXY_IP: "127.0.0.1" });
@@ -243,8 +288,18 @@ test("Security: production redirects proxied plain-HTTP requests to the configur
     });
     assert.equal(post.status, 308);
     assert.equal(post.headers.get("location"), "https://digitalunion.example/api/v1/auth/login");
-    for (const headers of [{ "X-Forwarded-Proto": "https" }, {}] as Record<string, string>[])
+    for (const headers of [{ "X-Forwarded-Proto": "https" }] as Record<string, string>[])
       assert.equal((await fetch(`${url}/login`, { redirect: "manual", headers })).status, 200);
+    // S-008: no scheme reported and no direct TLS — fail closed instead of
+    // silently serving the app over possibly-plain HTTP.
+    const refused = await fetch(`${url}/login`, { redirect: "manual" });
+    assert.equal(refused.status, 421);
+    assert.equal((await refused.json()).error.code, "HTTPS_REQUIRED");
+    assert.equal(refused.headers.get("cache-control"), "no-store");
+    // The unauthenticated health probe is the one exception: it carries no
+    // credentials, and local health checks hit the app directly without the
+    // proxy header.
+    assert.equal((await fetch(`${url}/api/v1/health`, { redirect: "manual" })).status, 200);
   } finally {
     await new Promise<void>((r) => server.close(() => r()));
   }

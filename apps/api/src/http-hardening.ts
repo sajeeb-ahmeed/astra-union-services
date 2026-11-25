@@ -85,9 +85,25 @@ export function createRateLimiter(options: {
  * Production HTTP -> HTTPS redirect. The reverse proxy (Render, LiteSpeed/cPanel)
  * terminates TLS and reports the client's scheme in X-Forwarded-Proto. When that
  * header says "http", the request is redirected to PUBLIC_ORIGIN, never to the
- * client-supplied Host. With no header the request passes through unchanged, so
- * a proxy that does not send it cannot cause a redirect loop. GET/HEAD use 301;
- * other methods use 308 so the method and body are not silently changed.
+ * client-supplied Host. GET/HEAD use 301; other methods use 308 so the method
+ * and body are not silently changed.
+ *
+ * S-008: the old code silently passed the request through when the header was
+ * absent, so a proxy that does not send it served the app — including the
+ * sign-in form — over plain HTTP with no redirect and no error. That is now
+ * fail-closed. In production (a declared HTTPS-only deployment) a request
+ * with no X-Forwarded-Proto is refused with 421 Misdirected Request unless
+ * it is a direct TLS connection (`req.secure`) or the unauthenticated
+ * health probe (`GET /api/v1/health`, which carries no credentials and no
+ * PII — local health checks hit the app directly over loopback without the
+ * header). A misconfigured proxy must fail loudly instead of silently
+ * serving cleartext; the operator fix is cPanel -> Domains -> Force HTTPS
+ * Redirect (the defence-in-depth fallback the deploy checklist names) or
+ * fixing the proxy to send X-Forwarded-Proto.
+ *
+ * Escape hatch: HTTPS_STRICT=false restores the old pass-through for a
+ * deployment that knowingly serves plain HTTP behind a non-reporting
+ * proxy. It is an explicit opt-out only — never set it on the live site.
  */
 export function createHttpsRedirect(env: NodeJS.ProcessEnv = process.env) {
   let origin: string | null = null;
@@ -97,11 +113,35 @@ export function createHttpsRedirect(env: NodeJS.ProcessEnv = process.env) {
       if (parsed.protocol === "https:") origin = parsed.origin;
     } catch { /* enforceRuntimeConfig reports the invalid origin */ }
   }
+  const strict = env.HTTPS_STRICT !== "false";
+  if (origin && !strict)
+    console.warn(
+      "[security] HTTPS_STRICT=false: plain-HTTP requests without " +
+        "X-Forwarded-Proto will be served instead of refused. Do not use " +
+        "on the live site.",
+    );
   return (req: Request, res: Response, next: NextFunction) => {
     if (!origin) { next(); return; }
     const proto = req.header("X-Forwarded-Proto")?.split(",")[0]?.trim().toLowerCase();
-    if (proto !== "http") { next(); return; }
-    res.redirect(["GET", "HEAD"].includes(req.method) ? 301 : 308, `${origin}${req.originalUrl}`);
+    if (proto === "http") {
+      res.redirect(["GET", "HEAD"].includes(req.method) ? 301 : 308, `${origin}${req.originalUrl}`);
+      return;
+    }
+    if (proto !== undefined) { next(); return; }
+    // S-008: no scheme reported. A direct TLS connection is fine, and the
+    // health probe is safe to answer over loopback without the header.
+    if (!strict || req.secure || (req.method === "GET" && req.path === "/api/v1/health")) {
+      next();
+      return;
+    }
+    res.setHeader("Cache-Control", "no-store");
+    res.status(421).json({
+      error: {
+        code: "HTTPS_REQUIRED",
+        message:
+          "This service is HTTPS-only, but the proxy did not report the request scheme (X-Forwarded-Proto). The request was refused instead of being served over plain HTTP.",
+      },
+    });
   };
 }
 
@@ -121,8 +161,18 @@ export function httpHardening(req: Request, res: Response, next: NextFunction) {
     "default-src 'self'; base-uri 'self'; frame-ancestors 'none'; object-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; form-action 'self'",
   );
   res.setHeader("Cache-Control", "no-store");
+  // S-008: HSTS policy — one year, subdomains included. The header is only
+  // meaningful over HTTPS (browsers ignore it over plain HTTP), which is
+  // why the redirect above refuses to serve the app over unverified
+  // transport instead of silently passing through. Preload is NOT claimed:
+  // the domain is not on the preload list, and claiming it here would not
+  // add it. The live value is checked by the deploy checklist
+  // (docs/DEPLOY-CPANEL.md §6) via the readiness script's plain-HTTP check.
   if (process.env.NODE_ENV === "production")
-    res.setHeader("Strict-Transport-Security", "max-age=31536000");
+    res.setHeader(
+      "Strict-Transport-Security",
+      "max-age=31536000; includeSubDomains",
+    );
   if (!["GET", "HEAD", "OPTIONS"].includes(req.method)) {
     const origin = req.header("Origin");
     // Phase 5c: SSLCommerz returns the payer with a form POST from its own site, only to this callback path.

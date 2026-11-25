@@ -184,11 +184,12 @@ node --import tsx scripts/verify-deployment-readiness.ts --live https://your-dom
   --expect-package <packageId from release.json>
 ```
 
-Expected: `Deployment readiness PASS: 7/7 checks passed` — health reports the
+Expected: `Deployment readiness PASS: 8/8 checks passed` — health reports the
 deployed commit/package and the latest migration, the homepage returns the
-real app shell, the services list has 47 entries, and service 1's schema
+real app shell, the services list has 47 entries, service 1's schema
 resolves (a 422 here is the `SCHEMA_UNAVAILABLE` recurrence: run
-`db:initialize-cpanel` on the server and re-check).
+`db:initialize-cpanel` on the server and re-check), and plain HTTP does not
+serve the app (see below).
 
 Then check:
 
@@ -200,13 +201,19 @@ Then check:
       at the bundle root) and whose `migrationVersion` is the latest file in
       `db/migrations/`.
 - [ ] The public homepage loads at `https://your-domain/`.
-- [ ] Plain HTTP redirects to HTTPS:
+- [ ] Plain HTTP redirects to HTTPS (checked automatically by the readiness
+      script's `live-plain-http-redirect` check; S-008):
       `curl -sI http://your-domain/login` must answer `301` with
       `Location: https://your-domain/login`. The app redirects when the
-      proxy sends `X-Forwarded-Proto: http`. If the answer is still `200`,
-      this LiteSpeed setup does not send that header: turn on
+      proxy sends `X-Forwarded-Proto: http`. A `421` is also safe — it means
+      the proxy omits the header and the app is refusing plain HTTP instead
+      of serving it (fail-closed) — but turn on cPanel → **Domains** →
+      **Force HTTPS Redirect** anyway so the edge redirects instead of the
+      app refusing. If the answer is still `200`, this LiteSpeed setup does
+      not send that header and the app is NOT in strict mode: turn on
       cPanel → **Domains** → **Force HTTPS Redirect** for the domain and
-      check again.
+      check again. HSTS is `max-age=31536000; includeSubDomains` in
+      production (no preload claim — the domain is not on the preload list).
 - [ ] Sign in with the owner account created in step 5.
 - [ ] Open the services list — it shows the 47-service catalog.
 - [ ] Issue one test certificate for a test citizen and download the PDF.
