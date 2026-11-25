@@ -1563,7 +1563,9 @@ app.get(
     // sees office-wide figures. The tenant transaction applies forced RLS, and the
     // explicit tenant predicate keeps the count scoped even if policies change.
     // CORRECTION_REQUIRED is deliberately NOT part of either pending group: after a
-    // correction request the next move is the citizen's, not the office's.
+    // correction request the next move is the citizen's, not the office's. It is
+    // exposed separately as awaitingCitizen (W-011) so the Chairman still sees the
+    // applications waiting on citizens instead of losing them from the queue.
     const a = roles(req, staffRead);
     const counts = await transaction(tenant(req), async (db) => {
       const rows = (
@@ -1595,6 +1597,9 @@ app.get(
       // 001 CHECK); it is counted defensively should it ever be introduced.
       awaitingIssuance:
         counts.APPROVED + (counts.ISSUANCE_PENDING ?? 0),
+      // W-011: applications waiting on the citizen (correction requested).
+      // Not office-pending work, but the Chairman needs the group visible.
+      awaitingCitizen: counts.CORRECTION_REQUIRED,
     });
   }),
 );
@@ -2235,6 +2240,10 @@ app.patch(
  * subscription is not required to issue, and neither wallet is debited here.
  */
 const DECISION_STATES = ["SUBMITTED", "RESUBMITTED", "UNDER_REVIEW"];
+// W-023: a correction request counts as one correction cycle. After this many
+// cycles the Chairman must decide (approve or reject) instead of asking for
+// another correction — the loop cannot ping-pong forever.
+const CORRECTION_CYCLE_LIMIT = 3;
 const APPROVE_STATES = [...DECISION_STATES, "APPROVED"];
 const ISSUANCE_GATE_CODES = new Set([
   "ORDER_PAYMENT_REQUIRED",
@@ -2735,6 +2744,10 @@ app.post(
         case "request_correction":
           // Phase W: the Chairman asks for corrections himself; there is no reviewer step.
           roles(req, ["approver"]);
+          // S-011: a negative decision needs the same per-service authorization
+          // as approve/issue — an approver authorized for service X cannot demand
+          // corrections on service Y applications.
+          await authorization(db, a, r.service_no);
           if (!DECISION_STATES.includes(r.state))
             fail(
               409,
@@ -2743,6 +2756,14 @@ app.post(
             );
           if (!data.reason)
             fail(422, "REASON_REQUIRED", "A correction reason is required.");
+          // W-023: the correction loop is capped. At the limit the Chairman must
+          // decide (approve or reject) or ask the citizen to contact the office.
+          if (r.correction_count >= CORRECTION_CYCLE_LIMIT)
+            fail(
+              409,
+              "CORRECTION_LIMIT_REACHED",
+              `This application has already had ${CORRECTION_CYCLE_LIMIT} correction requests. Approve or reject it, or ask the citizen to contact the office.`,
+            );
           next = "CORRECTION_REQUIRED";
           break;
         case "summon":
@@ -2763,6 +2784,9 @@ app.post(
         case "reject":
           // Phase W: only the Chairman rejects (the reviewer/secretary no longer decides).
           roles(req, ["approver"]);
+          // S-011: same per-service authorization as approve/issue (see
+          // request_correction above).
+          await authorization(db, a, r.service_no);
           if (!DECISION_STATES.includes(r.state))
             fail(
               409,
@@ -2775,7 +2799,10 @@ app.post(
           break;
         case "cancel":
           roles(req, ["citizen", "staff", "admin"]);
-          if (!["DRAFT", "SUBMITTED", "CORRECTION_REQUIRED"].includes(r.state))
+          // A-015: a resubmitted application can be cancelled too — before this
+          // the citizen was stuck with no cancel path after resubmitting and the
+          // Chairman had to reject instead (a terminal, negatively-framed outcome).
+          if (!["DRAFT", "SUBMITTED", "CORRECTION_REQUIRED", "RESUBMITTED"].includes(r.state))
             fail(409, "STATE_CONFLICT", "Application cannot be cancelled now.");
           if (!data.reason)
             fail(422, "REASON_REQUIRED", "A cancellation reason is required.");
@@ -2803,8 +2830,11 @@ app.post(
         await settleApplicationFee(db, r.tenant_id, r, a.userId);
       const updated = (
         await db.query(
-          "UPDATE applications SET state=$2,updated_at=now(),approved_by=CASE WHEN $2='APPROVED' THEN $3 ELSE approved_by END,approved_version=CASE WHEN $2='APPROVED' THEN latest_version ELSE approved_version END WHERE id=$1 RETURNING *",
-          [r.id, next, a.userId],
+          // W-023: a correction request advances the cycle counter in the same
+          // statement that moves the state, so the count and the state can never
+          // disagree.
+          "UPDATE applications SET state=$2,updated_at=now(),correction_count=correction_count + CASE WHEN $4 THEN 1 ELSE 0 END,approved_by=CASE WHEN $2='APPROVED' THEN $3 ELSE approved_by END,approved_version=CASE WHEN $2='APPROVED' THEN latest_version ELSE approved_version END WHERE id=$1 RETURNING *",
+          [r.id, next, a.userId, data.action === "request_correction"],
         )
       ).rows[0];
       await event(db, r, a, data.action, next, data.reason);
@@ -2826,11 +2856,19 @@ app.post(
           [a.tenantId, r.id, data.reason],
         );
       // QA-08: the citizen also hears about a correction request, with the reason.
-      else if (data.action === "request_correction")
+      else if (data.action === "request_correction") {
         await db.query(
           "INSERT INTO outbox_events(tenant_id,kind,resource_id,detail) VALUES($1,'APPLICATION_CORRECTION_REQUIRED',$2,$3)",
           [a.tenantId, r.id, data.reason],
         );
+        // W-023: reaching the cap is itself an event — the citizen learns the
+        // next step is a decision, not another correction round.
+        if (updated.correction_count >= CORRECTION_CYCLE_LIMIT)
+          await db.query(
+            "INSERT INTO outbox_events(tenant_id,kind,resource_id,detail) VALUES($1,'APPLICATION_CORRECTION_LIMIT',$2,$3)",
+            [a.tenantId, r.id, String(updated.correction_count)],
+          );
+      }
       return camelRow(updated);
     });
     // Phase X: a rejection also reaches the citizen by email and status SMS (the in-app

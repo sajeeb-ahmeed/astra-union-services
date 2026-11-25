@@ -987,10 +987,13 @@ export function WorkspaceApp({
   // CHAIRMAN-DASH-01: the Pending applications queue. Counts always come from the
   // API (/applications/counts) — never from counting a fetched page — and the rows
   // come from the same list endpoint the applications page uses, one state at a
-  // time. CORRECTION_REQUIRED is excluded on purpose: after a correction request
-  // the next move is the citizen's, so it is not office-pending work.
+  // time. CORRECTION_REQUIRED is excluded from the two office-pending groups on
+  // purpose: after a correction request the next move is the citizen's, so it is
+  // not office-pending work. It gets its own group below (W-011) so it is visible
+  // instead of disappearing from the queue.
   const pendingReviewStates = ["SUBMITTED", "RESUBMITTED", "UNDER_REVIEW"],
-    pendingIssuanceStates = ["APPROVED"];
+    pendingIssuanceStates = ["APPROVED"],
+    pendingCitizenStates = ["CORRECTION_REQUIRED"];
   async function loadPendingCounts() {
     const counts = await api("/applications/counts");
     setPendingCounts(counts);
@@ -1003,7 +1006,7 @@ export function WorkspaceApp({
       await loadPendingCounts();
       const lists: Record<string, { items: any[]; total: number }> = {};
       await Promise.all(
-        [...pendingReviewStates, ...pendingIssuanceStates].map(async (state) => {
+        [...pendingReviewStates, ...pendingIssuanceStates, ...pendingCitizenStates].map(async (state) => {
           const r = await api(
             `/applications?${new URLSearchParams({ state, page: "1", pageSize: "100" })}`,
           );
@@ -3468,10 +3471,15 @@ export function WorkspaceApp({
                 pendingCounts ? pendingCounts.awaitingIssuance : null,
                 pendingIssuanceStates,
               )}
+              {pendingGroupSection(
+                { bn: "নাগরিকের সংশোধনের অপেক্ষায়", en: "Awaiting citizen (correction requested)" },
+                pendingCounts ? pendingCounts.awaitingCitizen : null,
+                pendingCitizenStates,
+              )}
               <p className="hint">
                 {choose({
-                  bn: "সংশোধনের জন্য ফেরত পাঠানো আবেদন এই তালিকায় নেই — সেটির পরের পদক্ষেপ নাগরিকের।",
-                  en: "Applications sent back for correction are not listed here — the next step there is the citizen's.",
+                  bn: "সংশোধনের জন্য ফেরত পাঠানো আবেদন নাগরিকের সংশোধনের অপেক্ষায় আছে — পরের পদক্ষেপ নাগরিকের, তবে এখান থেকে দেখা যায়।",
+                  en: "Applications sent back for correction are waiting on the citizen — the next step is theirs, but they stay visible here.",
                 })}
               </p>
             </>
