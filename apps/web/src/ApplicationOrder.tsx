@@ -30,6 +30,11 @@ export type IntakeOrderState = {
   ready: boolean;
   configured: boolean;
   order?: OrderInput;
+  // W-006: the accepted quote's BDT total, for the review step's pre-submit
+  // fee disclosure. The state deliberately carries only the OrderInput
+  // subset (policyVersion/preferences/couponCode) for the create call —
+  // the total is display data, kept separate so it can never leak into it.
+  quoteTotalMinor?: number;
 };
 const label = (bn: string, en: string) => choose({ bn, en });
 
@@ -217,6 +222,7 @@ export function ApplicationOrder({
               preferences: quote.preferences,
               ...(quote.couponCode ? { couponCode: quote.couponCode } : {}),
             },
+            quoteTotalMinor: quote.totalMinor,
           }
         : {}),
     });

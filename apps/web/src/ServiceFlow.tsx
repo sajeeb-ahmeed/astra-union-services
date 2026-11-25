@@ -14,6 +14,7 @@ import { choose, recordName, useLanguage } from "./i18n.js";
 import { DynamicForm } from "./DynamicForm.js";
 import {
   ApplicationOrder,
+  money,
   prefetchOrderOptions,
   type IntakeOrderState,
 } from "./ApplicationOrder.js";
@@ -397,6 +398,22 @@ export function ServiceFlow({
   const [requestKey] = useState(() => crypto.randomUUID());
   const [error, setError] = useState("");
   const [result, setResult] = useState<{ id: string; reference?: string; state: string; note?: string } | null>(null);
+  // W-006: the fee outcome of this submit, fetched when the review step is
+  // reached so the citizen / responsible office sees it BEFORE committing.
+  // The preview is advisory (balances move); the submit stays authoritative.
+  const [feePreview, setFeePreview] = useState<any>(null);
+  useEffect(() => {
+    if (step !== 3) return;
+    let active = true;
+    api(`/fee-preview?serviceNo=${serviceNo}`)
+      .then((r) => {
+        if (active) setFeePreview(r);
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, [step, serviceNo]);
   // FULL-UIUX-01 (FE S8): when the office has no fee policy, the fee step
   // has nothing to ask — it is skipped in both directions.
   const [feeSkipped, setFeeSkipped] = useState(false);
@@ -807,6 +824,73 @@ export function ServiceFlow({
                   : choose({ bn: "এই অফিসে ফি নীতি নির্ধারিত নেই", en: "No fee policy is configured for this office" })}
               </dd>
             </dl>
+            {/* W-006: the financial outcome of this submit, before the citizen commits. */}
+            <div className="ax-flow-fee-preview" data-testid="fee-preview">
+              <h4>{choose({ bn: "ফি — জমা দেওয়ার আগে", en: "Fees — before you submit" })}</h4>
+              {!feePreview ? (
+                <p className="ax-flow-muted">
+                  {choose({ bn: "ফির হিসাব লোড হচ্ছে…", en: "Loading the fee summary…" })}
+                </p>
+              ) : (
+                <>
+                  {orderConfigured && order?.quoteTotalMinor != null ? (
+                    <p>
+                      {choose({
+                        bn: `সেবার ফি: ${money(order.quoteTotalMinor)} ৳ — সনদ ইস্যুর আগে এই ফি পরিশোধ করতে হবে।`,
+                        en: `Service fee: ৳${money(order.quoteTotalMinor)} — payable before the certificate is issued.`,
+                      })}
+                    </p>
+                  ) : null}
+                  {feePreview.method === "ALLOWANCE" ? (
+                    <p>
+                      {choose({
+                        bn: `প্ল্যাটফর্ম ফি: সাবস্ক্রিপশন সুবিধা থেকে কাটা হবে — ০ ক্রেডিট। এই মাসে ব্যবহৃত ${feePreview.allowance.used} / সীমা ${feePreview.allowance.limit ?? "সীমাহীন"}।`,
+                        en: `Platform fee: covered by the subscription allowance — 0 credits. Used this month ${feePreview.allowance.used} of ${feePreview.allowance.limit ?? "unlimited"}.`,
+                      })}
+                    </p>
+                  ) : feePreview.method === "FREE" ? (
+                    <p>
+                      {choose({
+                        bn: "প্ল্যাটফর্ম ফি: এই সেবার জন্য কোনো ফি নেই।",
+                        en: "Platform fee: no fee for this service.",
+                      })}
+                    </p>
+                  ) : (
+                    <p>
+                      {choose({
+                        bn: `প্ল্যাটফর্ম ফি: অফিসের ওয়ালেট থেকে ${feePreview.credits} ক্রেডিট কাটা হবে। ওয়ালেট ব্যালেন্স: ${feePreview.walletBalance} ক্রেডিট।`,
+                        en: `Platform fee: ${feePreview.credits} credit${feePreview.credits === 1 ? "" : "s"} will be taken from the office wallet. Wallet balance: ${feePreview.walletBalance} credits.`,
+                      })}
+                      {feePreview.allowance && feePreview.allowance.remaining === 0
+                        ? choose({
+                            bn: " সাবস্ক্রিপশন সুবিধা এই মাসে শেষ — তাই ওয়ালেট থেকে কাটা হবে।",
+                            en: " The subscription allowance is used up this month, so the wallet pays instead.",
+                          })
+                        : ""}
+                    </p>
+                  )}
+                  {feePreview.isDefaultPrice ? (
+                    <p className="ax-flow-muted">
+                      {choose({
+                        bn: "ডিফল্ট মূল্য — অফিস এখনো এই সেবার মূল্য প্রকাশ করেনি।",
+                        en: "Default price — the office has not published a price for this service.",
+                      })}
+                    </p>
+                  ) : null}
+                  {feePreview.willBlockSubmit ? (
+                    <p className="ax-flow-error" role="alert">
+                      {feePreview.blockReason}
+                    </p>
+                  ) : null}
+                  <p className="ax-flow-muted">
+                    {choose({
+                      bn: "জমা দেওয়ার মুহূর্তের হিসাবই চূড়ান্ত হবে।",
+                      en: "The amounts at the moment of submit are final.",
+                    })}
+                  </p>
+                </>
+              )}
+            </div>
             <PayloadDetails schema={formSchema} payload={payload} />
             <p className="ax-flow-muted">
               {choose({

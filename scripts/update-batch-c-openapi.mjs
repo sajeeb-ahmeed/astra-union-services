@@ -670,6 +670,36 @@ const ROUTES = [
   },
   {
     "method": "get",
+    "path": "/api/v1/fee-preview",
+    "summary": "Preview the fee outcome of a submit for a service",
+    "description": "W-006: the fee a first submit of this service would settle — platform fee method (subscription allowance, office-wallet credit, or free), credits, allowance used/remaining, office wallet balance, and whether the submit would be blocked (insufficient credit, or citizen-pays with no payment rail) — computed read-only so the citizen / responsible office sees the financial outcome before submitting. Advisory: balances move, and the submit stays authoritative. Citizen (own office), staff, admin, approver, finance.",
+    "tag": "Billing & Orders",
+    "visibility": "authenticated",
+    "source": "billing.ts",
+    "roles": [
+      "citizen",
+      "staff",
+      "admin",
+      "approver",
+      "finance"
+    ],
+    "officeActor": false,
+    "usesTenant": true,
+    "usesActor": false,
+    "usesAuth": true,
+    "limiters": [],
+    "inlineLimit": null,
+    "statuses": [],
+    "errorCodes": [],
+    "queryParams": [
+      "serviceNo"
+    ],
+    "bodyKeys": null,
+    "queryKeys": null,
+    "hasBodyParse": false
+  },
+  {
+    "method": "get",
     "path": "/api/v1/owner/branding",
     "summary": "Read the platform branding with defaults",
     "description": "The current platform branding (stored values with defaults applied). Platform owner only; the public read is GET /api/v1/branding.",

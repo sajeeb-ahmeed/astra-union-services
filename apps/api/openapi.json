@@ -16620,6 +16620,70 @@
           "403:ROLE_DENIED"
         ]
       }
+    },
+    "/api/v1/fee-preview": {
+      "get": {
+        "summary": "Preview the fee outcome of a submit for a service",
+        "description": "W-006: the fee a first submit of this service would settle — platform fee method (subscription allowance, office-wallet credit, or free), credits, allowance used/remaining, office wallet balance, and whether the submit would be blocked (insufficient credit, or citizen-pays with no payment rail) — computed read-only so the citizen / responsible office sees the financial outcome before submitting. Advisory: balances move, and the submit stays authoritative. Citizen (own office), staff, admin, approver, finance.",
+        "tags": [
+          "Billing & Orders"
+        ],
+        "x-visibility": "authenticated",
+        "x-source": "apps/api/src/billing.ts",
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "x-roles": [
+          "citizen",
+          "staff",
+          "admin",
+          "approver",
+          "finance"
+        ],
+        "parameters": [
+          {
+            "name": "serviceNo",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 47,
+              "default": 12
+            },
+            "description": "Service number (1-47); default 12."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success; see apps/api/src/billing.ts for the response contract.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Session missing or inactive."
+          },
+          "403": {
+            "description": "Role, CSRF or Origin denied."
+          },
+          "404": {
+            "description": "Record unavailable in this scope."
+          },
+          "409": {
+            "description": "Duplicate or workflow conflict."
+          },
+          "422": {
+            "description": "Validated request failed."
+          }
+        }
+      }
     }
   },
   "tags": [
@@ -16710,8 +16774,8 @@
     "All other authenticated mutations": "session + CSRF required; no additional global limiter (per-route limiters are listed on the operation)"
   },
   "x-coverage": {
-    "documentedOperations": 206,
-    "documentedPaths": 183,
+    "documentedOperations": 207,
+    "documentedPaths": 184,
     "generatedBy": "scripts/update-batch-c-openapi.mjs (Batch C / A-001)",
     "note": "Counts are spec-side only; live coverage is enforced by scripts/check-openapi-coverage.mjs against the running Express route table."
   }
