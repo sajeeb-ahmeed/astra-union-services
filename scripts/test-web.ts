@@ -1,6 +1,12 @@
 import {spawn, type ChildProcess} from 'node:child_process';
 import fs from 'node:fs';
+import {randomBytes} from 'node:crypto';
 let stack:ChildProcess|undefined;
+// The browser suite runs no scanner worker. Journey fixtures (test/fixtures/fill-form.ts) stand in
+// for it over the internal scanner API, which needs the SAME secret in the API stack and the test
+// process; without one, uploads stay QUARANTINED and every submit with a document fails 409.
+// Generate a run-local secret unless the caller supplied one (a pre-started stack must share it).
+if(!/^[a-f0-9]{64}$/i.test(process.env.ATTACHMENT_SCANNER_SECRET??''))process.env.ATTACHMENT_SCANNER_SECRET=randomBytes(32).toString('hex');
 async function healthy(){try{return (await fetch('http://127.0.0.1:5173/api/v1/health',{signal:AbortSignal.timeout(2000)})).ok;}catch{return false;}}
 try{
   if(!await healthy()){
