@@ -37,6 +37,9 @@
     "build:seo": "node --import tsx apps/web/scripts/prerender-public.mjs",
     "build:api": "tsc -p packages/shared-schemas/tsconfig.build.json && tsc -p apps/api/tsconfig.build.json",
     "db:backup:offsite": "node scripts/backup/offsite-backup.mjs",
+    "verify:gate": "node --import tsx scripts/verify-deployment-gate.ts",
+    "verify:readiness": "node --import tsx scripts/verify-deployment-readiness.ts",
+    "verify:performance": "node --import tsx scripts/performance-smoke.ts",
     "test:support": "node --import tsx --test scripts/test-support/*.test.ts"
   },
   "dependencies": {

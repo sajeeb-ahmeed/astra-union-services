@@ -108,8 +108,8 @@ documents this pace; rapid loading re-triggers the challenge and invalidates the
    method, or a flagged IP/VPN), then confirm: the challenge page is shown for the HTML
    navigation, **and** the versioned `/assets/*`, fonts and favicon still load (or fail with
    a real error status), so the app can render once verification completes.
-4. **Beacon check** — while challenged, confirm the verification beacon returns its expected
-   status (not 404) and that completing it lets the session continue without re-challenging.
+4. **Beacon check** — see §3.1 (M-004): capture the beacon URL from the challenged
+   session, confirm it no longer 404s, and confirm the interstitial clears.
 5. **Monitoring + crawler check** — `curl` `/`, `/robots.txt`, `/sitemap.xml`,
    `/api/v1/health` from the allowlisted monitoring source (expected: real responses, no
    challenge body); confirm a search-engine crawler fetch (Search Console / Bing
@@ -118,6 +118,45 @@ documents this pace; rapid loading re-triggers the challenge and invalidates the
    (`qa-audit/automated-tests/mobile-public-audit.mjs`, slowly, from a clean IP) and confirm
    the console-error count attributable to the challenge is **0** (no MIME-blocked JS/CSS,
    no font download failures, no error-boundary renders).
+
+### 3.1 M-004 beacon + favicon verification (detailed)
+
+M-004 is BLOCKED on the hosting edge, like M-001 — nothing in the repo can fix it —
+but it is verifiable end-to-end once the operator has worked §2.2. The beacon path is
+**provider-issued per challenge** (`/z0f76a1d14fd21a8fb5fd0d03e0fdc3d3cedae52f?id=...`
+is one observed instance, not a stable route and not a route this repo serves), so the
+check below captures the live beacon URL from the session instead of assuming a fixed
+path. A beacon that still 404s after §2.2 means the fix is provider-side (beacon route
+blocked or misconfigured in the challenge JavaScript / WAF), not in this repo.
+
+**Beacon:**
+
+1. From a clean IP, open a clean browser profile with the network log open and trigger
+   the challenge (flagged IP/VPN, or the provider's test method).
+2. In the network log, find the verification beacon request the challenge page makes
+   (path starting `/z0f76a1d14fd21a8fb5fd0d03e0fdc3d3cedae52f`, with an `?id=` query).
+   Record the full URL, the request method, and the response status.
+3. Expected: **2xx** (or the status the challenge provider specifies for a successful
+   verification) — **not 404**. On 2026-11-25 it returned 404 on 15/15 observed calls.
+4. Complete the challenge once, then load a second page in the same session without
+   re-triggering: expected — the interstitial clears, the app shell renders, and no new
+   challenge appears for that session. If the visitor is re-challenged on every
+   navigation, the verification round-trip is still not completing even if the beacon
+   returns 2xx — record that separately.
+
+**Favicon (repo side already confirmed):**
+
+- `apps/web/public/favicon-32.png` exists in the repo and is a valid PNG image
+  (32 × 32, 2,281 bytes, verified 2026-11-26); it ships in `apps/web/dist` and in
+  the cPanel bundle. The app never returns 415 for it — the 415 (Firefox, 21/33
+  loads) and the 200 `text/html` challenge body (curl) observed on 2026-11-25 were
+  edge responses, not app responses.
+- Verify from an unchallenged IP: `curl -sI https://digitalunion.com.bd/favicon-32.png`
+  must answer **200** with `Content-Type: image/png` (never `text/html`, never 415).
+- Verify in a challenged Firefox session: once the challenge clears, the tab icon
+  loads (no 415 in the network log) and the icon is the 32 × 32 PNG.
+- M-004 closes only when the beacon returns 2xx **and** the favicon serves normally —
+  see the "Beacon check" item in §4.
 
 ## 4. Exact evidence that closes the finding
 

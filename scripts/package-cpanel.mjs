@@ -26,6 +26,11 @@
  * runbook), handoff/, every test directory and *.test.* file,
  * scripts/verify-hosted-*, *.ps1, apps/api/openapi.json, .pgdata,
  * .runtime, .git, logs, and the web sources (only the built dist ships).
+ * P-009: `*.b64` decode sources are excluded too — the decoded binaries
+ * are already in the bundle (step 0 decodes any missing ones first) and
+ * nothing on the server decodes .b64 at runtime, so shipping them was
+ * ~2.2 MB of dead weight (API fonts/emblem/seal + web favicon/font).
+ * The .b64 files stay in the repository for clean checkouts.
  *
  * Usage: node scripts/package-cpanel.mjs   (run from the repository root)
  */
@@ -96,6 +101,7 @@ function keep(rel) {
   if (/^test-support\./.test(base)) return false;
   if (base.startsWith("verify-hosted-")) return false;
   if (base.endsWith(".ps1") || base.endsWith(".log")) return false;
+  if (base.endsWith(".b64")) return false; // P-009: decode sources only
   if (rel === path.join("apps", "api", "openapi.json")) return false;
   // Manual end-to-end flow script with demo credentials baked in; the
   // scanner worker (run.ts) never imports it. Not production content.
@@ -138,6 +144,10 @@ for (const file of [
   // service versions + live smoke checks). Ships in the bundle so the
   // operator runs the deployed bundle's own copy on the server.
   path.join("scripts", "verify-deployment-readiness.ts"),
+  // P-012: the single post-deploy gate (runs --db then --live with the
+  // expectations read from the bundle's release.json). Also ships, for
+  // the same reason.
+  path.join("scripts", "verify-deployment-gate.ts"),
 ])
   copy(file);
 copy(path.join("scripts", "backup"));
@@ -170,7 +180,7 @@ let bytes = 0;
   }
 })(out);
 console.log(`dist-cpanel assembled: ${files} files, ${(bytes / 1048576).toFixed(1)} MiB (${bytes} bytes).`);
-console.log("Excluded: execution/, docs/ (except DEPLOY-CPANEL.md), handoff/, tests, verify-hosted-*, *.ps1, openapi.json, .pgdata, web sources.");
+console.log("Excluded: execution/, docs/ (except DEPLOY-CPANEL.md), handoff/, tests, verify-hosted-*, *.ps1, openapi.json, .pgdata, web sources, *.b64 decode sources (P-009).");
 
 // 5. A-002 release record: release.json at the bundle root is the
 // bundle→commit mapping the running server reports on /api/v1/health

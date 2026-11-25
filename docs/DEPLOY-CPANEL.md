@@ -154,42 +154,57 @@ folder inside the application directory before running it.)
 ## 6. Start and verify
 
 Restart the application in **Setup Node.js App**, then run the post-deployment
-readiness checks — a deployment is **not signed off** until they pass. They
-catch incomplete deployments, in particular the `SCHEMA_UNAVAILABLE`
-recurrence: after the r9 deploy (24 Nov 2026) live applications failed with
-422 `SCHEMA_UNAVAILABLE` because step 5 (`db:initialize-cpanel`) had been
-skipped, so the service versions the bundle's code defines were never
-published. The checks below verify applied migrations and published service
-versions directly.
+gate — a deployment is **not signed off** until it passes. The gate runs the
+database checks and then the live checks in one command, reading the expected
+commit/package from the bundle's own `release.json` so nothing is hand-copied
+(P-012, Phase 4 Stage 3). It catches incomplete deployments, in particular
+the `SCHEMA_UNAVAILABLE` recurrence: after the r9 deploy (24 Nov 2026) live
+applications failed with 422 `SCHEMA_UNAVAILABLE` because step 5
+(`db:initialize-cpanel`) had been skipped, so the service versions the
+bundle's code defines were never published. The checks verify applied
+migrations and published service versions directly.
 
 On the server (in the application directory, with the app environment loaded):
 
 ```sh
-node --import tsx scripts/verify-deployment-readiness.ts --db
+npm run verify:gate -- --live https://your-domain
 ```
 
-Expected: `Deployment readiness PASS: 4/4 checks passed` (every migration file
-applied; every canonical schema version published with matching hashes;
-47 services; an owner account exists). If `migrations-applied` fails, run
-`npm run db:migrate-cpanel` and re-check. If `service-versions-published`
-fails, run `npm run db:initialize-cpanel` and re-check (see the reconcile
-note in step 5 if initialize itself throws).
+Expected: `P-012 gate: PASS — database and live readiness both passed.`
+The database half reports `Deployment readiness PASS: 5/5 checks passed`
+(every migration file applied; every canonical schema version published with
+matching hashes; 47 services; an owner account exists; tenant isolation —
+RLS + FORCE RLS on the tenant tables with scope-gated policies). The live half reports
+`Deployment readiness PASS: 8/8 checks passed` — health reports the deployed
+commit/package and the latest migration, the homepage returns the real app
+shell, the services list has 47 entries, service 1's schema resolves (a 422
+here is the `SCHEMA_UNAVAILABLE` recurrence: run `db:initialize-cpanel` on
+the server and re-check), and plain HTTP does not serve the app (see below).
 
-From outside, against the live origin (public endpoints only, no credentials;
-`packageId` and `commit` come from the bundle's `release.json`):
+If a half fails, fix it and re-run the whole gate — do not sign off on a
+partial pass. If `migrations-applied` fails, run `npm run db:migrate-cpanel`
+and re-check. If `service-versions-published` fails, run
+`npm run db:initialize-cpanel` and re-check (see the reconcile note in step 5
+if initialize itself throws).
+
+The two halves can also be run individually for diagnosis (same script the
+gate calls; `--expect-commit` / `--expect-package` come from the bundle's
+`release.json`):
 
 ```sh
+node --import tsx scripts/verify-deployment-readiness.ts --db
 node --import tsx scripts/verify-deployment-readiness.ts --live https://your-domain \
   --expect-commit <full commit sha from release.json> \
   --expect-package <packageId from release.json>
 ```
 
-Expected: `Deployment readiness PASS: 8/8 checks passed` — health reports the
-deployed commit/package and the latest migration, the homepage returns the
-real app shell, the services list has 47 entries, service 1's schema
-resolves (a 422 here is the `SCHEMA_UNAVAILABLE` recurrence: run
-`db:initialize-cpanel` on the server and re-check), and plain HTTP does not
-serve the app (see below).
+Before packaging a release, run the performance smoke locally
+(`npm run verify:performance`) — it boots the built frontend + API on
+loopback, checks both desktop and mobile viewports for overflow/page
+errors, and measures the public directory at concurrency 10. It is a
+pre-packaging check, not part of the post-deploy gate: it needs a local
+database and the build's `execution/asset-sizes.json`, which do not travel
+in the bundle.
 
 Then check:
 
@@ -243,9 +258,9 @@ a managed backup tool (`node scripts/backup/backup.mjs backup`, driven by
   manifest), upload over the app directory, run `npm run db:migrate-cpanel`
   from a terminal (it applies only migrations that are not yet recorded), then
   run `npm run db:initialize-cpanel` (step 5 — never skip, even with no new
-  migration), restart the app, run the step-6 readiness checks
-  (`--db` on the server, `--live` with the new `--expect-commit` /
-  `--expect-package`), and record the new bundle→commit mapping in the
+  migration), restart the app, run the step-6 gate
+  (`npm run verify:gate -- --live https://your-domain`), and record the new
+  bundle→commit mapping in the
   [hosted deployment record](HOSTED_DEPLOYMENT.md) before calling the deploy done.
 - **Rollback:** the previous bundle is the rollback unit — keep the last
   known-good upload (e.g. `astra-app-prev/`, **including its `release.json`**,
@@ -256,9 +271,10 @@ a managed backup tool (`node scripts/backup/backup.mjs backup`, driven by
   bundle rollback: if a rollback must also undo data, restore the latest
   nightly `pg_dump` into a fresh database and repoint the two `DATABASE_*_URL`
   variables — never hand-edit the live database to "unapply" a migration.
-  After a rollback, run the step-6 readiness checks again (`--db` and
-  `--live` with the previous bundle's `--expect-commit` / `--expect-package`
-  from its `release.json`) and record the rollback in the hosted deployment
+  After a rollback, run the step-6 gate again
+  (`npm run verify:gate -- --live https://your-domain`) with the previous
+  bundle's expectations (the gate reads them from that bundle's `release.json`)
+  and record the rollback in the hosted deployment
   record. Never edit files inside `db/migrations/` — merged migrations
   are immutable; fixes ship as new migrations.
 
