@@ -157,8 +157,14 @@ export function ApplicationOrder({
   // Bangla-first and both language versions issue under one number), so
   // preselect it instead of forcing an extra decision on every application.
   // The citizen can still switch to English in the same step.
+  // An order is issued in exactly one language (bn or en). A form value the
+  // order cannot carry — e.g. the trade form's "bilingual" document language
+  // (QAFIX-08) — must be normalised too: otherwise the select has no matching
+  // option, the browser DISPLAYS the first enabled one ("Bangla") while the
+  // state stays "bilingual", and "Review fees" is disabled with no way out.
   useEffect(() => {
-    if (!certificateLanguage) onLanguageChange("bn");
+    if (certificateLanguage !== "bn" && certificateLanguage !== "en")
+      onLanguageChange("bn");
   }, [certificateLanguage, onLanguageChange]);
   const requestEpoch = useRef(0);
   const currentPreferences = JSON.stringify({
