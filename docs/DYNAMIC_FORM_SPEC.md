@@ -1,6 +1,8 @@
 # Dynamic service forms — release 0.2 contract
 
 > **Historical document.** This describes release 0.2 and is kept for the record. Current behaviour is described in [System architecture](SYSTEM_ARCHITECTURE.md), the phase plans (`PHASE2_PLAN.md`–`PHASE6_PLAN.md`) and [Parity status](PARITY_STATUS.md).
+>
+> **Billing-model note (Batch C / W-003, 25 Nov 2026 — the 0.2 text below is NOT rewritten).** The statements in this document about "one credit deduction for every service", an issuance debit, and "47 issuance debits" describe the **pre-044 issuance-charge model** (release 0.2 era). Since migration 044 (18 Nov 2026) the platform fee settles **once, at the application's first successful submit** (`settleApplicationFee`, `apps/api/src/billing.ts`), and issuance charges nothing — no credit debit, no point deduction, and the `SUBSCRIPTION_INACTIVE` / `INSUFFICIENT_CREDITS` / `POINTS_INSUFFICIENT` issuance gates are gone. Pre-044 `credit_ledger` rows keep kind `ISSUANCE`; post-044 platform-fee rows are kind `APPLICATION_FEE`, linked to the application, with `fee_method` (`CREDIT` | `ALLOWANCE` | `FREE`) recorded on the application. See [Billing and ledger](BILLING_AND_LEDGER.md).
 
 All 47 services have executable, independently authored demonstration schemas. The frontend and backend share the same validation contract, and the PostgreSQL workflow has executed creation, submission, review, authorized approval, PDF issuance, public verification and one credit deduction for every service. These local results do not establish the original website's successful submission paths or official issuing authority.
 
