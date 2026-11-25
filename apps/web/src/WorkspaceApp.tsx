@@ -1189,8 +1189,14 @@ export function WorkspaceApp({
         </div>
         {/* CH-003: while the queue is still loading, skeletons — the
             "nothing is waiting" empty state only renders once the lists
-            have actually arrived and are empty. */}
-        {pendingLoading && rows.length === 0 ? (
+            have actually arrived and are empty. Skeletons show on every
+            load, not only the first: the approver lands on this queue at
+            sign-in (roleDefaultPage), so a revisit already has rows from
+            the mount load — gating on rows.length === 0 meant the
+            skeleton could never appear again, and the queue silently
+            showed stale rows while reloading (the CH-005 pattern for
+            the applications list hides stale rows during load). */}
+        {pendingLoading ? (
           <SkeletonRows rows={3} />
         ) : rows.length ? (
           <>
