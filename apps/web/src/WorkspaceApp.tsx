@@ -250,9 +250,13 @@ const actionDone: Record<string, { bn: string; en: string }> = {
     bn: "আবেদনকারীকে আসতে বলা হয়েছে।",
     en: "The applicant has been asked to come.",
   },
+  revoke: {
+    bn: "সনদ প্রত্যাহার করা হয়েছে।",
+    en: "Certificate revoked.",
+  },
 };
 /** QA-13 → QAFIX-09 (B1): the irreversible decisions (approve,
-    reject) are confirmed in an in-app modal in the reader's
+    reject, revoke) are confirmed in an in-app modal in the reader's
     language — the copy the native window.confirm used to carry,
     minus its trailing question (the modal's buttons ask it). */
 const transitionConfirmText: Record<string, { bn: string; en: string }> = {
@@ -272,6 +276,10 @@ const transitionConfirmText: Record<string, { bn: string; en: string }> = {
     bn: "আবেদনকারীকে জানানো হবে কবে ও কোথায় আসতে হবে। আবেদনটি জমা দেওয়া অবস্থায়ই থাকবে।",
     en: "The applicant will be told when and where to come. The application stays submitted.",
   },
+  revoke: {
+    bn: "এই সনদটি প্রত্যাহার করলে তা ফেরানো যাবে না।",
+    en: "Revoking this certificate cannot be undone.",
+  },
 };
 const transitionConfirmTitle: Record<string, { bn: string; en: string }> = {
   approve: {
@@ -284,12 +292,14 @@ const transitionConfirmTitle: Record<string, { bn: string; en: string }> = {
     bn: "আবেদনকারীকে আসতে বলুন",
     en: "Ask the applicant to come",
   },
+  revoke: { bn: "সনদ প্রত্যাহার করুন", en: "Revoke certificate" },
 };
 const transitionConfirmButton: Record<string, { bn: string; en: string }> = {
   approve: { bn: "হ্যাঁ, অনুমোদন করুন", en: "Confirm approval" },
   reject: { bn: "হ্যাঁ, প্রত্যাখ্যান করুন", en: "Confirm rejection" },
   request_correction: { bn: "সংশোধনের অনুরোধ পাঠান", en: "Send correction request" },
   summon: { bn: "আসতে বলুন", en: "Ask to come" },
+  revoke: { bn: "হ্যাঁ, প্রত্যাহার করুন", en: "Confirm revocation" },
 };
 /** WS-D2 (item 16): decision dialogs carry preset reasons — a rejection,
     correction request or summons is never sent without a reason. The
@@ -603,6 +613,10 @@ export function WorkspaceApp({
     [returnToIntake, setReturnToIntake] = useState(false),
     [detail, setDetail] = useState<any>(null),
     [confirmAction, setConfirmAction] = useState<string | null>(null),
+    // R13-GAPS (B1 limit): the certificate the revoke confirmation acts
+    // on — captured at click time so the modal revokes exactly the
+    // certificate whose button was pressed.
+    [revokeTarget, setRevokeTarget] = useState<any>(null),
     [reason, setReason] = useState(""),
     // WS-D2 (item 16): decision-dialog fields — preset reason, free-text
     // note, correction field + deadline, summons when/where, dialog error.
@@ -1318,6 +1332,22 @@ export function WorkspaceApp({
     resetDialog();
     setMessage(choose(actionDone[action] ?? actionText[action] ?? { bn: "সম্পন্ন হয়েছে।", en: "Done." }));
   }
+  // R13-GAPS (B1 limit): revocation runs from the same in-app
+  // confirmation modal as approve/reject — the native window.confirm
+  // this replaced was the last one in the workspace.
+  async function revokeCertificate(cert: any) {
+    setActionError("");
+    try {
+      await api(`/certificates/${cert.id}/revoke`, "POST", {
+        reason: reason.trim(),
+      });
+    } catch (e) {
+      setActionError((e as Error).message);
+      return;
+    }
+    await openApplication(application.id);
+    setMessage(choose(actionDone.revoke));
+  }
   // CHAIRMAN-DASH-01: the Pending applications queue. Counts always come from the
   // API (/applications/counts) — never from counting a fetched page — and the rows
   // come from the same list endpoint the applications page uses, one state at a
@@ -1712,26 +1742,12 @@ export function WorkspaceApp({
                           en: "Enter a revocation reason.",
                         }),
                       );
-                    // QA-13: revocation is permanent; confirm with the number.
-                    if (
-                      !window.confirm(
-                        choose({
-                          bn: `সনদ ${cert.number} প্রত্যাহার করবেন? এটি ফেরানো যাবে না।`,
-                          en: `Revoke certificate ${cert.number}? This cannot be undone.`,
-                        }),
-                      )
-                    )
-                      return;
-                    await api(`/certificates/${cert.id}/revoke`, "POST", {
-                      reason,
-                    });
-                    await openApplication(application.id);
-                    setMessage(
-                      choose({
-                        bn: "সনদ প্রত্যাহার করা হয়েছে।",
-                        en: "Certificate revoked.",
-                      }),
-                    );
+                    // QA-13 → R13-GAPS (B1 limit): revocation is
+                    // permanent; confirm with the number in the in-app
+                    // modal (the same one approve/reject use), not the
+                    // native window.confirm.
+                    setRevokeTarget(cert);
+                    setConfirmAction("revoke");
                   })
                 }
               >
@@ -3387,6 +3403,30 @@ export function WorkspaceApp({
                             : ""}
                         </dd>
                         <dt>
+                          {choose({ bn: "পিতার নাম", en: "Father's name" })}
+                        </dt>
+                        <dd>
+                          {detail.citizen.fatherNameBn ||
+                            detail.citizen.father_name_bn ||
+                            "—"}
+                          {detail.citizen.fatherNameEn ||
+                          detail.citizen.father_name_en
+                            ? ` / ${detail.citizen.fatherNameEn || detail.citizen.father_name_en}`
+                            : ""}
+                        </dd>
+                        <dt>
+                          {choose({ bn: "মাতার নাম", en: "Mother's name" })}
+                        </dt>
+                        <dd>
+                          {detail.citizen.motherNameBn ||
+                            detail.citizen.mother_name_bn ||
+                            "—"}
+                          {detail.citizen.motherNameEn ||
+                          detail.citizen.mother_name_en
+                            ? ` / ${detail.citizen.motherNameEn || detail.citizen.mother_name_en}`
+                            : ""}
+                        </dd>
+                        <dt>
                           {choose({ bn: "জন্ম তারিখ", en: "Date of birth" })}
                         </dt>
                         <dd>
@@ -4887,6 +4927,7 @@ export function WorkspaceApp({
             className="ws-confirm-backdrop"
             onClick={() => {
               setConfirmAction(null);
+              setRevokeTarget(null);
               resetDialog();
             }}
           >
@@ -4903,6 +4944,16 @@ export function WorkspaceApp({
                 {tx(": ")}
                 <strong>{tx(application.reference)}</strong>
               </p>
+              {/* R13-GAPS (B1 limit): the revoke confirmation names the
+                  certificate it will act on (QA-13: confirm with the
+                  number), captured when the button was pressed. */}
+              {confirmAction === "revoke" && revokeTarget && (
+                <p>
+                  {choose({ bn: "সনদ নম্বর", en: "Certificate" })}
+                  {tx(": ")}
+                  <strong>{tx(revokeTarget.number)}</strong>
+                </p>
+              )}
               <p>{choose(transitionConfirmText[confirmAction])}</p>
               {/* WS-D2 (item 16): reject / correction / summons collect
                   their reason here — a decision is never sent without
@@ -5173,6 +5224,7 @@ export function WorkspaceApp({
                   className="secondary"
                   onClick={() => {
                     setConfirmAction(null);
+                    setRevokeTarget(null);
                     resetDialog();
                   }}
                 >
@@ -5180,11 +5232,25 @@ export function WorkspaceApp({
                 </button>
                 <button
                   type="button"
-                  className={confirmAction === "reject" ? "danger" : undefined}
+                  className={
+                    confirmAction === "reject" || confirmAction === "revoke"
+                      ? "danger"
+                      : undefined
+                  }
                   data-testid="confirm-transition"
                   disabled={busy}
                   onClick={() => {
                     const action = confirmAction;
+                    // R13-GAPS (B1 limit): revocation is not an
+                    // application transition — it posts to the
+                    // certificate endpoint for the captured cert.
+                    if (action === "revoke") {
+                      const target = revokeTarget;
+                      setConfirmAction(null);
+                      setRevokeTarget(null);
+                      if (target) void run(() => revokeCertificate(target));
+                      return;
+                    }
                     if (
                       ["reject", "request_correction", "summon"].includes(
                         action,

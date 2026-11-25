@@ -498,8 +498,14 @@ publicManagementRouter.get(
       return result.data;
     });
     const values = [`%${q}%`, ...filters, ...codes];
+    // R13-GAPS: in OFFICIAL mode a demo-flagged office is a test office —
+    // citizens must not see it in the public list or sign up at it. In
+    // demo mode (local dev/tests, where every seed office is demo) the
+    // list is unchanged.
+    const demoFilter =
+      process.env.ISSUANCE_MODE === "official" ? " AND demo=false" : "";
     const where =
-      "status='ACTIVE' AND (name_bn ILIKE $1 OR name_en ILIKE $1 OR slug ILIKE $1) AND ($2='' OR division=$2) AND ($3='' OR district=$3) AND ($4='' OR upazila=$4) AND ($5='' OR office_type=$5) AND ($6='' OR division_code=$6) AND ($7='' OR district_code=$7) AND ($8='' OR upazila_code=$8) AND ($9='' OR union_code=$9)";
+      `status='ACTIVE'${demoFilter} AND (name_bn ILIKE $1 OR name_en ILIKE $1 OR slug ILIKE $1) AND ($2='' OR division=$2) AND ($3='' OR district=$3) AND ($4='' OR upazila=$4) AND ($5='' OR office_type=$5) AND ($6='' OR division_code=$6) AND ($7='' OR district_code=$7) AND ($8='' OR upazila_code=$8) AND ($9='' OR union_code=$9)`;
     const [items, count] = await Promise.all([
       pool.query(
         `SELECT id,slug,name_bn,name_en,division,district,upazila,office_type,demo,division_code,district_code,upazila_code,union_code,ward_code FROM tenants WHERE ${where} ORDER BY name_en,id LIMIT $10 OFFSET $11`,
@@ -522,7 +528,9 @@ publicManagementRouter.get(
   wrap(async (req, res) => {
     const office = (
       await pool.query(
-        "SELECT id,slug,name_bn,name_en,division,district,upazila,office_type,demo,division_code,district_code,upazila_code,union_code,ward_code FROM tenants WHERE slug=$1 AND status='ACTIVE'",
+        // R13-GAPS: same official-mode demo exclusion as the list — a
+        // demo office has no public page in official mode.
+        `SELECT id,slug,name_bn,name_en,division,district,upazila,office_type,demo,division_code,district_code,upazila_code,union_code,ward_code FROM tenants WHERE slug=$1 AND status='ACTIVE'${process.env.ISSUANCE_MODE === "official" ? " AND demo=false" : ""}`,
         [req.params.slug],
       )
     ).rows[0];
@@ -580,9 +588,23 @@ publicManagementRouter.get(
       )
     ).rows[0];
     if (!service) fail(404, "NOT_FOUND", "Service not found.");
-    const offices = (
+    const allOffices = (
       await pool.query("SELECT * FROM public_service_office_info($1)", [no])
     ).rows.map(camelRow);
+    // R13-GAPS: public_service_office_info() has no demo column; in
+    // OFFICIAL mode drop demo-flagged offices here so a test office
+    // never appears on a public service page.
+    let offices = allOffices;
+    if (process.env.ISSUANCE_MODE === "official") {
+      const nonDemo = new Set(
+        (
+          await pool.query(
+            "SELECT slug FROM tenants WHERE status='ACTIVE' AND demo=false",
+          )
+        ).rows.map((r: any) => r.slug as string),
+      );
+      offices = allOffices.filter((o: any) => nonDemo.has(o.slug));
+    }
     res.json({ service: camelRow(service), offices });
   }),
 );
