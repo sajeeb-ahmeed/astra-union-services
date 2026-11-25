@@ -152,7 +152,9 @@ export async function generatePdf(
   // `${origin}/verify?searchText=<certificate number, Latin digits>` — so
   // the printed text and the code can never diverge (previously the QR
   // carried the token URL while the page printed the searchText URL).
-  const { latinDigits } = await import("./certificate-template-v7.js");
+  const { latinDigits, CERT_PAPER_BG } = await import(
+    "./certificate-template-v7.js"
+  );
   const qrUrl = (() => {
     try {
       return `${new URL(input.verificationUrl).origin}/verify?searchText=${latinDigits(input.number)}`;
@@ -160,10 +162,21 @@ export async function generatePdf(
       return input.verificationUrl;
     }
   })();
+  // WS-SHELL-GAPS (25 Nov 2026): error-correction H (~30% recoverable)
+  // — the Prottoyon references print a small govt emblem in the centre of
+  // the QR, and only H leaves enough redundancy for a ≤20% centre overlay.
+  // The `qrcode` lib accepts H (verified: H and M encode different, valid
+  // data URLs for the same payload). Both renderers overlay the emblem on
+  // this QR; without an emblem asset (demo mode) the QR renders bare.
   const qr = await QRCode.toDataURL(qrUrl, {
     width: 180,
-    errorCorrectionLevel: "M",
+    errorCorrectionLevel: "H",
     margin: 2,
+    // CERT-PAPER (25 Nov 2026): the QR light colour matches the
+    // certificate paper tone so the code prints directly on the
+    // government-paper background (no white patch). Contrast against
+    // the black modules stays ~19:1 — fully scannable.
+    color: { dark: "#000000ff", light: `${CERT_PAPER_BG}ff` },
   });
   if (version === DEMO_TEMPLATE_VERSION && pdfEngine() === "react-pdf") {
     const { renderCertificatePdfReact } = await import("./pdf-react.js");

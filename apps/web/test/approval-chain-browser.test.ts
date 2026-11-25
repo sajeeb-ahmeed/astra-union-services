@@ -77,6 +77,14 @@ test(
       await openApplication(page, id);
       await page.getByLabel("Decision or revocation reason", { exact: true }).fill("Please come to the office on Sunday at 10 am.");
       await page.getByRole("button", { name: "Ask the applicant to come", exact: true }).click();
+      // WS-D2 (item 16): ask-to-come collects when/where + a reason preset
+      // in the decision dialog before it POSTs; the reason-field text
+      // above rides along as the dialog note, so the composed summons
+      // still carries it verbatim.
+      await page.locator('[data-testid="dialog-when"]').fill("Sunday at 10 am");
+      await page.locator('[data-testid="dialog-where"]').fill("Belabo Union Parishad office");
+      await page.locator('[data-testid="dialog-reason"]').selectOption("verify-originals");
+      await page.locator('[data-testid="confirm-transition"]').click();
       await page.locator(".summon-notice").getByText("Please come to the office on Sunday at 10 am.").waitFor();
       await signOut(page);
 

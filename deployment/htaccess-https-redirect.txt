@@ -1,0 +1,33 @@
+# DigitalUnion — HTTPS redirect for the domain's public_html/.htaccess
+# (SEC-HTTPS fallback, r10-live fix).
+#
+# WHEN TO USE: only if the post-deploy curl check in docs/DEPLOY-CPANEL.md
+# section 6 still shows plain http:// serving the site with HTTP 200. The
+# bundle already carries an Express redirect (apps/api/src/http-hardening.ts,
+# enforceHttps) that fires when LiteSpeed forwards X-Forwarded-Proto; this
+# file is the fallback for the case where LiteSpeed does not send that
+# header. Do NOT paste this block and the Express redirect together and
+# expect both to run — the one that runs first wins; both redirect to the
+# same https://digitalunion.com.bd/ target, so they cannot fight.
+#
+# WHERE IT GOES: cPanel → File Manager → public_html/.htaccess — paste this
+# whole block at the VERY TOP of the file, ABOVE cPanel's auto-generated
+# Node.js proxy rules (the RewriteRule that forwards to 127.0.0.1:<port>).
+# A redirect placed below the proxy rules never runs, because the proxy
+# rule captures the request first.
+#
+# WARNING: cPanel regenerates .htaccess when the Node.js app is edited in
+# "Setup Node.js App" (version change, restart from the panel, URL change).
+# After ANY panel edit to the app, re-open public_html/.htaccess and confirm
+# this block is still at the top; re-paste it if it was wiped.
+#
+# WHY THIS IS SAFE HERE: LiteSpeed terminates TLS for the domain, so
+# %{HTTPS} is ground truth about the visitor's connection — a request that
+# arrived over HTTPS can never match the condition, so this cannot loop.
+# The rule preserves the full path and query string, and it runs before the
+# Node proxy, so the app and its static assets are untouched.
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteCond %{HTTPS} !=on
+  RewriteRule ^(.*)$ https://digitalunion.com.bd/$1 [L,R=301]
+</IfModule>

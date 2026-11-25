@@ -15,7 +15,18 @@
 }
 @font-face {
   font-family: "Noto Sans Bengali";
-  src: url("./assets/fonts/noto-sans-bengali-bengali-600-normal.woff2") format("woff2");
+  /* WS-D2 (item 17): the 600/700 Bengali faces are served from public/ at
+     a stable URL, like the 400 face — NOT from hashed /assets/ URLs. The
+     chairman's QA session saw the green "PDF ডাউনলোড" button (font-weight
+     600) render as a solid rectangle with no label while the English button
+     beside it rendered: the button's Bengali label depends on exactly this
+     600 face, and the r10 deploy demonstrably served 404s/directory
+     listings for hashed assets in its first minutes. No code in this tree
+     can hide the label (verified: dev + production bundle render it, and
+     even a failed 600 face falls back to the loaded 400 face) — but a
+     stable URL removes the one deploy-fragile dependency in the label's
+     render path, so a stale/mismatched hashed asset can never take it out. */
+  src: url("/fonts/noto-sans-bengali-bengali-600-normal.woff2") format("woff2");
   font-weight: 600;
   font-style: normal;
   font-display: swap;
@@ -23,7 +34,7 @@
 }
 @font-face {
   font-family: "Noto Sans Bengali";
-  src: url("./assets/fonts/noto-sans-bengali-bengali-700-normal.woff2") format("woff2");
+  src: url("/fonts/noto-sans-bengali-bengali-700-normal.woff2") format("woff2");
   font-weight: 700;
   font-style: normal;
   font-display: swap;

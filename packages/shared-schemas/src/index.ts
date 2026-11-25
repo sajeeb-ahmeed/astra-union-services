@@ -23,6 +23,7 @@ import {
   qaFix7SupersededSchemas,
   qaFix8SupersededSchemas,
   qaFix9SupersededSchemas,
+  qaFix10SupersededSchemas,
 } from "./schemas.js";
 
 export * from "./types.js";
@@ -66,6 +67,7 @@ export const allServiceSchemaVersions: readonly FormSchema[] = deepFreeze([
   ...qaFix7SupersededSchemas,
   ...qaFix8SupersededSchemas,
   ...qaFix9SupersededSchemas,
+  ...qaFix10SupersededSchemas,
   ...operationalSchemas,
 ]);
 

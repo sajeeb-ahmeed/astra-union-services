@@ -222,6 +222,119 @@ export function AdditionalWorkspace({
                 {t(" · ")}
                 {tx(session.user.role)}
               </p>
+              {/* WS-D3: the stored identity, read-only — what the account
+                  actually holds (display name, Bangla name, mobile,
+                  address, role, office), with empty fields marked "not
+                  provided" instead of blank inputs that read as a
+                  placeholder. The approver's exact authority list follows:
+                  the active approval_authorizations rows for this account,
+                  displayed as stored — no grant is invented or changed. */}
+              <section className="panel" data-testid="profile-identity">
+                <h3>{t("সংরক্ষিত পরিচয় / Stored identity")}</h3>
+                <dl>
+                  <dt>{t("Account display name")}</dt>
+                  <dd>
+                    {profile.displayName?.trim() ? (
+                      profile.displayName
+                    ) : (
+                      <em>{t("Not provided / দেওয়া নেই")}</em>
+                    )}
+                  </dd>
+                  <dt>{t("নাম (বাংলা)")}</dt>
+                  <dd>
+                    {profile.nameBn?.trim() ? (
+                      profile.nameBn
+                    ) : (
+                      <em>{t("Not provided / দেওয়া নেই")}</em>
+                    )}
+                  </dd>
+                  <dt>{t("Email")}</dt>
+                  <dd>{session.user.email}</dd>
+                  <dt>{t("Role / ভূমিকা")}</dt>
+                  <dd>{tx(session.user.role)}</dd>
+                  <dt>{t("Office / অফিস")}</dt>
+                  <dd>
+                    {session.tenant
+                      ? uiLanguage === "bn"
+                        ? (session.tenant.nameBn ?? session.tenant.name_bn ?? "")
+                        : (session.tenant.nameEn ?? session.tenant.name_en ?? "")
+                      : "—"}
+                  </dd>
+                  <dt>{t("Mobile / মোবাইল")}</dt>
+                  <dd>
+                    {profile.phone?.trim() ? (
+                      profile.phone
+                    ) : (
+                      <em>{t("Not provided / দেওয়া নেই")}</em>
+                    )}
+                  </dd>
+                  <dt>{t("Address / ঠিকানা")}</dt>
+                  <dd>
+                    {profile.address?.trim() ? (
+                      profile.address
+                    ) : (
+                      <em>{t("Not provided / দেওয়া নেই")}</em>
+                    )}
+                  </dd>
+                </dl>
+                <p className="hint">
+                  {t(
+                    "নাম, মোবাইল বা ঠিকানা যোগ করতে নিচের ফর্মটি ব্যবহার করুন। / Use the form below to add a name, mobile number or address.",
+                  )}
+                </p>
+              </section>
+              {session.user.role === "approver" && (
+                <section className="panel" data-testid="approval-authority">
+                  <h3>{t("অনুমোদনের ক্ষমতা / Approval authority")}</h3>
+                  {profile.approvalAuthorizations?.length ? (
+                    <>
+                      <p>
+                        {choose({
+                          bn: `এই অ্যাকাউন্ট ${profile.approvalAuthorizations.length}টি সেবার আবেদন অনুমোদন করতে পারে।`,
+                          en: `This account may approve applications for ${profile.approvalAuthorizations.length} services.`,
+                        })}
+                      </p>
+                      <ul>
+                        {profile.approvalAuthorizations.map((a: any) => {
+                          const svc = (
+                            serviceCatalog as readonly {
+                              service_no: number;
+                              name_bn: string;
+                              name_en: string;
+                            }[]
+                          ).find(
+                            (s) => s.service_no === Number(a.serviceNo),
+                          );
+                          return (
+                            <li key={a.serviceNo}>
+                              {svc
+                                ? choose({ bn: svc.name_bn, en: svc.name_en })
+                                : choose({
+                                    bn: `সেবা ${a.serviceNo}`,
+                                    en: `Service ${a.serviceNo}`,
+                                  })}
+                              {a.authorityNote ? ` — ${a.authorityNote}` : ""}
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    </>
+                  ) : (
+                    <>
+                      <p>
+                        {t(
+                          "কোনো সেবার আবেদন অনুমোদনের ক্ষমতা এই অ্যাকাউন্টকে দেওয়া হয়নি। / No approval authority has been given to this account.",
+                        )}
+                      </p>
+                      <p className="hint">
+                        {t(
+                          "ক্ষমতা যোগ করতে অফিস প্রশাসককে বলুন। / Ask the office admin to add the authority.",
+                        )}
+                      </p>
+                    </>
+                  )}
+                </section>
+              )}
               <form
                 onSubmit={(e) => {
                   e.preventDefault();

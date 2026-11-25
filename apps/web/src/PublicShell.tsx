@@ -35,8 +35,9 @@ export const PUBLIC_NAV = [
 ] as const;
 
 const DRAWER_EXTRA = [
-  // HOME-REDESIGN-01: the phone header hides its Register button, so the
-  // drawer carries it.
+  // R10LIVE-WSF (AUTH-NAV): the phone header now keeps its Register
+  // button; the drawer still carries the same door under its "create an
+  // account" label as a second entry point.
   { href: "/register", bn: "নতুন অ্যাকাউন্ট খুলুন", en: "Create an account" },
   { href: "/notices", bn: "নোটিশ", en: "Notices" },
   { href: "/witness", bn: "সাক্ষীর প্রত্যয়ন", en: "Witness statement" },

@@ -3,12 +3,22 @@ import assert from "node:assert/strict";
 import { certificateNumberInput } from "../src/verify-input.js";
 
 /**
- * VERIFY-FIX-01: official certificate numbers are dashless 16-digit strings
- * (e.g. 2026111832694893). The homepage verify form must classify a bare
+ * VERIFY-FIX-01: official certificate numbers are dashless digit strings
+ * — 14 digits since CERTNO-DDMM (25 Nov 2026, e.g. 25113269489312);
+ * already-issued CERTNO-01 numbers are 16 digits (e.g. 2026111832694893)
+ * and must keep resolving. The homepage verify form must classify a bare
  * number as a certificate number (by-number lookup), not as a QR token —
  * otherwise every officially issued certificate reports "not found".
  */
-test("certificateNumberInput: dashless 16-digit number is a certificate number", () => {
+test("certificateNumberInput: dashless 14-digit number is a certificate number (CERTNO-DDMM)", () => {
+  assert.equal(certificateNumberInput("25113269489312"), "25113269489312");
+});
+
+test("certificateNumberInput: Bengali-digit 14-digit number normalises to a certificate number", () => {
+  assert.equal(certificateNumberInput("২৫১১৩২৬৯৪৮৯৩১২"), "25113269489312");
+});
+
+test("certificateNumberInput: dashless 16-digit number is a certificate number (already-issued CERTNO-01)", () => {
   assert.equal(certificateNumberInput("2026111832694893"), "2026111832694893");
 });
 

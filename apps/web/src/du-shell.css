@@ -423,8 +423,11 @@
 
 /* HOME-REDESIGN-01: one compact header row on phones. The actions used to
    wrap into three stacked rows (~350px of chrome before any content).
-   Register stays one tap away in the hero, the menu drawer and the
-   bottom nav; the language switch shrinks to two short buttons. */
+   R10LIVE-WSF (AUTH-NAV): the office-account door stays drawer-only on
+   phones (it is already hidden ≤1023px), but Register must stay visible
+   in the header — hiding every ghost button here left phones with Login
+   as the only header auth entry, and the drawer was the only other way
+   in. Only the office button is hidden at this width. */
 @media (max-width: 600px) {
   .du-header-row {
     gap: 8px;
@@ -434,7 +437,7 @@
     flex-wrap: nowrap;
     gap: 6px;
   }
-  .du-header-actions .du-btn-ghost {
+  .du-header-actions .du-btn-office {
     display: none;
   }
   .du-header .du-btn {
@@ -477,7 +480,11 @@
     display: none;
   }
 }
-@media (max-width: 360px) {
+@media (max-width: 480px) {
+  /* R10LIVE-WSF (AUTH-NAV): the header row only fits brand-mark +
+     language + Register + Login up to ~442px of content. Hiding the
+     wordmark below 481px (mark-only, as the old 360px rule did) keeps
+     both auth buttons on-screen; the full lockup returns above that. */
   .du-header .brand-lockup-words {
     display: none;
   }

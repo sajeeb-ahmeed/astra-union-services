@@ -192,7 +192,10 @@ const headerHtml = `<header><nav aria-label="প্রধান মেনু">
       <a href="/services">নাগরিক সেবা</a> ·
       <a href="/offices">ইউনিয়ন অফিস</a> ·
       <a href="/verify">সনদ যাচাই</a> ·
-      <a href="/tracking">আবেদনের অবস্থা</a>
+      <a href="/tracking">আবেদনের অবস্থা</a> ·
+      <a href="/register">নিবন্ধন</a> ·
+      <a href="/login">লগইন</a> ·
+      <a href="/register-office">অফিস অ্যাকাউন্ট</a>
     </nav></header>`;
 const footerHtml = `<footer>
       <nav aria-label="সেবা">

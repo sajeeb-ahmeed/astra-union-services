@@ -85,6 +85,9 @@ template instructs. The critical ones:
 - `DATABASE_URL` and `DATABASE_ADMIN_URL` — identical, from step 2
 - `NODE_ENV=production`, `PUBLIC_ORIGIN=https://your-domain` (exact
   origin, no trailing slash — browser sign-in fails with 403 otherwise)
+- `TRUST_PROXY=loopback` — LiteSpeed reaches the app over loopback; without
+  it Express cannot see the original scheme/client address, and the HTTPS
+  redirect in step 6 cannot fire (SEC-HTTPS)
 - `PDF_MAX_CONCURRENCY=1`
 - `IDENTIFIER_SECRET`, `CITIZEN_DATA_KEY`, `MERCHANT_SECRET_KEY` — the
   last two **exactly 64 hex characters**; the server treats unset/invalid
@@ -159,14 +162,20 @@ Restart the application in **Setup Node.js App**, then check:
       `{"status":"ok","database":"PostgreSQL","mode":"DEMO_ONLY", ...}`
       with `features` all `true` (mode flips to `OFFICIAL` only when the
       owner later sets `ISSUANCE_MODE=official`).
+- [ ] **HTTPS is forced (SEC-HTTPS).** From any terminal, run:
+      `curl -sI http://digitalunion.com.bd/` — it MUST answer
+      `HTTP/1.1 301 Moved Permanently` with
+      `Location: https://digitalunion.com.bd/`. A `200 OK` here means
+      plain HTTP still serves the site: first confirm the deployed bundle
+      contains the `enforceHttps` redirect (the app log shows no error and
+      `TRUST_PROXY=loopback` is set in the app environment — step 4), then
+      fall back to the LiteSpeed layer: paste
+      `deployment/htaccess-https-redirect.txt` at the very top of
+      `public_html/.htaccess`, above cPanel's Node.js proxy rules, and
+      re-run the curl check. Do not onboard real users while `http://`
+      still returns 200. Also confirm `curl -sI https://digitalunion.com.bd/`
+      returns 200 and carries `Strict-Transport-Security: max-age=31536000`.
 - [ ] The public homepage loads at `https://your-domain/`.
-- [ ] Plain HTTP redirects to HTTPS:
-      `curl -sI http://your-domain/login` must answer `301` with
-      `Location: https://your-domain/login`. The app redirects when the
-      proxy sends `X-Forwarded-Proto: http`. If the answer is still `200`,
-      this LiteSpeed setup does not send that header: turn on
-      cPanel → **Domains** → **Force HTTPS Redirect** for the domain and
-      check again.
 - [ ] Sign in with the owner account created in step 5.
 - [ ] Open the services list — it shows the 47-service catalog.
 - [ ] Issue one test certificate for a test citizen and download the PDF.

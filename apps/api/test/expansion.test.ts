@@ -516,9 +516,10 @@ test("GEO-FORM: v3 location selectors reject cross-parent codes server-side and 
     // CERT-REFINE-01 published v4 of these services on top of the
     // geography v3, and QAFIX-01 published v5; QAFIX-07 published v6
     // for service 36 (the NOC subject gating) and QAFIX-08 v6 for
-    // services 41 and 42. The selector behaviour asserted below is
-    // unchanged.
-    assert.equal(getServiceSchema(no).version, 6);
+    // services 41 and 42; QAFIX-10 published v7 for service 42
+    // (unicode-only — the selector behaviour asserted below is
+    // unchanged).
+    assert.equal(getServiceSchema(no).version, no === 42 ? 7 : 6);
     // Trade v3 leaves the address type optional; a union applies only to a union address.
     const payload =
       no === 42
@@ -1271,6 +1272,59 @@ test("B5: unmatched location text keeps the renewal on its pinned version with t
   const unresolvedIssue = await req("POST", `/applications/${renewal.body.id}/issue`, {}, s.approver);
   assert.equal(unresolvedIssue.status, 200);
   assert.equal(unresolvedIssue.body.id, approvedUnresolved.certificate.id);
+});
+test("B5/QAFIX-10: a v4-pinned service 27 application renews onto v5 — the removed free-text purpose pair is dropped", async () => {
+  // v5 (QAFIX-10) removed purpose + purpose_language from service 27 and
+  // added required identity fields (nid_number, date_of_birth). A v4
+  // payload carried over verbatim fails v5 validation as unknown_field;
+  // the renew handler drops the removed pair so the renewal can land on
+  // v5 when the citizen supplies the identity fields (the fixed
+  // passport_purpose select carries over unchanged).
+  const source = (
+    await db.query("SELECT tenant_id,citizen_id,created_by FROM applications WHERE id=$1", [issued.get(27).applicationId])
+  ).rows[0];
+  const v4 = allServiceSchemaVersions.find((x) => x.serviceNo === 27 && x.version === 4)!;
+  assert.ok(v4 && getServiceSchema(27).version === 5);
+  const { nid_number: _nid, date_of_birth: _dob, passport_number: _pn, ...v4Payload } = getDemoPayload(27) as Record<string, unknown>;
+  (v4Payload as Record<string, unknown>).purpose = "পাসপোর্টের জন্য";
+  (v4Payload as Record<string, unknown>).purpose_language = "bn";
+  const hash = (
+    await db.query("SELECT schema_hash FROM service_versions WHERE service_no=27 AND version=4")
+  ).rows[0].schema_hash;
+  const id = await transaction(source.tenant_id, async (tx) => {
+    const app = (
+      await tx.query(
+        "INSERT INTO applications(tenant_id,citizen_id,service_no,schema_version,schema_hash,created_by) VALUES($1,$2,27,4,$3,$4) RETURNING id",
+        [source.tenant_id, source.citizen_id, hash, source.created_by],
+      )
+    ).rows[0];
+    await tx.query(
+      "INSERT INTO application_payload_versions(tenant_id,application_id,version,payload,payload_hash,actor_id) VALUES($1,$2,1,$3,$4,$5)",
+      [source.tenant_id, app.id, JSON.stringify(v4Payload), createHash("sha256").update(stableJson(v4Payload)).digest("hex"), source.created_by],
+    );
+    return app.id as string;
+  });
+  const approvedV4 = await approve(id);
+  assert.equal(approvedV4.state, "ISSUED");
+  const issuedV4 = await req("POST", `/applications/${id}/issue`, {}, s.approver);
+  assert.equal(issuedV4.status, 200, `Issue v4 27: ${JSON.stringify(issuedV4.body)}`);
+  // Renew carrying the v4 payload (free-text purpose pair included) plus
+  // the v5 identity fields the citizen supplies on the renewal form.
+  const renewal = await req("POST", `/applications/${id}/renew`, {
+    payload: { ...v4Payload, nid_number: "1234567890", date_of_birth: "1990-05-17" },
+  }, s.citizen);
+  assert.equal(renewal.status, 201, `Renew v4 27: ${JSON.stringify(renewal.body)}`);
+  assert.equal(renewal.body.schemaVersion, 5);
+  const child = (await req("GET", `/applications/${renewal.body.id}`, undefined, s.citizen)).body;
+  assert.equal(child.payload.purpose, undefined);
+  assert.equal(child.payload.purpose_language, undefined);
+  assert.equal(child.payload.nid_number, "1234567890");
+  assert.equal(child.payload.date_of_birth, "1990-05-17");
+  assert.equal(child.payload.passport_purpose, (v4Payload as Record<string, unknown>).passport_purpose);
+  const approvedRenewal = await approve(renewal.body.id);
+  const reissued = await req("POST", `/applications/${renewal.body.id}/issue`, {}, s.approver);
+  assert.equal(reissued.status, 200, JSON.stringify(reissued.body));
+  assert.equal(reissued.body.id, approvedRenewal.certificate.id);
 });
 test("Phase 1: the citizen list reports the office's real total, not the 100-row page length", async () => {
   const listed = await req("GET", "/citizens", undefined, s.staff);

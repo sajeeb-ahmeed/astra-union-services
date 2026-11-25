@@ -65,12 +65,29 @@ const citizenCoreFields=(citizen:any)=>citizen?{
   permanentAddressBn:citizen.address_bn??null,
   permanentAddressEn:citizen.address_en??null,
 }:{};
-const citizenSelect=`SELECT division_code,district_code,upazila_code,union_code,ward_code,${citizenProfileColumns},${presentAddressColumns} FROM citizens WHERE tenant_id=$1 AND user_id=$2 LIMIT 1`;
+// R10LIVE-WSB (profile two-stores): the citizens table carries no UNIQUE on
+// user_id, so one account can hold two rows (live: an empty short-signup row
+// and a complete second row). Every other citizen read takes the NEWEST row
+// (GET /citizens ORDER BY created_at DESC, ownCitizen() finds in that list,
+// the meter/editor/flow header all read it) — but this query had no ORDER BY,
+// so Postgres returned whichever row the plan/heap layout favoured, and the
+// profile form showed the empty row (blank DOB/address) while the meter next
+// to it measured the complete row at 100%. The ORDER BY below makes /profile
+// return the same canonical (newest) row as /citizens[0]; verified by the
+// two-rows probe (r10live-wsb-two-rows*.log), which flipped the old query
+// between rows across calls and now reads the newest row deterministically.
+const citizenSelect=`SELECT division_code,district_code,upazila_code,union_code,ward_code,${citizenProfileColumns},${presentAddressColumns} FROM citizens WHERE tenant_id=$1 AND user_id=$2 ORDER BY created_at DESC LIMIT 1`;
+// WS-D3: an approver's own approval authority — exactly the active rows in
+// approval_authorizations for this user and office, nothing invented and no
+// grant changed — rides on /profile so the profile page can show which
+// services this chairman may approve.
+const approvalAuthorizationsFor=async(db:Pick<typeof pool,"query">,tenantId:string,userId:string)=> (await db.query("SELECT service_no,authority_note FROM approval_authorizations WHERE tenant_id=$1 AND user_id=$2 AND active ORDER BY service_no",[tenantId,userId])).rows.map(camelRow);
 protectedToolsRouter.get("/profile",wrap(async(req,res)=>{
   const a=identity(req);
   const r=await pool.query("SELECT id,email,display_name,name_bn,phone,address FROM platform_users WHERE id=$1",[a.userId]);
   const citizen = a.tenantId ? await transaction(a.tenantId,async(db)=>(await db.query(citizenSelect,[a.tenantId,a.userId])).rows[0]) : undefined;
-  res.json({...camelRow(r.rows[0]),role:a.role,...citizenCoreFields(citizen),geography:geographyRow(citizen),presentAddress:citizen?presentAddressRow(citizen):null});
+  const approvalAuthorizations = a.tenantId && a.role==="approver" ? await transaction(a.tenantId,async(db)=>approvalAuthorizationsFor(db,a.tenantId!,a.userId)) : [];
+  res.json({...camelRow(r.rows[0]),role:a.role,approvalAuthorizations,...citizenCoreFields(citizen),geography:geographyRow(citizen),presentAddress:citizen?presentAddressRow(citizen):null});
 }));
 const profileDateOfBirth=z.string().regex(/^\d{4}-\d{2}-\d{2}$/,"জন্ম তারিখ দিন। / Enter a date of birth.").refine((v)=>Number.isFinite(Date.parse(v))&&new Date(v).toISOString().slice(0,10)===v&&v<=new Date().toISOString().slice(0,10)&&v>="1900-01-01","জন্ম তারিখ আজকের বা তার আগের হতে হবে। / Date of birth must be today or earlier.");
 protectedToolsRouter.patch("/profile",wrap(async(req,res)=>{
@@ -117,7 +134,10 @@ protectedToolsRouter.patch("/profile",wrap(async(req,res)=>{
     const r=await db.query("UPDATE platform_users SET display_name=$1,name_bn=COALESCE($2,name_bn),phone=COALESCE($3,phone),address=COALESCE($4,address) WHERE id=$5 RETURNING id,email,display_name,name_bn,phone,address",[d.displayName,d.nameBn??null,d.phone??null,d.address??null,a.userId]);
     if(a.tenantId)await audit(db as any,a.tenantId,a.userId,"PROFILE_UPDATED",a.userId,{fields:Object.keys(d)});
     const citizen = a.tenantId ? (await db.query(citizenSelect,[a.tenantId,a.userId])).rows[0] : undefined;
-    return {...camelRow(r.rows[0]),...citizenCoreFields(citizen),geography:geographyRow(citizen),presentAddress:citizen?presentAddressRow(citizen):null};
+    // WS-D3: keep the authority list on the PATCH response too, so the
+    // profile page does not lose it on save.
+    const approvalAuthorizations = a.tenantId && a.role==="approver" ? await approvalAuthorizationsFor(db,a.tenantId,a.userId) : [];
+    return {...camelRow(r.rows[0]),approvalAuthorizations,...citizenCoreFields(citizen),geography:geographyRow(citizen),presentAddress:citizen?presentAddressRow(citizen):null};
   };
   res.json(a.tenantId?await transaction(a.tenantId,save):await save(pool));
 }));

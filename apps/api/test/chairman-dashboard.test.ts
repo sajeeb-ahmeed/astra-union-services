@@ -260,3 +260,79 @@ test("CHAIRMAN-DASH-01: counts are per-state, grouped for the queue, and tenant-
   const asCitizen = await req("GET", "/applications/counts", undefined, s.citizen);
   assert.equal(asCitizen.status, 403);
 });
+
+test("WS-D1: the applications list sorts newest-first by default and re-queries in the requested order", async () => {
+  // Three submitted applications on three services with distinct
+  // submission dates — and deliberately REVERSED updated_at stamps, so
+  // the old updated_at ordering would rank them the other way round.
+  const newest = await createApplication(1);
+  await transition(newest, "submit", s.staff);
+  const middle = await createApplication(12);
+  await transition(middle, "submit", s.staff);
+  const oldest = await createApplication(45);
+  await transition(oldest, "submit", s.staff);
+  await admin.query(
+    "UPDATE applications SET created_at='2026-11-22 10:00:00+06', updated_at='2026-11-20 10:00:00+06' WHERE id=$1",
+    [newest],
+  );
+  await admin.query(
+    "UPDATE applications SET created_at='2026-11-21 10:00:00+06', updated_at='2026-11-21 10:00:00+06' WHERE id=$1",
+    [middle],
+  );
+  await admin.query(
+    "UPDATE applications SET created_at='2026-11-20 10:00:00+06', updated_at='2026-11-22 10:00:00+06' WHERE id=$1",
+    [oldest],
+  );
+  const list = async (query: string) => {
+    const r = await req("GET", `/applications?${query}`, undefined, s.staff);
+    assert.equal(r.status, 200, JSON.stringify(r.body));
+    return r.body.items as any[];
+  };
+  const position = (items: any[], id: string) => items.findIndex((x) => x.id === id);
+  const byId = (items: any[]) => ({
+    newest: position(items, newest),
+    middle: position(items, middle),
+    oldest: position(items, oldest),
+  });
+
+  // Default: submission date descending — the most recently UPDATED row
+  // (oldest, updated 22 Nov) is last, not first.
+  const def = byId(await list("pageSize=100"));
+  assert.ok(def.newest > -1 && def.middle > -1 && def.oldest > -1);
+  assert.ok(def.newest < def.middle && def.middle < def.oldest, JSON.stringify(def));
+
+  // A second visit returns the same order.
+  const def2 = byId(await list("pageSize=100"));
+  assert.deepEqual(def2, def);
+
+  // Oldest first reverses it; status/service keep the created_at DESC
+  // tiebreak inside each group.
+  const asc = byId(await list("sort=oldest&pageSize=100"));
+  assert.ok(asc.oldest < asc.middle && asc.middle < asc.newest, JSON.stringify(asc));
+  const byStatus = await list("sort=status&state=SUBMITTED&pageSize=100");
+  const st = byId(byStatus);
+  assert.ok(st.newest < st.middle && st.middle < st.oldest, JSON.stringify(st));
+  assert.ok(byStatus.every((x) => x.state === "SUBMITTED"));
+  const byService = byId(await list("sort=service&pageSize=100"));
+  // Services 1, 12, 45 in ascending service order.
+  assert.ok(byService.newest < byService.middle && byService.middle < byService.oldest, JSON.stringify(byService));
+  const byRef = await list("sort=reference&pageSize=100");
+  const refs = byRef.map((x) => x.reference).filter((r) => typeof r === "string");
+  assert.deepEqual(refs, [...refs].sort());
+  assert.ok(refs.every((r) => /^[0-9][0-9-]*$/.test(r)), "every listed reference is numeric (plain or hyphen-grouped)");
+
+  // An unknown sort is a client error in the house style, never a 500.
+  const bad = await req("GET", "/applications?sort=bogus", undefined, s.staff);
+  assert.equal(bad.status, 422);
+  assert.equal(bad.body.error.code, "INPUT_INVALID");
+
+  // Issued rows carry their issue date for the list chip.
+  const issued = await createApplication(45);
+  await transition(issued, "submit", s.staff);
+  await transition(issued, "approve", s.approver);
+  const rows = await list("state=ISSUED&pageSize=100");
+  const row = rows.find((x) => x.id === issued);
+  assert.ok(row, "issued application is listed");
+  assert.equal(typeof row.certificateIssuedAt, "string");
+  assert.ok(!Number.isNaN(Date.parse(row.certificateIssuedAt)));
+});

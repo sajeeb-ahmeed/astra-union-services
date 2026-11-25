@@ -246,8 +246,8 @@ function CertificateVerification({
             <ul>
               <li>
                 {choose({
-                  bn: "সনদ নম্বর — সনদের উপরে থাকা ১৬ সংখ্যার নম্বরটি।",
-                  en: "The certificate number — the 16 digits at the top of the certificate.",
+                  bn: "সনদ নম্বর — সনদের উপরে থাকা নম্বরটি।",
+                  en: "The certificate number — the number at the top of the certificate.",
                 })}
               </li>
               <li>

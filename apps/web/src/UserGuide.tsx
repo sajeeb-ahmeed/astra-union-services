@@ -50,7 +50,12 @@ const sections: Section[] = [
     steps: [
       { bn: "জমা পড়া আবেদন খুলে তথ্য ও নথি নিজে যাচাই করুন। প্রোফাইল অসম্পূর্ণ হলে সতর্কবার্তা দেখাবে; অফিস বাধ্যতামূলক করলে সম্পূর্ণ না হওয়া পর্যন্ত সনদ ইস্যু হবে না।", en: "Open a submitted application and verify its details and documents yourself. An incomplete profile shows a warning; if the office requires complete profiles, the certificate cannot be issued until it is complete." },
       { bn: "প্রয়োজনে কখন ও কোথায় আসতে হবে লিখে ‘আবেদনকারীকে আসতে বলুন’ চাপুন, বা কারণ লিখে সংশোধন চান।", en: "If needed, write when and where to come and choose ‘Ask the applicant to come’, or request a correction with a reason." },
-      { bn: "‘অনুমোদন করে সনদ ইস্যু করুন’ দিলেই অনুমোদনের সঙ্গে সঙ্গে সনদ ইস্যু হয়ে যাবে; ভুল আবেদন কারণসহ প্রত্যাখ্যান করুন। প্রিন্ট করা সনদে নিজ হাতে স্বাক্ষর করুন।", en: "Choose ‘Approve and issue certificate’ to approve and issue in one step; reject an invalid application with a reason. Sign the printed certificate by hand." },
+      /* WS-D3: the printed certificate already carries the chairman's
+         scanned signature — the old "sign it by hand" line contradicted
+         the product. The documents and profile-warning claims in step 1
+         stay: the detail page shows the attached documents (WS-D2) and
+         an incomplete profile shows its warning on the decision rail. */
+      { bn: "‘অনুমোদন করে সনদ ইস্যু করুন’ দিলেই অনুমোদনের সঙ্গে সঙ্গে সনদ ইস্যু হয়ে যাবে; ভুল আবেদন কারণসহ প্রত্যাখ্যান করুন। মুদ্রিত সনদে আপনার স্ক্যান করা স্বাক্ষর আগেই থাকে — আলাদা করে হাতে স্বাক্ষরের দরকার নেই।", en: "Choose ‘Approve and issue certificate’ to approve and issue in one step; reject an invalid application with a reason. The printed certificate already carries your scanned signature — there is no need to sign it by hand." },
     ],
   },
   {

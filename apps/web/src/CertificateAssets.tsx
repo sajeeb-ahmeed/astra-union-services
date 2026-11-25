@@ -78,6 +78,11 @@ export function CertificateAssetsSettings() {
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
+  // WS-5 ASSETS-REMOVE: the kind awaiting removal confirmation, the reason
+  // typed inside the dialog, and a dialog-local validation error.
+  const [removeKind, setRemoveKind] = useState<AssetKind | null>(null);
+  const [removeReason, setRemoveReason] = useState("");
+  const [removeError, setRemoveError] = useState("");
 
   const load = async () => {
     const data = await api("/office/certificate-assets");
@@ -123,13 +128,56 @@ export function CertificateAssetsSettings() {
     }
   };
 
+  /**
+   * WS-5 ASSETS-REMOVE: remove the current asset of one kind. The server
+   * keeps a tombstone version (nothing is deleted): history keeps the
+   * REMOVED entry, already-issued certificates never change, and the kind
+   * can be uploaded again afterwards. The reason is mandatory (8–500 chars,
+   * same rule as replace) and is asked inside the confirmation dialog.
+   */
+  const remove = async () => {
+    if (!removeKind) return;
+    const kind = removeKind;
+    const reason = removeReason.trim();
+    if (reason.length < 8 || reason.length > 500) {
+      setRemoveError(
+        pick({
+          bn: "সরানোর কারণ লিখুন (কমপক্ষে ৮ অক্ষর)।",
+          en: "Write a reason for removing (at least 8 characters).",
+        }),
+      );
+      return;
+    }
+    setBusy(true);
+    setMessage("");
+    setErrorMessage("");
+    setRemoveError("");
+    try {
+      await api(`/office/certificate-assets/${kind.toLowerCase()}`, "DELETE", { reason });
+      setReasons((prev) => ({ ...prev, [kind]: "" }));
+      setRemoveKind(null);
+      setRemoveReason("");
+      await load();
+      setMessage(
+        pick({
+          bn: `${KIND_TEXT[kind].title.bn} সরানো হয়েছে। এখন থেকে ইস্যু করা সনদে এই অংশটি ছাপা হবে না।`,
+          en: `${KIND_TEXT[kind].title.en} removed. Certificates issued from now on will not print it.`,
+        }),
+      );
+    } catch (e) {
+      setRemoveError((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
   return (
     <section className="panel">
       <h2>{pick({ bn: "সনদে ব্যবহৃত ছবি", en: "Certificate images" })}</h2>
       <p>
         {pick({
-          bn: "অফিসের লোগো, সিল এবং চেয়ারম্যানের স্বাক্ষরের ছবি একবার এখানে আপলোড করুন। এরপর এই অফিসের প্রতিটি সনদে এগুলো নিজে থেকে ছাপা হবে। আগের সংস্করণগুলো ইতিহাসে থেকে যায়, আর ইতিমধ্যে ইস্যু করা সনদ কখনো বদলায় না।",
-          en: "Upload the office logo, seal and the chairman's signature once here. Every certificate this office issues afterwards prints them automatically. Previous versions stay in the history, and certificates already issued never change.",
+          bn: "অফিসের লোগো, সিল এবং চেয়ারম্যানের স্বাক্ষরের ছবি একবার এখানে আপলোড করুন। এরপর এই অফিসের প্রতিটি সনদে এগুলো নিজে থেকে ছাপা হবে। কোনো ছবি আর দরকার না হলে সেটি সরিয়েও ফেলা যায় — সরানোর কারণসহ ইতিহাসে থেকে যায়, আর ইতিমধ্যে ইস্যু করা সনদ কখনো বদলায় না।",
+          en: "Upload the office logo, seal and the chairman's signature once here. Every certificate this office issues afterwards prints them automatically. An image that is no longer needed can also be removed — the removal stays in the history with its reason, and certificates already issued never change.",
         })}
       </p>
       {message && (
@@ -202,6 +250,21 @@ export function CertificateAssetsSettings() {
                 ? pick({ bn: "বদলে সংরক্ষণ করুন", en: "Replace and save" })
                 : pick({ bn: "আপলোড করুন", en: "Upload" })}
             </button>
+            {item.current && (
+              <button
+                type="button"
+                className="secondary"
+                disabled={busy}
+                style={{ marginLeft: 10 }}
+                onClick={() => {
+                  setRemoveKind(item.kind);
+                  setRemoveReason("");
+                  setRemoveError("");
+                }}
+              >
+                {pick({ bn: "সরান", en: "Remove" })}
+              </button>
+            )}
             {item.history.length > 0 && (
               <ul className="cert-asset-history">
                 {item.history.map((h) => (
@@ -246,6 +309,77 @@ export function CertificateAssetsSettings() {
           {pick({ bn: "প্রিভিউ দেখুন (PDF)", en: "Open preview (PDF)" })}
         </a>
       </fieldset>
+      {/* WS-5 ASSETS-REMOVE: the irreversible-decision confirmation — an
+          in-app modal following the WorkspaceApp pattern (QAFIX-09/B1),
+          never window.confirm. It names the image it will act on and asks
+          for the mandatory removal reason before anything is removed. */}
+      {removeKind && (
+        <div
+          className="ws-confirm-backdrop"
+          onClick={() => {
+            setRemoveKind(null);
+            setRemoveReason("");
+            setRemoveError("");
+          }}
+        >
+          <div
+            className="ws-confirm"
+            role="dialog"
+            aria-modal="true"
+            aria-label={pick({ bn: "ছবি সরান", en: "Remove image" })}
+            onClick={(event) => event.stopPropagation()}
+          >
+            <h2>
+              {pick({
+                bn: `${KIND_TEXT[removeKind].title.bn} সরিয়ে ফেলবেন?`,
+                en: `Remove the ${KIND_TEXT[removeKind].title.en.toLowerCase()}?`,
+              })}
+            </h2>
+            <p>
+              {pick({
+                bn: "এখন থেকে ইস্যু করা সনদে এই অংশটি ছাপা হবে না। সরানোর কারণসহ ইতিহাসে থেকে যাবে, আর ইতিমধ্যে ইস্যু করা সনদ বদলাবে না। প্রয়োজনে পরে আবার আপলোড করা যাবে।",
+                en: "Certificates issued from now on will not print this part. The removal stays in the history with its reason, already-issued certificates will not change, and the image can be uploaded again later if needed.",
+              })}
+            </p>
+            <label>
+              {pick({ bn: "সরানোর কারণ (বাধ্যতামূলক)", en: "Reason for removing (required)" })}
+              <input
+                value={removeReason}
+                onChange={(e) => setRemoveReason(e.target.value)}
+                minLength={8}
+                maxLength={500}
+              />
+            </label>
+            {removeError && (
+              <p className="notice error" role="alert">
+                {removeError}
+              </p>
+            )}
+            <div className="ws-confirm-actions">
+              <button
+                type="button"
+                className="secondary"
+                onClick={() => {
+                  setRemoveKind(null);
+                  setRemoveReason("");
+                  setRemoveError("");
+                }}
+              >
+                {pick({ bn: "বাতিল", en: "Cancel" })}
+              </button>
+              <button
+                type="button"
+                className="danger"
+                data-testid="confirm-remove-asset"
+                disabled={busy}
+                onClick={() => void remove()}
+              >
+                {pick({ bn: "সরান", en: "Remove" })}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </section>
   );
 }

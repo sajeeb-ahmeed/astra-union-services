@@ -16,7 +16,7 @@ import {
 } from "./GeographyFields.js";
 
 const read = (o: any, a: string, b: string) => o?.[a] ?? o?.[b] ?? "";
-export function AccountSecurity() {
+export function AccountSecurity({ role }: { role?: string }) {
   const [message, setMessage] = useState(""),
     [errorMessage, setErrorMessage] = useState(""),
     [busy, setBusy] = useState(false);
@@ -89,7 +89,7 @@ export function AccountSecurity() {
         )}
       </section>
       <AccountSessions revision={securityRevision} />
-      <AccountMfa revision={securityRevision} onChange={() => setSecurityRevision((value) => value + 1)} />
+      <AccountMfa revision={securityRevision} isApprover={role === "approver"} onChange={() => setSecurityRevision((value) => value + 1)} />
       <SignInIdentifiers />
     </>
   );

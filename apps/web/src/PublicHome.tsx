@@ -95,8 +95,8 @@ export function PublicHome({ login }: { login?: React.ReactNode } = {}) {
     if (!token) {
       setVerifyError(
         choose({
-          bn: "সনদের QR লিংক, যাচাই কোড বা ১৬ ডিজিটের নম্বরটি সম্পূর্ণ লিখুন।",
-          en: "Enter the full QR link, verification code or 16-digit certificate number.",
+          bn: "সনদের QR লিংক, যাচাই কোড বা সনদ নম্বরটি সম্পূর্ণ লিখুন।",
+          en: "Enter the full QR link, verification code or certificate number.",
         }),
       );
       return;
@@ -294,7 +294,7 @@ export function PublicHome({ login }: { login?: React.ReactNode } = {}) {
                   id="home-verify-input"
                   inputMode="text"
                   value={verifyInput}
-                  placeholder={choose({ bn: "১৬ সংখ্যার সনদ নম্বর", en: "16-digit certificate number" })}
+                  placeholder={choose({ bn: "সনদ নম্বর", en: "Certificate number" })}
                   onChange={(e) => {
                     setVerifyInput(e.target.value);
                     setVerifyError("");

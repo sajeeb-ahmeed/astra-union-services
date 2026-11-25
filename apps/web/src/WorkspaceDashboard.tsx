@@ -25,6 +25,11 @@ export function WorkspaceDashboard({
   citizenTotal,
   applicationTotal,
   pendingTotal,
+  /** WS-D3: the workload breakdown and the oldest-pending age, from the
+      same /applications/counts answer as the pending tile — one source,
+      so the dashboard, the pending queue and the sidebar badge agree. */
+  pendingBreakdown,
+  oldestPendingAt,
   creditBalance,
   onStartService,
   onOpenCitizens,
@@ -43,6 +48,14 @@ export function WorkspaceDashboard({
   applicationTotal: number | null;
   /** REFINEMENT-02 P1-8: applications awaiting review or issuance. */
   pendingTotal?: number | null;
+  pendingBreakdown?: {
+    awaitingReview: number;
+    awaitingIssuance: number;
+    correctionRequired: number;
+    issued: number;
+  } | null;
+  /** ISO timestamp of the oldest still-pending application, or null. */
+  oldestPendingAt?: string | null;
   /** null when this role may not read the office balance. */
   creditBalance: number | null;
   onStartService: (serviceNo: number) => void;
@@ -109,6 +122,33 @@ export function WorkspaceDashboard({
           />
         )}
       </div>
+      {pendingBreakdown && (
+        <p className="ax-dashboard-workload" role="status">
+          {choose({ bn: "কাজের চাপ: ", en: "Workload: " })}
+          {choose({ bn: "যাচাইয়ের অপেক্ষায় ", en: "Awaiting review " })}
+          {count(pendingBreakdown.awaitingReview)}
+          {" · "}
+          {choose({ bn: "ইস্যুর অপেক্ষায় ", en: "Awaiting issuance " })}
+          {count(pendingBreakdown.awaitingIssuance)}
+          {" · "}
+          {choose({ bn: "সংশোধন চাওয়া হয়েছে ", en: "Correction requested " })}
+          {count(pendingBreakdown.correctionRequired)}
+          {" · "}
+          {choose({ bn: "ইস্যু হয়েছে ", en: "Issued " })}
+          {count(pendingBreakdown.issued)}
+          {oldestPendingAt
+            ? ` · ${choose({ bn: "সবচেয়ে পুরনো অপেক্ষমাণ আবেদন ", en: "Oldest pending application " })}${count(
+                Math.max(
+                  0,
+                  Math.floor(
+                    (Date.now() - new Date(oldestPendingAt).getTime()) /
+                      86_400_000,
+                  ),
+                ),
+              )}${choose({ bn: " দিন আগে", en: " days ago" })}`
+            : ` · ${choose({ bn: "কোনো অপেক্ষমাণ আবেদন নেই", en: "No pending application" })}`}
+        </p>
+      )}
       <section
         className="ax-dashboard-services"
         aria-labelledby="ax-dashboard-services-heading"

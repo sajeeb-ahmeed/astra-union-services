@@ -18,11 +18,28 @@ import { fileURLToPath } from "node:url";
  * The emblem path may be overridden with CERTIFICATE_EMBLEM_PATH.
  * Missing files resolve to null and the document renders without that artwork.
  *
- * CERTASSETS-01: these filesystem drop-ins are now the FALLBACK. An office's
- * uploaded profile artwork (office_certificate_assets, migration 050,
- * resolved by certificate-assets.ts into PdfInput.assets) outranks them in
- * certificate-template-v7.ts; the drop-ins remain so offices that have not
- * uploaded anything — and existing deployments — render exactly as before.
+ * CERTASSETS-01 (as re-confirmed by Md's order of 25 Nov 2026, 12:12):
+ * the centre watermark is THAT office's own UP seal, resolved per tenant
+ * (tenantId) from the office's profile SEAL setting first
+ * (office_certificate_assets, migration 050), falling back to the
+ * filesystem drop-ins above when the profile seal is null (e.g. after the
+ * office removes it with the new Remove option — WS-5, branch
+ * fix/cert-assets-remove). Different UP = different seal; nothing is
+ * hardcoded per office and there is no shared default seal. If no seal
+ * resolves at all, the document renders with NO watermark — it never falls
+ * back to the Government emblem (Md ordered the UP seal) and never to the
+ * platform logo. The profile logo/signature still resolve as before (the
+ * logo is no longer printed on certificates — see
+ * certificate-template-v7.ts — but the bundle field is kept for callers).
+ *
+ * OPERATIONAL DEPENDENCY (25 Nov 2026): the production profile seal is
+ * currently the DigitalUnion platform logo (chairman QA finding 5), so
+ * until the owner removes that placeholder via the Remove option and
+ * uploads the real Belabo UP seal (or relies on the repo drop-in),
+ * production certificates WILL watermark with the platform logo. That is
+ * an operational fix (remove + upload the real seal), NOT a code
+ * substitution — this resolver must not paper over it by substituting
+ * another seal or hiding the watermark.
  */
 const moduleAssets = fileURLToPath(new URL("../assets/", import.meta.url));
 const cache = new Map<string, string | null>();
@@ -99,9 +116,16 @@ export function officeSealDataUrls(tenantId?: string | null): OfficeSealAssets {
  * Resolution order per artwork kind (first hit wins):
  *   1. the office's uploaded profile artwork (office_certificate_assets,
  *      migration 050 — resolved from the database by certificate-assets.ts
- *      and passed in as `profile`);
- *   2. the legacy filesystem drop-ins above;
- *   3. nothing (the document renders without that artwork, as before).
+ *      and passed in as `profile`) — for LOGO, SIGNATURE and SEAL. The
+ *      profile SEAL is the centre watermark's first source, per tenant
+ *      (Md's re-confirmation of 25 Nov 2026, 12:12): that office's own
+ *      seal, never hardcoded, never a shared default.
+ *   2. the filesystem drop-ins above — the fallback source for the seal
+ *      and the seal watermark when the profile seal is null (e.g. the
+ *      office removed it with the Remove option and has not uploaded a
+ *      replacement yet).
+ *   3. nothing (the document renders without that artwork, as before —
+ *      no Government-emblem fallback for the watermark).
  * The seal watermark is the pre-faded drop-in file when that is the winning
  * source; otherwise the bundle carries the winning seal itself with
  * `watermarkDerived: true`, and each engine derives the faint form in its
@@ -160,7 +184,20 @@ export interface CertificateAssetsBundle extends CertificateArtwork {
 const clean = (value?: string | null) =>
   typeof value === "string" && value.trim() ? value.trim() : null;
 
-/** Compose the final artwork for one office: profile uploads outrank drop-ins. */
+/** Compose the final artwork for one office.
+ *
+ * Md's order of 25 Nov 2026, 12:12 (re-confirming the per-UP seal): the
+ * centre watermark is the office's own UP seal — the profile SEAL setting
+ * first (per tenantId), the deployment drop-ins
+ * (CERTIFICATE_OFFICE_ASSETS_DIR / assets/offices/<tenantId>/) second.
+ * When neither resolves, seal and watermark are both null and the document
+ * renders with no watermark (no Government-emblem fallback — Md ordered
+ * the UP seal). Logo and signature still come from the profile uploads,
+ * as before. See the header note for the production operational
+ * dependency: the stored profile seal is currently the platform logo
+ * until the owner removes it (WS-5 Remove option) and uploads the real
+ * seal — this resolver deliberately does not substitute anything else.
+ */
 export function resolveCertificateArtwork(
   tenantId?: string | null,
   profile?: OfficeProfileArtwork,

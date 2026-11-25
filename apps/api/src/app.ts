@@ -29,7 +29,7 @@ import {
 import { generatePdf, DEMO_TEMPLATE_VERSION } from "./pdf.js";
 import { publicManagementRouter, managementRouter } from "./management.js";
 import { publicToolsRouter, protectedToolsRouter } from "./portal-tools.js";
-import { createHttpsRedirect, httpHardening } from "./http-hardening.js";
+import { httpHardening } from "./http-hardening.js";
 import { paymentsRouter, publicPaymentsRouter } from "./payments.js";
 import {
   attachmentsRouter,
@@ -55,8 +55,8 @@ import {
   parseReferenceInput,
   referenceDigits,
 } from "./references.js";
-import { dhakaDateStamp } from "./dhaka.js";
-import { randomEightDigits } from "./references.js";
+import { dhakaDayMonthStamp } from "./dhaka.js";
+import { randomTenDigits } from "./references.js";
 import { pointsRouter } from "./points.js";
 import { billingRouter, brandingRouter, settleApplicationFee } from "./billing.js";
 import {
@@ -147,7 +147,6 @@ const webhookSecret =
   process.env.DEMO_WEBHOOK_SECRET ?? fs.readFileSync(secretFile, "utf8").trim();
 export const app = express();
 app.disable("x-powered-by");
-app.use(createHttpsRedirect());
 app.use(httpHardening);
 app.use((req, res, next) => {
   res.setHeader("X-Content-Type-Options", "nosniff");
@@ -618,12 +617,14 @@ app.get(
       .toUpperCase();
     if (!/^[A-Z0-9][A-Z0-9 -]{3,79}$/.test(number))
       fail(404, "NOT_FOUND", "Verification record not found.");
-    // CERTNO-01: the printed 16-digit number may be typed plain, grouped with
-    // spaces/hyphens, or in Bengali digits (folded above). Try the exact form
-    // first (legacy numbers keep their hyphens), then the plain-digit form.
+    // The printed number may be typed plain, grouped with spaces/hyphens,
+    // or in Bengali digits (folded above). Try the exact form first
+    // (legacy numbers keep their hyphens), then the plain-digit form.
+    // CERTNO-DDMM numbers are 14 digits; already-issued CERTNO-01
+    // numbers are 16 digits and must keep resolving (nothing renumbers).
     const candidates = [number];
     const digitsOnly = number.replace(/\D/g, "");
-    if (digitsOnly.length === 16) {
+    if (digitsOnly.length === 14 || digitsOnly.length === 16) {
       candidates.push(digitsOnly, `DEMO-${digitsOnly}`);
     }
     let record: any;
@@ -1189,6 +1190,12 @@ app.get(
     // digits-only form, so the grouped Phase 5 reference can be pasted with or without hyphens.
     const q = normalizeSearchQuery(String(req.query.q ?? "").slice(0, 100));
     const digits = referenceDigits(q);
+    // WS-D3: real pagination for the citizens register. No page/pageSize in
+    // the query keeps the previous behaviour (first 100 rows); a page
+    // request honours pageSize (1–100) so the register can be browsed past
+    // the first page instead of stopping at an unexplained cap.
+    const page = z.coerce.number().int().min(1).max(100000).default(1).parse(req.query.page);
+    const pageSize = z.coerce.number().int().min(1).max(100).default(100).parse(req.query.pageSize);
     const { items, total } = await transaction(tenant(req), async (db) => {
       const nameParam = a.role === "citizen" ? "$3" : "$2";
       const digitsParam = a.role === "citizen" ? "$4" : "$3";
@@ -1197,11 +1204,13 @@ app.get(
         a.role === "citizen"
           ? [a.tenantId, a.userId, `%${q}%`, digits ? `%${digits}%` : null]
           : [a.tenantId, `%${q}%`, digits ? `%${digits}%` : null];
+      const limitParam = `$${params.length + 1}`;
+      const offsetParam = `$${params.length + 2}`;
       return {
         items: (
           await db.query(
-            `SELECT * FROM citizens ${filter} ORDER BY created_at DESC LIMIT 100`,
-            params,
+            `SELECT * FROM citizens ${filter} ORDER BY created_at DESC LIMIT ${limitParam} OFFSET ${offsetParam}`,
+            [...params, pageSize, (page - 1) * pageSize],
           )
         ).rows.map(citizenRow),
         // Phase 1: the dashboard shows the real count, not the length of this 100-row page.
@@ -1210,7 +1219,7 @@ app.get(
         ).rows[0].n as number,
       };
     });
-    res.json({ items, total });
+    res.json({ items, total, page, pageSize });
   }),
 );
 app.post(
@@ -1354,6 +1363,25 @@ app.get(
     const no = req.query.serviceNo
       ? z.coerce.number().int().min(1).max(47).parse(req.query.serviceNo)
       : null;
+    // WS-D1 (r10-live fix phase): the list's default order is the submission
+    // date, newest first — the old `updated_at DESC` order moved a row every
+    // time its state changed, so the order changed between visits (live QA
+    // finding 20). `sort` re-queries in the requested order; every order
+    // ends in the id so ties are deterministic and stable across visits.
+    const sort = z
+      .enum(["newest", "oldest", "status", "service", "reference"])
+      .default("newest")
+      .parse(req.query.sort ?? undefined);
+    const orderBy =
+      sort === "oldest"
+        ? "a.created_at ASC,a.id ASC"
+        : sort === "status"
+          ? "a.state ASC,a.created_at DESC,a.id DESC"
+          : sort === "service"
+            ? "a.service_no ASC,a.created_at DESC,a.id DESC"
+            : sort === "reference"
+              ? "a.reference ASC NULLS LAST,a.created_at DESC,a.id DESC"
+              : "a.created_at DESC,a.id DESC";
     // Phase 6c: an optional date range (Asia/Dhaka calendar days, inclusive) and a renewals-only filter.
     const range = dateRange.parse({ from: req.query.from, to: req.query.to });
     const renewalOnly = req.query.renewal === "true";
@@ -1377,10 +1405,14 @@ app.get(
         values.push(range.to);
         rangeFilter += ` AND (a.created_at AT TIME ZONE 'Asia/Dhaka')::date <= $${values.length}::date`;
       }
-      const from = `FROM applications a JOIN citizens c ON c.id=a.citizen_id AND c.tenant_id=a.tenant_id WHERE a.tenant_id=$1 AND ($2::text IS NULL OR a.state=$2) AND ($3::int IS NULL OR a.service_no=$3) AND ($4::uuid IS NULL OR c.user_id=$4) AND (a.id::text ILIKE $5 OR a.reference ILIKE $5 OR ($6::text IS NOT NULL AND replace(a.reference,'-','') ILIKE $6) OR c.full_name_bn ILIKE $5 OR c.full_name_en ILIKE $5 OR c.synthetic_reference ILIKE $5 OR ($6::text IS NOT NULL AND replace(c.synthetic_reference,'-','') ILIKE $6) OR c.contact_mobile ILIKE $5)${rangeFilter}${renewalOnly ? " AND EXISTS(SELECT 1 FROM renewal_links l WHERE l.tenant_id=a.tenant_id AND l.application_id=a.id)" : ""}`;
+      const from = `FROM applications a JOIN citizens c ON c.id=a.citizen_id AND c.tenant_id=a.tenant_id LEFT JOIN certificates cert ON cert.tenant_id=a.tenant_id AND cert.application_id=a.id WHERE a.tenant_id=$1 AND ($2::text IS NULL OR a.state=$2) AND ($3::int IS NULL OR a.service_no=$3) AND ($4::uuid IS NULL OR c.user_id=$4) AND (a.id::text ILIKE $5 OR a.reference ILIKE $5 OR ($6::text IS NOT NULL AND replace(a.reference,'-','') ILIKE $6) OR c.full_name_bn ILIKE $5 OR c.full_name_en ILIKE $5 OR c.synthetic_reference ILIKE $5 OR ($6::text IS NOT NULL AND replace(c.synthetic_reference,'-','') ILIKE $6) OR c.contact_mobile ILIKE $5)${rangeFilter}${renewalOnly ? " AND EXISTS(SELECT 1 FROM renewal_links l WHERE l.tenant_id=a.tenant_id AND l.application_id=a.id)" : ""}`;
       const items = (
         await db.query(
-          `SELECT a.*,EXISTS(SELECT 1 FROM renewal_links l WHERE l.tenant_id=a.tenant_id AND l.application_id=a.id) AS is_renewal ${from} ORDER BY a.updated_at DESC,a.id LIMIT $${values.length + 1} OFFSET $${values.length + 2}`,
+          // WS-D1: certificate_issued_at feeds the issued rows' chip (the
+          // waiting chip must never render on an issued row); the join is
+          // 1:0/1 (UNIQUE tenant_id,application_id), so the count below
+          // is unaffected.
+          `SELECT a.*,cert.issued_at AS certificate_issued_at,EXISTS(SELECT 1 FROM renewal_links l WHERE l.tenant_id=a.tenant_id AND l.application_id=a.id) AS is_renewal ${from} ORDER BY ${orderBy} LIMIT $${values.length + 1} OFFSET $${values.length + 2}`,
           [...values, pageSize, (page - 1) * pageSize],
         )
       ).rows.map(camelRow);
@@ -1402,7 +1434,7 @@ app.get(
     // CORRECTION_REQUIRED is deliberately NOT part of either pending group: after a
     // correction request the next move is the citizen's, not the office's.
     const a = roles(req, staffRead);
-    const counts = await transaction(tenant(req), async (db) => {
+    const { byState: counts, oldestPendingAt } = await transaction(tenant(req), async (db) => {
       const rows = (
         await db.query(
           "SELECT state, count(*)::int AS count FROM applications WHERE tenant_id=$1 GROUP BY state",
@@ -1422,7 +1454,16 @@ app.get(
         REVOKED: 0,
       };
       for (const row of rows) byState[row.state] = row.count;
-      return byState;
+      // WS-D3: the dashboard's ageing figure — the oldest still-pending
+      // application's submission time, from this same counts read so the
+      // number agrees with the pending queue and the sidebar badge.
+      const oldest = (
+        await db.query(
+          "SELECT min(created_at) AS oldest FROM applications WHERE tenant_id=$1 AND state IN ('SUBMITTED','RESUBMITTED','UNDER_REVIEW','APPROVED')",
+          [a.tenantId],
+        )
+      ).rows[0]?.oldest as Date | null;
+      return { byState, oldestPendingAt: oldest ? oldest.toISOString() : null };
     });
     res.json({
       counts,
@@ -1432,6 +1473,7 @@ app.get(
       // 001 CHECK); it is counted defensively should it ever be introduced.
       awaitingIssuance:
         counts.APPROVED + (counts.ISSUANCE_PENDING ?? 0),
+      oldestPendingAt,
     });
   }),
 );
@@ -1769,6 +1811,19 @@ app.post(
                 migrated.purpose_language = bnText ? "bn" : "en";
                 delete migrated.purpose_bn;
                 delete migrated.purpose_en;
+              }
+              // QAFIX-10 (service 27): v5 removed the free-text purpose
+              // pair — the fixed passport_purpose select is the only
+              // purpose asked now. A v4 payload carried over with the
+              // pair would fail v5 validation as unknown_field and pin
+              // the renewal to v4 forever; drop the removed pair so the
+              // renewal can land on v5 (the select value carries over;
+              // the new identity fields must still be supplied — the
+              // pinned fallback below keeps it on v4 when they are
+              // missing, nothing is invented).
+              if (parent.service_no === 27) {
+                delete migrated.purpose;
+                delete migrated.purpose_language;
               }
               await validatePayload(
                 db,
@@ -2239,16 +2294,20 @@ async function recordApprovalOnGate(a: Auth, id: string) {
  * unguessable certificate fragment, as printed on Template v7 documents.
  */
 /**
- * CERTNO-01: the certificate number is 16 digits — the Asia/Dhaka issue date
- * (YYYYMMDD) followed by 8 random digits — stored as 16 consecutive digits.
- * Uniqueness is enforced by certificates_number_key; issuance retries with a
- * fresh number when the insert reports a collision (see issueWithFreshNumber).
+ * CERTNO-DDMM (owner order, 25 Nov 2026 — supersedes CERTNO-01's format):
+ * the certificate number is 14 digits — the Asia/Dhaka issue day+month
+ * (DDMM) followed by 10 cryptographically random digits — stored as 14
+ * consecutive digits. Certificate numbers must NEVER be duplicated:
+ * uniqueness is enforced by certificates_number_key (migration 001,
+ * re-asserted by migration 063) and issuance retries with a fresh number
+ * when the insert reports a collision (see issueWithFreshNumber).
  * Test/demo mode keeps the DEMO- marker so a sandbox document can never be
- * mistaken for an official one. Existing records keep their numbers — nothing
- * renumbers.
+ * mistaken for an official one. Existing records keep their numbers
+ * (16-digit CERTNO-01 numbers still verify) — nothing renumbers.
+ * Exported for the CERTNO-DDMM format test.
  */
-function newCertificateNumber(): string {
-  const digits = `${dhakaDateStamp()}${randomEightDigits()}`;
+export function newCertificateNumber(): string {
+  const digits = `${dhakaDayMonthStamp()}${randomTenDigits()}`;
   return process.env.ISSUANCE_MODE === "official" ? digits : `DEMO-${digits}`;
 }
 
@@ -2287,8 +2346,12 @@ async function renderCertificatePair(
 
 /**
  * Run `fn` until it succeeds, retrying ONLY a certificate-number collision
- * (PostgreSQL 23505 on certificates_number_key). Exported for the CERTNO-01
- * collision test, which drives it with synthetic 23505 failures.
+ * (PostgreSQL 23505 on certificates_number_key). Bounded: after
+ * `maxAttempts` collisions it gives up with the clear error
+ * CERTIFICATE_NUMBER_GENERATION_FAILED (CERTNO-DDMM: numbers are never
+ * duplicated — a collision regenerates, never reuses). Any other failure
+ * propagates immediately. Exported for the collision test, which drives
+ * it with synthetic 23505 failures.
  */
 export async function retryOnCertificateNumberCollision<T>(
   fn: (attempt: number) => Promise<T>,
@@ -2298,12 +2361,12 @@ export async function retryOnCertificateNumberCollision<T>(
     try {
       return await fn(attempt);
     } catch (error: any) {
-      if (
+      const isNumberCollision =
         error?.code === "23505" &&
-        error?.constraint === "certificates_number_key" &&
-        attempt < maxAttempts - 1
-      )
-        continue;
+        error?.constraint === "certificates_number_key";
+      if (isNumberCollision && attempt < maxAttempts - 1) continue;
+      if (isNumberCollision)
+        throw new Error("CERTIFICATE_NUMBER_GENERATION_FAILED");
       throw error;
     }
   }

@@ -12,11 +12,10 @@ import {
 
 /**
  * Template 7 (Phase Y) — the official Union Parishad document format, modelled
- * on owner-supplied Belabo UP documents issued through the incumbent system.
- * The FORMAT and the two captured wording patterns (citizenship #12, voter area
- * transfer #37) follow those documents; the product identity stays Astra's:
- * the verification line and QR use Astra's own origin, and no Prottoyon
- * branding appears anywhere.
+ * on owner-supplied Belabo UP documents issued through the incumbent system
+ * (Prottoyon). The FORMAT follows those documents; the product identity stays
+ * Astra's: the verification line and QR use Astra's own origin, and no
+ * Prottoyon branding appears anywhere.
  *
  * Exactness scope (PHASEY-SPEC.md): wording is captured ONLY for #12 (by-birth
  * variant) and #37 (marriage variant). Every other attestation sentence is
@@ -27,16 +26,38 @@ import {
  * Modes (ISSUANCE_MODE gate, unchanged): official mode prints the
  * government emblem in the header; other modes render no state artwork.
  *
- * CERTNO-01 (owner-approved 18 Nov 2026): the centre watermark is the
- * Government of Bangladesh emblem, large and faint, in official mode — the
- * same for every office; the office's own seal is NOT printed anywhere (the
- * office logo stays in the header). The certificate number is 16 digits and
- * prints one digit per box in a strip (Bengali digits on the Bangla version,
- * English digits on the English version). The citizen photo (migration 051)
- * prints top-right only when the citizen has one; when absent, nothing at
- * all renders in the photo position.
+ * Md's order of 25 Nov 2026 ("sob gulo certificate e prottoyon er provide
+ * kora certificate er design er moto format e hobe") — ALL certificates in
+ * Prottoyon's design/format — SUPERSEDES CERTNO-01 on both points below:
+ *  - the certificate number prints PLAIN (no one-digit-per-box strip);
+ *  - the centre watermark is the issuing office's own UP SEAL, resolved
+ *    per tenant (template-assets.ts) from that office's profile SEAL
+ *    setting first, then the deployment asset dir — never hardcoded, never
+ *    a shared default, never the Government emblem; with no seal asset the
+ *    document renders with NO watermark. (Md re-confirmed the per-UP
+ *    profile-first resolution 25 Nov 2026, 12:12 — this reverses the
+ *    drop-in-only reading of his 11:46 order. Operational dependency: the
+ *    production profile seal is currently the DigitalUnion platform logo,
+ *    which the owner removes via the new Remove option and replaces with
+ *    the real seal; see template-assets.ts.)
+ * The Prottoyon references also show NO government line and NO office logo
+ * anywhere on the certificate — header is emblem + office name + address +
+ * title only — so neither prints here (the stored logo is untouched; it
+ * stays in the system for other uses). Orientation follows the references:
+ * the 7 landscape references print landscape, the 4 portrait references
+ * print portrait; services with no reference keep the portrait default.
  */
 export const TEMPLATE_V7 = 7;
+
+/**
+ * CERT-PAPER (Md's order, 25 Nov 2026 15:59): certificates print on a
+ * warm cream/ivory "government paper" tone instead of plain white.
+ * The 15 Prottoyon reference PDFs measure pure white (#FFFFFF) at every
+ * empty sample point (200 DPI), so this is the classic Bangladeshi
+ * government-certificate paper colour, kept subtle and print-friendly.
+ * Both engines and the QR light colour use this one value.
+ */
+export const CERT_PAPER_BG = "#FCF9EC";
 
 const escape = (value: unknown) =>
   String(value ?? "").replace(
@@ -118,15 +139,84 @@ export function enDateSlash(iso: unknown): string {
   return match ? `${match[3]}/${match[2]}/${match[1]}` : raw;
 }
 /**
+ * WS-SHELL-GAPS (25 Nov 2026): ordinal day suffixes, verified against the
+ * Prottoyon reference certificates — NOT the task brief's first draft.
+ * The brief said 19–31→শে, but the references print ১৯ই (character
+ * certificate 348634592312 and parent-consent 67428662626, both visually
+ * confirmed at 2x zoom: /tmp/ref-19a.png) and ২২শে/২৩শে/২৮শে
+ * (/tmp/ref-28.png shows ২৮শে; the wording note
+ * notes/01-wording-services-12-15-19-22-25-33-35-37.md §8 records the same
+ * split: শে after ২২/২৩/২৮, ই after ১০/১৭/১৮/১৯). The boundary is 20:
+ * 1→লা, 2–3→রা, 4→ঠা, 5–19→ই, 20–31→শে — standard Bangla usage
+ * (cf. ২০শে ফেব্রুয়ারি). Used ONLY for the certificate issue-date display
+ * (the numline); bnDate/enDate stay suffix-free everywhere else
+ * (CERT-REFINE-01 A5). The trade licence body also uses these helpers
+ * (issue block + business start date) — its local closures were removed
+ * at the fix/cert-trade merge.
+ */
+export function bnOrd(day: number): string {
+  const d = Math.trunc(day);
+  if (d === 1) return "১লা";
+  if (d === 2) return "২রা";
+  if (d === 3) return "৩রা";
+  if (d === 4) return "৪ঠা";
+  if (d >= 5 && d <= 19) return `${bnDigits(d)}ই`;
+  if (d >= 20 && d <= 31) return `${bnDigits(d)}শে`;
+  return bnDigits(d);
+}
+export function enOrd(day: number): string {
+  const d = Math.trunc(day);
+  const suffix =
+    d % 100 >= 11 && d % 100 <= 13
+      ? "th"
+      : d % 10 === 1
+        ? "st"
+        : d % 10 === 2
+          ? "nd"
+          : d % 10 === 3
+            ? "rd"
+            : "th";
+  return `${d}${suffix}`;
+}
+/** Ordinal issue-date display: "২২শে নভেম্বর ২০২৬" / "22nd November 2026". */
+export function ordDate(when: Date, bn: boolean): string {
+  const p = dhakaParts(when);
+  return bn
+    ? `${bnOrd(p.day)} ${BN_MONTHS[p.month - 1]} ${bnDigits(p.year)}`
+    : `${enOrd(p.day)} ${EN_MONTHS[p.month - 1]} ${p.year}`;
+}
+export function ordDateIso(iso: unknown, bn: boolean): string {
+  const raw = text(iso);
+  if (!raw) return "";
+  const parsed = new Date(`${raw.slice(0, 10)}T00:00:00+06:00`);
+  return Number.isNaN(parsed.getTime()) ? bnDigits(raw) : ordDate(parsed, bn);
+}
+/**
+ * WS-TABLES: the Prottoyon heir/member tables (services 2/3) print DOB as
+ * DD-MM-YYYY with dashes — verified on the Warish 3 / Family 2 references.
+ * The A5 slash form above stays for every other table.
+ */
+export function bnDateDash(iso: unknown): string {
+  const raw = text(iso);
+  const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(raw);
+  return match ? bnDigits(`${match[3]}-${match[2]}-${match[1]}`) : bnDigits(raw);
+}
+export function enDateDash(iso: unknown): string {
+  const raw = text(iso);
+  const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(raw);
+  return match ? `${match[3]}-${match[2]}-${match[1]}` : raw;
+}
+/**
  * CERT-REFINE-01 (A9): a free-text value is inserted into a sentence that
  * appends its own punctuation — strip any trailing danda/full stop the
  * applicant typed so the document never prints "।।" or "..".
  */
 export const cleanText = (value: unknown) =>
   text(value).replace(/[\s।.]+$/u, "");
-/** CERT-REFINE-01: the A1 government header line, printed above the office name. */
-export const GOVT_LINE_BN = "গণপ্রজাতন্ত্রী বাংলাদেশ সরকার";
-export const GOVT_LINE_EN = "Government of the People's Republic of Bangladesh";
+/* QR-MOVE (Md's order 25 Nov 2026 15:00): the A1 government header line
+ * constants (GOVT_LINE_BN/EN) are REMOVED. Owner ruling: NO government
+ * line on any certificate — the Prottoyon references have none, and the
+ * svc46 compact card was the last layout still printing it. */
 /** Relationship option labels (the shared relationship select's stable value set). */
 export const RELATIONSHIP_LABELS: Record<string, { bn: string; en: string }> = {
   self: { bn: "নিজ", en: "Self" },
@@ -272,17 +362,40 @@ export function orgTypeLabel(
   if (label) return bn ? label.bn : label.en;
   return cleanText(bn ? p.trade_license_org_type_bn : p.trade_license_org_type);
 }
-/** Service 33 correction field keys → printed labels (CERT-REFINE-01 §B svc33 fixed map). */
+/** Service 33 correction field keys → printed labels (CERT-REFINE-01 §B svc33 fixed map).
+ * WS-WORDING (25 Nov 2026): the Prottoyon reference prints "নিজের নাম" (not
+ * "নাম") for row 1 and "নিজের নাম ইংরেজি" / "পিতার নাম ইংরেজি" for the
+ * English-name rows — the schema's correction_category_id options carry no
+ * English-name categories at all, so without these entries the template
+ * printed the raw ids (name_en, father_name_en). The map is AUTHORITATIVE:
+ * correctionFieldLabel reads it first, so a schema option label ("নাম")
+ * can never override the reference wording again. */
 export const CORRECTION_FIELD_LABELS: Record<string, { bn: string; en: string }> = {
-  name: { bn: "নাম", en: "Name" },
+  name: { bn: "নিজের নাম", en: "Own name" },
+  name_en: { bn: "নিজের নাম ইংরেজি", en: "Own name (English)" },
   father_name: { bn: "পিতার নাম", en: "Father name" },
+  father_name_en: { bn: "পিতার নাম ইংরেজি", en: "Father name (English)" },
   mother_name: { bn: "মাতার নাম", en: "Mother name" },
+  mother_name_en: { bn: "মাতার নাম ইংরেজি", en: "Mother name (English)" },
   parent_name: { bn: "পিতা/মাতার নাম", en: "Parent name" },
   date_of_birth: { bn: "জন্ম তারিখ", en: "Date of birth" },
   address: { bn: "ঠিকানা", en: "Address" },
   spouse_name: { bn: "স্বামী/স্ত্রীর নাম", en: "Spouse name" },
+  spouse_name_en: { bn: "স্বামী/স্ত্রীর নাম ইংরেজি", en: "Spouse name (English)" },
   other: { bn: "অন্যান্য", en: "Other" },
 };
+/** Service 33 field label: the fixed map first, then the schema option label, then the raw id. */
+export function correctionFieldLabel(
+  categoryId: unknown,
+  schema: FormSchema | undefined,
+  bn: boolean,
+): string {
+  const id = text(categoryId);
+  const fixed = CORRECTION_FIELD_LABELS[id]?.[bn ? "bn" : "en"];
+  if (fixed) return fixed;
+  const fromSchema = selectLabel(schema, "corrections", "correction_category_id", id, bn);
+  return fromSchema !== id ? fromSchema : id;
+}
 /**
  * CERT-REFINE-01 (A3): the residence/citizenship/personally-known status
  * sentence, inserted immediately after the identity block for the services
@@ -433,12 +546,32 @@ export interface CertificatePageFormat {
   orientation: "portrait" | "landscape";
 }
 export const CERTIFICATE_PAGE_FORMATS: Record<number, CertificatePageFormat> = {
-  // CERT-REFINE-01 (A8): ONE shell — A4 portrait for every certificate and
-  // attestation. Service 12 (was A4 landscape) and service 37 (was US
-  // Letter) move to the shared shell.
-  // CERT-REFINE-02 (R2-05): service 46's landscape card is retired too —
-  // the vehicle licence is a standard A4 portrait certificate, so no
-  // per-service format remains.
+  // Md's order of 25 Nov 2026: Prottoyon's format, per reference. The 7
+  // landscape references print A4 landscape, the 4 portrait references
+  // print A4 portrait; services with no reference keep the portrait
+  // default (CERT-REFINE-01 A8's one-portrait-shell is superseded for the
+  // referenced services only — service 12 was A4 landscape before A8).
+  // Landscape — reference PNGs in astra-logs/cert-design/reference/:
+  // 12 citizenship (4290682504, 4651330442), 15 new voter (18291732956),
+  // 19 guardian consent (67428662626), 22 unmarried (587738215248),
+  // 25 married (3601703867), 35 character (348634592312),
+  // 37 voter area transfer (1220470350).
+  12: { size: "A4", orientation: "landscape" },
+  15: { size: "A4", orientation: "landscape" },
+  19: { size: "A4", orientation: "landscape" },
+  22: { size: "A4", orientation: "landscape" },
+  25: { size: "A4", orientation: "landscape" },
+  35: { size: "A4", orientation: "landscape" },
+  37: { size: "A4", orientation: "landscape" },
+  // Portrait references (explicit, same as the default — listed so the
+  // orientation of every referenced service is decided in one place):
+  // 2 family (75147645374), 3 warish / legal heirs (78620469944),
+  // 33 national data correction (63764535005), 42 trade licence
+  // (942679765637).
+  2: { size: "A4", orientation: "portrait" },
+  3: { size: "A4", orientation: "portrait" },
+  33: { size: "A4", orientation: "portrait" },
+  42: { size: "A4", orientation: "portrait" },
 };
 export const DEFAULT_PAGE_FORMAT: CertificatePageFormat = {
   size: "A4",
@@ -1151,10 +1284,13 @@ export const ATTESTATIONS_EN: Record<number, Attestation> = {
       : "The person is a permanent resident of this area.",
 };
 
-/** Services whose attestation sentence is AUTHORED (not captured) — owner approval pending. */
+/** Services whose attestation sentence is AUTHORED (not captured) — owner approval pending.
+ * WS-WORDING (25 Nov 2026): 12/15/22/35/37 now print verbatim Prottoyon
+ * bodies in Bangla, so their BN entries in ATTESTATIONS_BN below are dead
+ * (kept as the authored record; English still uses ATTESTATIONS_EN). */
 export const AUTHORED_ATTESTATION_SERVICES = Object.keys(ATTESTATIONS_BN)
   .map(Number)
-  .filter((no) => no !== 12 && no !== 37);
+  .filter((no) => ![12, 15, 22, 35, 37].includes(no));
 
 /* ---------- address composition (CERT-REFINE-01 A2 order: village/house, ward, union, upazila, district; post office omitted — no dataset) ---------- */
 export function addressBn(freeText: unknown, parts?: GeoNameParts): string {
@@ -1245,11 +1381,115 @@ export function presentAddress(ctx: DocContext): string {
   return permanentAddress(ctx);
 }
 
-function dataTable(headers: string[], rows: string[][]): string {
+function dataTable(
+  headers: string[],
+  rows: string[][],
+  opts?: {
+    widths?: number[];
+    aligns?: readonly string[];
+    headAligns?: readonly string[];
+  },
+): string {
   if (!rows.length) return "";
-  return `<table class="data"><thead><tr>${headers.map((h) => `<th>${escape(h)}</th>`).join("")}</tr></thead><tbody>${rows
-    .map((row) => `<tr>${row.map((cell) => `<td>${escape(cell)}</td>`).join("")}</tr>`)
+  const th = (h: string, i: number) => {
+    const style: string[] = [];
+    if (opts?.widths?.[i] !== undefined) style.push(`width:${opts.widths[i]}%`);
+    const ha = opts?.headAligns?.[i] ?? opts?.aligns?.[i];
+    if (ha) style.push(`text-align:${ha}`);
+    return `<th${style.length ? ` style="${style.join(";")}"` : ""}>${escape(h)}</th>`;
+  };
+  const td = (c: string, i: number) => {
+    const a = opts?.aligns?.[i];
+    return `<td${a ? ` style="text-align:${a}"` : ""}>${escape(c)}</td>`;
+  };
+  return `<table class="data"><thead><tr>${headers.map(th).join("")}</tr></thead><tbody>${rows
+    .map((row) => `<tr>${row.map(td).join("")}</tr>`)
     .join("")}</tbody></table>`;
+}
+
+/* ---------- Prottoyon table format (services 2/3): 5-column heir/member table ---------- */
+// Reference renders (Prottoyon, Belabo UP): ক্রমিক নং | নাম | জন্ম তারিখ | বয়স
+// | সম্পর্ক. Measured column widths (% of table width): 9.4 / 41.4 / 12.6 /
+// 7.0 / 29.6; header cells centred; body cells centred except নাম (left).
+// The ক্রমিক share is widened 9.4 → 12 (taken from নাম) so the header
+// prints on one line at this template's 12.5px table font — the reference
+// fits it in 9.4% only because its table font is smaller.
+export const HEIR_TABLE_WIDTHS = [12, 39, 13, 7, 29];
+// REFINE (25 Nov 2026): সম্পর্ক body cells are LEFT-aligned on the
+// references (pixel-measured on 78620469944: values start at the
+// column's left edge; only the header is centred) — was "center".
+export const HEIR_TABLE_ALIGNS = ["center", "left", "center", "center", "left"] as const;
+export const HEIR_TABLE_HEAD_ALIGNS = ["center", "center", "center", "center", "center"] as const;
+export const HEIR_TABLE_HEADERS_BN = ["ক্রমিক নং", "নাম", "জন্ম তারিখ", "বয়স", "সম্পর্ক"];
+export const HEIR_TABLE_HEADERS_EN = ["Sl No", "Name", "Date of birth", "Age", "Relationship"];
+
+/**
+ * WS-TABLES: the বয়স column. A stored numeric age wins (`warish_heir_age`,
+ * else `age`) — the reference ages are NOT derivable from DOB + issue date
+ * (Family: all +1 vs completed years; Warish: mixed +1/+0), so they are
+ * stored values in the reference data. Without one, fall back to completed
+ * years at the issue date (Dhaka calendar).
+ */
+export function tableAge(
+  row: Record<string, unknown>,
+  dobKey: string,
+  issued: Date,
+  bn: boolean,
+): string {
+  const stored = row.warish_heir_age ?? row.age;
+  const n =
+    typeof stored === "number"
+      ? stored
+      : /^\d+$/.test(text(stored))
+        ? Number(text(stored))
+        : Number.NaN;
+  if (Number.isInteger(n) && n >= 0) return bn ? bnDigits(n) : String(n);
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(text(row[dobKey]));
+  if (!m) return "";
+  const p = dhakaParts(issued);
+  let age = p.year - Number(m[1]);
+  if (p.month < Number(m[2]) || (p.month === Number(m[2]) && p.day < Number(m[3]))) age -= 1;
+  if (age < 0) age = 0;
+  return bn ? bnDigits(age) : String(age);
+}
+
+/** WS-TABLES: gendered relation labels as printed on the reference — পুত্র / কন্যা, স্বামী / স্ত্রী, পিতা / মাতা, ভাই / বোন — when the row carries a gender; otherwise the schema label. A value that is not a known code prints verbatim. */
+const GENDERED_RELATION: Record<
+  string,
+  { bn: { male: string; female: string }; en: { male: string; female: string } }
+> = {
+  child: {
+    bn: { male: "পুত্র", female: "কন্যা" },
+    en: { male: "Son", female: "Daughter" },
+  },
+  spouse: {
+    bn: { male: "স্বামী", female: "স্ত্রী" },
+    en: { male: "Husband", female: "Wife" },
+  },
+  parent: {
+    bn: { male: "পিতা", female: "মাতা" },
+    en: { male: "Father", female: "Mother" },
+  },
+  sibling: {
+    bn: { male: "ভাই", female: "বোন" },
+    en: { male: "Brother", female: "Sister" },
+  },
+};
+export function tableRelation(
+  row: Record<string, unknown>,
+  schema: FormSchema | undefined,
+  fieldId: string,
+  childId: string | undefined,
+  bn: boolean,
+): string {
+  const value = text(row.warish_heir_relation ?? row.relationship);
+  const gender = text(row.gender ?? row.warish_heir_gender);
+  const g = GENDERED_RELATION[value];
+  if (g && (gender === "male" || gender === "female"))
+    return bn ? g.bn[gender] : g.en[gender];
+  if (["self", "spouse", "child", "parent", "sibling", "other"].includes(value))
+    return selectLabel(schema, fieldId, childId, value, bn);
+  return cleanText(value);
 }
 
 export function selectLabel(
@@ -1271,6 +1511,212 @@ export function selectLabel(
   const field = schema ? find(schema.sections.flatMap((s) => s.fields)) : undefined;
   const option = field?.options?.find((o) => o.value === value);
   return option ? option.label[bn ? "bn" : "en"] : text(value);
+}
+
+/* ---------- WS-WORDING (25 Nov 2026): Prottoyon verbatim bodies ----------
+ * Services 12/15/19/22/25/33/35/37 + the 2/3 intros, transcribed from the
+ * Prottoyon reference certificates (notes/01-wording-services-12-15-19-22-
+ * 25-33-35-37.md §§1–7; notes/01-ws-tables-s02-s03-evidence.md §1.3/§1.4).
+ * Register: older "যাইতেছে"; "তাহার" with NO chandrabindu everywhere in
+ * the new wording; "আমার জানা মতে" two words. These bodies apply to BANGLA
+ * documents only (bn === true); English documents keep the existing
+ * chassis — the Prottoyon references are Bangla-only and no English
+ * wording was supplied. Pronouns are preserved per service: তিনি for
+ * 12/15/19/22/33, সে for 35, and 25 switches mid-reference (তিনি … সে
+ * বিবাহিত। তিনি …) — verbatim, not normalised.
+ * Address rule (D5/D6): the present address prints on all 8 services even
+ * when identical to the permanent one; the composition uses AVAILABLE data
+ * only (free-text village — which carries the post office — + geography
+ * ward/union/upazila/district). There is NO post-office/thana/postcode
+ * field in the citizen record or GeoNameParts, so no থানাঃ segment prints;
+ * that is a data gap, not a template omission. */
+/** The standard closing blessing, corrected spelling (তাহার, no chandrabindu). */
+export const WORDING_BLESSING_BN =
+  "আমি তাহার উজ্জ্বল ভবিষ্যৎ ও সর্বাঙ্গীণ মঙ্গল কামনা করছি।";
+export const WORDING_BLESSING_EN =
+  "I wish the certificate holder every success and prosperity.";
+/** Services carrying the standard closing blessing (was [12, 15, 21, 22, 27, 45]; 19/25/33/35/37 were missing). */
+export const WORDING_BLESSING_SERVICES = new Set([12, 15, 19, 21, 22, 25, 27, 33, 35, 37, 45]);
+/** The older-register opening shared by all ten verbatim bodies. */
+export const WORDING_INTRO_BN = "এই মর্মে প্রত্যয়ন করা যাইতেছে যে,";
+/** Spouse label by the applicant's gender: স্ত্রী for a male applicant, স্বামী for a female one. */
+export function wordingSpouseLabel(gender: unknown): string {
+  return gender === "male" ? "স্ত্রী" : "স্বামী";
+}
+/** "মৃত " before a name, once — the warish subject is deceased by
+ * definition; a name that already carries it is left alone. */
+export function deceasedName(name: unknown): string {
+  const v = text(name);
+  return !v || v === "মৃত" || v.startsWith("মৃত ") ? v : `মৃত ${v}`;
+}
+/**
+ * WS-WORDING service 19: the guardian's name. The service-19 schema (v5)
+ * carries NO guardian-name field (the guardian was the citizen in the old
+ * model; consent_applicant is only a parent/guardian CODE and
+ * consent_child_relation only the relation). The template accepts a
+ * free-text guardian name when the payload carries one
+ * (consent_guardian_name_bn/en — the field the form must capture; NO
+ * schema change is made in this task) and otherwise prints no name: the
+ * clause stays grammatical without it, and attributing consent to the
+ * wrong parent would be worse than a missing name. (GAP-19-GUARDIAN-NAME.)
+ */
+export function consentGuardianName(p: Record<string, unknown>, bn: boolean): string {
+  return cleanText(
+    bn
+      ? (p.consent_guardian_name_bn ?? p.consent_guardian_name)
+      : (p.consent_guardian_name_en ?? p.consent_guardian_name_bn ?? p.consent_guardian_name),
+  );
+}
+/**
+ * WS-WORDING service 19: the consent-purpose phrase. A free-text purpose
+ * wins verbatim (consent_guardian_purpose_bn/en, alias
+ * consent_subject_other_bn/en — the field the form must capture for
+ * purposes outside the closed select). Otherwise the schema's
+ * consent_subject code maps to "{label} বিষয়ে" — education/travel only;
+ * "other" has no phrase of its own and prints as "অন্যান্য বিষয়ে". The
+ * reference purpose "পুলিশ বাহিনীতে যোগদানে" has NO option in the schema
+ * (education/travel/other only). (GAP-19-PURPOSE.)
+ */
+export function consentGuardianPurpose(
+  p: Record<string, unknown>,
+  schema: FormSchema | undefined,
+  bn: boolean,
+): string {
+  const free = cleanText(
+    bn
+      ? (p.consent_guardian_purpose_bn ?? p.consent_subject_other_bn)
+      : (p.consent_guardian_purpose_en ??
+        p.consent_subject_other_en ??
+        p.consent_guardian_purpose_bn ??
+        p.consent_subject_other_bn),
+  );
+  if (free) return free;
+  const subject = text(p.consent_subject);
+  if (!subject) return "";
+  const label = selectLabel(schema, "consent_subject", undefined, subject, bn);
+  return bn ? `${label} বিষয়ে` : `in respect of ${label}`;
+}
+/**
+ * WS-WORDING service 37: the transfer-reason phrase. A free-text reason
+ * wins verbatim — either the companion key
+ * (application_voter_area_transfer_reason_other_bn/en) or a non-code value
+ * stored in application_voter_area_transfer_reason itself (e.g. "জমি ক্রয়
+ * করা সূত্রে"). Known codes map as before (marriage/employment/
+ * relocation); "other" with no free text prints no phrase. NO new schema
+ * option is created in this task: the land-purchase reason has no code,
+ * and an unknown snake_case code would print raw — the form must add the
+ * code or store the Bangla phrase. (GAP-37-REASON.)
+ */
+export function transferReasonPhrase(p: Record<string, unknown>, bn: boolean): string {
+  const other = cleanText(
+    bn
+      ? p.application_voter_area_transfer_reason_other_bn
+      : (p.application_voter_area_transfer_reason_other_en ??
+        p.application_voter_area_transfer_reason_other_bn),
+  );
+  if (other) return other;
+  const reason = text(p.application_voter_area_transfer_reason);
+  if (bn) {
+    if (reason === "marriage") return "বৈবাহিক সূত্রে";
+    if (reason === "employment") return "চাকরির কারণে";
+    if (reason === "relocation") return "বসবাসের স্থান পরিবর্তনের কারণে";
+  } else {
+    if (reason === "marriage") return "By marriage,";
+    if (reason === "employment") return "For employment,";
+    if (reason === "relocation") return "Following a change of residence,";
+  }
+  return reason === "other" ? "" : reason;
+}
+
+/* ---------- WS-WORDING HTML bodies (Chromium engine; BN only) ----------
+ * One builder per reference template. Identity order varies by service
+ * (12: name → birth-reg → [spouse] → father → mother; 25/33/37: name →
+ * spouse → father → mother; 15/19/22/35: name → father → mother); the
+ * resident clause and both addresses follow the identity list. Values are
+ * bold, as in the existing chassis; the reference's own punctuation
+ * (ঠিকানাঃ- with hyphen, তাহার without chandrabindu) is verbatim. */
+type WordingIdentitySpec = ("birthReg" | "spouse" | "father" | "mother")[];
+function wordingIdentityHtml(
+  ctx: DocContext,
+  spec: WordingIdentitySpec,
+  opts?: { fatherLabel?: string; spouseName?: string },
+): string {
+  const { input } = ctx;
+  const c = input.citizen;
+  const parts: string[] = [`<strong>${escape(c.full_name_bn)}</strong>`];
+  for (const seg of spec) {
+    if (seg === "birthReg") {
+      if (present(input.identity?.birthReg))
+        parts.push(`জন্ম নিবন্ধন নম্বরঃ <strong>${bnDigits(input.identity!.birthReg)}</strong>`);
+    } else if (seg === "spouse") {
+      const spouseName = opts?.spouseName ?? text(c.spouse_name_bn);
+      if (present(spouseName))
+        parts.push(`${wordingSpouseLabel(c.gender)}ঃ <strong>${escape(spouseName)}</strong>`);
+    } else if (seg === "father") {
+      if (present(c.father_name_bn))
+        parts.push(`${opts?.fatherLabel ?? "পিতাঃ"} <strong>${escape(c.father_name_bn)}</strong>`);
+    } else if (seg === "mother") {
+      if (present(c.mother_name_bn))
+        parts.push(`মাতাঃ <strong>${escape(c.mother_name_bn)}</strong>`);
+    }
+  }
+  return parts.join(", ");
+}
+/** "তাহার স্থায়ী ঠিকানাঃ- …। বর্তমান ঠিকানাঃ- …।" — present prints even when identical (D5). */
+function wordingAddressClause(ctx: DocContext): string {
+  return `তাহার স্থায়ী ঠিকানাঃ- ${escape(permanentAddress(ctx))}। বর্তমান ঠিকানাঃ- ${escape(presentAddress(ctx))}।`;
+}
+/**
+ * WS-WORDING bodies for 12/15/22/33/35/37 (BN). Returns the body HTML
+ * WITHOUT the closing blessing — paragraphBody appends it. Service 33
+ * includes its 3-column table (no serial column); the intro is the
+ * paragraph's own closing sentence.
+ */
+function wordingBodyHtml(ctx: DocContext, serviceNo: number): string {
+  const { input } = ctx;
+  const p = input.payload;
+  const head = (identity: string) => `${WORDING_INTRO_BN} ${identity}, ${wordingAddressClause(ctx)}`;
+  switch (serviceNo) {
+    case 12:
+      return `<p class="body-para">${head(wordingIdentityHtml(ctx, ["birthReg", "spouse", "father", "mother"]))} তিনি অত্র এলাকার একজন স্থায়ী বাসিন্দা এবং জন্মসূত্রে বাংলাদেশী নাগরিক।</p>`;
+    case 15:
+      return `<p class="body-para">${head(wordingIdentityHtml(ctx, ["father", "mother"]))} তিনি অত্র ইউনিয়নের স্থায়ী বাসিন্দা এবং বাংলাদেশের নাগরিক। তাহাকে অত্র ইউনিয়ন পরিষদ হইতে নাগরিক সনদ এবং ট্যাক্স রশিদ প্রদান করা হইয়াছে এবং আমার জানা মতে তিনি ইতিপূর্বে কোথাও ভোটার হন নাই। তাই তাহাকে নতুন ভোটার হিসেবে নিবন্ধন করে জাতীয় পরিচয় পত্র দেওয়া যেতে পারে মর্মে সুপারিশ করা হইলো।</p>`;
+    case 22:
+      return `<p class="body-para">${head(wordingIdentityHtml(ctx, ["father", "mother"]))} তিনি অত্র এলাকার একজন স্থায়ী বাসিন্দা। আমার জানা মতে, বর্তমানে তিনি অবিবাহিত।</p>`;
+    case 33: {
+      // The resident clause follows the mother's name with NO comma, BEFORE
+      // the addresses — unlike every other service.
+      const identity = wordingIdentityHtml(ctx, ["spouse", "father", "mother"]);
+      const para =
+        `${WORDING_INTRO_BN} ${identity} অত্র এলাকার একজন স্থায়ী বাসিন্দা। ${wordingAddressClause(ctx)} ` +
+        "আবেদনকারীর প্রদত্ত তথ্য মতে, তাহার জাতীয় পরিচয়পত্রে নিম্নোক্ত তথ্য ভুল লিপিবদ্ধ করা হয় এবং তাহার আবেদনের প্রেক্ষিতে তা সঠিকভাবে লিপিবদ্ধ করার সুপারিশ করা হলঃ";
+      const corrections = Array.isArray(p.corrections)
+        ? (p.corrections as Record<string, unknown>[])
+        : [];
+      const schema = input.schema ?? getServiceSchema(33);
+      const rows = corrections.map((c) => [
+        correctionFieldLabel(c.correction_category_id, schema, true),
+        text(c.incorrect_info),
+        text(c.correct_info),
+      ]);
+      // Reference widths (measured on the reference PNG): ধরণ ≈29%,
+      // ভুল তথ্য ≈33%, সুপারিশকৃত সঠিক তথ্য ≈38%; first column centred.
+      const table = dataTable(["ধরণ", "ভুল তথ্য", "সুপারিশকৃত সঠিক তথ্য"], rows, {
+        widths: [29, 33, 38],
+        aligns: ["center", "left", "left"],
+        headAligns: ["center", "center", "center"],
+      });
+      return `<p class="body-para">${para}</p>${table}`;
+    }
+    case 35:
+      return `<p class="body-para">${head(wordingIdentityHtml(ctx, ["father", "mother"]))} সে অত্র এলাকার একজন স্থায়ী বাসিন্দা এবং জন্মসূত্রে বাংলাদেশের নাগরিক। আমার জানা মতে, তাহার স্বভাব চরিত্র ভাল এবং বর্তমানে সে অবিবাহিত।</p>`;
+    case 37: {
+      const reason = transferReasonPhrase(p, true);
+      return `<p class="body-para">${head(wordingIdentityHtml(ctx, ["spouse", "father", "mother"]))}${reason ? ` ${reason}` : ""} তিনি অত্র এলাকায় স্থায়ীভাবে বসবাস করছেন এবং বাংলাদেশের নাগরিক। তাহার পূর্বের ভোটার এলাকা পরিবর্তন করে অত্র এলাকার ভোটার হিসেবে নিবন্ধন করা যায়।</p>`;
+    }
+    default:
+      return "";
+  }
 }
 
 /**
@@ -1325,7 +1771,9 @@ function deceasedParagraph(ctx: DocContext, serviceNo: number): string {
       if (serviceNo === 31) sentences.push("The person died unmarried.");
       if (present(registerNo)) sentences.push(`Death registration no: ${text(registerNo)}.`);
     }
-  } else {
+  } else if (!(bn && serviceNo === 3)) {
+    // WS-WORDING: BN service 3 prints the reference intro instead of the
+    // death/register sentences (see the intro branch below).
     if (bn) {
       sentences.push(
         `তিনি মৃত্যুবরণ করেছেন${present(dod) ? ` (মৃত্যুর তারিখঃ ${bnDateIso(dod)})` : ""}। তাঁহার ওয়ারিশগণ নিম্নরূপ:`,
@@ -1338,10 +1786,25 @@ function deceasedParagraph(ctx: DocContext, serviceNo: number): string {
       if (present(registerNo)) sentences.push(`Registration no: ${text(registerNo)}.`);
     }
   }
-  const intro = bn
-    ? `এই মর্মে প্রত্যয়ন করা যাচ্ছে যে, ${identity.join(", ")}, ঠিকানাঃ ${address}।`
-    : // CERT-REFINE-02 (R2-15): "of address: Village/House:" → "of Village/House:".
-      `This is to certify that ${identity.join(", ")}, of ${address}.`;
+  // WS-WORDING service 3 (BN): the verbatim reference intro — "মৃত {name},
+  // পিতা/স্বামীঃ {father}, মাতাঃ {mother} অত্র এলাকার একজন স্থায়ী
+  // বাসিন্দা।" + both addresses + the list ending. The মৃত prefix on the
+  // SUBJECT is template-added (deceased by definition, guarded against a
+  // stored prefix); the parents print as stored — no schema field records
+  // their deceased status, so the proof fixture carries the reference's
+  // printed "মৃত …" as data (see the implementation note).
+  const wIntroParts: string[] = [`<strong>${escape(deceasedName(name))}</strong>`];
+  if (bn && present(father))
+    wIntroParts.push(`পিতা/স্বামীঃ <strong>${escape(text(father))}</strong>`);
+  if (bn && present(mother))
+    wIntroParts.push(`মাতাঃ <strong>${escape(text(mother))}</strong>`);
+  const intro =
+    bn && serviceNo === 3
+      ? `${WORDING_INTRO_BN} ${wIntroParts.join(", ")} অত্র এলাকার একজন স্থায়ী বাসিন্দা। ${wordingAddressClause(ctx)} উল্লিখিত ব্যক্তির ওয়ারিশগণের তালিকা নিম্নরূপঃ`
+      : bn
+        ? `এই মর্মে প্রত্যয়ন করা যাচ্ছে যে, ${identity.join(", ")}, ঠিকানাঃ ${address}।`
+        : // CERT-REFINE-02 (R2-15): "of address: Village/House:" → "of Village/House:".
+          `This is to certify that ${identity.join(", ")}, of ${address}.`;
   if (serviceNo === 31) {
     // CERTNO-01 catalog §31: the applicant (the citizen) is identified with
     // their relation to the deceased.
@@ -1364,45 +1827,73 @@ function deceasedParagraph(ctx: DocContext, serviceNo: number): string {
   if (serviceNo === 3 || serviceNo === 4) {
     const heirs = Array.isArray(p.heirs) ? (p.heirs as Record<string, unknown>[]) : [];
     const schema = input.schema ?? getServiceSchema(serviceNo);
-    // CERT-REFINE-01 §§3–4: column order ক্রমিক | নাম | পিতা/স্বামীর নাম | জন্ম
-    // তারিখ | জাতীয় পরিচয়পত্র নম্বর | সম্পর্ক; the NID column always shows
-    // (an empty cell for an heir without one is data, not decoration), the
-    // father's name renders in the certificate's own language, dates print
-    // DD/MM/YYYY, and the mobile column stays conditional on data.
-    const withMobile = heirs.some((h) => present(h.warish_heir_mobile_no));
-    const rows = heirs.map((h, i) => {
-      const row = [
+    if (serviceNo === 3) {
+      // WS-TABLES (Prottoyon parity): the 5-column heir table — ক্রমিক নং |
+      // নাম | জন্ম তারিখ | বয়স | সম্পর্ক. No father-name, NID or mobile
+      // column; dates print DD/MM/YYYY; বয়স is the stored age when the row
+      // carries one, else completed years at the issue date (tableAge).
+      const rows = heirs.map((h, i) => [
         bn ? bnDigits(i + 1) : String(i + 1),
         text(bn ? h.warish_heir_name_bn : h.warish_heir_name),
-        text(bn ? h.warish_heir_father_name_bn : h.warish_heir_father_name),
-        bn ? bnDateSlash(h.warish_heir_dob) : enDateSlash(h.warish_heir_dob),
-        bn ? bnDigits(h.warish_heir_nid) : text(h.warish_heir_nid),
-        selectLabel(schema, "heirs", "warish_heir_relation", h.warish_heir_relation, bn),
-      ];
-      if (withMobile) row.push(bn ? bnDigits(h.warish_heir_mobile_no) : text(h.warish_heir_mobile_no));
-      return row;
-    });
-    const headers = bn
-      ? ["ক্রমিক", "ওয়ারিশের নাম", "পিতা/স্বামীর নাম", "জন্ম তারিখ", "জাতীয় পরিচয়পত্র নম্বর", "সম্পর্ক"]
-      : ["Sl", "Heir's name", "Father/Husband name", "Date of birth", "NID No", "Relation"];
-    if (withMobile) headers.push(bn ? "মোবাইল নম্বর" : "Mobile No");
-    table = dataTable(headers, rows);
-    const totalLine = bn
-      ? `মোট ওয়ারিশ: ${bnDigits(heirs.length)} জন।`
-      : `Total heirs: ${heirs.length}.`;
-    const closingLine = bn
-      ? serviceNo === 4
-        ? "উল্লিখিত ব্যক্তিগণই তাঁহার আইনগত উত্তরাধিকারী; তাঁহাদের ছাড়া আর কোনো ওয়ারিশ আছে বলে জানা যায় না।"
-        : "উল্লিখিত ব্যক্তিগণ ছাড়া তাঁহার আর কোনো ওয়ারিশ আছে বলে জানা যায় না।"
-      : serviceNo === 4
-        ? "The persons listed are the legal successors; no other heir is known."
-        : "No other heir is known besides the persons listed.";
-    const caveat = bn
-      ? "উল্লেখ্য যে, উপরোক্ত তথ্য পরবর্তীতে ভুল প্রমাণিত হলে এই সনদ বাতিল বলে গণ্য হবে এবং এ ব্যাপারে কর্তৃপক্ষ দায়ী থাকবে না।"
-      : "If the above information is later proved incorrect, this certificate shall be deemed cancelled and the authority shall bear no responsibility.";
-    after = `<p class="body-para">${escape(totalLine)}</p><p class="body-para">${escape(closingLine)}</p><p class="body-para">${escape(caveat)}</p>`;
+        bn ? bnDateDash(h.warish_heir_dob) : enDateDash(h.warish_heir_dob),
+        tableAge(h, "warish_heir_dob", ctx.issued, bn),
+        tableRelation(h, schema, "heirs", "warish_heir_relation", bn),
+      ]);
+      table = dataTable(bn ? HEIR_TABLE_HEADERS_BN : HEIR_TABLE_HEADERS_EN, rows, {
+        widths: HEIR_TABLE_WIDTHS,
+        aligns: HEIR_TABLE_ALIGNS,
+        headAligns: HEIR_TABLE_HEAD_ALIGNS,
+      });
+    } else {
+      // Service 4 keeps the CERT-REFINE-01 §§3–4 column set until its own
+      // Prottoyon reference is confirmed — do not fold it into the
+      // service-3 table above.
+      // CERT-REFINE-01 §§3–4: column order ক্রমিক | নাম | পিতা/স্বামীর নাম | জন্ম
+      // তারিখ | জাতীয় পরিচয়পত্র নম্বর | সম্পর্ক; the NID column always shows
+      // (an empty cell for an heir without one is data, not decoration), the
+      // father's name renders in the certificate's own language, dates print
+      // DD/MM/YYYY, and the mobile column stays conditional on data.
+      const withMobile = heirs.some((h) => present(h.warish_heir_mobile_no));
+      const rows = heirs.map((h, i) => {
+        const row = [
+          bn ? bnDigits(i + 1) : String(i + 1),
+          text(bn ? h.warish_heir_name_bn : h.warish_heir_name),
+          text(bn ? h.warish_heir_father_name_bn : h.warish_heir_father_name),
+          bn ? bnDateSlash(h.warish_heir_dob) : enDateSlash(h.warish_heir_dob),
+          bn ? bnDigits(h.warish_heir_nid) : text(h.warish_heir_nid),
+          selectLabel(schema, "heirs", "warish_heir_relation", h.warish_heir_relation, bn),
+        ];
+        if (withMobile) row.push(bn ? bnDigits(h.warish_heir_mobile_no) : text(h.warish_heir_mobile_no));
+        return row;
+      });
+      const headers = bn
+        ? ["ক্রমিক", "ওয়ারিশের নাম", "পিতা/স্বামীর নাম", "জন্ম তারিখ", "জাতীয় পরিচয়পত্র নম্বর", "সম্পর্ক"]
+        : ["Sl", "Heir's name", "Father/Husband name", "Date of birth", "NID No", "Relation"];
+      if (withMobile) headers.push(bn ? "মোবাইল নম্বর" : "Mobile No");
+      table = dataTable(headers, rows);
+    }
+    if (bn && serviceNo === 3) {
+      // WS-WORDING: no total line ("মোট ওয়ারিশ: … জন।" goes); the
+      // reference's own after-table lines, blessing and falsity caveat.
+      after = `<p class="body-para">উল্লিখিত ব্যক্তি/ব্যক্তিগণ ছাড়া আর কোনো ওয়ারিশান নাই। সকল প্রকার দেনাপাওনা/সম্পত্তি/বিষয় নিষ্পত্তি করার ব্যাপারে কেবলমাত্র উল্লিখিত ব্যক্তি/ব্যক্তিগণই ওয়ারিশান হিসেবে বিবেচিত হইবে।</p><p class="closing">আমি সকল ওয়ারিশগণের মঙ্গল কামনা করিতেছি।</p><p class="body-para">বিঃদ্রঃ আবেদনকারী যদি ইচ্ছাকৃতভাবে কোন ওয়ারিশ বাদ দিয়ে থাকেন বা কোন ভুল তথ্য প্রদান করিয়া থাকেন তাহলে তিনি দায়ী থাকিবেন। তাহার জন্য বেলাবো ইউনিয়ন পরিষদ কার্যালয় কোন ভাবেই দায়ী থাকিবেন না এবং উক্ত সনদ বাতিল বলিয়া গণ্য করা হইবে।</p>`;
+    } else {
+      const totalLine = bn
+        ? `মোট ওয়ারিশ: ${bnDigits(heirs.length)} জন।`
+        : `Total heirs: ${heirs.length}.`;
+      const closingLine = bn
+        ? serviceNo === 4
+          ? "উল্লিখিত ব্যক্তিগণই তাঁহার আইনগত উত্তরাধিকারী; তাঁহাদের ছাড়া আর কোনো ওয়ারিশ আছে বলে জানা যায় না।"
+          : "উল্লিখিত ব্যক্তিগণ ছাড়া তাঁহার আর কোনো ওয়ারিশ আছে বলে জানা যায় না।"
+        : serviceNo === 4
+          ? "The persons listed are the legal successors; no other heir is known."
+          : "No other heir is known besides the persons listed.";
+      const caveat = bn
+        ? "উল্লেখ্য যে, উপরোক্ত তথ্য পরবর্তীতে ভুল প্রমাণিত হলে এই সনদ বাতিল বলে গণ্য হবে এবং এ ব্যাপারে কর্তৃপক্ষ দায়ী থাকবে না।"
+        : "If the above information is later proved incorrect, this certificate shall be deemed cancelled and the authority shall bear no responsibility.";
+      after = `<p class="body-para">${escape(totalLine)}</p><p class="body-para">${escape(closingLine)}</p><p class="body-para">${escape(caveat)}</p>`;
+    }
   }
-  return `<p class="body-para">${intro} ${sentences.join(" ")}</p>${table}${after}`;
+  return `<p class="body-para">${intro}${sentences.length ? ` ${sentences.join(" ")}` : ""}</p>${table}${after}`;
 }
 
 /** Spouse sentence for the services whose format carries it (15, 34) — resolved from the citizen record. */
@@ -1440,21 +1931,39 @@ function familyBody(ctx: DocContext): string {
       : genderKnown
         ? `The person has ${sons} son(s) and ${daughters} daughter(s).`
         : `The person has ${children.length} children.`;
+  // WS-TABLES (Prottoyon parity): the 5-column member table — ক্রমিক নং | নাম
+  // | জন্ম তারিখ | বয়স | সম্পর্ক. No ID/birth-reg column; বয়স is the stored
+  // age when the row carries one, else completed years at the issue date.
+  const rows = members.map((m, i) => [
+    bn ? bnDigits(i + 1) : String(i + 1),
+    text(bn ? m.name_bn : m.name_en),
+    bn ? bnDateDash(m.dob) : enDateDash(m.dob),
+    tableAge(m, "dob", ctx.issued, bn),
+    tableRelation(m, schema, "members", "relationship", bn),
+  ]);
+  const headers = bn ? HEIR_TABLE_HEADERS_BN : HEIR_TABLE_HEADERS_EN;
+  const tableHtml = dataTable(headers, rows, {
+    widths: HEIR_TABLE_WIDTHS,
+    aligns: HEIR_TABLE_ALIGNS,
+    headAligns: HEIR_TABLE_HEAD_ALIGNS,
+  });
+  if (bn) {
+    // WS-WORDING: verbatim reference intro — "{name}, পিতা/স্বামীঃ {father},
+    // মাতাঃ {mother} অত্র এলাকার একজন স্থায়ী বাসিন্দা।" + both addresses +
+    // the list ending — then the reference's own after-table lines. No
+    // children-counts line, no same-family line, no total line.
+    const intro = `${WORDING_INTRO_BN} ${wordingIdentityHtml(ctx, ["father", "mother"], { fatherLabel: "পিতা/স্বামীঃ" })} অত্র এলাকার একজন স্থায়ী বাসিন্দা। ${wordingAddressClause(ctx)} উল্লিখিত ব্যক্তির পরিবারের সদস্যগণের তালিকা নিম্নরূপঃ`;
+    return (
+      `<p class="body-para">${intro}</p>${tableHtml}` +
+      `<p class="body-para">উল্লিখিত সদস্য/সদস্যগণ ছাড়া আর কোনো সদস্য নাই। আবেদনকারী যদি ইচ্ছাকৃতভাবে কোন সদস্য বাদ দিয়ে থাকেন তাহলে অনুমোদনকারী কোন ভাবেই দায়ী থাকিবেন না এবং উক্ত সনদ বাতিল বলিয়া গণ্য করা হইবে।</p>` +
+      `<p class="closing">আমি সকল সদস্যগণের মঙ্গল কামনা করিতেছি।</p>`
+    );
+  }
   // CERT-REFINE-01 (A3): service 2 is on the status-sentence list.
   const status = bn ? STATUS_SENTENCE_BN : STATUS_SENTENCE_EN;
   const intro = bn
     ? `এই মর্মে প্রত্যয়ন করা যাচ্ছে যে, ${identitySegments(ctx)}, তাঁহার <strong>স্থায়ী ঠিকানাঃ</strong> ${escape(permanentAddress(ctx))}। ${escape(status)}`
     : `This is to certify that ${identitySegments(ctx)}, <strong>permanent address:</strong> ${escape(permanentAddress(ctx))}. ${escape(status)}`;
-  const rows = members.map((m, i) => [
-    bn ? bnDigits(i + 1) : String(i + 1),
-    text(bn ? m.name_bn : m.name_en),
-    bn ? bnDigits(m.warish_heir_nid) : text(m.warish_heir_nid),
-    bn ? bnDateSlash(m.dob) : enDateSlash(m.dob),
-    selectLabel(schema, "members", "relationship", m.relationship, bn),
-  ]);
-  const headers = bn
-    ? ["ক্রমিক", "নাম", "আইডি/জন্মনিবন্ধন নং", "জন্ম তারিখ", "সম্পর্ক"]
-    : ["Sl", "Name", "ID/Birth Reg No", "Date of birth", "Relationship"];
   const closing = bn
     ? "আমি উক্ত পরিবারের সর্বাঙ্গীণ মঙ্গল কামনা করছি।"
     : "I wish the family every prosperity.";
@@ -1462,7 +1971,7 @@ function familyBody(ctx: DocContext): string {
   const familyLine = bn
     ? "এই সনদে উল্লিখিত ব্যক্তিগণ একই পরিবারের সদস্য বলে প্রত্যয়ন করা যাচ্ছে।"
     : "The persons listed in this certificate are members of the same family.";
-  return `<p class="body-para">${counts ? `${intro} ${escape(counts)}` : intro}</p>${dataTable(headers, rows)}<p class="body-para">${escape(familyLine)}</p><p class="closing">${escape(closing)}</p>`;
+  return `<p class="body-para">${counts ? `${intro} ${escape(counts)}` : intro}</p>${tableHtml}<p class="body-para">${escape(familyLine)}</p><p class="closing">${escape(closing)}</p>`;
 }
 
 /** CERT-REFINE-01 §19: consent certificate — guardian block, child block, consent clause, guardian signature block. */
@@ -1470,6 +1979,20 @@ function consentBody(ctx: DocContext): string {
   const { input, bn } = ctx;
   const p = input.payload;
   const schema = input.schema ?? getServiceSchema(19);
+  if (bn) {
+    // WS-WORDING (D9): the Prottoyon model — the applicant IS the child
+    // (the citizen record), and the guardian consents. Single paragraph;
+    // no child-detail grid, no first-person clause. The guardian signature
+    // block renders bottom-left in the shell (renderCertificateHtmlV7),
+    // not here. {guardian_purpose} maps from the schema's consent subject
+    // (no police-joining option exists — GAP-19-PURPOSE); the guardian
+    // name has no schema field either (GAP-19-GUARDIAN-NAME).
+    const guardianName = consentGuardianName(p, true);
+    const purpose = consentGuardianPurpose(p, schema, true);
+    const clause =
+      `তাহার অভিভাবক${guardianName ? ` ${escape(guardianName)}` : ""} স্বজ্ঞানে/স্বেচ্ছায় তাহাকে${purpose ? ` ${escape(purpose)}` : ""} অনুমতি/সম্মতি প্রদান করিল। এ বিষয়ে তাহার অভিভাবক ও তার পরিবারের কারও কোনো আপত্তি নেই।`;
+    return `<p class="body-para">${WORDING_INTRO_BN} ${wordingIdentityHtml(ctx, ["father", "mother"])}, ${wordingAddressClause(ctx)} তিনি অত্র এলাকার একজন স্থায়ী বাসিন্দা। ${clause}</p><p class="closing">${escape(WORDING_BLESSING_BN)}</p>`;
+  }
   const guardian = bn
     ? `অভিভাবকঃ ${identitySegments(ctx)}, তাঁহার <strong>স্থায়ী ঠিকানাঃ</strong> ${escape(permanentAddress(ctx))}।`
     : `Guardian: ${identitySegments(ctx)}, <strong>permanent address:</strong> ${escape(permanentAddress(ctx))}.`;
@@ -1514,6 +2037,35 @@ function marriageBody(ctx: DocContext, serviceNo: number): string {
   const { input, bn } = ctx;
   const p = input.payload;
   const c = input.citizen;
+  if (bn && serviceNo === 25) {
+    // WS-WORDING (D10): single-paragraph married attestation — no
+    // groom/bride blocks. Spouse NID/DOB/marriage date inline, dates
+    // DD-MM-YYYY in Bengali digits with hyphens. The pronoun switch
+    // (তিনি … সে বিবাহিত। তিনি …) is verbatim. The closing sentence
+    // prints only when a marriage date is recorded; without one the
+    // attestation ends at "সে বিবাহিত।" rather than printing empty slots.
+    const spouseName = text(c.spouse_name_bn) || text(p.marriage_info_spouse_name_bn);
+    const spouseNid = text(p.marriage_info_spouse_nid);
+    const spouseDob = present(p.marriage_info_spouse_dob)
+      ? bnDateDash(p.marriage_info_spouse_dob)
+      : "";
+    const marriageDate = present(p.marriage_info_date)
+      ? bnDateDash(p.marriage_info_date)
+      : "";
+    const identity = wordingIdentityHtml(ctx, ["spouse", "father", "mother"], {
+      spouseName,
+    });
+    let body =
+      `${WORDING_INTRO_BN} ${identity}, ${wordingAddressClause(ctx)} ` +
+      "তিনি অত্র এলাকার একজন স্থায়ী বাসিন্দা। আমার জানা মতে, বর্তমানে সে বিবাহিত।";
+    if (marriageDate) {
+      body +=
+        ` তিনি ${escape(spouseName)}` +
+        `${spouseNid ? `, জাতীয় পরিচয়পত্র নম্বরঃ ${bnDigits(spouseNid)}` : ""}` +
+        `${spouseDob ? `, জন্ম তারিখঃ ${spouseDob}` : ""} এর সাথে, ${marriageDate} তারিখে বিবাহ বন্ধনে আবদ্ধ হন।`;
+    }
+    return `<p class="body-para">${body}</p><p class="closing">${escape(WORDING_BLESSING_BN)}</p>`;
+  }
   // CERT-REFINE-02 (R2-17): each party box gets a #F2F2F2 heading band;
   // inside, a fixed 118 pt label column with bold 11.5 pt values; the
   // closing lines form one standalone paragraph with the date bold.
@@ -1604,6 +2156,16 @@ function samePersonBody(ctx: DocContext): string {
 function paragraphBody(ctx: DocContext, serviceNo: number): string {
   const { input, bn } = ctx;
   const p = input.payload;
+  // WS-WORDING: the standard blessing (corrected তাহার spelling, no
+  // chandrabindu) prints on [12, 15, 19, 21, 22, 25, 27, 33, 35, 37, 45]
+  // — 19/25/33/35/37 were missing it. Computed up front: the BN wording
+  // branch below and the 33/37 branches both append it.
+  const closing = WORDING_BLESSING_SERVICES.has(serviceNo)
+    ? bn
+      ? WORDING_BLESSING_BN
+      : WORDING_BLESSING_EN
+    : "";
+  const closingHtml = closing ? `<p class="closing">${escape(closing)}</p>` : "";
   if (serviceNo === 3 || serviceNo === 4 || serviceNo === 7 || serviceNo === 31)
     return deceasedParagraph(ctx, serviceNo);
   if (serviceNo === 2) return familyBody(ctx);
@@ -1629,13 +2191,17 @@ function paragraphBody(ctx: DocContext, serviceNo: number): string {
     // (R2-18): the addressee lines take the letter-addr style (12 pt,
     // 4 pt spacing); the subject line stays bold.
     const purpose = passportPurposeLabel(p.passport_purpose, bn);
-    const closing = bn
-      ? "আমি তাঁহার উজ্জ্বল ভবিষ্যৎ ও সর্বাঙ্গীণ মঙ্গল কামনা করছি।"
-      : "I wish the certificate holder every success and prosperity.";
+    const closing27 = bn ? WORDING_BLESSING_BN : WORDING_BLESSING_EN;
     const letter = bn
       ? `<p class="letter-addr">বরাবর,<br>সহকারী পরিচালক,<br>আঞ্চলিক পাসপোর্ট অফিস।</p><p class="body-para"><strong>বিষয়ঃ পাসপোর্ট প্রদানের সুপারিশ।</strong></p><p class="body-para">এই মর্মে সুপারিশ করা যাচ্ছে যে, ${identitySegments(ctx)}, তাঁহার <strong>স্থায়ী ঠিকানাঃ</strong> ${escape(permanentAddress(ctx))}। <strong>বর্তমান ঠিকানাঃ</strong> ${escape(presentAddress(ctx))}। তিনি পাসপোর্টের জন্য আবেদন করেছেন${purpose ? ` (উদ্দেশ্যঃ ${escape(purpose)})` : ""}। তাঁহার বিরুদ্ধে কোনো ফৌজদারি অভিযোগ জানা নাই। তাঁহাকে পাসপোর্ট প্রদানে এই কার্যালয়ের কোনো আপত্তি নাই।</p>`
       : `<p class="letter-addr">To,<br>The Assistant Director,<br>Regional Passport Office.</p><p class="body-para"><strong>Subject: Recommendation for passport issuance.</strong></p><p class="body-para">This is to recommend that ${identitySegments(ctx)}, <strong>permanent address:</strong> ${escape(permanentAddress(ctx))}. <strong>Present address:</strong> ${escape(presentAddress(ctx))}. The person has applied for a passport${purpose ? ` (purpose: ${escape(purpose)})` : ""}. No criminal complaint is known against the person. This office has no objection to a passport being issued to the person.</p>`;
-    return `${letter}<p class="closing">${escape(closing)}</p>`;
+    return `${letter}<p class="closing">${escape(closing27)}</p>`;
+  }
+  if (bn && [12, 15, 22, 33, 35, 37].includes(serviceNo)) {
+    // WS-WORDING: verbatim Prottoyon bodies. Services 19/25 branch inside
+    // consentBody/marriageBody and 2/3 inside familyBody/deceasedParagraph;
+    // English keeps the generic chassis below.
+    return `${wordingBodyHtml(ctx, serviceNo)}${closingHtml}`;
   }
   const attestation = run(
     bn ? ATTESTATIONS_BN[serviceNo] : ATTESTATIONS_EN[serviceNo],
@@ -1669,18 +2235,16 @@ function paragraphBody(ctx: DocContext, serviceNo: number): string {
       ? `<p class="body-para">${bn ? "মুক্তিযুদ্ধে অংশগ্রহণের বিবরণ:" : "Details of participation in the Liberation War:"} ${escape(text(bn ? p.freedom_fighter_service_narrative_bn : p.freedom_fighter_service_narrative_en))}</p>`
       : "";
   if (serviceNo === 33) {
+    // English path only — Bangla returns early through wordingBodyHtml
+    // above (3-column table, no serial column, reference headers).
     const corrections = Array.isArray(p.corrections)
       ? (p.corrections as Record<string, unknown>[])
       : [];
     const schema = input.schema ?? getServiceSchema(33);
-    // CERT-REFINE-01 §33: the field column prints the correction field's
-    // label (schema label first, the fixed label map as fallback).
+    // WS-WORDING: the fixed label map is authoritative (correctionFieldLabel),
+    // so English-name rows never print raw ids (name_en, father_name_en).
     const rows = corrections.map((c, i) => {
-      const fromSchema = selectLabel(schema, "corrections", "correction_category_id", c.correction_category_id, bn);
-      const fieldLabel =
-        fromSchema !== text(c.correction_category_id)
-          ? fromSchema
-          : (CORRECTION_FIELD_LABELS[text(c.correction_category_id)]?.[bn ? "bn" : "en"] ?? fromSchema);
+      const fieldLabel = correctionFieldLabel(c.correction_category_id, schema, bn);
       return [
         bn ? bnDigits(i + 1) : String(i + 1),
         fieldLabel,
@@ -1697,14 +2261,6 @@ function paragraphBody(ctx: DocContext, serviceNo: number): string {
     )}`;
     return `<p class="body-para">${para}</p>${table}`;
   }
-  // CERT-REFINE-02 (R2-12): the well-wish prints ONLY on the retained
-  // services (12, 15, 21, 22, 27, 45) — mirror of the react-pdf chassis.
-  const closing = [12, 15, 21, 22, 27, 45].includes(serviceNo)
-    ? bn
-      ? "আমি তাঁহার উজ্জ্বল ভবিষ্যৎ ও সর্বাঙ্গীণ মঙ্গল কামনা করছি।"
-      : "I wish the certificate holder every success and prosperity."
-    : "";
-  const closingHtml = closing ? `<p class="closing">${escape(closing)}</p>` : "";
   if (serviceNo === 37) {
     // CERT-REFINE-01 §37: the previous voter area, the residing-since date
     // and the NID print as a fields line under the recommendation clause.
@@ -1722,12 +2278,24 @@ function paragraphBody(ctx: DocContext, serviceNo: number): string {
  * always-empty serial row is gone; section headings are unnumbered; the fee
  * rows print the itemised components captured on the application (absent
  * components are omitted; the total is the component sum, falling back to
- * the order total); the validity and grant lines print; the QR moves to the
- * bottom-left footer (assembly) so it can never overlap the office name. */
-function tradeLicenceBody(ctx: DocContext, emblem: string, logo = ""): string {
+ * the order total); the validity line prints (no grant sentence — the
+ * reference has none).
+ * Prottoyon reference (942679765637, Md's order 25 Nov 2026): the header is
+ * a three-column row — QR top-left with the issue block under it, centred
+ * emblem + office name + title, photo top-right; the licence number is a
+ * full-width centred line below the header; the statute line is plain
+ * left-aligned text (no bordered bar); fields 1–14 plus the validity
+ * sentence sit inside one bordered box. The QR therefore renders here, in
+ * the header — NOT in the footer. */
+function tradeLicenceBody(ctx: DocContext, emblem: string, qrDataUrl: string, emblemUrl: string | null = null): string {
   const { input, bn, issued } = ctx;
   const p = input.payload;
   const fy = fiscalYear(issued);
+  // TRADE-42 (Prottoyon match, 25 Nov 2026): the reference prints ordinal
+  // dates — ১লা, ১০ই, ২৪শে, ৩০শে — where CERT-REFINE-01 A5 prints plain
+  // dates everywhere else. Ordinals come from the shared helpers
+  // (bnOrd/enOrd/ordDate/ordDateIso — corrected boundary 5–19→ই, 20–31→শে
+  // per the ১৯ই reference); the local closures were removed at merge.
   const orgGeo = input.geographyNames?.["org_location"];
   const businessAddress = [
     text(bn ? p.business_address_bn : p.business_address_en),
@@ -1738,6 +2306,14 @@ function tradeLicenceBody(ctx: DocContext, emblem: string, logo = ""): string {
   const wardNo =
     p.trade_license_org_ward_no ?? p.trade_license_org_zone_ward ?? input.citizenGeography?.permanent?.wardNo;
   const identityNo = input.identity?.nid ?? input.identity?.birthReg ?? "";
+  // TRADE-42 (Prottoyon match): the owner address blocks print all ten
+  // rows — holding, road, village, post office, postcode, thana, upazila,
+  // district, division, country — with blank values where the system holds
+  // no data. DATA GAPS (no dataset): holding no., road no., post office,
+  // postcode, thana — the citizen record carries no post-office/thana
+  // fields and the office postcode is not in PdfInput. Unlike the
+  // CERT-REFINE-01 rule, blank rows are NOT omitted here: the reference
+  // prints them blank.
   const citizenParts = (which: "permanent" | "present") => {
     const parts =
       which === "present" && input.citizen.present_same_as_permanent !== false
@@ -1750,31 +2326,41 @@ function tradeLicenceBody(ctx: DocContext, emblem: string, logo = ""): string {
         : (bn ? input.citizen.address_bn : input.citizen.address_en);
     const rows: [string, string][] = bn
       ? [
+          ["হোল্ডিং নম্বর", ""],
+          ["রোড নং", ""],
           ["গ্রাম/মহল্লা", text(free)],
+          ["ডাকঘর", ""],
+          ["পোস্ট কোড", ""],
+          ["থানা", ""],
           ["উপজেলা", parts?.upazila?.bn ?? ""],
           ["জেলা", parts?.district?.bn ?? ""],
           ["বিভাগ", parts?.division?.bn ?? ""],
           ["দেশ", "বাংলাদেশ"],
         ]
       : [
+          ["Holding No.", ""],
+          ["Road No.", ""],
           ["Village/Area", text(free)],
+          ["Post Office", ""],
+          ["Post Code", ""],
+          ["Police Station", ""],
           ["Upazila", parts?.upazila?.en ?? ""],
           ["District", parts?.district?.en ?? ""],
           ["Division", parts?.division?.en ?? ""],
           ["Country", "Bangladesh"],
         ];
-    // CERT-REFINE-01: rows with no value are omitted — no blank labelled rows.
     return rows
-      .filter(([, value]) => present(value))
       .map(([label, value]) => `<div class="addr-row"><span>${escape(label)}</span><span>: ${escape(value)}</span></div>`)
       .join("");
   };
+  // TRADE-42 (Prottoyon match): numbered rows use the danda separator
+  // ("১।") as on the reference, not a period. `pair` is one labelled
+  // sub-item inside a shared-value cell (rows 9–11).
+  const numSep = bn ? "।" : ".";
   const field = (no: string, label: string, value: unknown, digits = false) =>
-    `<tr><td class="fl">${escape(no)}. ${escape(label)}</td><td class="fv">: ${escape(digits ? bnDigits(value) : value)}</td></tr>`;
-  const sub = (label: string, value: unknown, digits = false) =>
-    `<tr><td class="fl sub">${escape(label)}</td><td class="fv">: ${escape(digits ? bnDigits(value) : value)}</td></tr>`;
-  const groupHead = (label: string) =>
-    `<tr><td colspan="2" class="group-head">${escape(label)}</td></tr>`;
+    `<tr><td class="fl">${escape(no)}${numSep} ${escape(label)}</td><td class="fv">: ${escape(digits ? bnDigits(value) : value)}</td></tr>`;
+  const pair = (label: string, value: unknown, digits = false) =>
+    `<div><span>${escape(label)}</span><span>: ${escape(digits ? bnDigits(value) : value)}</span></div>`;
   const labels = bn
     ? {
         issueTitle: "লাইসেন্স ইস্যুর বিবরণ",
@@ -1791,12 +2377,14 @@ function tradeLicenceBody(ctx: DocContext, emblem: string, logo = ""): string {
         idA: "(ক) জন্ম নিবন্ধন/এনআইডি/পাসপোর্ট নং", idB: "(খ) টিআইএন", idC: "(গ) বিআইএন",
         idD: "(ঘ) টেলিফোন/মোবাইল নম্বর", idE: "(ঙ) ই-মেইল",
         fyA: "(ক) অর্থ বছর", fyB: "(খ) ব্যবসা শুরুর তারিখ",
-        presentHead: "বর্তমান ঠিকানা", permanentHead: "স্থায়ী ঠিকানা",
-        groups: ["ব্যবসা সংক্রান্ত তথ্য", "জাতীয়তা ও যোগাযোগ", "অর্থ বছর ও ব্যবসা শুরুর তারিখ", "মালিকের ঠিকানা"],
+        // TRADE-42 (Prottoyon match): the address column heads name the
+        // owner, as on the reference; row 13 is the tax-schedule serial.
+        presentHead: "মালিক/স্বত্বাধিকারীর বর্তমান ঠিকানা", permanentHead: "মালিক/স্বত্বাধিকারীর স্থায়ী ঠিকানা",
+        serial: "আদর্শ কর তফসিল, ২০১৩ এর ক্রমিক নং",
         feeHead: "ট্রেড লাইসেন্স ফি (নতুন/নবায়ন)",
         fees: ["নতুন", "নবায়ন", "বকেয়া", "সারচার্জ", "সংশোধন ফি", "সাইনবোর্ড (পরিচিতিমূলক)", "পেশা ব্যবসা ও বৃত্তির উপর কর", "ভ্যাট"],
         total: "সর্বমোট",
-        nums: ["১", "২", "৩", "৪", "৫", "৬", "৭", "৮", "৯", "১০", "১১"],
+        nums: ["১", "২", "৩", "৪", "৫", "৬", "৭", "৮", "৯", "১০", "১১", "১২", "১৩", "১৪"],
       }
     : {
         issueTitle: "License Issue Details",
@@ -1813,60 +2401,73 @@ function tradeLicenceBody(ctx: DocContext, emblem: string, logo = ""): string {
         idA: "(a) Birth Registration/NID/Passport", idB: "(b) TIN", idC: "(c) BIN",
         idD: "(d) Telephone/Mobile Number", idE: "(e) E-mail",
         fyA: "(a) Fiscal Year", fyB: "(b) Business Starting Date",
-        presentHead: "Present Address", permanentHead: "Permanent Address",
-        groups: ["Business Information", "Nationality and Contact", "Fiscal Year and Business Start Date", "Owner's Address"],
+        presentHead: "Present Address of Owner/Proprietor", permanentHead: "Permanent Address of Owner/Proprietor",
+        serial: "Serial No. of Model Tax Schedule, 2013",
         feeHead: "Trade License Fee (New/Renewal)",
         fees: ["New", "Renewal", "Arrear", "Surcharge", "Amendment Fee", "Signboard Fee", "Taxes on Profession & Trades", "VAT"],
         total: "Total",
-        nums: ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11"],
+        nums: ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14"],
       };
   const n = labels.nums;
   const businessType = selectLabel(input.schema ?? getServiceSchema(42), "business_type", undefined, p.business_type, bn);
-  // CERT-REFINE-01: fee components from the application payload; the total
-  // is their sum, falling back to the order total when none were captured.
+  // TRADE-42 (Prottoyon match): all eight fee rows print, with 0.00 for
+  // lines with no captured amount — the reference prints every row
+  // including the zero ones. Component amounts print in Latin digits
+  // (200.00) while the total prints in Bangla digits (৫৩০.০০) in Bangla
+  // mode — exactly as Prottoyon prints them. The total is the component
+  // sum when any component was captured, else the order total, else 0.00.
+  // Fee components are system-captured (QAFIX-08: fees are system-set
+  // only); the issuance gate blocks service 42 without components or an
+  // order, so a real issue always has a real total.
   const feeKeys = [
     "trade_fee_new", "trade_fee_renewal", "trade_fee_arrear", "trade_fee_surcharge",
     "trade_fee_amendment", "trade_fee_signboard", "trade_fee_profession_tax", "trade_fee_vat",
   ];
-  const feeRows = feeKeys
-    .map((key, i) => ({ label: labels.fees[i]!, value: present(p[key]) ? Number(p[key]) : null }))
-    .filter((r) => r.value !== null && r.value > 0);
-  const componentSum = feeRows.reduce((acc, r) => acc + (r.value ?? 0), 0);
-  const totalTaka = feeRows.length
-    ? componentSum
+  const feeValues = feeKeys.map((key) => (present(p[key]) ? Number(p[key]) : 0));
+  const hasFeeComponents = feeKeys.some((key) => present(p[key]));
+  const totalTaka = hasFeeComponents
+    ? feeValues.reduce((acc, v) => acc + v, 0)
     : input.order
       ? Number(input.order.totalMinor) / 100
-      : null;
-  const feeFmt = (v: number) => {
-    const s = v.toLocaleString("en-IN", { minimumFractionDigits: 2 });
-    return bn ? bnDigits(s) : s;
-  };
-  const feeTable = `<table class="fees">${feeRows
-    .map((r) => `<tr><td>${escape(r.label)}</td><td class="fee-val">${escape(feeFmt(r.value ?? 0))}</td></tr>`)
-    .join("")}${totalTaka !== null ? `<tr class="total"><td>${escape(labels.total)}</td><td class="fee-val">${escape(feeFmt(totalTaka))}</td></tr>` : ""}</table>`;
-  // CERT-REFINE-01 §42: validity + grant, the spec's verbatim wording.
+      : 0;
+  const compFmt = (v: number) => v.toLocaleString("en-IN", { minimumFractionDigits: 2 });
+  const totalFmt = (v: number) => (bn ? bnDigits(compFmt(v)) : compFmt(v));
+  const feeRowHtml = (label: string, value: number) =>
+    `<div class="fee-row"><span>${escape(label)}</span><span>${escape(compFmt(value))}</span></div>`;
+  const feeTable = `<div class="tl-fees"><div class="tl-fees-col">${labels.fees
+    .slice(0, 5)
+    .map((label, i) => feeRowHtml(label, feeValues[i]!))
+    .join("")}</div><div class="tl-fees-col">${labels.fees
+    .slice(5)
+    .map((label, i) => feeRowHtml(label, feeValues[5 + i]!))
+    .join("")}</div></div><div class="fee-row total"><span>${escape(labels.total)}</span><span>${escape(totalFmt(totalTaka))}</span></div>`;
+  // TRADE-42 (Prottoyon match): the validity line is the reference's
+  // verbatim wording — ordinal dates, "ইং" after the years, no "মেয়াদ:"
+  // prefix, no trailing danda. The grant sentence does NOT exist on the
+  // reference and is removed.
   const validity = bn
-    ? `মেয়াদ: ১ জুলাই ${bnDigits(fy.start)} থেকে ৩০ জুন ${bnDigits(fy.end)} পর্যন্ত।`
-    : `Validity: 1 July ${fy.start} to 30 June ${fy.end}.`;
-  const grant = bn
-    ? "উল্লিখিত ব্যবসা প্রতিষ্ঠানকে ব্যবসা পরিচালনার জন্য এই লাইসেন্স প্রদান করা হলো।"
-    : "The licence is hereby granted to the above business to carry on its trade.";
+    ? `অত্র ট্রেড লাইসেন্স এর মেয়াদ ${bnOrd(1)} ${BN_MONTHS[6]} ${bnDigits(fy.start)}ইং হইতে ${bnOrd(30)} ${BN_MONTHS[5]} ${bnDigits(fy.end)}ইং তারিখ পর্যন্ত`
+    : `This Trade Licence is valid from ${enOrd(1)} ${EN_MONTHS[6]} ${fy.start} to ${enOrd(30)} ${EN_MONTHS[5]} ${fy.end}.`;
   return `
   <div class="tl-top">
+    <div class="tl-left">
+      ${qrDataUrl ? qrWithEmblem(qrDataUrl, emblemUrl, "qr-tl") : `<div class="tl-spacer"></div>`}
+      <div class="tl-issue"><strong>${escape(labels.issueTitle)}</strong><br>${escape(labels.issueDate)}: ${escape(ordDate(issued, bn))}<br>${escape(labels.issueTime)}: ${escape(bn ? bnDigits(issueTime(issued)) : issueTime(issued))}</div>
+    </div>
     <div class="tl-head">
-      <div class="govt-line sm">${escape(bn ? GOVT_LINE_BN : GOVT_LINE_EN)}</div>
-      ${logo ? `<div class="head-name">${logo}<h1>${escape(ctx.officeName)}</h1></div>` : `<h1>${escape(ctx.officeName)}</h1>`}
+      <h1>${escape(ctx.officeName)}</h1>
       <div class="office-address">${escape(ctx.officeAddressLine)}</div>
       ${emblem}
       <h2 class="doc-title">${escape(bn ? input.service.name_bn : input.service.name_en)}</h2>
-      <div class="tl-no">${escape(labels.noLabel)}: ${numberStripHtml(input.number, bn)}</div>
     </div>
-    ${input.citizenPhoto ? `<img class="citizen-photo tl-photo" alt="" src="${input.citizenPhoto}">` : `<div class="tl-spacer"></div>`}
+    <div class="tl-right">
+      ${input.citizenPhoto ? `<img class="citizen-photo tl-photo" alt="" src="${input.citizenPhoto}">` : ""}
+    </div>
   </div>
-  <div class="tl-issue"><strong>${escape(labels.issueTitle)}</strong><br>${escape(labels.issueDate)}: ${escape(bn ? bnDate(issued) : enDate(issued))}<br>${escape(labels.issueTime)}: ${escape(bn ? bnDigits(issueTime(issued)) : issueTime(issued))}</div>
+  <div class="tl-no">${escape(labels.noLabel)}: ${plainNumberHtml(input.number, bn)}</div>
+  <div class="tl-form-box">
   <div class="statute">${escape(labels.statute)}</div>
   <table class="fields">
-    ${groupHead(labels.groups[0]!)}
     ${field(n[0]!, labels.fields[0]!, bn ? p.business_name_bn : p.business_name_en)}
     ${field(n[1]!, labels.fields[1]!, bn ? p.proprietor_name_bn : p.proprietor_name_en)}
     ${field(n[2]!, labels.fields[2]!, bn ? p.proprietor_mother_name_bn : p.proprietor_mother_name)}
@@ -1875,20 +2476,18 @@ function tradeLicenceBody(ctx: DocContext, emblem: string, logo = ""): string {
     ${field(n[5]!, labels.fields[5]!, orgTypeLabel(p, bn))}
     ${field(n[6]!, labels.fields[6]!, businessType)}
     ${field(n[7]!, labels.fields[7]!, businessAddress)}
-    <tr><td class="fl">${n[8]}.</td><td class="fv subpair"><div><span>${escape(labels.zone)}</span><span>: ${escape(bn ? bnDigits(text(p.trade_license_org_zone_bn) || text(p.trade_license_org_zone)) : text(p.trade_license_org_zone))}</span></div><div><span>${escape(labels.ward)}</span><span>: ${escape(bn ? bnDigits(wardNo) : wardNo)}</span></div></td></tr>
-    ${groupHead(labels.groups[1]!)}
-    <tr><td class="fl">${n[9]}.</td><td class="fv subpair"><div><span>${escape(labels.idA)}</span><span>: ${escape(bn ? bnDigits(identityNo) : identityNo)}</span></div><div><span>${escape(labels.idB)}</span><span>: ${escape(bn ? bnDigits(text(p.trade_license_tin_no)) : text(p.trade_license_tin_no))}</span></div></td></tr>
-    <tr><td class="fl"></td><td class="fv subpair"><div><span>${escape(labels.idC)}</span><span>: ${escape(bn ? bnDigits(text(p.trade_license_bin_no)) : text(p.trade_license_bin_no))}</span></div><div><span>${escape(labels.idD)}</span><span>: ${escape(bn ? bnDigits(text(p.mobile)) : text(p.mobile))}</span></div></td></tr>
-    ${sub(labels.idE, p.trade_license_email)}
-    ${groupHead(labels.groups[2]!)}
-    <tr><td class="fl">${n[10]}.</td><td class="fv subpair"><div><span>${escape(labels.fyA)}</span><span>: ${escape(bn ? bnDigits(`${fy.start} - ${fy.end}`) : `${fy.start} - ${fy.end}`)}</span></div><div><span>${escape(labels.fyB)}</span><span>: ${escape(bn ? bnDateIso(p.start_date) : enDateIso(p.start_date))}</span></div></td></tr>
-    ${groupHead(labels.groups[3]!)}
-    <tr><td colspan="2"><div class="addr-block"><div class="addr-head">${escape(labels.presentHead)}</div>${citizenParts("present")}</div><div class="addr-block"><div class="addr-head">${escape(labels.permanentHead)}</div>${citizenParts("permanent")}</div></td></tr>
-    <tr><td colspan="2" class="group-head">${escape(labels.feeHead)}</td></tr>
+    <tr><td class="fl">${n[8]}${numSep}</td><td class="fv subpair">${pair(labels.zone, bn ? bnDigits(text(p.trade_license_org_zone_bn) || text(p.trade_license_org_zone)) : text(p.trade_license_org_zone))}${pair(labels.ward, bn ? bnDigits(wardNo) : wardNo)}</td></tr>
+    <tr><td class="fl">${n[9]}${numSep}</td><td class="fv">${pair(labels.idA, bn ? bnDigits(identityNo) : identityNo)}</td></tr>
+    <tr><td class="fl"></td><td class="fv subpair">${pair(labels.idB, bn ? bnDigits(text(p.trade_license_tin_no)) : text(p.trade_license_tin_no))}${pair(labels.idC, bn ? bnDigits(text(p.trade_license_bin_no)) : text(p.trade_license_bin_no))}</td></tr>
+    <tr><td class="fl"></td><td class="fv subpair">${pair(labels.idD, bn ? bnDigits(text(p.mobile)) : text(p.mobile))}${pair(labels.idE, p.trade_license_email)}</td></tr>
+    <tr><td class="fl">${n[10]}${numSep}</td><td class="fv subpair">${pair(labels.fyA, bn ? bnDigits(`${fy.start}–${fy.end}`) : `${fy.start}–${fy.end}`)}${pair(labels.fyB, ordDateIso(p.start_date, bn))}</td></tr>
+    <tr><td colspan="2"><div class="addr-cols"><div class="addr-block"><div class="addr-head">${n[11]}${numSep} ${escape(labels.presentHead)}</div>${citizenParts("present")}</div><div class="addr-block"><div class="addr-head">${escape(labels.permanentHead)}</div>${citizenParts("permanent")}</div></div></td></tr>
+    ${field(n[12]!, labels.serial, "")}
+    <tr><td class="fl">${n[13]}${numSep}</td><td class="fv">${escape(labels.feeHead)}</td></tr>
     <tr><td colspan="2">${feeTable}</td></tr>
   </table>
   <p class="validity">${escape(validity)}</p>
-  <p class="grant">${escape(grant)}</p>`;
+  </div>`;
 }
 
 /* ---------- generic numbered-form layout for the unsampled FORM services (1, 41, 46) ---------- */
@@ -1936,21 +2535,17 @@ function genericFormBody(ctx: DocContext): string {
   return `<div class="generic-form">${sections}${total}</div>`;
 }
 
-/* ---------- CERTNO-01 shared pieces: digit strip, photo, form meta line ---------- */
+/* ---------- CERTNO-01 superseded (Md's order, 25 Nov 2026): plain number ---------- */
 
 /**
- * The certificate number printed one digit per box. Applies when the number
- * (after an optional DEMO- marker) is exactly 16 digits; any other stored
- * number (legacy issues) prints as plain text exactly as before.
+ * The certificate number printed PLAIN, exactly as stored (Bengali digits
+ * on the Bangla version, English digits on the English version). Md's order
+ * of 25 Nov 2026 supersedes CERTNO-01's one-digit-per-box strip: every
+ * certificate prints the plain number. (A DEMO- marker, when present on a
+ * demo-mode number, prints as plain text too.)
  */
-export function numberStripHtml(number: string, bn: boolean): string {
-  const match = /^(DEMO-)?(\d{16})$/.exec(number);
-  if (!match) return escape(bn ? bnDigits(number) : latinDigits(number));
-  const digits = match[2]!
-    .split("")
-    .map((d) => `<i>${escape(bn ? bnDigits(d) : d)}</i>`)
-    .join("");
-  return `${match[1] ? `<span class="numstrip-prefix">DEMO-</span>` : ""}<span class="numstrip">${digits}</span>`;
+export function plainNumberHtml(number: string, bn: boolean): string {
+  return escape(bn ? bnDigits(number) : latinDigits(number));
 }
 
 /** The citizen photo, top-right — or nothing at all when the citizen has none. */
@@ -1963,7 +2558,7 @@ export function citizenPhotoHtml(input: PdfInput, extraClass = ""): string {
 /** Number + issue-date line for the FORM layouts (the paragraph chassis has its own). */
 function formMetaLine(ctx: DocContext): string {
   const { bn, issued } = ctx;
-  return `<div class="numline"><span class="numline-no">${bn ? "রসিদ নং:" : "Receipt No:"} ${numberStripHtml(ctx.input.number, bn)}</span><span>${bn ? "তারিখ:" : "Date:"} ${escape(bn ? bnDate(issued) : enDate(issued))}</span></div>`;
+  return `<div class="numline"><span class="numline-no">${bn ? "রসিদ নং:" : "Receipt No:"} ${plainNumberHtml(ctx.input.number, bn)}</span><span>${bn ? "তারিখ:" : "Date:"} ${escape(bn ? bnDate(issued) : enDate(issued))}</span></div>`;
 }
 
 /* ---------- service 1: holding-tax receipt (আদায় রশিদ) — CERTNO-01 catalog §1 ----------
@@ -1996,7 +2591,6 @@ function taxReceiptBody(ctx: DocContext): string {
     : text(p.property_description_en ?? p.property_description);
   const fatherOrHusband = bn ? c.father_name_bn : c.father_name_en;
   return `<div class="generic-form">
-    ${citizenPhotoHtml(input)}
     ${row(bn ? "রসিদ নং" : "Receipt No", bn ? bnDigits(input.number) : latinDigits(input.number))}
     ${row(bn ? "তারিখ" : "Date", bn ? bnDate(issued) : enDate(issued))}
     ${row(bn ? "করদাতার নাম" : "Taxpayer", text(bn ? c.full_name_bn : c.full_name_en))}
@@ -2043,7 +2637,6 @@ function premisesLicenceBody(ctx: DocContext): string {
     return bn ? bnDigits(s) : s;
   };
   return `<div class="tl-doc">
-    ${citizenPhotoHtml(input)}
     ${formMetaLine(ctx)}
     <table class="fields premises">
       ${field(bn ? "লাইসেন্সধারী" : "Licensee", bn ? p.primises_license_proprietor_bn : p.primises_license_proprietor)}
@@ -2063,12 +2656,17 @@ function premisesLicenceBody(ctx: DocContext): string {
 }
 
 /* ---------- service 46: transport permit QR card — CERTNO-01 catalog §46 ----------
- * CERT-REFINE-01 §46: two zones — the text zone (left) carries the small
- * government line and office name clear of everything; the right column
- * stacks the citizen photo with the QR BELOW it; the vehicle class and the
- * engine number (from the schema's transport_license_engine_no) print; the
- * fiscal-year validity line closes the text zone. */
-function transportCardBody(ctx: DocContext, qrDataUrl: string): string {
+ * CERT-REFINE-01 §46: compact permit card on the standard A4 portrait
+ * page (CERT-REFINE-02 R2-05 retired the landscape card page). The
+ * vehicle class and the engine number (from the schema's
+ * transport_license_engine_no) print; the fiscal-year validity line
+ * closes the text zone.
+ * QR-MOVE (Md's order 25 Nov 2026 15:00): three zones — QR top-LEFT,
+ * text centre, citizen photo top-RIGHT — matching every other
+ * certificate. The small government line this card used to print above
+ * the office name is REMOVED (owner ruling: no government line on any
+ * certificate; this card was the last layout still printing it). */
+function transportCardBody(ctx: DocContext, qrDataUrl: string, emblemUrl: string | null = null): string {
   const { input, bn, issued } = ctx;
   const p = input.payload;
   const fy = fiscalYear(issued);
@@ -2078,8 +2676,8 @@ function transportCardBody(ctx: DocContext, qrDataUrl: string): string {
   const vehicleClass = selectLabel(schema, "transport_vehicle_class", undefined, p.transport_vehicle_class, bn);
   const vehicleName = text(bn ? p.transport_license_transport_name_bn : p.transport_license_transport_name);
   return `<div class="tcard">
+    ${qrWithEmblem(qrDataUrl, emblemUrl, "qr-tcard")}
     <div class="tcard-main">
-      <div class="tcard-govt">${escape(bn ? GOVT_LINE_BN : GOVT_LINE_EN)}</div>
       <div class="tcard-office">${escape(ctx.officeName)}</div>
       <div class="tcard-title">${escape(bn ? input.service.name_bn : input.service.name_en)}</div>
       ${line(bn ? "লাইসেন্স নং" : "Licence No", text(p.transport_license_no))}
@@ -2089,13 +2687,31 @@ function transportCardBody(ctx: DocContext, qrDataUrl: string): string {
       ${line(bn ? "মালিক" : "Proprietor", text(bn ? input.citizen.full_name_bn : input.citizen.full_name_en))}
       ${line(bn ? "ইস্যুর তারিখ" : "Issue date", bn ? bnDate(issued) : enDate(issued))}
       <div class="tcard-line"><span>${bn ? "মেয়াদ" : "Validity"}</span><span>: ${escape(bn ? bnDigits(`${fy.start}-${fy.end} অর্থবছর`) : `FY ${fy.start}-${fy.end}`)}</span></div>
-      <div class="tcard-no">${numberStripHtml(input.number, bn)}</div>
+      <div class="tcard-no">${plainNumberHtml(input.number, bn)}</div>
     </div>
-    <div class="tcard-side">
-      ${citizenPhotoHtml(input, "tcard-photo")}
-      <img class="qr-tcard" alt="" src="${escape(qrDataUrl)}">
-    </div>
+    ${citizenPhotoHtml(input, "tcard-photo")}
   </div>`;
+}
+
+/**
+ * WS-SHELL-GAPS (25 Nov 2026): QR centre emblem. The Prottoyon references
+ * (citizenship + trade licence) print a small red govt emblem in the
+ * centre of every QR (see /tmp/ref-qr.png, /tmp/ref-trade-qr.png). The
+ * emblem is 20% of the QR width and circular (border-radius clips the
+ * square emblem asset to the roundel). Safe only because pdf.ts now encodes
+ * the QR at error-correction level H (~30% recoverable). Without an emblem
+ * asset (demo mode) the QR renders bare, as before.
+ */
+function qrWithEmblem(qrDataUrl: string, emblemUrl: string | null, qrClass: string): string {
+  const wrapClass =
+    qrClass === "qr-tl"
+      ? "qr-wrap qr-wrap-tl"
+      : qrClass === "qr-tcard"
+        ? "qr-wrap qr-wrap-tcard"
+        : "qr-wrap";
+  return emblemUrl
+    ? `<span class="${wrapClass}"><img class="${qrClass}" alt="" src="${escape(qrDataUrl)}"><img class="qr-emblem" alt="" src="${emblemUrl}"></span>`
+    : `<img class="${qrClass}" alt="" src="${escape(qrDataUrl)}">`;
 }
 
 /* ---------- document assembly ---------- */
@@ -2125,35 +2741,47 @@ export function renderCertificateHtmlV7(input: PdfInput, qrDataUrl: string): str
   // CERT-REFINE-01 (A6): the printed URL carries Latin digits in BOTH
   // languages, and the QR payload is this same URL (pdf.ts encodes it).
   const verifyUrl = `${origin}/verify?searchText=${latinDigits(input.number)}`;
-  // CERTASSETS-01: artwork and chairman identity for the document come from
-  // the one engine-agnostic bundle (template-assets.ts) — office-profile
-  // uploads outrank the legacy filesystem drop-ins. CERTNO-01: the bundle's
-  // seal/watermark fields are no longer printed — the centre watermark is
-  // the bundle's government emblem (see the emblem-wm render below) and the
-  // seal appears nowhere. Artwork prints only in official mode; the chairman
-  // name/designation print in every mode, as before.
+  // CERTASSETS-01 (as re-confirmed by Md's order of 25 Nov 2026, 12:12):
+  // artwork and chairman identity for the document come from the one
+  // engine-agnostic bundle (template-assets.ts). The seal/watermark in
+  // that bundle resolve per tenant from the office's profile SEAL setting
+  // first, then the deployment drop-ins. The office logo is NOT
+  // printed on certificates (Prottoyon references show no logo anywhere),
+  // so bundle.logo is deliberately unused here. Artwork prints only in
+  // official mode; the chairman name/designation print in every mode, as
+  // before.
   const bundle: CertificateAssetsBundle = certificateAssetsBundle(
     input.tenant.id,
     input.assets,
     input.issuer,
   );
   const emblemUrl = official ? bundle.emblem : null;
-  const emblem = emblemUrl ? `<img class="emblem" alt="" src="${emblemUrl}">` : "";
-  const logo = official && bundle.logo
-    ? `<img class="office-logo" alt="" src="${bundle.logo}">`
+  // REFINE (25 Nov 2026): the reference emblem disc measures ~22.6 mm on
+  // landscape certs vs ~17.7 mm on portrait (pixel-measured); the asset's
+  // disc is ~84% of the image box, so landscape renders the image at
+  // 27 mm and portrait keeps 22 mm.
+  const emblem = emblemUrl
+    ? `<img class="emblem${format.orientation === "landscape" ? " emblem-l" : ""}" alt="" src="${emblemUrl}">`
     : "";
-  const headName = logo
-    ? `<div class="head-name">${logo}<h1>${escape(ctx.officeName)}</h1></div>`
-    : `<h1>${escape(ctx.officeName)}</h1>`;
   const title =
     serviceNo === 47
       ? text(bn ? input.payload.certificate_type_bn : input.payload.certificate_type_en) ||
         (bn ? input.service.name_bn : input.service.name_en)
-      : serviceNo === 35
-        ? // CERTNO-01 (owner decision D2): service 35 prints the combined title.
+      : serviceNo === 33
+        ? // WS-WORDING (D21): the reference title, as a per-service
+          // template override — NOT a catalog change. English keeps the
+          // catalog name (no English reference was supplied).
           bn
-          ? "নাগরিকত্ব ও চারিত্রিক সনদপত্র"
-          : "Citizenship and Character Certificate"
+          ? "জাতীয় পরিচয়পত্র তথ্য সংশোধন"
+          : input.service.name_en
+        : serviceNo === 35
+          ? // WS-WORDING (D12): the reference title is exactly "চারিত্রিক
+            // সনদ" — this overrides the CERTNO-01 decision D2 combined
+            // title for Bangla. English keeps the combined title (no
+            // English reference was supplied).
+            bn
+            ? "চারিত্রিক সনদ"
+            : "Citizenship and Character Certificate"
         : serviceNo === 1
           ? // CERT-REFINE-01 §1: the receipt's own title.
             bn
@@ -2173,21 +2801,34 @@ export function renderCertificateHtmlV7(input: PdfInput, qrDataUrl: string): str
                 ? input.service.name_bn
                 : input.service.name_en;
   const isTrade = serviceNo === 42;
-  // CERT-REFINE-01 (A1): emblem → government line → office name → address.
-  const formHeader = `<header class="up-head">${emblem}<div class="govt-line">${escape(bn ? GOVT_LINE_BN : GOVT_LINE_EN)}</div>${headName}<div class="office-address">${escape(ctx.officeAddressLine)}</div><h2 class="doc-title">${escape(title)}</h2></header>`;
+  // Prottoyon reference header (Md's order 25 Nov 2026): emblem → office
+  // name → address → title. No government line, no office logo — neither
+  // appears on any Prottoyon reference certificate.
+  // QR-MOVE (Md's order 25 Nov 2026 15:00): the QR sits in the TOP-LEFT
+  // corner on every certificate (the trade licence already did).
+  // PHOTO-CORNER (Md's order 25 Nov 2026 15:20): the citizen photo sits
+  // in the TOP-RIGHT CORNER — in the header row's right column, level
+  // with the QR — NOT beside the body text. The header row mirrors the
+  // trade licence's three-column header — QR left, centred header,
+  // photo right — with EQUAL-WIDTH side columns (35mm) so the header
+  // stays page-centred; the 21mm QR hugs the left edge of its column.
+  // The body then flows full-width under the header. The footer keeps
+  // only the verify line, left-aligned at the bottom-left (Md's order
+  // 25 Nov 2026 15:21).
+  const headerQr = qrDataUrl ? qrWithEmblem(qrDataUrl, emblemUrl, "qr") : "";
+  const formHeader = `<div class="head-row"><div class="head-side">${headerQr}</div><header class="up-head">${emblem}<h1>${escape(ctx.officeName)}</h1><div class="office-address">${escape(ctx.officeAddressLine)}</div><h2 class="doc-title">${escape(title)}</h2></header><div class="head-side head-side-r">${citizenPhotoHtml(input)}</div></div>`;
   const body = FORM_SERVICES.has(serviceNo)
     ? isTrade
-      ? tradeLicenceBody(ctx, emblem, logo)
+      ? tradeLicenceBody(ctx, emblem, qrDataUrl, emblemUrl)
       : serviceNo === 1
         ? `${formHeader}${taxReceiptBody(ctx)}`
         : serviceNo === 41
           ? `${formHeader}${premisesLicenceBody(ctx)}`
           : serviceNo === 46
-            ? transportCardBody(ctx, qrDataUrl)
+            ? transportCardBody(ctx, qrDataUrl, emblemUrl)
             : `${formHeader}${genericFormBody(ctx)}`
     : `${formHeader}
-       <div class="numline"><span class="numline-no">${bn ? "সনদ নং:" : "Certificate No:"} ${numberStripHtml(input.number, bn)}</span><span>${bn ? "ইস্যুর তারিখ:" : "Date of Issue:"} ${escape(bn ? bnDate(issued) : enDate(issued))}</span></div>
-       ${citizenPhotoHtml(input)}
+       <div class="numline"><span class="numline-no">${bn ? "সনদ নং:-" : "Certificate No:-"} ${plainNumberHtml(input.number, bn)}</span><span>${bn ? "ইস্যুর তারিখ:-" : "Date of Issue:-"} ${escape(ordDate(issued, bn))}</span></div>
        ${paragraphBody(ctx, serviceNo)}`;
   const issuerName = bn
     ? bundle.chairmanNameBn || bundle.chairmanNameEn || ""
@@ -2195,15 +2836,29 @@ export function renderCertificateHtmlV7(input: PdfInput, qrDataUrl: string): str
   const signImg = official && bundle.signature
     ? `<img class="sign-img" alt="" src="${bundle.signature}">`
     : "";
-  const signature = `<aside class="sign-block">
-    ${issuerName ? `<div class="sign-name">${escape(issuerName)}</div>` : ""}
+  // WS-SHELL-GAPS (25 Nov 2026): Prottoyon reference order — the dotted
+  // rule sits ABOVE the bold name (the chairman signs on the line), then
+  // title → office → address, and NO তারিখ line under the block. Verified
+  // on both reference crops (/tmp/ref-cit-sign.png, /tmp/ref-warish-sign.png).
+  // The trade licence's footer inherits this shared aside.
+  // WS-WORDING service 19 (D9/D22): the guardian's signature block sits
+  // bottom-LEFT, beside the chairman block on the right — name only, bold,
+  // no dotted rule, no title (verified on the reference crop: the guardian
+  // name's baseline aligns with the chairman's name). It renders only when
+  // a guardian name is known; without one the chairman block stands alone.
+  const guardianSignName =
+    serviceNo === 19 && bn ? consentGuardianName(input.payload, true) : "";
+  const signatureAside = `<aside class="sign-block">
     ${signImg}
     <div class="sign-line"></div>
+    ${issuerName ? `<div class="sign-name">${escape(issuerName)}</div>` : ""}
     <div class="sign-title">${escape(bn ? bundle.chairmanDesignationBn : bundle.chairmanDesignationEn)}</div>
     <div class="sign-office">${escape(ctx.officeName)}</div>
     ${ctx.officeAddressLine ? `<div class="sign-address">${escape(ctx.officeAddressLine)}</div>` : ""}
-    <div class="sign-date">${bn ? "তারিখ:" : "Date:"} ${escape(bn ? bnDate(issued) : enDate(issued))}</div>
   </aside>`;
+  const signature = guardianSignName
+    ? `<div class="dual-sign"><aside class="guardian-sign-left"><div class="sign-name">${escape(guardianSignName)}</div></aside>${signatureAside}</div>`
+    : signatureAside;
   // CERT-REFINE-01 (A6): one verify label in both languages and both layouts.
   const verifyLine = bn ? `যাচাইকরণ: ${verifyUrl}` : `Verification: ${verifyUrl}`;
   const foot =
@@ -2211,17 +2866,30 @@ export function renderCertificateHtmlV7(input: PdfInput, qrDataUrl: string): str
       ? // The transport card is self-contained (QR + number on the card).
         ""
       : isTrade
-        ? // CERT-REFINE-01 §42: the QR sits at the bottom-left, clear of the header.
-          `${signature}<footer class="doc-foot tl-foot"><img class="qr" alt="" src="${escape(qrDataUrl)}"><div class="verify-line">${escape(verifyLine)}</div></footer>`
-        : `${signature}<footer class="doc-foot"><img class="qr" alt="" src="${escape(qrDataUrl)}"><div class="verify-line">${escape(verifyLine)}</div></footer>`;
+        ? // TRADE-42 (Prottoyon match): the QR sits top-left in the header,
+          // so the foot carries only the verify line; the two signature
+          // blocks (administrative officer left, chairman right) sit side
+          // by side above it, as on the reference — the admin block carries
+          // the same dotted rule above its label as the chairman block
+          // (pixel-verified on the trade reference, row 1128).
+          `<div class="tl-sign-row"><aside class="sign-block tl-admin"><div class="sign-line"></div><div>${escape(bn ? "প্রশাসনিক কর্মকর্তা" : "Administrative Officer")}</div></aside>${signature}</div><footer class="doc-foot tl-foot"><div class="verify-line">${escape(verifyLine)}</div></footer>`
+        : // QR-MOVE (Md's order 25 Nov 2026 15:00): the QR moved to the
+          // top-left header corner; the foot carries only the verify
+          // line — left-aligned at the bottom-left (Md's order 25 Nov
+          // 2026 15:21; was centred since QR-MOVE).
+          `${signature}<footer class="doc-foot"><div class="verify-line">${escape(verifyLine)}</div></footer>`;
   const bannerBits = "";
   const honesty = "";
-  // CERTNO-01: the centre watermark is the Government of Bangladesh emblem —
-  // large and faint, the same for every office. The office seal is not
-  // printed anywhere on the document.
-  // CERT-REFINE-01 §42: the trade licence watermark sits at the lighter 0.05.
-  const sealImg = official && bundle.emblem
-    ? `<img class="emblem-wm" alt="" src="${bundle.emblem}"${isTrade ? ` style="opacity:.05"` : ""}>`
+  // Md's order of 25 Nov 2026 (supersedes CERTNO-01; per-UP resolution
+  // re-confirmed 25 Nov 2026, 12:12): the centre watermark is the issuing
+  // office's own UP SEAL (bundle.watermark — profile SEAL first per
+  // tenant, then the deployment drop-in). The pre-faded drop-in
+  // (seal-watermark.png) prints at full opacity; a full-strength seal
+  // (watermarkDerived) is faded to .08 (.05 on the
+  // trade licence, per CERT-REFINE-01 §42). With no seal asset there is
+  // NO watermark — never the Government emblem, never the platform logo.
+  const sealImg = official && bundle.watermark
+    ? `<img class="seal-wm" alt="" src="${bundle.watermark}"${bundle.watermarkDerived ? ` style="opacity:${isTrade ? ".05" : ".08"}"` : ""}>`
     : "";
   const pageSize = format.size.includes("mm")
     ? format.size
@@ -2229,16 +2897,26 @@ export function renderCertificateHtmlV7(input: PdfInput, qrDataUrl: string): str
       ? `${format.size} landscape`
       : format.size;
   return `<!doctype html><html lang="${bn ? "bn" : "en"}"><head><meta charset="UTF-8"><style>
-@page{size:${pageSize};margin:${serviceNo === 46 ? "3mm" : isTrade ? "8mm" : "11mm"}}
+@page{size:${pageSize};margin:${serviceNo === 46 ? "3mm" : isTrade ? "8mm" : "11mm"};background:${CERT_PAPER_BG}}
 *{box-sizing:border-box}
+html,body{background:${CERT_PAPER_BG}}
 body{font-family:'Nirmala UI','Noto Sans Bengali',sans-serif;color:#101418;margin:0;font-size:14.5px;line-height:1.75}
-.frame{position:fixed;inset:0;border:1.1px solid #1a1a1a;outline:2.6px solid #1a1a1a;outline-offset:2.6px;z-index:2;pointer-events:none}
-.emblem-wm{position:fixed;left:50%;top:54%;transform:translate(-50%,-50%);width:105mm;opacity:.07;z-index:0}
+.frame{position:fixed;inset:0;border:2.2px solid #1a1a1a;z-index:2;pointer-events:none}
+/* GATE FIX (25 Nov 2026): the second frame line used to be an outline
+ * (outline-offset 2.6px outward) — but with inset:0 the outline falls
+ * outside the page and Chromium clips it in print, so every certificate
+ * printed a SINGLE frame line while the reference has TWO
+ * (pixel-measured on the trade reference: two 3px lines ~1.15mm apart).
+ * The inner div below provides the second line explicitly, 4px in.
+ * (No brand word in this comment: the rendered HTML must not contain it.)
+ * REFINE (25 Nov 2026): both lines 1.1px -> 2.2px (~0.58mm) — the
+ * reference lines measure ~0.69mm each with a ~0.46mm gap; ours printed
+ * visibly thinner (0.38/0.25mm at 200 DPI). 2.2px lines + the 4px inset
+ * give a ~0.48mm gap. */
+.frame-inner{position:fixed;inset:4px;border:2.2px solid #1a1a1a;z-index:2;pointer-events:none}
+.seal-wm{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);width:72mm;z-index:0}
 .numline-no{display:flex;align-items:center;gap:2mm}
-.numstrip{display:inline-flex;gap:1mm}
-.numstrip i{font-style:normal;border:.7px solid #333;width:5mm;height:6.2mm;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12.5px;line-height:1}
-.numstrip-prefix{font-weight:700}
-.citizen-photo{float:right;width:26mm;height:32mm;object-fit:cover;border:.6px solid #555;margin:1mm 0 3mm 4mm}
+.citizen-photo{float:right;width:35mm;height:31mm;object-fit:cover;border:.6px solid #555;margin:1mm 0 3mm 4mm}
 .citizen-photo.tl-photo{float:none;flex:none;margin:0}
 .tcard{display:flex;gap:3mm;align-items:flex-start;padding:1mm}
 .qr-tcard{width:17mm;height:17mm;flex:none}
@@ -2248,17 +2926,11 @@ body{font-family:'Nirmala UI','Noto Sans Bengali',sans-serif;color:#101418;margi
 .tcard-line{display:flex;gap:1.5mm}
 .tcard-line span:first-child{flex:none;font-weight:600}
 .tcard-no{margin-top:1mm}
-.tcard .numstrip i{width:3.6mm;height:4.6mm;font-size:9px;border-width:.5px}
-.citizen-photo.tcard-photo{float:none;width:16mm;height:20mm;margin:0}
-.govt-line{text-align:center;font-weight:700;font-size:13.5px}
-.govt-line.sm{font-size:11.5px}
-.tcard-govt{font-size:8.5px;font-weight:700}
-.tcard-side{display:flex;flex-direction:column;gap:1.5mm;align-items:center;flex:none}
+.citizen-photo.tcard-photo{float:none;flex:none;width:16mm;height:20mm;margin:0}
 .group-head{font-weight:700;background:#f0f0f0;padding:1mm 2mm}
 .addr-block{margin:1mm 0}
 .addr-head{font-weight:700;margin-bottom:.5mm}
 .validity{font-weight:600;margin:3mm 0 0}
-.grant{margin:1mm 0 0}
 .person-block{border:.7px solid #555;margin:10pt 0;padding:0}
 .person-title{font-weight:700;background:#F2F2F2;padding:4pt 8pt;font-size:11pt}
 .person-rows{padding:6pt}
@@ -2279,40 +2951,87 @@ table.fees{width:100%;border-collapse:collapse}
 table.fees td{padding:.5mm 1mm;border-bottom:.6px dotted #888}
 table.fees td.fee-val{text-align:right;width:34mm}
 table.fees tr.total td{font-weight:700;border-bottom:none}
-.head-name{display:flex;align-items:center;justify-content:center;gap:4mm}
-.office-logo{height:13mm;max-width:20mm;object-fit:contain}
 .sign-img{display:block;height:11mm;max-width:42mm;object-fit:contain;margin:0 auto .5mm}
 .draft-wm{position:fixed;left:24%;top:42%;transform:rotate(-30deg);font:bold 68px sans-serif;color:rgba(179,38,30,.09);z-index:0}
-main{position:relative;z-index:1;padding:5mm 6mm}
+main{position:relative;z-index:1;padding:5mm 6mm 0;display:flex;flex-direction:column}
+/* REFINE (25 Nov 2026): bottom-anchored signature + footer, as on the
+ * references (the signature block sits at ~78-85% of the page height
+ * with the whitespace between body and signature, never floating
+ * mid-page). main is a flex column stretched to just inside the frame;
+ * .foot-wrap's auto top margin absorbs the slack on short bodies and
+ * collapses to the signature's own 11mm gap on long ones (min-height
+ * only stretches — a body taller than the page still flows to page 2
+ * exactly as before). Heights = page content height minus ~5mm so the
+ * verify line clears the inner frame line: portrait A4 275-5,
+ * landscape 188-5 (11mm margins), trade 281-5 (8mm margins). The
+ * transport card (46) is not anchored. */
+.anchor-p{min-height:271mm}
+.anchor-l{min-height:184mm}
+.anchor-t{min-height:277mm}
+.foot-wrap{margin-top:auto}
 .draft-banner{border:2px solid #b3261e;color:#b3261e;padding:6px;text-align:center;font:bold 14px sans-serif;margin-bottom:4mm}
+/* QR-MOVE (Md's order 25 Nov 2026 15:00) + PHOTO-CORNER (15:20):
+ * three-column header row — QR top-left (21mm, same size as the old
+ * footer QR), centred header, citizen photo top-right corner (35mm,
+ * the reference size) — mirroring the trade licence's header. The side
+ * columns are EQUAL width (35mm) so the header stays page-centred; the
+ * QR hugs its column's left edge. The QR span is blockified so the 21mm
+ * rule applies (the trade gate-fix lesson: an inline span ignores
+ * width/height). */
+.head-row{display:flex;align-items:flex-start}
+.head-row .up-head{flex:1}
+.head-side{width:35mm;flex:none}
+.head-side-r{display:flex;justify-content:flex-end}
+.head-side .citizen-photo{float:none;margin:0}
+.head-row .qr-wrap{display:block}
 .up-head{text-align:center}
-.emblem{width:15mm;height:15mm;object-fit:contain;display:block;margin:0 auto 1.5mm}
+.emblem{width:22mm;height:22mm;object-fit:contain;display:block;margin:0 auto 1.5mm;border-radius:50%}
+.emblem-l{width:27mm;height:27mm}
 h1{font-size:21px;margin:0;line-height:1.4}
 .office-address{font-size:13.5px}
 .doc-title{font-size:19px;margin:3.5mm 0 0;line-height:1.4}
-.numline{display:flex;flex-wrap:wrap;column-gap:9mm;row-gap:1.5mm;justify-content:space-between;font-weight:600;margin:4.5mm 0 2.5mm}
+.numline{display:flex;flex-wrap:wrap;column-gap:9mm;row-gap:1.5mm;justify-content:space-between;font-weight:700;margin:4.5mm 0 2.5mm}
 .numline>span:last-child{margin-left:auto}
 .body-para{text-align:justify;margin:0}
 .closing{margin:5mm 0 0}
 .free-footer{font-size:12px;margin-top:4mm}
-table.data{width:100%;border-collapse:collapse;margin-top:4mm;font-size:12.5px;line-height:1.5}
-table.data th,table.data td{border:1px solid #5b6b60;padding:1.1mm 2mm;text-align:left}
+/* REFINE (25 Nov 2026): the reference heir/member tables are ~95% of
+ * the text width (left-aligned with the body, ending short of the
+ * right edge) with ~4.85mm rows and a smaller table font than ours
+ * was (pixel-measured on 78620469944: 732px table in a 768px text
+ * width; 21px row pitch at 110 DPI). 11px/1.4 + .5mm padding lands
+ * rows at ~5.1mm. */
+table.data{width:95%;border-collapse:collapse;margin-top:4mm;font-size:11px;line-height:1.4}
+table.data th,table.data td{border:1px solid #5b6b60;padding:.5mm 2mm;text-align:left}
 .sign-block{margin:11mm 0 0 auto;width:64mm;text-align:center;font-size:13px;line-height:1.55}
 .sign-name{font-weight:700;font-size:14.5px}
 .sign-line{border-top:1.6px dotted #333;margin:1.6mm 5mm 1.6mm}
 .sign-office{font-weight:600}
-.doc-foot{display:flex;align-items:flex-end;gap:6mm;margin-top:7mm}
+.dual-sign{display:flex;justify-content:space-between;align-items:flex-start;margin-top:11mm}
+.dual-sign .sign-block{margin-top:0}
+.guardian-sign-left{width:64mm;text-align:center;margin-top:3mm}
+/* GATE FIX (25 Nov 2026): 7mm -> 2mm. The verbatim wording bodies run
+ * taller than the old authored ones, and the warish certificate (service
+ * 3) spilled its verify line alone onto page 2. The footer sits just
+ * below the signature on the reference; 2mm keeps it there and frees the
+ * ~5mm the long bodies need. */
+.doc-foot{display:flex;align-items:flex-end;gap:6mm;margin-top:2mm}
 .qr{width:21mm;height:21mm;flex:none}
-.verify-line{flex:1;text-align:center;font-size:11.5px;overflow-wrap:anywhere}
+.qr-wrap{position:relative;width:21mm;height:21mm;flex:none}
+.qr-wrap .qr,.qr-wrap .qr-tl,.qr-wrap .qr-tcard{width:100%;height:100%}
+.qr-wrap-tl{width:19mm;height:19mm}
+.qr-wrap-tcard{width:17mm;height:17mm}
+.qr-emblem{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:20%;height:20%;border-radius:50%;background:${CERT_PAPER_BG};object-fit:contain}
+.verify-line{flex:1;text-align:left;font-size:11.5px;overflow-wrap:anywhere}
 .honesty{font-size:10px;text-align:center;color:#444;margin-top:3mm}
 .tl-top{display:flex;align-items:flex-start;gap:4mm}
 .qr-tl{width:19mm;height:19mm;flex:none}
 .tl-head{flex:1;text-align:center}
 .tl-head h1{font-size:19.5px}
 .tl-spacer{width:19mm;flex:none}
-.tl-no{font-weight:700;margin-top:1.5mm}
+.tl-no{font-weight:700;margin-top:1.5mm;text-align:center}
 .tl-issue{font-size:12px;line-height:1.5;margin-top:1mm}
-.statute{border:1.6px solid #1a1a1a;text-align:center;font-weight:700;padding:1.2mm;margin:3mm 0;font-size:13.5px}
+.statute{text-align:left;font-weight:700;padding:0;margin:3mm 0;font-size:13.5px}
 table.fields{width:100%;border-collapse:collapse;font-size:12.8px;line-height:1.5}
 table.fields td{padding:.55mm 1mm;vertical-align:top}
 td.fl{width:64mm;font-weight:600}
@@ -2326,10 +3045,11 @@ td.fv{overflow-wrap:anywhere}
 table.fees{width:100%;border-collapse:collapse}
 table.fees td{width:50%;vertical-align:top;padding:0 3mm 0 0}
 td.subpair{display:flex;gap:5mm}
-td.subpair>div{flex:1;display:flex;gap:2mm;min-width:0}
+td.subpair>div{flex:auto;display:flex;gap:2mm;min-width:0}
 td.subpair>div span:first-child{flex:none}
 td.subpair>div span:last-child{flex:1;min-width:16mm;overflow-wrap:normal}
-.tl-doc .statute{margin:1.6mm 0;padding:1mm}
+.tl-doc .statute{margin:0 0 1mm;padding:0;border:none;font-size:12px}
+.tl-doc .validity{font-size:13px;font-weight:700}
 .tl-doc h1{font-size:19px}
 .tl-doc .doc-title{font-size:17px;margin-top:2mm}
 .tl-doc table.fields{font-size:11.6px;line-height:1.32}
@@ -2340,7 +3060,9 @@ td.subpair>div span:last-child{flex:1;min-width:16mm;overflow-wrap:normal}
 .tl-doc .doc-foot{margin-top:1mm}
 .tl-doc .verify-line{font-size:11px}
 .tl-doc .tl-issue{margin-top:.5mm;line-height:1.35}
-.fee-row{display:flex;justify-content:space-between;border-bottom:.6px dotted #888;padding:.4mm 0}
+/* REFINE (25 Nov 2026): no dotted leader under trade fee rows — the
+ * reference fee block prints plain "label : value" rows. */
+.fee-row{display:flex;justify-content:space-between;padding:.4mm 0}
 .fee-row.total{font-weight:700}
 .generic-form{font-size:12.8px;line-height:1.55;margin-top:3mm}
 .gf-section h4{margin:3mm 0 1mm;font-size:13px}
@@ -2350,5 +3072,28 @@ td.subpair>div span:last-child{flex:1;min-width:16mm;overflow-wrap:normal}
 .gf-row{border-top:.6px dotted #999;padding:1mm 0}
 .tl-foot{margin-top:5mm}
 .card-doc{padding:2mm 3mm}
-</style></head><body><div class="frame"></div>${sealImg}${bannerBits}<main data-template="7" data-delivery-language="${bn ? "bn" : "en"}"${isTrade ? ' class="tl-doc"' : serviceNo === 46 ? ' class="card-doc"' : ""}>${body}${foot}${honesty}</main></body></html>`;
+/* TRADE-42 (25 Nov 2026): three-column trade header
+ * (QR + issue block | centred header | photo) with equal-width side
+ * columns so the header stays page-centred; one bordered box around the
+ * statute, the numbered rows and the validity line; two-column fee block;
+ * side-by-side signature row. Placed last so these rules win the
+ * specificity ties against the .tl-doc overrides above. */
+.tl-left{flex:none;width:58mm}
+/* GATE FIX (25 Nov 2026): the trade QR span is an inline element inside the
+ * block .tl-left, so its width/height were ignored and the QR rendered at
+ * its intrinsic 180px (~48mm) — the ~8mm that spilled the trade licence to
+ * 2 pages (the paragraph certs' QR sits in the flex .doc-foot, where the
+ * span is blockified and the 21mm rule applies). Blockify it here so the
+ * 19mm .qr-wrap-tl rule takes effect; trade-only, no other layout touched. */
+.tl-left .qr-wrap{display:block;width:19mm;height:19mm}
+.tl-right{flex:none;width:58mm;display:flex;justify-content:flex-end}
+.tl-left .tl-issue{margin-top:2mm}
+.tl-form-box{border:1.6px solid #1a1a1a;padding:1mm 3mm}
+.tl-doc table.fields td.fl{width:72mm}
+.tl-fees{display:flex;gap:8mm}
+.tl-fees-col{flex:1}
+.tl-sign-row{display:flex;justify-content:space-between;align-items:flex-start;margin-top:3mm}
+.tl-sign-row .sign-block{margin-top:0}
+.tl-admin{margin:0}
+</style></head><body><div class="frame"></div><div class="frame-inner"></div>${sealImg}${bannerBits}<main data-template="7" data-delivery-language="${bn ? "bn" : "en"}"${isTrade ? ' class="tl-doc anchor-t"' : serviceNo === 46 ? ' class="card-doc"' : format.orientation === "landscape" ? ' class="anchor-l"' : ' class="anchor-p"'}><div class="body-wrap">${body}</div><div class="foot-wrap">${foot}</div>${honesty}</main></body></html>`;
 }

@@ -42,6 +42,16 @@
       type="font/woff2"
       crossorigin
     />
+    <!-- WS-D2 (item 17): preload the 600 Bengali face too — every button
+         (including the green "PDF ডাউনলোড" button) renders at weight 600,
+         so its label must not wait on a late font fetch. -->
+    <link
+      rel="preload"
+      href="/fonts/noto-sans-bengali-bengali-600-normal.woff2"
+      as="font"
+      type="font/woff2"
+      crossorigin
+    />
     <title>DigitalUnion — স্মার্ট ইউনিয়ন, স্মার্ট বাংলাদেশ</title>
   </head>
   <body>

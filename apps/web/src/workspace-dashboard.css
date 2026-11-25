@@ -102,3 +102,10 @@
     padding: var(--ax-space-4);
   }
 }
+
+/* WS-D3: the workload/ageing line under the stat cards — one wrapped line,
+   same muted tone as the stat contexts. */
+.ax-dashboard-workload {
+  margin: 12px 0 0;
+  color: var(--ax-muted);
+}

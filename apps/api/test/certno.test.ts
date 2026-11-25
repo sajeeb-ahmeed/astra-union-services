@@ -15,19 +15,37 @@ import {
   amountInWordsBn,
   amountInWordsEn,
   certificatePageFormat,
-  numberStripHtml,
+  plainNumberHtml,
 } from "../src/certificate-template-v7.js";
-import { dhakaDateStamp } from "../src/dhaka.js";
-import { app, retryOnCertificateNumberCollision } from "../src/app.js";
+import { dhakaDateStamp, dhakaDayMonthStamp } from "../src/dhaka.js";
+import { randomTenDigits } from "../src/references.js";
+import {
+  app,
+  newCertificateNumber,
+  retryOnCertificateNumberCollision,
+} from "../src/app.js";
 import { pool, transaction } from "../src/db.js";
 import { closePdfBrowser } from "../src/pdf.js";
 
 /**
- * CERTNO-01 (owner-approved 18 Nov 2026): 16-digit certificate numbers and
- * references, bilingual issuance, the government-emblem watermark, the
- * dynamic citizen photo, the digit strip, and the per-service layouts from
- * the 47-format catalog (receipt 1, premises licence 41, transport card 46,
- * recommendation letter 27, combined title 35).
+ * CERTNO-01 (owner-approved 18 Nov 2026), AS SUPERSEDED by Md's order of
+ * 25 Nov 2026 ("sob gulo certificate e prottoyon er provide kora
+ * certificate er design er moto format e hobe"): bilingual issuance, the
+ * per-service layouts from the 47-format catalog (receipt 1, premises
+ * licence 41, transport card 46, recommendation letter 27, combined
+ * title 35). The digit strip and the government-emblem watermark are
+ * GONE: the number prints plain and the centre watermark is the
+ * office's UP seal from the deployment asset dir (or no watermark when
+ * no seal asset resolves).
+ *
+ * CERTNO-DDMM (owner order, 25 Nov 2026 — "sonod number gulo only date
+ * months + 10 digit random number (do not duplicated sonod number)"):
+ * NEW certificate numbers are 14 digits — Asia/Dhaka DDMM + 10
+ * cryptographically random digits — and are never duplicated
+ * (certificates_number_key + bounded collision retry). Already-issued
+ * 16-digit CERTNO-01 numbers keep verifying; nothing renumbers.
+ * Application/citizen public references are unchanged (16-digit
+ * YYYYMMDD + 8 random, references.ts).
  */
 
 const qr = "data:image/png;base64,AAAA";
@@ -84,6 +102,31 @@ test("certno: the date stamp is the Asia/Dhaka calendar date regardless of host 
   assert.equal(dhakaDateStamp(new Date("2026-11-18T18:00:00.000Z")), "20261119");
 });
 
+test("certno: the DDMM stamp is the Asia/Dhaka day+month (CERTNO-DDMM prefix)", () => {
+  // 25 Nov in Dhaka (10:00 UTC is 16:00 the same day in Dhaka).
+  assert.equal(dhakaDayMonthStamp(new Date("2026-11-25T10:00:00.000Z")), "2511");
+  // 19:30 UTC is 01:30 the NEXT day in Dhaka — 26 Nov.
+  assert.equal(dhakaDayMonthStamp(new Date("2026-11-25T19:30:00.000Z")), "2611");
+  // Single-digit day and month stay zero-padded (5 Jan → "0501").
+  assert.equal(dhakaDayMonthStamp(new Date("2026-01-05T10:00:00.000Z")), "0501");
+});
+
+test("certno: new certificate numbers are DDMM + 10 random digits, never duplicated by construction (CERTNO-DDMM)", () => {
+  for (let i = 0; i < 50; i++) assert.match(randomTenDigits(), /^\d{10}$/);
+  const previous = process.env.ISSUANCE_MODE;
+  try {
+    process.env.ISSUANCE_MODE = "official";
+    const official = newCertificateNumber();
+    assert.match(official, /^\d{14}$/, "official number is 14 digits");
+    assert.equal(official.slice(0, 4), dhakaDayMonthStamp(), "prefix is today's Dhaka DDMM");
+    delete process.env.ISSUANCE_MODE;
+    assert.match(newCertificateNumber(), /^DEMO-\d{14}$/, "test-mode number keeps the DEMO- marker over 14 digits");
+  } finally {
+    if (previous === undefined) delete process.env.ISSUANCE_MODE;
+    else process.env.ISSUANCE_MODE = previous;
+  }
+});
+
 /* ---------- unit: amount in words ---------- */
 
 test("certno: amount-in-words uses South-Asian grouping in both languages", () => {
@@ -102,20 +145,22 @@ test("certno: amount-in-words uses South-Asian grouping in both languages", () =
   assert.equal(amountInWordsBn(530), "পাঁচ শত ত্রিশ");
 });
 
-/* ---------- unit: the digit strip ---------- */
+/* ---------- unit: the plain number (CERTNO-01 strip superseded, Md's order 25 Nov 2026) ---------- */
 
-test("certno: the number strip boxes 16 digits, Bengali on Bangla, plain text otherwise", () => {
-  const bn = numberStripHtml("2026111812345678", true);
-  assert.ok(bn.includes('class="numstrip"'));
-  assert.equal((bn.match(/<i>/g) ?? []).length, 16);
-  assert.ok(bn.includes("<i>২</i>"), "Bengali digits in the boxes");
-  const en = numberStripHtml("2026111812345678", false);
-  assert.ok(en.includes("<i>2</i>"), "Latin digits in the boxes");
-  const demo = numberStripHtml("DEMO-2026111812345678", true);
+test("certno: the number prints plain, Bengali on Bangla, Latin on English, no digit boxes", () => {
+  // CERTNO-DDMM format: DDMM (2511) + 10 random digits.
+  const bn = plainNumberHtml("25111234567890", true);
+  assert.equal(bn, "২৫১১১২৩৪৫৬৭৮৯০");
+  assert.ok(!bn.includes("numstrip"), "no digit-box strip markup");
+  assert.ok(!bn.includes("<i>"), "no per-digit boxes");
+  const en = plainNumberHtml("25111234567890", false);
+  assert.equal(en, "25111234567890");
+  const demo = plainNumberHtml("DEMO-25111234567890", true);
   assert.ok(demo.includes("DEMO-"), "the demo marker stays visible");
-  assert.equal((demo.match(/<i>/g) ?? []).length, 16);
-  const legacy = numberStripHtml("2026-ABC123", true);
-  assert.ok(!legacy.includes("numstrip"), "legacy numbers print as plain text");
+  assert.equal(demo, "DEMO-২৫১১১২৩৪৫৬৭৮৯০");
+  // Already-issued 16-digit CERTNO-01 numbers still print plain, unchanged.
+  assert.equal(plainNumberHtml("2026111812345678", true), "২০২৬১১১৮১২৩৪৫৬৭৮");
+  const legacy = plainNumberHtml("2026-ABC123", true);
   assert.equal(legacy, "২০২৬-ABC১২৩");
 });
 
@@ -147,13 +192,15 @@ test("certno: the issuance retry regenerates only on a certificates_number_key c
     }),
   );
   assert.equal(other, 1);
-  // A persistent collision exhausts the bounded budget and propagates.
+  // A persistent collision exhausts the bounded budget and fails with the
+  // clear CERTNO-DDMM error (never a duplicated number).
   let always = 0;
   await assert.rejects(
     retryOnCertificateNumberCollision(async () => {
       always++;
       throw collision();
     }),
+    /CERTIFICATE_NUMBER_GENERATION_FAILED/,
   );
   assert.equal(always, 5);
 });
@@ -169,7 +216,8 @@ test("certno: the citizen photo prints only when present, in both languages", ()
     schema: getServiceSchema(12),
   });
   assert.ok(withPhoto.includes('<img class="citizen-photo"'), "photo prints on the Bangla render");
-  assert.ok(withPhoto.includes('class="numstrip"'), "the strip prints for a 16-digit number");
+  assert.ok(withPhoto.includes("সনদ নং:- ২০২৬১১১৮১২৩৪৫৬৭৮"), "the plain number prints for a 16-digit number");
+  assert.ok(!withPhoto.includes("numstrip"), "no digit-box strip anywhere");
   const withPhotoEn = render({
     number: "2026111812345678",
     service: { service_no: 12, name_bn: "নাগরিকত্ব সনদ", name_en: "Citizenship certificate" },
@@ -187,14 +235,18 @@ test("certno: the citizen photo prints only when present, in both languages", ()
   assert.ok(!without.includes('<img class="citizen-photo"'), "no photo element at all when absent");
 });
 
-test("certno: service 35 prints the combined title (owner decision D2)", () => {
+test("certno: service 35 prints the Prottoyon reference title (supersedes owner decision D2 for BN, 25 Nov 2026)", () => {
   const bn = render({
     number: "2026111812345678",
     service: { service_no: 35, name_bn: "চারিত্রিক সনদ", name_en: "Character certificate" },
     payload: { delivery_language: "bn" },
     schema: getServiceSchema(35),
   });
-  assert.ok(bn.includes("নাগরিকত্ব ও চারিত্রিক সনদপত্র"));
+  // Md's 25 Nov 2026 ruling (ALL certificates in Prottoyon format): the
+  // reference prints exactly "চারিত্রিক সনদ" — the CERTNO-01 D2 combined
+  // title "নাগরিকত্ব ও চারিত্রিক সনদপত্র" no longer prints in Bangla.
+  assert.ok(bn.includes("চারিত্রিক সনদ"));
+  assert.ok(!bn.includes("নাগরিকত্ব ও চারিত্রিক সনদপত্র"));
   const en = render({
     number: "2026111812345678",
     service: { service_no: 35, name_bn: "চারিত্রিক সনদ", name_en: "Character certificate" },
@@ -539,7 +591,7 @@ async function pdfDigits(bytes: Buffer): Promise<string> {
     .replace(/\D/g, "");
 }
 
-test("certno: one issuance stores both languages under one 16-digit number; legacy rows answer LANGUAGE_VERSION_UNAVAILABLE", async () => {
+test("certno: one issuance stores both languages under one 14-digit number; legacy rows answer LANGUAGE_VERSION_UNAVAILABLE", async () => {
   const citizenId = (await req("GET", "/citizens", undefined, "staff")).body.items[0].id;
   const created = await req(
     "POST",
@@ -548,15 +600,17 @@ test("certno: one issuance stores both languages under one 16-digit number; lega
     "staff",
   );
   assert.equal(created.status, 201, JSON.stringify(created.body));
+  // Application references are unchanged by CERTNO-DDMM (still 16 digits).
   assert.match(created.body.reference, /^\d{16}$/, "the application reference is 16 digits");
   const id = created.body.id as string;
   await req("POST", `/applications/${id}/transition`, { action: "submit" }, "staff");
   const approved = await req("POST", `/applications/${id}/transition`, { action: "approve" }, "approver");
   assert.equal(approved.status, 200, JSON.stringify(approved.body));
   const certificate = approved.body.certificate;
-  assert.match(certificate.number, /^DEMO-\d{16}$/, "test-mode number keeps the DEMO- marker over 16 digits");
+  assert.match(certificate.number, /^DEMO-\d{14}$/, "test-mode number keeps the DEMO- marker over 14 digits (CERTNO-DDMM)");
   const digits = certificate.number.replace(/\D/g, "");
-  assert.equal(digits.length, 16);
+  assert.equal(digits.length, 14);
+  assert.equal(digits.slice(0, 4), dhakaDayMonthStamp(), "the number starts with today's Dhaka DDMM");
   assert.ok(certificate.pdfUrlEn, "the English download is offered");
 
   const bnPdf = await reqBytes(`/certificates/${certificate.id}/pdf`, "staff");
@@ -566,11 +620,11 @@ test("certno: one issuance stores both languages under one 16-digit number; lega
   assert.equal(enPdf.status, 200);
   assert.equal(enPdf.bytes.subarray(0, 5).toString(), "%PDF-");
   assert.ok(!bnPdf.bytes.equals(enPdf.bytes), "the two language renders differ");
-  assert.ok((await pdfDigits(bnPdf.bytes)).includes(digits), "Bangla PDF carries the 16-digit number");
+  assert.ok((await pdfDigits(bnPdf.bytes)).includes(digits), "Bangla PDF carries the 14-digit number");
   assert.ok((await pdfDigits(enPdf.bytes)).includes(digits), "English PDF carries the same number");
 
   // Grouped verification input resolves the same certificate.
-  const grouped = digits.replace(/(\d{4})(\d{4})(\d{4})(\d{4})/, "$1-$2-$3-$4");
+  const grouped = digits.replace(/(\d{4})(\d{4})(\d{4})(\d{2})/, "$1-$2-$3-$4");
   const byGrouped = await req("GET", `/verify/by-number/${encodeURIComponent(`DEMO-${grouped}`)}`);
   assert.equal(byGrouped.status, 200, JSON.stringify(byGrouped.body));
 
@@ -588,11 +642,45 @@ test("certno: one issuance stores both languages under one 16-digit number; lega
   assert.equal(legacyBn.status, 200, "the Bangla document still downloads");
 });
 
-test("certno: the react-pdf engine prints the boxed digits (line-height regression guard)", async () => {
+test("certno: an already-issued 16-digit CERTNO-01 number still verifies after CERTNO-DDMM (nothing renumbers)", async () => {
+  const citizenId = (await req("GET", "/citizens", undefined, "staff")).body.items[0].id;
+  const created = await req(
+    "POST",
+    "/applications",
+    { citizenId, serviceNo: 45, payload: demoPayloads[45] },
+    "staff",
+  );
+  assert.equal(created.status, 201, JSON.stringify(created.body));
+  const id = created.body.id as string;
+  await req("POST", `/applications/${id}/transition`, { action: "submit" }, "staff");
+  const approved = await req("POST", `/applications/${id}/transition`, { action: "approve" }, "approver");
+  assert.equal(approved.status, 200, JSON.stringify(approved.body));
+  const certificate = approved.body.certificate;
+  assert.match(certificate.number, /^DEMO-\d{14}$/, "new issuance mints the 14-digit CERTNO-DDMM format");
+  // Simulate a pre-CERTNO-DDMM issued row: rewrite the stored number to a
+  // 16-digit CERTNO-01 value (fixture date, never minted) and prove the
+  // by-number lookup still resolves it — plain and grouped.
+  const legacyNumber = "1999010199999999";
+  const tenantId = sessions["staff"]!.user.tenantId as string;
+  await transaction(tenantId, async (db) => {
+    await db.query("UPDATE certificates SET number=$1 WHERE id=$2", [legacyNumber, certificate.id]);
+  });
+  const byPlain = await req("GET", `/verify/by-number/${legacyNumber}`);
+  assert.equal(byPlain.status, 200, JSON.stringify(byPlain.body));
+  assert.equal(byPlain.body.status, "ISSUED");
+  const byGrouped = await req(
+    "GET",
+    `/verify/by-number/${encodeURIComponent("1999-0101-9999-9999")}`,
+  );
+  assert.equal(byGrouped.status, 200, JSON.stringify(byGrouped.body));
+  assert.equal(byGrouped.body.status, "ISSUED");
+});
+
+test("certno: the react-pdf engine prints the plain number digits (line-height regression guard)", async () => {
   const { renderCertificatePdfReact } = await import("../src/pdf-react.js");
   const input = {
-    number: "2026111861146099",
-    verificationUrl: "http://127.0.0.1:5173/verify?searchText=2026111861146099",
+    number: "25116114609912",
+    verificationUrl: "http://127.0.0.1:5173/verify?searchText=25116114609912",
     tenant: { name_bn: "বেলাবো ইউনিয়ন পরিষদ", name_en: "Belabo Union Parishad" },
     service: { service_no: 12, name_bn: "নাগরিকত্ব সনদ", name_en: "Citizenship certificate" },
     citizen: {
@@ -618,14 +706,14 @@ test("certno: the react-pdf engine prints the boxed digits (line-height regressi
   fs.writeFileSync(file, pdf);
   const { stdout } = await execFileAsync("pdftotext", [file, "-"]);
   // The verify URL also carries the number; remove it so only the printed
-  // strip can satisfy the digit-stream check.
+  // number can satisfy the digit-stream check.
   const stream = stdout
     .replace(/searchText=\S+/g, "")
     .replace(/[০-৯]/g, (d) => String("০১২৩৪৫৬৭৮৯".indexOf(d)))
     .replace(/\D/g, "");
   assert.ok(
-    stream.includes("2026111861146099"),
-    "the 16 strip digits must be present as printed text in the react-pdf render",
+    stream.includes("25116114609912"),
+    "the 14 plain-number digits must be present as printed text in the react-pdf render",
   );
 });
 

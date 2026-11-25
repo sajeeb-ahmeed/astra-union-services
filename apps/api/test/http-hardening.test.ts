@@ -1,13 +1,116 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import express from "express";
+import http from "node:http";
 import {
   createRateLimiter,
+  enforceHttps,
   httpHardening,
   enforceRuntimeConfig,
   configureProxyTrust,
-  createHttpsRedirect,
 } from "../src/http-hardening.js";
+
+test("SEC-HTTPS: plain HTTP behind the proxy 301s to the HTTPS apex origin, HTTPS passes through", async () => {
+  const prevOrigin = process.env.PUBLIC_ORIGIN;
+  process.env.PUBLIC_ORIGIN = "https://digitalunion.com.bd";
+  const app = express();
+  app.use(httpHardening);
+  app.get("/", (_req, res) => res.json({ ok: true }));
+  app.post("/api/v1/auth/login", (_req, res) => res.json({ ok: true }));
+  const server = app.listen(0, "127.0.0.1");
+  await new Promise<void>((r) => server.once("listening", r));
+  try {
+    const url = `http://127.0.0.1:${(server.address() as any).port}`;
+    const redirect = await fetch(`${url}/services?service=1`, {
+      headers: { "X-Forwarded-Proto": "http" },
+      redirect: "manual",
+    });
+    assert.equal(redirect.status, 301);
+    assert.equal(
+      redirect.headers.get("location"),
+      "https://digitalunion.com.bd/services?service=1",
+    );
+    // A POST keeps its method and body across the upgrade (308, not 301).
+    const postRedirect = await fetch(`${url}/api/v1/auth/login`, {
+      method: "POST",
+      headers: { "X-Forwarded-Proto": "http" },
+      redirect: "manual",
+    });
+    assert.equal(postRedirect.status, 308);
+    assert.equal(
+      postRedirect.headers.get("location"),
+      "https://digitalunion.com.bd/api/v1/auth/login",
+    );
+    // Already-HTTPS (via the forwarded header) is untouched.
+    assert.equal(
+      (await fetch(url, { headers: { "X-Forwarded-Proto": "https" } })).status,
+      200,
+    );
+    // No forwarded-proto header at all: fail open — never redirect, so a
+    // proxy that does not send the header cannot loop HTTPS requests.
+    assert.equal((await fetch(url)).status, 200);
+    // A www host still lands on the canonical apex in one hop (fetch
+    // forbids setting Host, so this leg uses a raw request).
+    const www = await new Promise<{ status: number; location: string }>(
+      (resolve, reject) => {
+        const { port } = server.address() as any;
+        const request = http.request(
+          {
+            host: "127.0.0.1",
+            port,
+            path: "/",
+            method: "GET",
+            headers: {
+              "X-Forwarded-Proto": "http",
+              Host: "www.digitalunion.com.bd",
+            },
+          },
+          (response) => {
+            resolve({
+              status: response.statusCode ?? 0,
+              location: response.headers.location ?? "",
+            });
+          },
+        );
+        request.on("error", reject);
+        request.end();
+      },
+    );
+    assert.equal(www.status, 301);
+    assert.equal(www.location, "https://digitalunion.com.bd/");
+  } finally {
+    await new Promise<void>((r) => server.close(() => r()));
+    if (prevOrigin === undefined) delete process.env.PUBLIC_ORIGIN;
+    else process.env.PUBLIC_ORIGIN = prevOrigin;
+  }
+});
+
+test("SEC-HTTPS: redirect stays inactive without an HTTPS public origin", () => {
+  const req = {
+    secure: false,
+    headers: { "x-forwarded-proto": "http" },
+    method: "GET",
+    originalUrl: "/",
+  } as any;
+  let redirected = false;
+  const res = {
+    redirect: () => {
+      redirected = true;
+    },
+  } as any;
+  assert.equal(
+    enforceHttps(req, res, { PUBLIC_ORIGIN: "http://127.0.0.1:5173" }),
+    false,
+  );
+  assert.equal(redirected, false);
+  assert.equal(enforceHttps(req, res, {}), false);
+  assert.equal(redirected, false);
+  assert.equal(
+    enforceHttps(req, res, { PUBLIC_ORIGIN: "https://digitalunion.com.bd" }),
+    true,
+  );
+  assert.equal(redirected, true);
+});
 
 test("Security: bounded limiter enforces per-IP budget, Retry-After and expiry", async () => {
   let now = 1000;
@@ -217,54 +320,6 @@ test("Security: only a trusted immediate proxy separates forwarded clients into 
         );
     } finally {
       await new Promise<void>((resolve) => server.close(() => resolve()));
-    }
-  }
-});
-
-test("Security: production redirects proxied plain-HTTP requests to the configured HTTPS origin", async () => {
-  const env = { NODE_ENV: "production", PUBLIC_ORIGIN: "https://digitalunion.example" } as NodeJS.ProcessEnv;
-  const app = express();
-  app.use(createHttpsRedirect(env));
-  app.all(/.*/, (_req, res) => res.json({ ok: true }));
-  const server = app.listen(0, "127.0.0.1");
-  await new Promise<void>((r) => server.once("listening", r));
-  try {
-    const url = `http://127.0.0.1:${(server.address() as any).port}`;
-    const get = await fetch(`${url}/login?next=%2Fapply`, {
-      redirect: "manual",
-      headers: { "X-Forwarded-Proto": "http", Host: "evil.example" },
-    });
-    assert.equal(get.status, 301);
-    assert.equal(get.headers.get("location"), "https://digitalunion.example/login?next=%2Fapply");
-    const post = await fetch(`${url}/api/v1/auth/login`, {
-      method: "POST",
-      redirect: "manual",
-      headers: { "X-Forwarded-Proto": "HTTP, https" },
-    });
-    assert.equal(post.status, 308);
-    assert.equal(post.headers.get("location"), "https://digitalunion.example/api/v1/auth/login");
-    for (const headers of [{ "X-Forwarded-Proto": "https" }, {}] as Record<string, string>[])
-      assert.equal((await fetch(`${url}/login`, { redirect: "manual", headers })).status, 200);
-  } finally {
-    await new Promise<void>((r) => server.close(() => r()));
-  }
-  for (const other of [
-    { NODE_ENV: "development", PUBLIC_ORIGIN: "https://digitalunion.example" },
-    { NODE_ENV: "production", PUBLIC_ORIGIN: "http://127.0.0.1:5173" },
-  ] as NodeJS.ProcessEnv[]) {
-    const passthrough = express();
-    passthrough.use(createHttpsRedirect(other));
-    passthrough.get("/", (_req, res) => res.json({ ok: true }));
-    const s = passthrough.listen(0, "127.0.0.1");
-    await new Promise<void>((r) => s.once("listening", r));
-    try {
-      const res = await fetch(`http://127.0.0.1:${(s.address() as any).port}/`, {
-        redirect: "manual",
-        headers: { "X-Forwarded-Proto": "http" },
-      });
-      assert.equal(res.status, 200);
-    } finally {
-      await new Promise<void>((r) => s.close(() => r()));
     }
   }
 });
