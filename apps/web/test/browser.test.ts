@@ -117,16 +117,20 @@ async function completeFees(page: Page) {
   } catch {}
   if (await language.count()) {
     // T-003: the demo payloads carry delivery_language "bilingual"
-    // (a legitimate form value), but the order panel only accepts
-    // bn/en for its Review-fees button — with a fee policy present,
-    // a "bilingual" value leaves Review permanently disabled. Pick
-    // Bangla (the product's default certificate language) the way a
-    // user would in the panel, instead of assuming the value is
-    // already bn/en. (The panel not handling "bilingual" is a
-    // product inconsistency, recorded in working/12-phase4-stage0.md
-    // for the consolidation step; this only drives the UI.)
-    const current = await language.inputValue().catch(() => "");
-    if (!["bn", "en"].includes(current)) await language.selectOption("bn");
+    // (a legitimate form value), but the order panel only enables
+    // Review fees for bn/en. Worse, the panel's language select has
+    // no "bilingual" option, so the browser falls back to DISPLAYING
+    // "bn" while the React prop stays "bilingual" — reading the
+    // select value looks correct while the button stays disabled
+    // (proven by a fiber probe: prop "bilingual", DOM value "bn",
+    // button disabled; after an explicit selectOption("bn") the prop
+    // becomes "bn" and the button enables). So always re-select
+    // Bangla explicitly, the way a user stuck here would in the
+    // panel — never trust the displayed value. The panel not handling
+    // "bilingual" is a product inconsistency, recorded in
+    // working/12-phase4-stage0.md for the consolidation step; the
+    // product itself is NOT changed in Stage 0.
+    await language.selectOption("bn");
   }
   const review = page.getByRole("button", { name: "Review fees" });
   if (await review.count()) await review.click();
