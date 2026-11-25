@@ -30,6 +30,11 @@ import { generatePdf, DEMO_TEMPLATE_VERSION } from "./pdf.js";
 import { publicManagementRouter, managementRouter } from "./management.js";
 import { publicToolsRouter, protectedToolsRouter } from "./portal-tools.js";
 import { createHttpsRedirect, httpHardening } from "./http-hardening.js";
+import {
+  createSharedRateLimiter,
+  createFailureBudget,
+  sharedRateLimitsEnabled,
+} from "./shared-rate-limit.js";
 import { paymentsRouter, publicPaymentsRouter } from "./payments.js";
 import {
   attachmentsRouter,
@@ -150,6 +155,21 @@ export const app = express();
 app.disable("x-powered-by");
 app.use(createHttpsRedirect());
 app.use(httpHardening);
+// S-004: the public verify/track budget is shared across server processes
+// when shared limits are enabled (production, or SHARED_RATE_LIMITS=on);
+// otherwise httpHardening's per-process in-memory limiter is the only
+// enforcement and this mount is a no-op. On a DB failure the shared
+// check falls back to its own in-memory budget instead of failing open.
+if (sharedRateLimitsEnabled()) {
+  const sharedPublicLimiter = createSharedRateLimiter({
+    pool,
+    limit: 120,
+    windowMs: 60_000,
+    keyPrefix: "public:",
+  });
+  app.use("/api/v1/verify", sharedPublicLimiter.middleware());
+  app.use("/api/v1/track", sharedPublicLimiter.middleware());
+}
 app.use((req, res, next) => {
   res.setHeader("X-Content-Type-Options", "nosniff");
   res.setHeader("Referrer-Policy", "no-referrer");
@@ -690,18 +710,31 @@ function maskName(name: unknown): string | null {
     })
     .join(" ");
 }
-const loginAttempts = new Map<string, { count: number; expires: number }>();
-const identifierAttempts = new Map<string, { count: number; expires: number }>();
+// S-004: sign-in budgets. The per-IP budget (60/min) and the
+// per-identifier failure budget (10 failures/5 min) are shared across
+// server processes through rate_limit_buckets when shared limits are
+// enabled; otherwise they run from a per-process Map with identical
+// limits and messages (see shared-rate-limit.ts for why the test
+// environment keeps the in-memory path).
+const loginIpLimiter = createSharedRateLimiter({
+  pool,
+  limit: 60,
+  windowMs: 60_000,
+  keyPrefix: "login:ip:",
+  shared: sharedRateLimitsEnabled(),
+});
+const loginIdBudget = createFailureBudget({
+  pool,
+  limit: 10,
+  windowMs: 300_000,
+  keyPrefix: "login:id:",
+  shared: sharedRateLimitsEnabled(),
+});
 app.post(
   "/api/v1/auth/login",
   wrap(async (req, res) => {
     const key = req.ip ?? "local";
-    let bucket = loginAttempts.get(key);
-    if (!bucket || bucket.expires < Date.now()) {
-      bucket = { count: 0, expires: Date.now() + 60000 };
-      loginAttempts.set(key, bucket);
-    }
-    if (++bucket.count > 60)
+    if (!(await loginIpLimiter.consume(key)).allowed)
       fail(
         429,
         "RATE_LIMIT",
@@ -756,16 +789,8 @@ app.post(
     }
     // Same limit for every identifier kind, keyed by the identifier itself (not only by address).
     const identifierKey = `${kind}:${normalized ?? "invalid"}`;
-    let perIdentifier = identifierAttempts.get(identifierKey);
-    if (!perIdentifier || perIdentifier.expires < Date.now()) {
-      perIdentifier = { count: 0, expires: Date.now() + 300000 };
-      identifierAttempts.set(identifierKey, perIdentifier);
-      if (identifierAttempts.size > 10000)
-        for (const [k, v] of identifierAttempts)
-          if (v.expires < Date.now()) identifierAttempts.delete(k);
-    }
     // Failed attempts only: ten failures for one identifier pause it for five minutes, whatever its kind.
-    if (perIdentifier.count >= 10)
+    if (await loginIdBudget.blocked(identifierKey))
       fail(
         429,
         "RATE_LIMIT",
@@ -776,10 +801,11 @@ app.post(
       // An unknown or malformed identifier takes the same path as a wrong password.
       result = await passwordLogin(email || "unknown@invalid.invalid", data.password);
     } catch (error) {
-      if (error instanceof ApiError && error.code === "INVALID_LOGIN") perIdentifier.count++;
+      if (error instanceof ApiError && error.code === "INVALID_LOGIN")
+        await loginIdBudget.recordFailure(identifierKey);
       throw error;
     }
-    identifierAttempts.delete(identifierKey);
+    await loginIdBudget.clear(identifierKey);
     if (result.challenge) res.json(result.challenge);
     else sendLogin(res, result.session!);
   }),
