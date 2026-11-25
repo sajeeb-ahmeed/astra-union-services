@@ -5,6 +5,11 @@ import { assertScannerVerdictPath, probeFixtureSecret } from './scanner/prefligh
 import { resetTestOrderPolicies } from './test-support/reset-test-order-policies.js';
 let stack:ChildProcess[]=[];
 async function healthy(){try{return (await fetch('http://127.0.0.1:5173/api/v1/health',{signal:AbortSignal.timeout(2000)})).ok;}catch{return false;}}
+async function devHarnessHealthy(){try{return (await fetch('http://127.0.0.1:5174/',{signal:AbortSignal.timeout(2000)})).ok;}catch{return false;}}
+async function runTests(files:string[], env:NodeJS.ProcessEnv):Promise<number>{
+  const test=spawn(process.execPath,['--import','tsx','--test','--test-concurrency=1',...files],{stdio:'inherit',windowsHide:true,env});
+  return await new Promise<number>((resolve,reject)=>{test.on('error',reject);test.on('exit',code=>resolve(code??1));});
+}
 try{
   if(!await healthy()){
     // Task C (browser stability): the suite used to run against the Vite
@@ -31,6 +36,21 @@ try{
     for(let i=0;i<80&&!await healthy();i++)await new Promise(r=>setTimeout(r,250));
     if(!await healthy())throw Error('Browser QA stack did not start. Initialize PostgreSQL first.');
   }
+  // The attachment component tests (attachment-browser.test.ts) load a
+  // test-only harness page (/test/fixtures/attachment-harness.tsx)
+  // that only the Vite dev server can serve: it is a .tsx module
+  // outside the production bundle, and `vite preview` has no route
+  // for it — the harness never mounts there and all 9 tests time
+  // out. So the runner keeps a dev server on 5174 for that one file
+  // (ATTACHMENT_TEST_ORIGIN), while the rest of the suite runs
+  // against the production build on 5173. The harness page loads
+  // once per test and never navigates rapidly, so the dev server's
+  // resource-exhaustion path does not apply to it.
+  if(!await devHarnessHealthy()){
+    stack.push(spawn(process.execPath,[path.resolve('node_modules/vite/bin/vite.js'),'--config','apps/web/vite.config.ts','--port','5174','--strictPort'],{stdio:'inherit',windowsHide:true,env:{...process.env,DEMO_SETTLE_ENABLED:'true'}}));
+    for(let i=0;i<80&&!await devHarnessHealthy();i++)await new Promise(r=>setTimeout(r,250));
+    if(!await devHarnessHealthy())throw Error('Browser QA stack did not start: attachment-harness dev server on 5174 did not come up.');
+  }
   // T-002: fail fast when no scanner verdict path exists. Without one,
   // every document-bearing test fails one by one with 409
   // ATTACHMENT_NOT_READY instead of a single clear message.
@@ -49,6 +69,12 @@ try{
   const removed = await resetTestOrderPolicies();
   console.log(`Test isolation (T-003): removed ${removed} test-created order polic(ies).`);
   const files=fs.readdirSync('apps/web/test').filter(n=>n.endsWith('.test.ts')).sort().map(n=>'apps/web/test/'+n);
-  const test=spawn(process.execPath,['--import','tsx','--test','--test-concurrency=1',...files],{stdio:'inherit',windowsHide:true});
-  process.exitCode=await new Promise<number>((resolve,reject)=>{test.on('error',reject);test.on('exit',code=>resolve(code??1));});
+  const attachmentFiles=files.filter(n=>n.endsWith('/attachment-browser.test.ts'));
+  const restFiles=files.filter(n=>!n.endsWith('/attachment-browser.test.ts'));
+  // Attachment component tests first, against the dev server on 5174;
+  // the rest of the suite against the production build on 5173.
+  // The runner's exit code is the worst of the two runs.
+  let code=await runTests(attachmentFiles,{...process.env,ATTACHMENT_TEST_ORIGIN:'http://127.0.0.1:5174'});
+  const restCode=await runTests(restFiles,process.env);
+  process.exitCode=Math.max(code,restCode);
 }finally{for (const child of stack) child.kill();}

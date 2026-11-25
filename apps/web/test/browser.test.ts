@@ -116,7 +116,17 @@ async function completeFees(page: Page) {
     return;
   } catch {}
   if (await language.count()) {
-    if (!(await language.inputValue())) await language.selectOption("bn");
+    // T-003: the demo payloads carry delivery_language "bilingual"
+    // (a legitimate form value), but the order panel only accepts
+    // bn/en for its Review-fees button — with a fee policy present,
+    // a "bilingual" value leaves Review permanently disabled. Pick
+    // Bangla (the product's default certificate language) the way a
+    // user would in the panel, instead of assuming the value is
+    // already bn/en. (The panel not handling "bilingual" is a
+    // product inconsistency, recorded in working/12-phase4-stage0.md
+    // for the consolidation step; this only drives the UI.)
+    const current = await language.inputValue().catch(() => "");
+    if (!["bn", "en"].includes(current)) await language.selectOption("bn");
   }
   const review = page.getByRole("button", { name: "Review fees" });
   if (await review.count()) await review.click();
@@ -643,9 +653,12 @@ test(
       // Duplicate identity keys are rejected. Server-generated references use the
       // CERTNO-01 16-digit format, which callers cannot supply (the schema accepts only REF-…),
       // so the duplicate check uses an explicit reference, as API clients do.
+      // T-003: the reference must be unique per run — a fixed value
+      // survives in the shared DB from an earlier run and the first
+      // create then fails with 409 DUPLICATE instead of 201.
       const explicit = {
         ...response.request().postDataJSON(),
-        syntheticReference: "REF-DUP-BROWSER-001",
+        syntheticReference: `REF-DUP-BROWSER-${Date.now()}`,
       };
       const first = await context.request.post(`${origin}/api/v1/citizens`, {
         data: explicit,
