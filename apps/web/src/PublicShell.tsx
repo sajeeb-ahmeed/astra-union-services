@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useSyncExternalStore } from "react";
 import { HelpWidget, UtilityBar } from "./PublicHelp.js";
 import { useSupportContact } from "./support-contact.js";
+import { useWitnessAvailable } from "./witness-availability.js";
 import { choose, LanguageSwitcher, useLanguage } from "./i18n.js";
 import { useBranding } from "./branding.js";
 import { hasPageHead } from "./seo/head.js";
@@ -132,6 +133,9 @@ export function SiteHeader({
 }) {
   useLanguage();
   const branding = useBranding();
+  // L-004: the witness entry points hide once the options list is
+  // confirmed empty (fail-open while unknown — see witness-availability.ts).
+  const witnessAvailable = useWitnessAvailable();
   useEffect(() => {
     // SEO P5: a page that applied its own head (seo/head.ts) owns the
     // title; the branding default must not overwrite it when the branding
@@ -254,7 +258,9 @@ export function SiteHeader({
                     {choose({ bn: "বন্ধ করুন", en: "Close" })}
                   </button>
                 </div>
-                {[...PUBLIC_NAV, ...DRAWER_EXTRA].map((item) => (
+                {[...PUBLIC_NAV, ...DRAWER_EXTRA]
+                  .filter((item) => witnessAvailable || item.href !== "/witness")
+                  .map((item) => (
                   <NavLink
                     key={item.href}
                     href={item.href}
@@ -290,6 +296,9 @@ export function SiteFooter({
   const branding = useBranding();
   // F-001: the owner-configured support contact (empty until set).
   const contact = useSupportContact();
+  // L-004: the witness quick link hides once the options list is
+  // confirmed empty (fail-open while unknown).
+  const witnessAvailable = useWitnessAvailable();
   const link = (href: string, bn: string, en: string, key?: string) => (
     <li key={key ?? href}>
       <NavLink href={href} onNavigate={onNavigate} className="du-footlink">
@@ -320,7 +329,7 @@ export function SiteFooter({
           <ul>
             {link("/verify", "সনদ যাচাই", "Verify certificate")}
             {link("/tracking", "আবেদনের অবস্থা", "Track application")}
-            {link("/witness", "সাক্ষীর প্রত্যয়ন", "Witness statement")}
+            {witnessAvailable && link("/witness", "সাক্ষীর প্রত্যয়ন", "Witness statement")}
             {link("/notices", "নোটিশ", "Notices")}
             {link("/register", "নতুন অ্যাকাউন্ট", "Create an account")}
             {link("/register-office", "অফিস অ্যাকাউন্ট খুলুন", "Open an office account")}

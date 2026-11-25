@@ -14,6 +14,7 @@ import { certificateNumberInput, verificationToken } from "./verify-input.js";
 import { HOME_SEO } from "./seo/service-seo.js";
 import { applyPageHead } from "./seo/head.js";
 import { navigate } from "./navigate.js";
+import { useWitnessAvailable } from "./witness-availability.js";
 
 export { certificateNumberInput, verificationToken } from "./verify-input.js";
 
@@ -35,6 +36,9 @@ const BN_DIGITS = "০১২৩৪৫৬৭৮৯";
  */
 export function PublicHome({ login }: { login?: React.ReactNode } = {}) {
   const [lang] = useLanguage();
+  // L-004: the witness help-card link hides once the options list is
+  // confirmed empty (fail-open while unknown).
+  const witnessAvailable = useWitnessAvailable();
   // L-006: idle-prefetch the portal chunk so the first navigation from
   // home to a portal page does not wait on a lazy chunk (and its loading
   // panel). requestIdleCallback keeps this off first paint; if the
@@ -371,9 +375,13 @@ export function PublicHome({ login }: { login?: React.ReactNode } = {}) {
               <li>
                 <a href="/guide">{choose({ bn: "ব্যবহার নির্দেশিকা", en: "User guide" })}</a>
               </li>
-              <li>
-                <a href="/witness">{choose({ bn: "সাক্ষীর প্রত্যয়ন তৈরি", en: "Make a witness statement" })}</a>
-              </li>
+              {/* L-004: the witness link hides once the options list is
+                  confirmed empty (fail-open while unknown). */}
+              {witnessAvailable && (
+                <li>
+                  <a href="/witness">{choose({ bn: "সাক্ষীর প্রত্যয়ন তৈরি", en: "Make a witness statement" })}</a>
+                </li>
+              )}
               <li>
                 <a href="/notices">{choose({ bn: "সব নোটিশ", en: "All notices" })}</a>
               </li>

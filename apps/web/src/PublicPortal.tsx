@@ -10,6 +10,7 @@ import {
 import { formatDateTime, localDigits } from "./ui/fmt.js";
 import { categoryLabel } from "./service-categories.js";
 import { navigate } from "./navigate.js";
+import { useSupportContact } from "./support-contact.js";
 import { serviceNoFromSlug, servicePath } from "./service-slugs.js";
 import {
   OFFICES_HUB_SEO,
@@ -73,6 +74,9 @@ function RecoveryForm() {
   // reaches the server, a proxy, or a log. It is read once, moved into
   // the form state, and stripped from the address bar; the token is
   // then sent only in the POST body.
+  // F-014: the owner-configured support contact (empty until set) — the
+  // one place a locked-out citizen is told how to reach a human.
+  const contact = useSupportContact();
   const [token, setToken] = useState(
       new URLSearchParams(location.hash.replace(/^#/, "")).get("token") || "",
     ),
@@ -91,6 +95,26 @@ function RecoveryForm() {
           "Contact your office administrator using your existing trusted contact channel to recover your account. After checking the request, they can provide a one-use recovery link valid for 15 minutes. ",
         )}
       </p>
+      {/* F-014: the platform support contact, when the owner has published
+          one — the locked-out citizen's way to reach a human. With no
+          contact configured this block stays hidden and the paragraph
+          above stands alone; nothing is invented here. */}
+      {(contact.phone || contact.email) && (
+        <p className="recovery-contact">
+          {t("Platform support: ")}
+          {contact.phone && (
+            <a href={`tel:${contact.phone.replace(/\s+/g, "")}`}>{contact.phone}</a>
+          )}
+          {contact.phone && contact.email && tx(" · ")}
+          {contact.email && <a href={`mailto:${contact.email}`}>{contact.email}</a>}
+          {contact.hours.bn && (
+            <>
+              {tx(" · ")}
+              <small>{choose(contact.hours)}</small>
+            </>
+          )}
+        </p>
+      )}
       {tx(
         done ? (
           <p role="status" className="notice">
@@ -941,6 +965,19 @@ export function PublicPortal({
                     bn: "এখনও ফি, সময় ও কাগজপত্র প্রকাশ করেনি",
                     en: "Has not yet published its fee, time and documents",
                   })}
+                  {/* F-003: the "ask your office" path — the fee, time and
+                      documents are the office's to publish, so the row
+                      points at the office instead of inventing them. */}
+                  {tx(" · ")}
+                  <a
+                    href={officePath(o.slug)}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      openOffice(o.slug);
+                    }}
+                  >
+                    {choose({ bn: "অফিসকে জিজ্ঞাসা করুন", en: "Ask this office" })}
+                  </a>
                 </p>
               ) : (
               <article className="service-office-entry" key={o.slug}>
@@ -1340,6 +1377,27 @@ export function PublicPortal({
             })}
           </p>
         )}
+        {/* F-002: who can apply. The eligibility texts are owner-supplied
+            only (see service-seo.ts) — until a service has them, the page
+            says so honestly instead of inventing requirements. */}
+        <section className="service-eligibility" aria-label={choose({ bn: "কারা আবেদন করতে পারবেন", en: "Who can apply" })}>
+          <h2>{choose({ bn: "কারা আবেদন করতে পারবেন", en: "Who can apply" })}</h2>
+          {selectedSeo?.eligibilityBn ? (
+            <p>
+              {choose({
+                bn: selectedSeo.eligibilityBn,
+                en: selectedSeo.eligibilityEn ?? selectedSeo.eligibilityBn,
+              })}
+            </p>
+          ) : (
+            <p className="service-not-published">
+              {choose({
+                bn: "এই সেবার জন্য কারা আবেদন করতে পারবেন তা এখনও প্রকাশ করা হয়নি।",
+                en: "Who can apply for this service has not been published yet.",
+              })}
+            </p>
+          )}
+        </section>
         <section className="service-facts" aria-label={choose({ bn: "এক নজরে", en: "At a glance" })}>
           <h2>{choose({ bn: "এক নজরে", en: "At a glance" })}</h2>
           <dl>

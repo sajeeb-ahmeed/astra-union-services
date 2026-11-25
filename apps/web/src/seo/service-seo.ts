@@ -45,6 +45,15 @@ export interface ServiceSeo {
   introEn: string;
   noteBn?: string;
   noteEn?: string;
+  /**
+   * F-002: who can apply for this service, in both languages. These are
+   * government eligibility requirements — they may ONLY be filled in
+   * from an owner-supplied, office-confirmed source, never invented.
+   * Until a service has them, the service page renders an honest
+   * "not published yet" state instead of guessing.
+   */
+  eligibilityBn?: string;
+  eligibilityEn?: string;
   extraFaq?: ServiceFaq[];
   related: number[];
 }
