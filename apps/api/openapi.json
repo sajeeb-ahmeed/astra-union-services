@@ -80,6 +80,11 @@
           },
           "order": {
             "$ref": "#/components/schemas/ApplicationOrderInput"
+          },
+          "requestKey": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Optional client-supplied idempotency key. Replaying the same key for the same citizen and service returns the original application (201 with an X-Idempotency-Replayed response header) instead of creating a duplicate draft; a new key creates a legitimate repeat application. A rejected request never consumes its key."
           }
         },
         "description": "Citizen-owned or authorized tenant staff/admin draft. Order is required when this office/service has a fee policy; absent policies retain the explicit legacy demo workflow. Client prices, paid flags and tenant overrides are rejected."

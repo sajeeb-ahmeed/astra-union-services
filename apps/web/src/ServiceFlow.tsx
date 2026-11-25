@@ -389,6 +389,12 @@ export function ServiceFlow({
   const [issues, setIssues] = useState<readonly ValidationIssue[]>([]);
   const [order, setOrder] = useState<IntakeOrderState | null>(null);
   const [busy, setBusy] = useState(false);
+  // W-004: one idempotency key per flow mount. Every create from this
+  // attempt (draft or submit, including a retry after a network failure)
+  // carries the same key, so the server returns the original application
+  // instead of a duplicate draft. A new flow mount mints a new key, so
+  // a legitimate repeat application is still possible.
+  const [requestKey] = useState(() => crypto.randomUUID());
   const [error, setError] = useState("");
   const [result, setResult] = useState<{ id: string; reference?: string; state: string; note?: string } | null>(null);
   // FULL-UIUX-01 (FE S8): when the office has no fee policy, the fee step
@@ -504,6 +510,7 @@ export function ServiceFlow({
         citizenId: citizen.id,
         serviceNo,
         payload,
+        requestKey,
         ...(order?.order ? { order: order.order } : {}),
       });
       const createdApplication = created.application || created;

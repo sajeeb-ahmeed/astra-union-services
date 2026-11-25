@@ -1563,11 +1563,21 @@ app.post(
         serviceNo: z.number().int(),
         payload: z.record(z.string(), z.unknown()),
         order: applicationOrderInput.optional(),
+        // W-004: optional client-supplied idempotency key. A replay of
+        // the same key for the same citizen + service returns the
+        // original application instead of creating a duplicate draft;
+        // a new key (or no key) still creates a legitimate repeat
+        // application. The key is claimed only after every validation
+        // passes, inside the creation transaction, so a rejected
+        // request never consumes it.
+        requestKey: uuid.optional(),
       })
       .strict()
       .parse(req.body);
-    const result = await transaction(tenant(req), async (db) => {
-      const citizen = (
+    const { application, replayed } = await transaction(
+      tenant(req),
+      async (db) => {
+        const citizen = (
         await db.query(
           `SELECT * FROM citizens WHERE id=$1 AND tenant_id=$2 ${a.role === "citizen" ? "AND user_id=$3" : ""}`,
           a.role === "citizen"
@@ -1632,15 +1642,47 @@ app.post(
         data.order,
         data.payload,
       );
+      // W-004: claim the idempotency key before creating anything. The
+      // advisory lock serializes concurrent replays of the same key: the
+      // loser waits for the winner's transaction, then reads the
+      // committed key row and returns the same application. No second
+      // draft, no second order snapshot, no second fee settlement.
+      let replayedApplication: any = null;
+      if (data.requestKey) {
+        await db.query(
+          "SELECT pg_advisory_xact_lock(hashtext('application_create'), hashtext($1))",
+          [
+            `${a.tenantId}:${data.citizenId}:${data.serviceNo}:${data.requestKey}`,
+          ],
+        );
+        const claimed = (
+          await db.query(
+            "SELECT application_id FROM application_creation_keys WHERE tenant_id=$1 AND citizen_id=$2 AND service_no=$3 AND request_key=$4",
+            [a.tenantId, data.citizenId, data.serviceNo, data.requestKey],
+          )
+        ).rows[0];
+        if (claimed) {
+          replayedApplication = (
+            await db.query(
+              "SELECT * FROM applications WHERE id=$1 AND tenant_id=$2",
+              [claimed.application_id, a.tenantId],
+            )
+          ).rows[0];
+        }
+      }
+      if (replayedApplication)
+        return { application: camelRow(replayedApplication), replayed: true };
       // CERTNO-01: every new application carries the public 16-digit reference
       // (Asia/Dhaka submission date + 8 random digits, uniqueness-checked). The UUID id
       // remains the internal key; previously created applications keep their reference
       // (or NULL) and stay reachable by UUID.
       const reference = await mintReference(applicationReferenceExists(db));
+      const applicationId = randomUUID();
       const r = (
         await db.query(
-          "INSERT INTO applications(tenant_id,citizen_id,service_no,schema_version,schema_hash,created_by,order_mode,reference) VALUES($1,$2,$3,$6,$4,$5,$7,$8) RETURNING *",
+          "INSERT INTO applications(id,tenant_id,citizen_id,service_no,schema_version,schema_hash,created_by,order_mode,reference) VALUES($1,$2,$3,$4,$7,$5,$6,$8,$9) RETURNING *",
           [
+            applicationId,
             a.tenantId,
             data.citizenId,
             data.serviceNo,
@@ -1664,9 +1706,16 @@ app.post(
       );
       await saveApplicationOrder(db, a.tenantId!, r.id, data.serviceNo, order);
       await event(db, { ...r, state: null }, a, "create", "DRAFT");
-      return camelRow(r);
-    });
-    res.status(201).json(result);
+      if (data.requestKey)
+        await db.query(
+          "INSERT INTO application_creation_keys(tenant_id,citizen_id,service_no,request_key,application_id) VALUES($1,$2,$3,$4,$5)",
+          [a.tenantId, data.citizenId, data.serviceNo, data.requestKey, r.id],
+        );
+      return { application: camelRow(r), replayed: false };
+      },
+    );
+    if (replayed) res.set("X-Idempotency-Replayed", "true");
+    res.status(201).json(application);
   }),
 );
 app.get(
