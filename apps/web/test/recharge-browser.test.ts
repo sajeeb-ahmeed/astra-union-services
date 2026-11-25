@@ -2,7 +2,8 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
-import { randomBytes } from "node:crypto";
+import { createHash, randomBytes, randomUUID } from "node:crypto";
+import pg from "pg";
 import { chromium, type Browser, type Page } from "playwright";
 import { workspacePage, goToWorkspacePage } from "./fixtures/workspace-nav.js";
 import { signOut } from "./fixtures/session.js";
@@ -30,10 +31,31 @@ async function signIn(page: Page, email: string, password: string) {
   await page.getByRole("button", { name: "Sign out", exact: true }).waitFor();
 }
 
+const jpeg = Buffer.concat([Buffer.from([255, 216, 255, 224]), Buffer.alloc(64, 3), Buffer.from([255, 217])]);
+const today = new Date().toISOString().slice(0, 10);
+
+/** Stands in for the scanner service: QUARANTINED → SCANNING → CLEAN. */
+async function markClean(db: pg.Pool, attachmentId: string) {
+  const lease = createHash("sha256").update(randomUUID()).digest("hex");
+  await db.query(
+    "UPDATE attachments SET scan_state='SCANNING',scan_reason='PENDING_SCAN',scan_attempts=scan_attempts+1,lease_token_hash=$2,lease_expires_at=now()+interval '5 minutes',scan_worker_id='test-scanner',scan_engine_version='test',scan_signature_version='test',scan_signature_updated_at=now() WHERE id=$1",
+    [attachmentId, lease],
+  );
+  await db.query(
+    "UPDATE attachments SET scan_state='CLEAN',scan_reason='OK',lease_token_hash=NULL,lease_expires_at=NULL,scanned_at=now(),scanned_sha256=content_sha256 WHERE id=$1",
+    [attachmentId],
+  );
+}
+
 test(
-  "recharge browser: an office sends a deposit slip, the owner rejects it with a reason, and the office sees why",
+  "recharge browser: new deposits are paused, and the owner rejects a pre-pause request with a reason the office sees",
   { timeout: 120000 },
   async () => {
+    assert.ok(
+      process.env.DATABASE_ADMIN_URL,
+      "DATABASE_ADMIN_URL must be set (source phase3-test-env.sh before test:web)",
+    );
+    const db = new pg.Pool({ connectionString: process.env.DATABASE_ADMIN_URL });
     const browser = await browserInstance();
     const stamp = Date.now();
     const slug = `recharge-browser-${stamp}`;
@@ -65,20 +87,38 @@ test(
       data: { nameBn: "ব্রাউজার পরীক্ষা ব্যাংক", nameEn: `Browser Test Bank ${stamp}`, accountName: "Astra Demo", accountNumber: "9999 8888", active: true },
     });
     assert.equal(added.status(), 200, await added.text());
+    // W-016: POST /recharges is 410 while the spend path is paused, so a
+    // pre-pause PENDING request is inserted directly — the same fixture
+    // the API recharge suite uses. Its deposit was already made.
+    const tenantId = (await db.query("SELECT id FROM tenants WHERE slug=$1", [slug])).rows[0].id as string;
+    const adminId = (
+      await db.query("SELECT id FROM platform_users WHERE email=$1", [`admin@${slug}.test`])
+    ).rows[0].id as string;
+    const sha = createHash("sha256").update(jpeg).digest("hex");
+    const proofId = (
+      await db.query(
+        "INSERT INTO attachments(tenant_id,citizen_id,uploaded_by,mime_type,byte_length,bytes,content_sha256,purpose,scan_state) VALUES($1,NULL,$2,'image/jpeg',$3,$4,$5,'recharge_proof','QUARANTINED') RETURNING id",
+        [tenantId, adminId, jpeg.length, jpeg, sha],
+      )
+    ).rows[0].id as string;
+    await db.query(
+      "INSERT INTO recharge_requests(tenant_id,amount_minor,bank_code,deposit_reference,deposit_date,proof_attachment_id,requested_by) VALUES($1,50000,$2,$3,$4,$5,$6)",
+      [tenantId, bank, `TXN-${stamp}`, today, proofId, adminId],
+    );
+    await markClean(db, proofId);
     const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
     await page.addInitScript(() => { if (!localStorage.getItem("astra.language")) localStorage.setItem("astra.language", "en"); });
     try {
       await signIn(page, `admin@${slug}.test`, adminPassword);
       await goToWorkspacePage(page, "Subscription & credits");
       const recharge = page.locator(".recharge");
-      await recharge.getByLabel("Deposit account", { exact: true }).selectOption(bank);
-      await recharge.getByText("9999 8888").waitFor();
-      await recharge.getByLabel("Amount deposited (BDT)", { exact: true }).fill("500");
-      await recharge.getByLabel("Deposit reference", { exact: true }).fill(`TXN-${stamp}`);
-      const jpeg = Buffer.concat([Buffer.from([255, 216, 255, 224]), Buffer.alloc(64, 3), Buffer.from([255, 217])]);
-      await recharge.getByLabel("Deposit slip", { exact: true }).setInputFiles({ name: "slip.jpg", mimeType: "image/jpeg", buffer: jpeg });
-      await recharge.getByRole("button", { name: "Send recharge request", exact: true }).click();
-      await recharge.getByText(/Request sent\./).waitFor();
+      // W-016: the deposit form is gone — the office sees the paused
+      // notice and the history table with the pre-pause request.
+      await recharge.getByText(/Points recharge is paused/).waitFor();
+      assert.equal(
+        await recharge.getByRole("button", { name: "Send recharge request", exact: true }).count(),
+        0,
+      );
       const row = recharge.locator("tbody tr", { hasText: `TXN-${stamp}` });
       await row.getByText("Waiting for confirmation").waitFor();
       assert.match(await row.innerText(), /500\.00/);
@@ -89,6 +129,7 @@ test(
       await goToWorkspacePage(page, "Platform management");
       // OWNER-REDESIGN-01: the recharge queue lives in the Offices section.
       await page.locator('.owner-nav a[href="#owner-offices"]').click();
+      await page.getByText(/New recharge requests are paused/).waitFor();
       const item = page.locator(".owner-recharges .recharge-item", { hasText: `TXN-${stamp}` });
       await item.waitFor();
       // Rejecting without a reason is refused by the server.
@@ -111,6 +152,7 @@ test(
         headers: { "X-CSRF-Token": csrf },
         data: { nameBn: "ব্রাউজার পরীক্ষা ব্যাংক", nameEn: `Browser Test Bank ${stamp}`, accountName: "Astra Demo", accountNumber: "9999 8888", active: false },
       });
+      await db.end();
       await owner.close();
       await browser.close();
     }

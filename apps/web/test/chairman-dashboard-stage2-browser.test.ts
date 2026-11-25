@@ -59,7 +59,24 @@ test(
         const r = await fetch("/api/v1/applications/counts", { credentials: "include" });
         return r.json();
       });
-      const apiTotal = Object.values(counts.counts as Record<string, number>).reduce((a, b) => a + b, 0);
+      // Sum ONLY the ten state keys. `counts` also carries `overdue`
+      // (W-015, a subset of the office-waiting states — not a partition
+      // member), and the response carries top-level derived totals
+      // (awaitingReview, awaitingIssuance, awaitingCitizen) that overlap
+      // states the same way.
+      const STATES = [
+        "DRAFT",
+        "SUBMITTED",
+        "UNDER_REVIEW",
+        "CORRECTION_REQUIRED",
+        "RESUBMITTED",
+        "APPROVED",
+        "ISSUED",
+        "REJECTED",
+        "CANCELLED",
+        "REVOKED",
+      ];
+      const apiTotal = STATES.reduce((a, s) => a + (counts.counts[s] ?? 0), 0);
       let stripSum = 0;
       for (const tile of await tiles.all()) stripSum += digits(await tile.locator("strong").textContent());
       assert.equal(stripSum, apiTotal, `state tiles sum to the office total (${stripSum} vs ${apiTotal})`);
