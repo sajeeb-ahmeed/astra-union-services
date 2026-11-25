@@ -12,6 +12,7 @@ import {
   SYNTHETIC_SIGNATURE_REASON,
   publishZeroFeePolicy,
 } from "./fixtures/issuance-fixtures.js";
+import { readRecoveryLink } from "./fixtures/email-outbox.js";
 const origin = "http://127.0.0.1:5173";
 async function browserInstance(): Promise<Browser> {
   const local = path.join(process.env.LOCALAPPDATA || "", "ms-playwright");
@@ -342,17 +343,26 @@ test(
       const recoveryResponse = page.waitForResponse(
         (r) => r.url().endsWith("/recovery") && r.request().method() === "POST",
       );
+      // S-007: the plaintext token is never returned in JSON, so the test
+      // reads the fragment link from the dev email outbox, as the holder
+      // would open it from their inbox.
+      const recoverySentAfter = Date.now();
       await member
         .getByRole("button", { name: "Generate recovery link", exact: true })
         .click();
       const recoveryResult = await recoveryResponse;
       assert.equal(recoveryResult.status(), 201, await recoveryResult.text());
       const recovery = await recoveryResult.json();
+      assert.equal(recovery.delivery, "EMAIL");
+      const recoveryUrl = await readRecoveryLink(
+        approverEmail,
+        recoverySentAfter,
+      );
       const recoveryContext = await browser.newContext(),
         recoveryPage = await recoveryContext.newPage();
       await recoveryContext.addInitScript(() => { if (!localStorage.getItem("astra.language")) localStorage.setItem("astra.language", "en"); });
         await recoveryContext.addInitScript(() => { if (!localStorage.getItem("astra.language")) localStorage.setItem("astra.language", "en"); });
-      await recoveryPage.goto(recovery.recoveryUrl);
+      await recoveryPage.goto(recoveryUrl);
       await recoveryPage
         .getByLabel("New password", { exact: true })
         .fill("Rec-Browser-2026!");
