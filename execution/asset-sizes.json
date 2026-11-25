@@ -1,6 +1,12 @@
 {
-  "measuredAt": "2026-11-25T20:55:00.189Z",
+  "measuredAt": "2026-11-25T22:41:15.870Z",
   "assets": [
+    {
+      "name": "AccountMfa-CKhspra7.js",
+      "rawBytes": 25984,
+      "gzipBytes": 7708,
+      "brotliBytes": 6586
+    },
     {
       "name": "AccountMfa-CckIIlWP.css",
       "rawBytes": 1428,
@@ -8,28 +14,22 @@
       "brotliBytes": 471
     },
     {
-      "name": "AccountMfa-CdyMHUWh.js",
-      "rawBytes": 25524,
-      "gzipBytes": 7612,
-      "brotliBytes": 6500
-    },
-    {
-      "name": "AdditionalWorkspace-By2YJPW-.js",
+      "name": "AdditionalWorkspace-v69vIkOT.js",
       "rawBytes": 23153,
-      "gzipBytes": 6833,
-      "brotliBytes": 5828
+      "gzipBytes": 6831,
+      "brotliBytes": 5834
     },
     {
-      "name": "AdminWorkspace-Ddk5MjsW.js",
+      "name": "AdminWorkspace-9v9CAgga.js",
       "rawBytes": 44376,
-      "gzipBytes": 11329,
-      "brotliBytes": 9796
+      "gzipBytes": 11328,
+      "brotliBytes": 9782
     },
     {
-      "name": "BrandLockup-B4E91LWg.js",
+      "name": "BrandLockup-CbCw_PmB.js",
       "rawBytes": 4448,
       "gzipBytes": 1859,
-      "brotliBytes": 1604
+      "brotliBytes": 1603
     },
     {
       "name": "BrandLockup-DTPnHy7Z.css",
@@ -38,124 +38,130 @@
       "brotliBytes": 596
     },
     {
-      "name": "GeographyFields-DzHOaudT.js",
+      "name": "GeographyFields-CPMwF2Fj.js",
       "rawBytes": 623102,
       "gzipBytes": 55570,
-      "brotliBytes": 39856
+      "brotliBytes": 39909
     },
     {
-      "name": "NotificationHealth-BAK_hiKS.js",
+      "name": "NotificationHealth-9HEMvtNp.js",
       "rawBytes": 1836,
-      "gzipBytes": 873,
-      "brotliBytes": 727
+      "gzipBytes": 874,
+      "brotliBytes": 732
     },
     {
-      "name": "OfficeInclusion-Dm2N0GoH.js",
+      "name": "OfficeInclusion-CBhUzg7b.js",
       "rawBytes": 6612,
-      "gzipBytes": 2344,
-      "brotliBytes": 1970
+      "gzipBytes": 2343,
+      "brotliBytes": 1969
     },
     {
-      "name": "OfficeRegistration-CeGxIzYy.js",
+      "name": "OfficeRegistration-DLRYa6xG.js",
       "rawBytes": 7578,
-      "gzipBytes": 2730,
-      "brotliBytes": 2294
+      "gzipBytes": 2728,
+      "brotliBytes": 2298
     },
     {
-      "name": "OnlinePayments-Dys2Gp3X.js",
+      "name": "OnlinePayments-D1pC9L7w.js",
       "rawBytes": 27295,
-      "gzipBytes": 7591,
-      "brotliBytes": 6512
+      "gzipBytes": 7590,
+      "brotliBytes": 6508
     },
     {
-      "name": "OrderPolicySettings-CSoR2eUj.js",
+      "name": "OrderPolicySettings-BKlYpym2.js",
       "rawBytes": 14633,
       "gzipBytes": 4868,
-      "brotliBytes": 4123
+      "brotliBytes": 4121
     },
     {
-      "name": "OwnerAccountRequests-qsRr5kX8.js",
+      "name": "OwnerAccountRequests-BPypVmWd.js",
       "rawBytes": 4581,
-      "gzipBytes": 1766,
-      "brotliBytes": 1469
+      "gzipBytes": 1767,
+      "brotliBytes": 1478
     },
     {
-      "name": "OwnerAudit-CXfLHe7o.js",
+      "name": "OwnerAudit-CI1JXKew.js",
       "rawBytes": 3072,
-      "gzipBytes": 1301,
-      "brotliBytes": 1105
+      "gzipBytes": 1302,
+      "brotliBytes": 1100
     },
     {
-      "name": "OwnerBranding-CJpB1wjX.js",
+      "name": "OwnerBranding-C3bltwBc.js",
       "rawBytes": 3206,
-      "gzipBytes": 1320,
-      "brotliBytes": 1086
+      "gzipBytes": 1319,
+      "brotliBytes": 1082
     },
     {
-      "name": "OwnerCoupons-C_M_Ltsx.js",
+      "name": "OwnerCoupons-COmt7t54.js",
       "rawBytes": 13069,
       "gzipBytes": 4093,
-      "brotliBytes": 3529
+      "brotliBytes": 3527
     },
     {
-      "name": "OwnerDemand-Kyo7EKkX.js",
+      "name": "OwnerDemand-Cl4jPraz.js",
       "rawBytes": 4067,
-      "gzipBytes": 1484,
+      "gzipBytes": 1485,
       "brotliBytes": 1242
     },
     {
-      "name": "OwnerNotices-DinMw-ef.js",
+      "name": "OwnerNotices-C-v8k2ij.js",
       "rawBytes": 8513,
-      "gzipBytes": 2879,
+      "gzipBytes": 2878,
       "brotliBytes": 2448
     },
     {
-      "name": "OwnerOperations-Bt-g8xBG.js",
+      "name": "OwnerOperations-BNNHDR_N.js",
       "rawBytes": 7442,
-      "gzipBytes": 2491,
+      "gzipBytes": 2490,
       "brotliBytes": 2085
     },
     {
-      "name": "OwnerPlans-DSOqLfIF.js",
+      "name": "OwnerPlans-CfqWE3-e.js",
       "rawBytes": 10853,
-      "gzipBytes": 3585,
-      "brotliBytes": 3073
+      "gzipBytes": 3586,
+      "brotliBytes": 3074
     },
     {
-      "name": "OwnerPlatformHealth-BLnPztgn.js",
+      "name": "OwnerPlatformHealth-sulvoxlN.js",
       "rawBytes": 6720,
-      "gzipBytes": 2235,
-      "brotliBytes": 1888
+      "gzipBytes": 2234,
+      "brotliBytes": 1889
     },
     {
-      "name": "OwnerPricing-DpxYP-uE.js",
+      "name": "OwnerPricing-Bj_BNtq2.js",
       "rawBytes": 8524,
-      "gzipBytes": 2980,
-      "brotliBytes": 2508
+      "gzipBytes": 2978,
+      "brotliBytes": 2509
     },
     {
-      "name": "OwnerStatistics-B6kvNhAY.js",
+      "name": "OwnerStatistics-Blgpt8sA.js",
       "rawBytes": 5372,
       "gzipBytes": 1999,
-      "brotliBytes": 1674
+      "brotliBytes": 1675
     },
     {
-      "name": "OwnerSubscriptions-hTtfSxpq.js",
+      "name": "OwnerSubscriptions-BnMDv8k5.js",
       "rawBytes": 9963,
       "gzipBytes": 3125,
-      "brotliBytes": 2715
+      "brotliBytes": 2723
     },
     {
-      "name": "OwnerSupportContact-Cwz69g4V.js",
+      "name": "OwnerSupportContact-Bu9Ln3mN.js",
       "rawBytes": 3796,
-      "gzipBytes": 1553,
+      "gzipBytes": 1550,
       "brotliBytes": 1283
     },
     {
-      "name": "PointsWallet-DwPRh7Lh.js",
+      "name": "PointsWallet-CM6H_ePG.js",
       "rawBytes": 5375,
       "gzipBytes": 2158,
-      "brotliBytes": 1822
+      "brotliBytes": 1821
+    },
+    {
+      "name": "PublicHome-BA3pMRPR.js",
+      "rawBytes": 22224,
+      "gzipBytes": 6934,
+      "brotliBytes": 5971
     },
     {
       "name": "PublicHome-CwzUw8il.css",
@@ -164,22 +170,22 @@
       "brotliBytes": 4810
     },
     {
-      "name": "PublicHome-D6aQQzaX.js",
-      "rawBytes": 22224,
-      "gzipBytes": 6934,
-      "brotliBytes": 5971
-    },
-    {
       "name": "PublicPortal-BklswdZS.css",
       "rawBytes": 15822,
       "gzipBytes": 3922,
       "brotliBytes": 3395
     },
     {
-      "name": "PublicPortal-Cyjg-eQk.js",
+      "name": "PublicPortal-DziLJu7f.js",
       "rawBytes": 71155,
       "gzipBytes": 20100,
-      "brotliBytes": 17097
+      "brotliBytes": 17086
+    },
+    {
+      "name": "PublicShell-BJ0LvKM5.js",
+      "rawBytes": 12266,
+      "gzipBytes": 4043,
+      "brotliBytes": 3454
     },
     {
       "name": "PublicShell-BQBYNCtZ.css",
@@ -188,46 +194,40 @@
       "brotliBytes": 1409
     },
     {
-      "name": "PublicShell-JchYSvwq.js",
-      "rawBytes": 12266,
-      "gzipBytes": 4045,
-      "brotliBytes": 3462
+      "name": "Recharge-BaOil-j1.js",
+      "rawBytes": 7288,
+      "gzipBytes": 2694,
+      "brotliBytes": 2303
     },
     {
-      "name": "Recharge-Bp2Ksk2S.js",
-      "rawBytes": 9805,
-      "gzipBytes": 3460,
-      "brotliBytes": 2991
-    },
-    {
-      "name": "Refunds-C5eRIwNi.js",
+      "name": "Refunds-DDC8Tyc0.js",
       "rawBytes": 4245,
-      "gzipBytes": 1725,
-      "brotliBytes": 1466
+      "gzipBytes": 1726,
+      "brotliBytes": 1461
     },
     {
-      "name": "UserGuide-C6pJxbKU.js",
+      "name": "UserGuide-B57LY19n.js",
       "rawBytes": 14274,
-      "gzipBytes": 4619,
-      "brotliBytes": 3826
+      "gzipBytes": 4618,
+      "brotliBytes": 3811
     },
     {
-      "name": "WitnessGenerator-BAwcghd9.js",
+      "name": "WitnessGenerator-CNNglacL.js",
       "rawBytes": 6720,
-      "gzipBytes": 2377,
-      "brotliBytes": 2001
+      "gzipBytes": 2376,
+      "brotliBytes": 1998
     },
     {
-      "name": "WorkspaceApp-DE-esKF6.js",
-      "rawBytes": 181710,
-      "gzipBytes": 48308,
-      "brotliBytes": 39549
+      "name": "WorkspaceApp-DvY2SRcD.css",
+      "rawBytes": 32878,
+      "gzipBytes": 6551,
+      "brotliBytes": 5831
     },
     {
-      "name": "WorkspaceApp-Di_1EUv2.css",
-      "rawBytes": 32806,
-      "gzipBytes": 6528,
-      "brotliBytes": 5808
+      "name": "WorkspaceApp-gKLOOzY0.js",
+      "rawBytes": 185267,
+      "gzipBytes": 49247,
+      "brotliBytes": 40343
     },
     {
       "name": "faq-DJrQJse1.js",
@@ -236,16 +236,16 @@
       "brotliBytes": 3568
     },
     {
+      "name": "index-C8CwviYL.js",
+      "rawBytes": 390602,
+      "gzipBytes": 106338,
+      "brotliBytes": 89759
+    },
+    {
       "name": "index-d4TtUdyZ.css",
       "rawBytes": 52150,
       "gzipBytes": 11340,
       "brotliBytes": 10065
-    },
-    {
-      "name": "index-uMQF9Gp3.js",
-      "rawBytes": 390602,
-      "gzipBytes": 106336,
-      "brotliBytes": 89704
     },
     {
       "name": "noto-sans-bengali-bengali-600-normal-BVnGrJcL.woff2",
@@ -284,16 +284,16 @@
       "brotliBytes": 255
     },
     {
-      "name": "service-slugs-loQrDnft.js",
+      "name": "service-slugs-DdZlDCxH.js",
       "rawBytes": 424,
-      "gzipBytes": 305,
-      "brotliBytes": 272
+      "gzipBytes": 302,
+      "brotliBytes": 265
     },
     {
-      "name": "support-contact-CLSUu_H5.js",
+      "name": "support-contact-DaBYnV5l.js",
       "rawBytes": 599,
-      "gzipBytes": 387,
-      "brotliBytes": 344
+      "gzipBytes": 386,
+      "brotliBytes": 345
     }
   ]
 }
