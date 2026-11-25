@@ -348,6 +348,9 @@ export function ApplicationPayment({
   const mounted = useRef(true);
   const canPay = ["citizen", "staff", "admin"].includes(role);
   const canReconcile = ["citizen", "staff", "admin", "finance"].includes(role);
+  // W-007: only an admin or finance officer may replace a stuck attempt.
+  const canReset = ["admin", "finance"].includes(role);
+  const [resetReason, setResetReason] = useState("");
   useEffect(() => {
     mounted.current = true;
     requestKey.current = crypto.randomUUID();
@@ -473,7 +476,7 @@ export function ApplicationPayment({
                     )}
                   </p>
                 )}
-              {canPay && !attempt && !payment.receipt &&
+              {canPay && (!attempt || attempt.status === "SUPERSEDED") && !payment.receipt &&
                 (availableProviders(payment.availability).length
                   ? availableProviders(payment.availability)
                   : (["BKASH"] as Provider[])
@@ -561,13 +564,64 @@ export function ApplicationPayment({
                 ["CREATE_UNKNOWN", "REVIEW_REQUIRED", "FAILED"].includes(
                   attempt.status,
                 ) && (
-                  <p className="notice">
-                    {label(
-                      "এই অনুরোধে স্বয়ংক্রিয় নতুন পেমেন্ট বন্ধ আছে। দায়িত্বপ্রাপ্ত কর্মকর্তা গেটওয়ের তথ্য যাচাই করে সমাধান করবেন।",
-                      "Automatic replacement checkout is blocked for this attempt. An authorized officer must review the gateway records to resolve it.",
+                  <>
+                    <p className="notice">
+                      {label(
+                        "এই অনুরোধে স্বয়ংক্রিয় নতুন পেমেন্ট বন্ধ আছে। দায়িত্বপ্রাপ্ত কর্মকর্তা গেটওয়ের তথ্য যাচাই করে সমাধান করবেন।",
+                        "Automatic replacement checkout is blocked for this attempt. An authorized officer must review the gateway records to resolve it.",
+                      )}
+                    </p>
+                    {/* W-007: the operator reset. The server requires
+                        provider evidence before it supersedes an attempt
+                        that has a payment ID (reconcile first); an attempt
+                        with no payment ID resets on the reason alone. */}
+                    {canReset && (
+                      <div className="field-row">
+                        <label>
+                          {label("বদলের কারণ", "Reason for replacing")}
+                          <input
+                            value={resetReason}
+                            onChange={(e) => setResetReason(e.target.value)}
+                            maxLength={500}
+                            placeholder={label(
+                              "কেন এই প্রচেষ্টাটি বদলানো হচ্ছে",
+                              "Why this attempt is being replaced",
+                            )}
+                          />
+                        </label>
+                        <button
+                          type="button"
+                          className="secondary"
+                          disabled={busy || resetReason.trim().length < 8}
+                          onClick={() =>
+                            void run(async (isCurrent) => {
+                              await api(`/payments/${attempt.id}/reset`, "POST", {
+                                reason: resetReason.trim(),
+                              });
+                              if (!isCurrent()) return;
+                              setResetReason("");
+                              setRefresh((v) => v + 1);
+                              setMessage({
+                                bn: "আগের প্রচেষ্টাটি বদলে দেওয়া হয়েছে। এখন নতুন পেমেন্ট শুরু করা যাবে।",
+                                en: "The previous attempt was replaced. A new payment can now be started.",
+                              });
+                            })
+                          }
+                        >
+                          {label("প্রচেষ্টা বদলে নতুন পেমেন্ট শুরু করুন", "Replace attempt and start a new payment")}
+                        </button>
+                      </div>
                     )}
-                  </p>
+                  </>
                 )}
+              {attempt?.status === "SUPERSEDED" && (
+                <p className="notice">
+                  {label(
+                    "আগের পেমেন্ট প্রচেষ্টাটি বদলে দেওয়া হয়েছে। নতুন পেমেন্ট শুরু করা যাবে; আগের চেকআউটে পরিশোধ হয়ে থাকলে অফিসকে প্রোভাইডারের সঙ্গে মিলিয়ে নিতে হবে।",
+                    "The previous payment attempt was replaced. A new payment can be started; if the old checkout was paid, the office must reconcile it with the provider.",
+                  )}
+                </p>
+              )}
             </>
           )}
           <p className="hint">

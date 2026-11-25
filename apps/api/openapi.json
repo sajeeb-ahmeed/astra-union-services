@@ -7067,6 +7067,154 @@
         "x-visibility": "authenticated"
       }
     },
+    "/api/v1/payments/{id}/reset": {
+      "post": {
+        "summary": "Reset a stuck payment attempt so a replacement checkout can start (W-007)",
+        "description": "Current-office admin or finance only. Supersedes the attempt (never deletes it) with a mandatory reason, recorded in the attempt event log and the audit trail. A PAID attempt cannot be reset (refund it instead); an already-SUPERSEDED attempt cannot be reset again. An attempt with a provider payment ID needs a reconcile first: the latest check must say the provider did not complete it (PENDING / PROVIDER_PAYMENT_NOT_COMPLETED) or that its evidence can never confirm (MISMATCH). A MATCHED check, an ERROR check, or no check at all refuses with 409. An attempt with no payment ID resets on the reason alone. A superseded attempt can never confirm (finalize refuses it), so exactly-once settlement holds: only the live replacement attempt can produce the application's one receipt. After a reset, a new checkout for the application creates a fresh attempt with a fresh invoice.",
+        "security": [
+          {
+            "session": [],
+            "csrf": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "Origin",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uri"
+            },
+            "description": "When supplied on an authenticated mutation, must equal the configured PUBLIC_ORIGIN. X-CSRF-Token is required independently."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "reason": {
+                    "type": "string",
+                    "minLength": 8,
+                    "maxLength": 500,
+                    "description": "Why this attempt is being replaced; recorded in the event log and audit trail."
+                  }
+                },
+                "required": [
+                  "reason"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The superseded attempt. A replacement checkout can now be started for the application.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "const": "no-store"
+                },
+                "description": "Payment and receipt responses are not cacheable."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GatewayPaymentAttempt"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "LOGIN_REQUIRED: session missing, expired or inactive.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "const": "no-store"
+                },
+                "description": "Payment and receipt responses are not cacheable."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Role, active office membership, CSRF or supplied Origin denied.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "const": "no-store"
+                },
+                "description": "Payment and receipt responses are not cacheable."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "NOT_FOUND: record unavailable in the caller's authorized scope.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "const": "no-store"
+                },
+                "description": "Payment and receipt responses are not cacheable."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "PAYMENT_ALREADY_COLLECTED, PAYMENT_ALREADY_SUPERSEDED, PAYMENT_RECONCILE_REQUIRED or PAYMENT_RECONCILE_INCONCLUSIVE: the attempt cannot be reset in its current state.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "const": "no-store"
+                },
+                "description": "Payment and receipt responses are not cacheable."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "x-visibility": "authenticated"
+      }
+    },
     "/api/v1/payments/reconciliation": {
       "get": {
         "summary": "Read daily payment and gateway-check totals",
@@ -16774,8 +16922,8 @@
     "All other authenticated mutations": "session + CSRF required; no additional global limiter (per-route limiters are listed on the operation)"
   },
   "x-coverage": {
-    "documentedOperations": 207,
-    "documentedPaths": 184,
+    "documentedOperations": 208,
+    "documentedPaths": 185,
     "generatedBy": "scripts/update-batch-c-openapi.mjs (Batch C / A-001)",
     "note": "Counts are spec-side only; live coverage is enforced by scripts/check-openapi-coverage.mjs against the running Express route table."
   }

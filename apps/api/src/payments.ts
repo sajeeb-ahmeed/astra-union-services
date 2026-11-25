@@ -223,7 +223,10 @@ export async function applicationPaymentState(
   }
   const pending = (
     await db.query(
-      "SELECT 1 FROM gateway_payment_intents WHERE application_id=$1",
+      // W-007: a superseded attempt is not a live payment — after an
+      // operator reset the fee is NOT_COLLECTED again until a fresh
+      // attempt starts.
+      "SELECT 1 FROM gateway_payment_intents WHERE application_id=$1 AND status<>'SUPERSEDED'",
       [applicationId],
     )
   ).rowCount;
@@ -365,6 +368,17 @@ async function finalize(
         [row.tenant_id, row.id],
       )
     ).rows[0];
+    // W-007: a superseded attempt can never confirm. If the citizen paid
+    // the abandoned checkout, the money is with the merchant under the old
+    // invoice — it needs manual provider reconciliation, not an automatic
+    // receipt on a replaced attempt. Exactly-once settlement is preserved:
+    // only the live attempt can produce the application's one receipt.
+    if (current.status === "SUPERSEDED")
+      fail(
+        409,
+        "PAYMENT_SUPERSEDED",
+        "This payment attempt was replaced by the operator, so a payment on its checkout can no longer confirm here. If the payment was made, ask the office to reconcile it with the provider. / এই পেমেন্ট প্রচেষ্টাটি অপারেটর বদলে দিয়েছেন, তাই এর চেকআউটে পরিশোধ এখানে আর নিশ্চিত হবে না। পরিশোধ হয়ে থাকলে অফিসকে প্রোভাইডারের সঙ্গে মিলিয়ে নিতে বলুন।",
+      );
     const existing = await findReceipt(db, row.id);
     if (existing) {
       if (existing.transactionId !== query.transactionId)
@@ -862,7 +876,10 @@ paymentsRouter.get(
       ).rows[0];
       const intent = (
         await db.query(
-          "SELECT * FROM gateway_payment_intents WHERE application_id=$1",
+          // W-007: several attempts can exist per application now (a
+          // superseded one plus its replacement) — the detail view shows
+          // the latest, so a replaced attempt never hides its replacement.
+          "SELECT * FROM gateway_payment_intents WHERE application_id=$1 ORDER BY created_at DESC, id DESC LIMIT 1",
           [id],
         )
       ).rows[0];
@@ -927,11 +944,18 @@ paymentsRouter.post(
       const app = await application(db, id, a, true);
       const existing = (
         await db.query(
-          "SELECT * FROM gateway_payment_intents WHERE tenant_id=$1 AND application_id=$2",
+          // W-007: only a live attempt blocks a new checkout. A superseded
+          // attempt (operator reset after provider evidence) no longer
+          // blocks: the caller gets a fresh attempt with a fresh invoice.
+          // Every other state — including CREATE_UNKNOWN — still returns
+          // the existing attempt (PAY-09): an unresolved attempt must be
+          // recovered or reset before another can start.
+          "SELECT * FROM gateway_payment_intents WHERE tenant_id=$1 AND application_id=$2 ORDER BY created_at DESC, id DESC LIMIT 1",
           [a.tenantId, id],
         )
       ).rows[0];
-      if (existing) return { row: existing, replayed: true };
+      if (existing && existing.status !== "SUPERSEDED")
+        return { row: existing, replayed: true };
       if (
         app.state !== "APPROVED" ||
         app.approved_version !== app.latest_version
@@ -1318,6 +1342,120 @@ paymentsRouter.post(
             req.header("X-Test-Failure") === "after-payment-confirmation",
         );
     res.json(await recordCheck(prepared.row, check, data.requestKey, a.userId));
+  }),
+);
+/**
+ * W-007: operator reset for a stuck payment attempt. One attempt per
+ * application used to block checkout forever when it went unknown,
+ * cancelled, failed or expired with no operator reset. The reset
+ * supersedes the attempt (never deletes it) so a fresh checkout with a
+ * fresh invoice can start — but only after the provider evidence says
+ * the old attempt did not collect:
+ *   - a PAID attempt can never be reset (refund it instead);
+ *   - an already-SUPERSEDED attempt cannot be reset again;
+ *   - an attempt WITH a provider payment ID needs a reconcile first:
+ *     the latest check must say the provider did not complete it
+ *     (PENDING / PROVIDER_PAYMENT_NOT_COMPLETED) or that its evidence
+ *     can never confirm (MISMATCH). A MATCHED check means it collected;
+ *     an ERROR check, or no check at all, is inconclusive and refuses.
+ *   - an attempt with NO payment ID (the create call never returned
+ *     one) has nothing the provider can have completed under a known
+ *     ID, so it resets on the reason alone. The abandonment is
+ *     recorded: if the provider did create a checkout we never saw, a
+ *     later payment on it cannot auto-confirm (finalize refuses
+ *     SUPERSEDED) and needs manual provider reconciliation.
+ * The reset reason is mandatory, lands in the attempt's event log and
+ * the audit trail, and the caller is told a replacement checkout can
+ * now start. Exactly-once settlement is preserved by the finalize
+ * guard plus the per-application receipt uniqueness.
+ */
+paymentsRouter.post(
+  "/payments/:id/reset",
+  wrap(async (req, res) => {
+    const a = actor(req, ["admin", "finance"]),
+      id = uuid.parse(req.params.id),
+      data = z
+        .object({ reason: z.string().trim().min(8).max(500) })
+        .strict()
+        .parse(req.body);
+    const result = await transaction(a.tenantId, async (db) => {
+      const row = await authorizedIntent(db, id, a);
+      const current = (
+        await db.query(
+          "SELECT * FROM gateway_payment_intents WHERE tenant_id=$1 AND id=$2 FOR UPDATE",
+          [a.tenantId, id],
+        )
+      ).rows[0];
+      if (current.status === "PAID")
+        fail(
+          409,
+          "PAYMENT_ALREADY_COLLECTED",
+          "This payment is already collected and cannot be reset. Refund it instead. / এই পেমেন্টটি ইতিমধ্যে সংগৃহীত হয়েছে, তাই রিসেট করা যাবে না। প্রয়োজনে রিফান্ড করুন।",
+        );
+      if (current.status === "SUPERSEDED")
+        fail(
+          409,
+          "PAYMENT_ALREADY_SUPERSEDED",
+          "This payment attempt was already replaced. / এই পেমেন্ট প্রচেষ্টাটি ইতিমধ্যে বদলে দেওয়া হয়েছে।",
+        );
+      if (current.payment_id) {
+        const last = (
+          await db.query(
+            "SELECT result, reason FROM gateway_payment_reconciliations WHERE tenant_id=$1 AND intent_id=$2 ORDER BY checked_at DESC, id DESC LIMIT 1",
+            [a.tenantId, id],
+          )
+        ).rows[0];
+        if (!last)
+          fail(
+            409,
+            "PAYMENT_RECONCILE_REQUIRED",
+            "Reconcile this payment with the provider first — the reset needs provider evidence that it did not collect. / প্রথমে প্রোভাইডারের সঙ্গে এই পেমেন্ট মিলিয়ে নিন — রিসেটের জন্য প্রোভাইডারের প্রমাণ দরকার যে এটি সংগৃহীত হয়নি।",
+          );
+        if (last.result === "MATCHED")
+          fail(
+            409,
+            "PAYMENT_ALREADY_COLLECTED",
+            "The provider confirms this payment was collected, so it cannot be reset. / প্রোভাইডার নিশ্চিত করেছে এই পেমেন্ট সংগৃহীত হয়েছে, তাই রিসেট করা যাবে না।",
+          );
+        if (
+          last.result === "ERROR" ||
+          (last.result === "PENDING" &&
+            last.reason !== "PROVIDER_PAYMENT_NOT_COMPLETED")
+        )
+          fail(
+            409,
+            "PAYMENT_RECONCILE_INCONCLUSIVE",
+            "The last provider check was inconclusive — reconcile again or investigate with the provider before resetting. / শেষ প্রোভাইডার যাচাইটি নিশ্চিত নয় — রিসেটের আগে আবার যাচাই করুন বা প্রোভাইডারের সঙ্গে তদন্ত করুন।",
+          );
+      }
+      const updated = (
+        await db.query(
+          "UPDATE gateway_payment_intents SET status='SUPERSEDED',updated_at=now() WHERE tenant_id=$1 AND id=$2 RETURNING *",
+          [a.tenantId, id],
+        )
+      ).rows[0];
+      await event(
+        db,
+        current,
+        "ATTEMPT_SUPERSEDED",
+        {
+          reason: data.reason,
+          previousStatus: current.status,
+          hadPaymentId: Boolean(current.payment_id),
+          resetBy: a.userId,
+        },
+        `reset:${randomUUID()}`,
+      );
+      await audit(db, a.tenantId, a.userId, "GATEWAY_PAYMENT_SUPERSEDED", id, {
+        reason: data.reason,
+        previousStatus: current.status,
+        hadPaymentId: Boolean(current.payment_id),
+        applicationId: current.application_id,
+        invoice: current.invoice,
+      });
+      return intentView(db, updated);
+    });
+    res.json(result);
   }),
 );
 paymentsRouter.get(
