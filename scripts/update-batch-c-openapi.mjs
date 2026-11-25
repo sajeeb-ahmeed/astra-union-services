@@ -449,6 +449,28 @@ const ROUTES = [
   },
   {
     "method": "get",
+    "path": "/api/v1/support-contact",
+    "summary": "Read the platform support contact",
+    "description": "F-001: public support phone, email and office hours (Bangla + English) with empty defaults applied — an empty field is not published. No authentication required.",
+    "tag": "Public",
+    "visibility": "public",
+    "source": "support-contact.ts:86",
+    "roles": [],
+    "officeActor": false,
+    "usesTenant": false,
+    "usesActor": false,
+    "usesAuth": false,
+    "limiters": [],
+    "inlineLimit": null,
+    "statuses": [],
+    "errorCodes": [],
+    "queryParams": [],
+    "bodyKeys": null,
+    "queryKeys": null,
+    "hasBodyParse": false
+  },
+  {
+    "method": "get",
     "path": "/api/v1/citizens/{id}/identity",
     "summary": "Read a citizen's identity numbers (audited)",
     "description": "Returns the citizen's stored identity numbers (NID / birth registration) in full. Citizen only, and only for their own record; every read is written to the audit log. See apps/api/src/models.ts.",
@@ -4439,6 +4461,90 @@ const ROUTES = [
         "nullable": false,
         "type": "enum[\"office\", \"citizen\"]",
         "raw": "z.enum([\"office\", \"citizen\"])"
+      },
+      {
+        "name": "reason",
+        "optional": false,
+        "nullable": false,
+        "type": "string",
+        "raw": "z.string().trim().min(8).max(500)"
+      }
+    ],
+    "queryKeys": null,
+    "hasBodyParse": true
+  },
+  {
+    "method": "get",
+    "path": "/api/v1/owner/support-contact",
+    "summary": "Read the platform support contact with defaults",
+    "description": "F-001: the current support contact (stored values with empty defaults applied). Platform owner only; the public read is GET /api/v1/support-contact.",
+    "tag": "Owner",
+    "visibility": "authenticated",
+    "source": "support-contact.ts:94",
+    "roles": [
+      "owner"
+    ],
+    "officeActor": false,
+    "usesTenant": false,
+    "usesActor": false,
+    "usesAuth": false,
+    "limiters": [],
+    "inlineLimit": null,
+    "statuses": [],
+    "errorCodes": [],
+    "queryParams": [],
+    "bodyKeys": null,
+    "queryKeys": null,
+    "hasBodyParse": false
+  },
+  {
+    "method": "put",
+    "path": "/api/v1/owner/support-contact",
+    "summary": "Replace the platform support contact",
+    "description": "F-001: platform owner replaces the support contact. Only keys whose value actually changes are written, and each changed key gets its own history row. Clearing a field to empty hides it publicly. A reason is recorded. Platform owner only.",
+    "tag": "Owner",
+    "visibility": "authenticated",
+    "source": "support-contact.ts:102",
+    "roles": [
+      "owner"
+    ],
+    "officeActor": false,
+    "usesTenant": false,
+    "usesActor": false,
+    "usesAuth": false,
+    "limiters": [],
+    "inlineLimit": null,
+    "statuses": [],
+    "errorCodes": [],
+    "queryParams": [],
+    "bodyKeys": [
+      {
+        "name": "phone",
+        "optional": false,
+        "nullable": false,
+        "type": "string",
+        "raw": "z.string().trim().max(40)"
+      },
+      {
+        "name": "email",
+        "optional": false,
+        "nullable": false,
+        "type": "string",
+        "raw": "z.string().trim().max(120)"
+      },
+      {
+        "name": "hoursBn",
+        "optional": false,
+        "nullable": false,
+        "type": "string",
+        "raw": "z.string().trim().max(200)"
+      },
+      {
+        "name": "hoursEn",
+        "optional": false,
+        "nullable": false,
+        "type": "string",
+        "raw": "z.string().trim().max(200)"
       },
       {
         "name": "reason",

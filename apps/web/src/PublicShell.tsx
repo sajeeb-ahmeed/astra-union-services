@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useSyncExternalStore } from "react";
 import { HelpWidget, UtilityBar } from "./PublicHelp.js";
-import { SUPPORT_CONTACT } from "./support-contact.js";
+import { useSupportContact } from "./support-contact.js";
 import { choose, LanguageSwitcher, useLanguage } from "./i18n.js";
 import { useBranding } from "./branding.js";
 import { hasPageHead } from "./seo/head.js";
@@ -288,6 +288,8 @@ export function SiteFooter({
 }) {
   useLanguage();
   const branding = useBranding();
+  // F-001: the owner-configured support contact (empty until set).
+  const contact = useSupportContact();
   const link = (href: string, bn: string, en: string, key?: string) => (
     <li key={key ?? href}>
       <NavLink href={href} onNavigate={onNavigate} className="du-footlink">
@@ -331,16 +333,16 @@ export function SiteFooter({
             {link("/guide", "ব্যবহার নির্দেশিকা", "User guide")}
             {link("/policies", "নীতি", "Policies")}
           </ul>
-          {(SUPPORT_CONTACT.phone || SUPPORT_CONTACT.email) && (
+          {(contact.phone || contact.email) && (
             <ul className="du-footer-contact">
-              {SUPPORT_CONTACT.phone && (
+              {contact.phone && (
                 <li>
-                  <a href={`tel:${SUPPORT_CONTACT.phone.replace(/s+/g, "")}`}>{SUPPORT_CONTACT.phone}</a>
+                  <a href={`tel:${contact.phone.replace(/s+/g, "")}`}>{contact.phone}</a>
                 </li>
               )}
-              {SUPPORT_CONTACT.email && (
+              {contact.email && (
                 <li>
-                  <a href={`mailto:${SUPPORT_CONTACT.email}`}>{SUPPORT_CONTACT.email}</a>
+                  <a href={`mailto:${contact.email}`}>{contact.email}</a>
                 </li>
               )}
             </ul>

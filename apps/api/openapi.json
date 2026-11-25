@@ -17161,6 +17161,170 @@
           "403:ROLE_DENIED"
         ]
       }
+    },
+    "/api/v1/support-contact": {
+      "get": {
+        "summary": "Read the platform support contact",
+        "description": "F-001: public support phone, email and office hours (Bangla + English) with empty defaults applied — an empty field is not published. No authentication required.",
+        "tags": [
+          "Public"
+        ],
+        "x-visibility": "public",
+        "x-source": "apps/api/src/support-contact.ts:86",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Success; see apps/api/src/support-contact.ts:86 for the response contract.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Record unavailable in this scope."
+          },
+          "409": {
+            "description": "Duplicate or workflow conflict."
+          },
+          "422": {
+            "description": "Validated request failed."
+          }
+        }
+      }
+    },
+    "/api/v1/owner/support-contact": {
+      "get": {
+        "summary": "Read the platform support contact with defaults",
+        "description": "F-001: the current support contact (stored values with empty defaults applied). Platform owner only; the public read is GET /api/v1/support-contact.",
+        "tags": [
+          "Owner"
+        ],
+        "x-visibility": "authenticated",
+        "x-source": "apps/api/src/support-contact.ts:94",
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "x-roles": [
+          "owner"
+        ],
+        "responses": {
+          "200": {
+            "description": "Success; see apps/api/src/support-contact.ts:94 for the response contract.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Session missing or inactive."
+          },
+          "403": {
+            "description": "Role, CSRF or Origin denied."
+          },
+          "404": {
+            "description": "Record unavailable in this scope."
+          },
+          "409": {
+            "description": "Duplicate or workflow conflict."
+          },
+          "422": {
+            "description": "Validated request failed."
+          }
+        }
+      },
+      "put": {
+        "summary": "Replace the platform support contact",
+        "description": "F-001: platform owner replaces the support contact. Only keys whose value actually changes are written, and each changed key gets its own history row. Clearing a field to empty hides it publicly. A reason is recorded. Platform owner only.",
+        "tags": [
+          "Owner"
+        ],
+        "x-visibility": "authenticated",
+        "x-source": "apps/api/src/support-contact.ts:102",
+        "security": [
+          {
+            "session": [],
+            "csrf": []
+          }
+        ],
+        "x-roles": [
+          "owner"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "phone": {
+                    "type": "string",
+                    "description": "z.string().trim().max(40)"
+                  },
+                  "email": {
+                    "type": "string",
+                    "description": "z.string().trim().max(120)"
+                  },
+                  "hoursBn": {
+                    "type": "string",
+                    "description": "z.string().trim().max(200)"
+                  },
+                  "hoursEn": {
+                    "type": "string",
+                    "description": "z.string().trim().max(200)"
+                  },
+                  "reason": {
+                    "type": "string",
+                    "description": "z.string().trim().min(8).max(500)"
+                  }
+                },
+                "required": [
+                  "phone",
+                  "email",
+                  "hoursBn",
+                  "hoursEn",
+                  "reason"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success; see apps/api/src/support-contact.ts:102 for the response contract.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Session missing or inactive."
+          },
+          "403": {
+            "description": "Role, CSRF or Origin denied."
+          },
+          "404": {
+            "description": "Record unavailable in this scope."
+          },
+          "409": {
+            "description": "Duplicate or workflow conflict."
+          },
+          "422": {
+            "description": "Validated request failed."
+          }
+        }
+      }
     }
   },
   "tags": [
@@ -17251,8 +17415,8 @@
     "All other authenticated mutations": "session + CSRF required; no additional global limiter (per-route limiters are listed on the operation)"
   },
   "x-coverage": {
-    "documentedOperations": 213,
-    "documentedPaths": 190,
+    "documentedOperations": 216,
+    "documentedPaths": 192,
     "generatedBy": "scripts/update-batch-c-openapi.mjs (Batch C / A-001)",
     "note": "Counts are spec-side only; live coverage is enforced by scripts/check-openapi-coverage.mjs against the running Express route table."
   }

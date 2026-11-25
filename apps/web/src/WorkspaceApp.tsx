@@ -88,6 +88,7 @@ const PointsWallet = lazyWithRetry(() => import("./PointsWallet.js"), (m) => m.P
 const OwnerPricing = lazyWithRetry(() => import("./OwnerPricing.js"), (m) => m.OwnerPricing);
 const OwnerPlans = lazyWithRetry(() => import("./OwnerPlans.js"), (m) => m.OwnerPlans);
 const OwnerBranding = lazyWithRetry(() => import("./OwnerBranding.js"), (m) => m.OwnerBranding);
+const OwnerSupportContact = lazyWithRetry(() => import("./OwnerSupportContact.js"), (m) => m.OwnerSupportContact);
 const OwnerAudit = lazyWithRetry(() => import("./OwnerAudit.js"), (m) => m.OwnerAudit);
 const OwnerCoupons = lazyWithRetry(() => import("./OwnerCoupons.js"), (m) => m.OwnerCoupons);
 const OwnerNotices = lazyWithRetry(() => import("./OwnerNotices.js"), (m) => m.OwnerNotices);
@@ -4209,6 +4210,7 @@ export function WorkspaceApp({
                 <section className="owner-section" id="owner-settings">
                   <h2>{choose({ bn: "সেটিংস", en: "Settings" })}</h2>
                   <OwnerBranding />
+                  <OwnerSupportContact />
                   <OwnerWitnessTypes />
                 </section>
                 )}
