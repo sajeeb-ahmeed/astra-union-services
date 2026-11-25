@@ -159,7 +159,7 @@ test(
         .waitFor();
       await page
         .getByRole("navigation", { name: "Public navigation" })
-        .getByRole("button", { name: "Help & FAQ", exact: true })
+        .getByRole("link", { name: "Help & FAQ", exact: true })
         .click();
       await page
         .getByText("How do I apply?", { exact: true })

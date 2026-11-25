@@ -44,14 +44,15 @@ test(
           "the first-load splash reappeared on an in-app navigation",
         );
 
-      // Header nav (a NavLink button with the portal's onNavigate).
-      await page.locator(".du-header").getByRole("button", { name: "Services", exact: true }).click();
+      // Header nav (a NavLink — a real <a href> since the L-006
+      // follow-up; it was a <button> before 588928a).
+      await page.locator(".du-header").getByRole("link", { name: "Services", exact: true }).click();
       await page.waitForURL("**/services", { timeout: 15000 });
       await page.locator(".svc-card").first().waitFor({ timeout: 15000 });
       await markerAlive();
       await splashAbsent();
 
-      // Brand link back home (also a NavLink button).
+      // Brand link back home (also a NavLink).
       await page.locator(".du-brand").click();
       await page.waitForURL(`${origin}/`, { timeout: 15000 });
       await page.locator(".hx-hero").waitFor({ timeout: 15000 });
