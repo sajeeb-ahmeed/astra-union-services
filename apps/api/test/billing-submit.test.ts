@@ -101,6 +101,22 @@ async function buildOffice(slug: string, activate: boolean): Promise<Office> {
     );
     assert.equal(auth.status, 200, JSON.stringify(auth.body));
   }
+  // W-002: issuance gates run in every mode, so the office needs an
+  // explicitly identified synthetic signature fixture before anything can
+  // issue. A 1x1 PNG — clearly not a real chairman signature.
+  const signature = await req(
+    "PUT",
+    "/office/certificate-assets/signature",
+    {
+      mimeType: "image/png",
+      base64:
+        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==",
+      reason:
+        "Synthetic signature fixture for demo-mode issuance regression (W-002); not a real chairman signature",
+    },
+    sessions.approver,
+  );
+  assert.ok([200, 201].includes(signature.status), JSON.stringify(signature.body));
   const email = `citizen-${slug}@synthetic.test`;
   const signup = await req("POST", "/auth/signup", {
     email,
