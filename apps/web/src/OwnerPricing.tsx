@@ -160,19 +160,26 @@ export function OwnerPricing() {
             type="radio"
             name="fee-payer"
             checked={payer === "citizen"}
+            // W-005: citizen payment has no rail yet (Phase 7), so the
+            // option is disabled — selecting it used to brick every
+            // citizen submit (each stayed a draft). The server also
+            // refuses the flip with 409 CITIZEN_PAYMENT_UNSUPPORTED.
+            disabled
+            title={label(
+              "নাগরিকের পরিশোধের মাধ্যম এখনো চালু হয়নি",
+              "Citizen payment is not available yet",
+            )}
             onChange={() => setPayer("citizen")}
           />{" "}
           {label("নাগরিক", "Citizen")}
         </label>
       </div>
-      {payer === "citizen" && (
-        <p className="hint">
-          {label(
-            "সতর্কতা: নাগরিকের পরিশোধের মাধ্যম এখনো চালু হয়নি। এই সেটিং চালু থাকলে নতুন আবেদন খসড়া অবস্থায় আটকে থাকবে।",
-            "Note: citizen payment is not available yet. While this setting is on, new applications will stay as drafts.",
-          )}
-        </p>
-      )}
+      <p className="hint">
+        {label(
+          "নাগরিকের পরিশোধের মাধ্যম এখনো চালু হয়নি — সেটিংটি অফিসের ওয়ালেটেই থাকবে। এই সেটিং চালু থাকলে নতুন আবেদন খসড়া অবস্থায় আটকে থাকত।",
+          "Citizen payment is not available yet, so the setting stays on the office wallet. While a citizen-pays setting was on, new applications stayed stuck as drafts.",
+        )}
+      </p>
       <div className="field-row">
         <label>
           {label("কারণ", "Reason")}

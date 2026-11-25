@@ -436,7 +436,7 @@ test("Phase 3B: issuance after a paid submit needs no subscription and deducts n
   assert.equal((await feeEntries(officeP.tenant.id)).length, 2);
 });
 
-test("Phase 3B: citizen-pays mode holds submits as drafts until the owner switches back", async () => {
+test("W-005: the citizen-pays flip is refused — no unsupported config can brick submits", async () => {
   assert.equal(
     (
       await req(
@@ -459,35 +459,49 @@ test("Phase 3B: citizen-pays mode holds submits as drafts until the owner switch
     ).status,
     422,
   );
-  const set = await req(
+  // W-005: the flip itself is refused (409) — the old behaviour (200 here,
+  // then every submit stuck as a draft with 402) is the bug being fixed.
+  // The setting stays on the office wallet and submits keep working.
+  const refused = await req(
     "PUT",
     "/owner/billing-settings",
     { applicationFeePayer: "citizen", reason: "Phase 3B test switch" },
     owner.current,
   );
-  assert.equal(set.status, 200, JSON.stringify(set.body));
+  assert.equal(refused.status, 409, JSON.stringify(refused.body));
+  assert.equal(refused.body.error.code, "CITIZEN_PAYMENT_UNSUPPORTED");
+  assert.match(refused.body.error.message, /not available yet|চালু হয়নি/);
   const read = await req("GET", "/owner/billing-settings", undefined, owner.current);
-  assert.equal(read.body.applicationFeePayer, "citizen");
+  assert.equal(read.body.applicationFeePayer, "office");
 
+  // Fund both submits this test makes (service 45 costs 5 credits each):
+  // the first submit, and the unblocked submit after the backstop reset.
+  await adjust(officeQ.tenant.id, 10);
   const id = await draftApplication(officeQ);
-  const refused = await transition(officeQ, id, "submit", officeQ.staff);
-  assert.equal(refused.status, 402, JSON.stringify(refused.body));
-  assert.equal(refused.body.error.code, "CITIZEN_PAYMENT_UNAVAILABLE");
-  assert.match(refused.body.error.message, /খসড়া/);
-  assert.equal((await detail(officeQ, id)).state, "DRAFT");
-  assert.equal((await feeEntries(officeQ.tenant.id)).length, 1, "only the earlier paid submit is in the ledger");
-
-  const back = await req(
-    "PUT",
-    "/owner/billing-settings",
-    { applicationFeePayer: "office", reason: "Phase 3B test restore" },
-    owner.current,
-  );
-  assert.equal(back.status, 200, JSON.stringify(back.body));
-  await adjust(officeQ.tenant.id, 5);
   const submitted = await transition(officeQ, id, "submit", officeQ.staff);
   assert.equal(submitted.status, 200, JSON.stringify(submitted.body));
   assert.equal((await detail(officeQ, id)).feeMethod, "CREDIT");
+
+  // W-005 backstop: a value set directly in the database (e.g. by a
+  // deployment predating the fix) still refuses the submit with 402 and
+  // leaves the application a draft — nothing is charged. The API flip
+  // above is what prevents this state from being created anew.
+  await admin.query(
+    "UPDATE platform_settings SET value='citizen' WHERE key='application_fee_payer'",
+  );
+  const id2 = await draftApplication(officeQ);
+  const blocked = await transition(officeQ, id2, "submit", officeQ.staff);
+  assert.equal(blocked.status, 402, JSON.stringify(blocked.body));
+  assert.equal(blocked.body.error.code, "CITIZEN_PAYMENT_UNAVAILABLE");
+  assert.match(blocked.body.error.message, /খসড়া/);
+  assert.equal((await detail(officeQ, id2)).state, "DRAFT");
+  assert.equal((await feeEntries(officeQ.tenant.id)).length, 2, "only the earlier paid submits are in the ledger");
+  await admin.query(
+    "UPDATE platform_settings SET value='office' WHERE key='application_fee_payer'",
+  );
+  const unblocked = await transition(officeQ, id2, "submit", officeQ.staff);
+  assert.equal(unblocked.status, 200, JSON.stringify(unblocked.body));
+  assert.equal((await detail(officeQ, id2)).feeMethod, "CREDIT");
 });
 
 test("Phase 3B: an unpublished service charges the default price of 1 credit", async () => {

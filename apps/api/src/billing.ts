@@ -284,6 +284,19 @@ billingRouter.put(
       })
       .strict()
       .parse(req.body);
+    // W-005: the citizen payment rail does not exist yet (Phase 7), so
+    // the flip to citizen-pays is refused outright — accepting it would
+    // brick every citizen submit (each stays a draft with 402
+    // CITIZEN_PAYMENT_UNAVAILABLE). The setting stays "office" and the
+    // refusal is explicit, not a silent warning. The 402 in
+    // settleApplicationFee stays as a backstop for a value set directly
+    // in the database, and migration 064 resets any value already stored.
+    if (d.applicationFeePayer === "citizen")
+      fail(
+        409,
+        "CITIZEN_PAYMENT_UNSUPPORTED",
+        "Citizen payment is not available yet — there is no citizen payment rail until Phase 7 — so the fee payer cannot be switched to the citizen. Applications would stay as drafts. The setting stays on the office wallet. / নাগরিকের মাধ্যমে ফি পরিশোধের সুবিধা এখনো চালু হয়নি, তাই ফি প্রদানকারী নাগরিক করা যাবে না। সেটিংটি অফিসের ওয়ালেটেই থাকবে।",
+      );
     const client = await pool.connect();
     try {
       await client.query("BEGIN");
