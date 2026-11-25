@@ -5,7 +5,9 @@ import { choose, useLanguage } from "./i18n.js";
 const label = (bn: string, en: string) => choose({ bn, en });
 const bnDigits = (v: string) => v.replace(/\d/g, (d) => "০১২৩৪৫৬৭৮৯"[Number(d)]);
 const n = (v: unknown) => choose({ bn: bnDigits(String(v ?? 0)), en: String(v ?? 0) });
-function alertText(a: any) {
+/** Shared by OwnerOperations and OwnerPlatformHealth (W-020): one
+    sentence per alert code, so the two screens never disagree. */
+export function alertText(a: any) {
   switch (a.code) {
     case "SCANNER_OFFLINE":
       return label(
@@ -20,6 +22,16 @@ function alertText(a: any) {
       return label(`${n(a.count)}টি রিচার্জ নিশ্চিত করার অপেক্ষায়।`, `${a.count} recharge request(s) waiting for confirmation.`);
     case "ACCOUNT_REQUESTS_PENDING":
       return label(`${n(a.count)}টি অফিস অ্যাকাউন্ট অনুরোধ যাচাইয়ের অপেক্ষায়।`, `${a.count} office account request(s) waiting for verification.`);
+    case "EMAIL_NOT_CONFIGURED":
+      return label("ইমেইল কনফিগার করা হয়নি — যাচাই ও স্ট্যাটাস ইমেইল পাঠানো হচ্ছে না।", "Email is not configured — verification and status emails are not sent.");
+    case "EMAIL_LOG_ONLY":
+      return label("ইমেইল লগ প্রোভাইডার ব্যবহার করছে — বার্তা কোনো মেইলবক্সে যাচ্ছে না। চালুর আগে EMAIL_PROVIDER=smtp করুন।", "Email uses the log provider — messages reach no mailbox. Set EMAIL_PROVIDER=smtp before go-live.");
+    case "SMS_NOT_CONFIGURED":
+      return label("এসএমএস কনফিগার করা হয়নি — স্ট্যাটাস এসএমএস পাঠানো হচ্ছে না।", "SMS is not configured — status SMS is not sent.");
+    case "SMS_LOG_ONLY":
+      return label("এসএমএস লগ প্রোভাইডার ব্যবহার করছে — বার্তা কোনো হ্যান্ডসেটে যাচ্ছে না। চালুর আগে OTP_PROVIDER=http করুন।", "SMS uses the log provider — messages reach no handset. Set OTP_PROVIDER=http before go-live.");
+    case "OTP_UNAVAILABLE":
+      return label("মোবাইল ওটিপি যাচাই চালু নেই — নাগরিকরা মোবাইল সাইনআপ সম্পূর্ণ করতে পারবেন না।", "Mobile OTP verification is not available — citizens cannot complete mobile signup.");
     default:
       return a.code;
   }

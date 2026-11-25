@@ -1001,6 +1001,95 @@ const ROUTES = [
   },
   {
     "method": "get",
+    "path": "/api/v1/owner/statistics",
+    "summary": "Global platform statistics",
+    "description": "W-012: global citizens / applications / certificates totals, applications by current state, and a per-office breakdown (counts only, no personal data). Optional UTC date range (from/to, YYYY-MM-DD) and single-office scope (tenantId). Platform owner only.",
+    "tag": "Owner",
+    "visibility": "authenticated",
+    "source": "owner-statistics.ts",
+    "roles": [
+      "owner"
+    ],
+    "officeActor": false,
+    "usesTenant": false,
+    "usesActor": false,
+    "usesAuth": true,
+    "limiters": [],
+    "inlineLimit": null,
+    "statuses": [],
+    "errorCodes": [
+      "403:ROLE_DENIED",
+      "404:NOT_FOUND"
+    ],
+    "queryParams": [
+      "from",
+      "to",
+      "tenantId"
+    ],
+    "bodyKeys": null,
+    "queryKeys": null,
+    "hasBodyParse": false
+  },
+  {
+    "method": "get",
+    "path": "/api/v1/owner/statistics/export",
+    "summary": "Export global platform statistics",
+    "description": "W-012: the same aggregates as GET /owner/statistics as CSV (one row per office plus a TOTAL row) or JSON. Same range and office scope. Platform owner only.",
+    "tag": "Owner",
+    "visibility": "authenticated",
+    "source": "owner-statistics.ts",
+    "roles": [
+      "owner"
+    ],
+    "officeActor": false,
+    "usesTenant": false,
+    "usesActor": false,
+    "usesAuth": true,
+    "limiters": [],
+    "inlineLimit": null,
+    "statuses": [],
+    "errorCodes": [
+      "403:ROLE_DENIED",
+      "404:NOT_FOUND"
+    ],
+    "queryParams": [
+      "from",
+      "to",
+      "tenantId",
+      "format"
+    ],
+    "bodyKeys": null,
+    "queryKeys": null,
+    "hasBodyParse": false
+  },
+  {
+    "method": "get",
+    "path": "/api/v1/owner/platform-health",
+    "summary": "Platform health indicators",
+    "description": "W-020: read-only health indicators for the System Owner — database latency and migration status, scanner heartbeat and queue, SMS/email/OTP/payment provider status, backup and maintenance state (reported as absent where no mechanism exists), and system alerts. No configuration is changed. Platform owner only.",
+    "tag": "Owner",
+    "visibility": "authenticated",
+    "source": "platform-health.ts",
+    "roles": [
+      "owner"
+    ],
+    "officeActor": false,
+    "usesTenant": false,
+    "usesActor": false,
+    "usesAuth": true,
+    "limiters": [],
+    "inlineLimit": null,
+    "statuses": [],
+    "errorCodes": [
+      "403:ROLE_DENIED"
+    ],
+    "queryParams": [],
+    "bodyKeys": null,
+    "queryKeys": null,
+    "hasBodyParse": false
+  },
+  {
+    "method": "get",
     "path": "/api/v1/owner/payment-orders",
     "summary": "List platform payment orders",
     "description": "Platform billing orders across offices, optionally filtered by status. Platform owner only.",

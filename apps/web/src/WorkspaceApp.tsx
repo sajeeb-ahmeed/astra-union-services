@@ -75,6 +75,10 @@ const AdminWorkspace = lazyWithRetry(() => import("./AdminWorkspace.js"), (m) =>
 // UIUX-FIX-01 #15: owner-only and finance-only panels are lazy chunks, so
 // citizens/chairmen never download platform-management or finance code.
 const OwnerOperations = lazyWithRetry(() => import("./OwnerOperations.js"), (m) => m.OwnerOperations);
+// W-012: global platform statistics on the owner overview.
+const OwnerStatistics = lazyWithRetry(() => import("./OwnerStatistics.js"), (m) => m.OwnerStatistics);
+// W-020: the platform-health screen.
+const OwnerPlatformHealth = lazyWithRetry(() => import("./OwnerPlatformHealth.js"), (m) => m.OwnerPlatformHealth);
 const OwnerAccountRequests = lazyWithRetry(() => import("./OwnerAccountRequests.js"), (m) => m.OwnerAccountRequests);
 const OwnerRecharges = lazyWithRetry(() => import("./Recharge.js"), (m) => m.OwnerRecharges);
 const RechargeRequests = lazyWithRetry(() => import("./Recharge.js"), (m) => m.RechargeRequests);
@@ -243,6 +247,8 @@ const OWNER_SECTIONS = [
   "permissions",
   "audit",
   "settings",
+  // W-020: the platform-health screen.
+  "health",
 ];
 type WorkspaceRoute = {
   page?: string;
@@ -3834,6 +3840,9 @@ export function WorkspaceApp({
                           ["permissions", "security", { bn: "অনুমতি", en: "Permissions" }],
                           ["audit", "search", { bn: "অডিট", en: "Audit" }],
                           ["settings", "admin", { bn: "সেটিংস", en: "Settings" }],
+                          // W-020: platform health (database, scanner,
+                          // providers, backup, maintenance, alerts).
+                          ["health", "reports", { bn: "প্ল্যাটফর্ম স্বাস্থ্য", en: "Platform health" }],
                         ],
                       },
                     ] as const
@@ -3917,6 +3926,15 @@ export function WorkspaceApp({
                       window.setTimeout(bring, 0);
                     }}
                   />
+                  {/* W-012: global citizens / applications / certificates
+                      totals, by state and by office. */}
+                  <OwnerStatistics tenants={tenants} />
+                </section>
+                )}
+                {ownerSection === "health" && (
+                <section className="owner-section" id="owner-health">
+                  <h2>{choose({ bn: "প্ল্যাটফর্ম স্বাস্থ্য", en: "Platform health" })}</h2>
+                  <OwnerPlatformHealth />
                 </section>
                 )}
                 {ownerSection === "offices" && (

@@ -16945,6 +16945,222 @@
           }
         }
       }
+    },
+    "/api/v1/owner/statistics": {
+      "get": {
+        "summary": "Global platform statistics",
+        "description": "W-012: global citizens / applications / certificates totals, applications by current state, and a per-office breakdown (counts only, no personal data). Optional UTC date range (from/to, YYYY-MM-DD) and single-office scope (tenantId). Platform owner only.",
+        "tags": [
+          "Owner"
+        ],
+        "x-visibility": "authenticated",
+        "x-source": "apps/api/src/owner-statistics.ts",
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "x-roles": [
+          "owner"
+        ],
+        "parameters": [
+          {
+            "name": "from",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Query filter."
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Query filter."
+          },
+          {
+            "name": "tenantId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Query filter."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success; see apps/api/src/owner-statistics.ts for the response contract.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Session missing or inactive."
+          },
+          "403": {
+            "description": "Role, CSRF or Origin denied."
+          },
+          "404": {
+            "description": "Record unavailable in this scope."
+          },
+          "409": {
+            "description": "Duplicate or workflow conflict."
+          },
+          "422": {
+            "description": "Validated request failed."
+          }
+        },
+        "x-error-codes": [
+          "403:ROLE_DENIED",
+          "404:NOT_FOUND"
+        ]
+      }
+    },
+    "/api/v1/owner/statistics/export": {
+      "get": {
+        "summary": "Export global platform statistics",
+        "description": "W-012: the same aggregates as GET /owner/statistics as CSV (one row per office plus a TOTAL row) or JSON. Same range and office scope. Platform owner only.",
+        "tags": [
+          "Owner"
+        ],
+        "x-visibility": "authenticated",
+        "x-source": "apps/api/src/owner-statistics.ts",
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "x-roles": [
+          "owner"
+        ],
+        "parameters": [
+          {
+            "name": "from",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Query filter."
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Query filter."
+          },
+          {
+            "name": "tenantId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Query filter."
+          },
+          {
+            "name": "format",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Query filter."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success; see apps/api/src/owner-statistics.ts for the response contract.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Session missing or inactive."
+          },
+          "403": {
+            "description": "Role, CSRF or Origin denied."
+          },
+          "404": {
+            "description": "Record unavailable in this scope."
+          },
+          "409": {
+            "description": "Duplicate or workflow conflict."
+          },
+          "422": {
+            "description": "Validated request failed."
+          }
+        },
+        "x-error-codes": [
+          "403:ROLE_DENIED",
+          "404:NOT_FOUND"
+        ]
+      }
+    },
+    "/api/v1/owner/platform-health": {
+      "get": {
+        "summary": "Platform health indicators",
+        "description": "W-020: read-only health indicators for the System Owner — database latency and migration status, scanner heartbeat and queue, SMS/email/OTP/payment provider status, backup and maintenance state (reported as absent where no mechanism exists), and system alerts. No configuration is changed. Platform owner only.",
+        "tags": [
+          "Owner"
+        ],
+        "x-visibility": "authenticated",
+        "x-source": "apps/api/src/platform-health.ts",
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "x-roles": [
+          "owner"
+        ],
+        "responses": {
+          "200": {
+            "description": "Success; see apps/api/src/platform-health.ts for the response contract.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Session missing or inactive."
+          },
+          "403": {
+            "description": "Role, CSRF or Origin denied."
+          },
+          "404": {
+            "description": "Record unavailable in this scope."
+          },
+          "409": {
+            "description": "Duplicate or workflow conflict."
+          },
+          "422": {
+            "description": "Validated request failed."
+          }
+        },
+        "x-error-codes": [
+          "403:ROLE_DENIED"
+        ]
+      }
     }
   },
   "tags": [
@@ -17035,8 +17251,8 @@
     "All other authenticated mutations": "session + CSRF required; no additional global limiter (per-route limiters are listed on the operation)"
   },
   "x-coverage": {
-    "documentedOperations": 210,
-    "documentedPaths": 187,
+    "documentedOperations": 213,
+    "documentedPaths": 190,
     "generatedBy": "scripts/update-batch-c-openapi.mjs (Batch C / A-001)",
     "note": "Counts are spec-side only; live coverage is enforced by scripts/check-openapi-coverage.mjs against the running Express route table."
   }
