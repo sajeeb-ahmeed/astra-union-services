@@ -2,7 +2,7 @@ import { ShortSignupForm, type ShortSignupResult } from "./ShortSignup.js";
 import { t, tx, choose, useLanguage } from "./i18n.js";
 import { SiteFooter, SiteHeader } from "./PublicShell.js";
 import { GlobalNoticeBanner } from "./GlobalNotices.js";
-import { ApplicationStatus, EmptyState, ServiceCard, serviceCardMetaRich } from "./ui/kit.js";
+import { ApplicationStatus, EmptyState, ServiceCard, SkeletonRows, serviceCardMetaRich } from "./ui/kit.js";
 import {
   loadServiceOfficeSummaries,
   type ServiceOfficeSummary,
@@ -942,9 +942,11 @@ export function PublicPortal({
         </h2>
         {tx(
           !info || info.state === "loading" ? (
-            <p role="status">
-              {choose({ bn: "তথ্য লোড হচ্ছে…", en: "Loading office information…" })}
-            </p>
+            /* F-015: the office list used to arrive as a one-line status
+               that then expanded to the full list — a single ~0.7 CLS
+               shift whenever the data landed after first paint. Skeleton
+               rows reserve roughly the loaded height instead. */
+            <SkeletonRows rows={3} />
           ) : info.state === "error" ? (
             <p role="alert" className="notice error">
               {choose({

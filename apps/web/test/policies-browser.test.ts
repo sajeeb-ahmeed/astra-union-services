@@ -47,8 +47,9 @@ test(
       }
       await page.goto(`${origin}/policies`);
       assert.equal(await page.locator("h1").first().textContent(), "Policies");
-      assert.equal(await page.locator('a[href="/privacy"]').count(), 1);
-      assert.equal(await page.locator('a[href="/terms"]').count(), 1);
+      // The hub links live in main; the footer carries the same links.
+      assert.equal(await page.locator('main a[href="/privacy"]').count(), 1);
+      assert.equal(await page.locator('main a[href="/terms"]').count(), 1);
     } finally {
       await browser.close();
     }
