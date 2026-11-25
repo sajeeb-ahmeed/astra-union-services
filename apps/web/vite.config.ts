@@ -20,6 +20,16 @@ export default defineConfig(({ command }) => {
       strictPort: true,
       proxy: { "/api": "http://127.0.0.1:3001" },
     },
+    // Preview serves the production build for the browser suite (see
+    // scripts/test-web.ts): it needs the same /api proxy as the dev
+    // server, otherwise the built app cannot reach the API. Preview is
+    // never used by the deployed site (static dist hosting).
+    preview: {
+      host: "127.0.0.1",
+      port: 5173,
+      strictPort: true,
+      proxy: { "/api": "http://127.0.0.1:3001" },
+    },
     build: { outDir: "dist", emptyOutDir: true, manifest: true },
   };
 });
