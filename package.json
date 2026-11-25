@@ -18,6 +18,8 @@
     "db:seed": "node scripts/decode-assets.mjs && tsx scripts/seed.ts",
     "test:forms": "node --import tsx --test packages/shared-schemas/test/*.test.ts",
     "test:api": "node --import tsx --test --test-concurrency=1 apps/api/test/*.test.ts",
+    "test:openapi": "node scripts/update-batch-c-openapi.mjs --check && node --import tsx scripts/check-openapi-coverage.mjs",
+    "openapi:generate": "node scripts/update-batch-c-openapi.mjs",
     "test:web": "tsx scripts/test-web.ts",
     "test:backup": "node --test scripts/backup/*.test.mjs",
     "db:backup": "node scripts/backup/backup.mjs backup",
