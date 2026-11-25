@@ -9,6 +9,13 @@ import {
   certificateAssetsBundle,
   type CertificateAssetsBundle,
 } from "./template-assets.js";
+import {
+  DEMO_BANNER_BN,
+  DEMO_BANNER_EN,
+  DEMO_NOTICE_BN,
+  DEMO_NOTICE_EN,
+  isDemoIssuance,
+} from "./demo-notice.js";
 
 /**
  * Template 7 (Phase Y) — the official Union Parishad document format, modelled
@@ -2214,8 +2221,17 @@ export function renderCertificateHtmlV7(input: PdfInput, qrDataUrl: string): str
         ? // CERT-REFINE-01 §42: the QR sits at the bottom-left, clear of the header.
           `${signature}<footer class="doc-foot tl-foot"><img class="qr" alt="" src="${escape(qrDataUrl)}"><div class="verify-line">${escape(verifyLine)}</div></footer>`
         : `${signature}<footer class="doc-foot"><img class="qr" alt="" src="${escape(qrDataUrl)}"><div class="verify-line">${escape(verifyLine)}</div></footer>`;
-  const bannerBits = "";
-  const honesty = "";
+  // W-001: a demo document says so on its face, in both languages — the
+  // draft-wm / draft-banner / honesty hooks were already styled and waiting
+  // empty since the 17 Nov 2026 owner purge stripped demo wording. Official
+  // mode stays clean.
+  const demo = isDemoIssuance();
+  const bannerBits = demo
+    ? `<div class="draft-wm">DEMO</div><div class="draft-banner">${escape(DEMO_BANNER_BN)}<br>${escape(DEMO_BANNER_EN)}</div>`
+    : "";
+  const honesty = demo
+    ? `<p class="honesty">${escape(DEMO_NOTICE_BN)} ${escape(DEMO_NOTICE_EN)}</p>`
+    : "";
   // CERTNO-01: the centre watermark is the Government of Bangladesh emblem —
   // large and faint, the same for every office. The office seal is not
   // printed anywhere on the document.

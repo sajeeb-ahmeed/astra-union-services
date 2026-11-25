@@ -17,6 +17,11 @@ import {
   renderCertificateHtml,
   DEMO_TEMPLATE_VERSION,
 } from "../src/pdf.js";
+import {
+  DEMO_BANNER_BN,
+  DEMO_BANNER_EN,
+  DEMO_NOTICE_EN,
+} from "../src/demo-notice.js";
 import { payloadGeographyNames } from "../src/geography.js";
 // B2: these tests exercise the sandbox settlement route, which is off unless explicitly enabled.
 process.env.DEMO_SETTLE_ENABLED = "true";
@@ -924,7 +929,10 @@ test("PDF-ALL: service templates retain approved family rows, trade data and HTM
       "data:image/png;base64,DEMO",
       6,
     );
-    assert.ok(!html.includes("DEMO / NOT OFFICIAL"));
+    // W-001: a demo document marks itself demo, in both languages.
+    assert.ok(html.includes(DEMO_BANNER_BN), "Bengali demo banner");
+    assert.ok(html.includes(DEMO_BANNER_EN), "English demo banner");
+    assert.ok(html.includes(DEMO_NOTICE_EN), "English not-official line");
     assert.ok(html.includes("Approved details"));
     if (no === 2) assert.ok(html.includes('class="member"'));
     if (no === 42) {

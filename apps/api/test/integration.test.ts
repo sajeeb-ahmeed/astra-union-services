@@ -12,6 +12,10 @@ import {
   renderCertificateHtml,
   DEMO_TEMPLATE_VERSION,
 } from "../src/pdf.js";
+import {
+  DEMO_BANNER_BN,
+  DEMO_BANNER_EN,
+} from "../src/demo-notice.js";
 // B2: these tests exercise the sandbox settlement route, which is off unless explicitly enabled.
 process.env.DEMO_SETTLE_ENABLED = "true";
 process.env.NODE_ENV = "test";
@@ -1241,7 +1245,9 @@ test("CER-01: current resident PDFs contain approved purpose/residency and genui
       "data:image/png;base64,DEMO",
       6,
     );
-    assert.ok(!html.includes("DEMO / NOT OFFICIAL"));
+    // W-001: a demo document marks itself demo, in both languages.
+    assert.ok(html.includes(DEMO_BANNER_BN), "Bengali demo banner");
+    assert.ok(html.includes(DEMO_BANNER_EN), "English demo banner");
     const body = html.match(/<main\b[^>]*>([\s\S]*?)<\/main>/)![1]!;
     assert.ok(html.includes(`data-delivery-language="${language}"`));
     if (language !== "en") {
