@@ -13,6 +13,7 @@ import "./public-home.css";
 import { certificateNumberInput, verificationToken } from "./verify-input.js";
 import { HOME_SEO } from "./seo/service-seo.js";
 import { applyPageHead } from "./seo/head.js";
+import { navigate } from "./navigate.js";
 
 export { certificateNumberInput, verificationToken } from "./verify-input.js";
 
@@ -34,6 +35,28 @@ const BN_DIGITS = "০১২৩৪৫৬৭৮৯";
  */
 export function PublicHome({ login }: { login?: React.ReactNode } = {}) {
   const [lang] = useLanguage();
+  // L-006: idle-prefetch the portal chunk so the first navigation from
+  // home to a portal page does not wait on a lazy chunk (and its loading
+  // panel). requestIdleCallback keeps this off first paint; if the
+  // prefetch fails the lazy import retries on demand (M-003).
+  useEffect(() => {
+    const prefetch = () => {
+      import("./PublicPortal.js").catch(() => {});
+    };
+    if ("requestIdleCallback" in window) {
+      const id = (
+        window as unknown as {
+          requestIdleCallback: (cb: () => void, opts?: { timeout: number }) => number;
+        }
+      ).requestIdleCallback(prefetch, { timeout: 3000 });
+      return () =>
+        (
+          window as unknown as { cancelIdleCallback?: (id: number) => void }
+        ).cancelIdleCallback?.(id);
+    }
+    const timer = setTimeout(prefetch, 1500);
+    return () => clearTimeout(timer);
+  }, []);
   // SEO P5: the homepage head (title/meta/canonical/OG) for the SPA route.
   useEffect(() => {
     applyPageHead({
@@ -82,13 +105,16 @@ export function PublicHome({ login }: { login?: React.ReactNode } = {}) {
       );
       return;
     }
-    location.assign(`/tracking?searchText=${encodeURIComponent(reference)}`);
+    // L-006: client-side — the tracking page reads ?searchText= on mount.
+    navigate(`/tracking?searchText=${encodeURIComponent(reference)}`);
   }
   function submitVerify(e: React.FormEvent) {
     e.preventDefault();
     const number = certificateNumberInput(verifyInput);
     if (number) {
-      location.assign(`/verify?searchText=${encodeURIComponent(number)}`);
+      // L-006: client-side — the App re-renders on the new pathname and
+      // CertificateVerification fetches for the new number.
+      navigate(`/verify?searchText=${encodeURIComponent(number)}`);
       return;
     }
     const token = verificationToken(verifyInput);
@@ -101,7 +127,7 @@ export function PublicHome({ login }: { login?: React.ReactNode } = {}) {
       );
       return;
     }
-    location.assign(`/verify/${encodeURIComponent(token)}`);
+    navigate(`/verify/${encodeURIComponent(token)}`);
   }
   const steps = [
     { bn: "অ্যাকাউন্ট খুলুন", en: "Create an account", dBn: "নিবন্ধন সম্পূর্ণ ফ্রি।", dEn: "Registration is free." },
@@ -125,7 +151,10 @@ export function PublicHome({ login }: { login?: React.ReactNode } = {}) {
     },
   ];
   return (
-    <PublicShell current="/">
+    // L-006: the shell's links navigate client-side — without onNavigate
+    // every header/drawer/footer link was a plain <a href> and a click
+    // from the homepage was a full page load (and another splash).
+    <PublicShell current="/" onNavigate={(href) => navigate(href)}>
       {notices && notices.length > 0 && <NoticeTicker notices={notices} />}
       {/* Compact hero: one search, register / sign in, and the carousel. */}
       <section className="hx-hero hx-hero-compact">
@@ -145,8 +174,8 @@ export function PublicHome({ login }: { login?: React.ReactNode } = {}) {
               role="search"
               onSubmit={(e) => {
                 e.preventDefault();
-                if (matches.length) location.assign(servicePath(matches[0].service_no));
-                else location.assign("/services");
+                if (matches.length) navigate(servicePath(matches[0].service_no));
+                else navigate("/services");
               }}
             >
               <label htmlFor="home-service-search">

@@ -9,6 +9,7 @@ import {
 } from "./service-office-summary.js";
 import { formatDateTime, localDigits } from "./ui/fmt.js";
 import { categoryLabel } from "./service-categories.js";
+import { navigate } from "./navigate.js";
 import { serviceNoFromSlug, servicePath } from "./service-slugs.js";
 import {
   OFFICES_HUB_SEO,
@@ -594,14 +595,18 @@ export function PublicPortal({
   // UIUX-FIX-01: there is exactly one public homepage — the PublicHome
   // composition at "/". The portal no longer renders its own home view;
   // any legacy "home" state redirects there.
+  // L-006: client-side — navigate() pushStates and the App re-renders to
+  // PublicHome; the old location.replace() was a full page load.
   useEffect(() => {
-    if (page === "home") location.replace("/");
+    if (page === "home") navigate("/");
   }, [page]);
   function nav(next: string) {
     onNavigate?.();
     // Phase 1: "/" is the new public home, outside this legacy component.
+    // L-006: client-side — the App re-renders to PublicHome on the
+    // "astra:navigate" event; the old location.assign() was a full load.
     if (next === "home") {
-      location.assign("/");
+      navigate("/");
       return;
     }
     setPage(next);
@@ -615,7 +620,9 @@ export function PublicPortal({
     const pop = () => {
       onNavigate?.();
       if (location.pathname === "/") {
-        location.reload();
+        // L-006: no reload — the App listens for "popstate" itself and
+        // re-renders to PublicHome; the old location.reload() re-showed
+        // the splash on every back-navigation to the homepage.
         return;
       }
       const next = location.pathname.split("/")[1] || "home";
@@ -2086,7 +2093,12 @@ export function PublicPortal({
                           // A shared link may carry the number as ?searchText=.
                           const fromSearch = input.match(/[?&]searchText=([^&#\s]+)/)?.[1];
                           if (fromSearch) {
-                            location.assign(
+                            // L-006: client-side — the App re-renders on
+                            // the new pathname and CertificateVerification
+                            // fetches for the new value (it refetches on
+                            // prop change); the old location.assign() was a
+                            // full load and another splash.
+                            navigate(
                               `/verify?searchText=${encodeURIComponent(decodeURIComponent(fromSearch))}`,
                             );
                             return;
@@ -2097,7 +2109,7 @@ export function PublicPortal({
                             .replace(/[০-৯]/g, (d) => String("০১২৩৪৫৬৭৮৯".indexOf(d)))
                             .replace(/[\s-]/g, "");
                           if (/^\d{16}$/.test(digits)) {
-                            location.assign(`/verify?searchText=${digits}`);
+                            navigate(`/verify?searchText=${digits}`);
                             return;
                           }
                           let parsed = input;
@@ -2112,7 +2124,7 @@ export function PublicPortal({
                             fail();
                             return;
                           }
-                          location.assign(
+                          navigate(
                             `/verify/${encodeURIComponent(parsed)}`,
                           );
                         }}

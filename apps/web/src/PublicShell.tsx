@@ -368,9 +368,18 @@ export function SiteFooter({
 export function PublicShell({
   current,
   children,
+  onNavigate,
 }: {
   current: string;
   children: React.ReactNode;
+  /**
+   * L-006: client-side navigation for the shell's links. PublicHome
+   * passes `navigate` here; without it every header/drawer/footer link
+   * rendered as a plain `<a href>` and a click from the homepage was a
+   * full page load (and another splash). Surfaces that render their own
+   * shell (PublicPortal) pass their own handler instead.
+   */
+  onNavigate?: ShellNavigate;
 }) {
   useLanguage();
   return (
@@ -379,12 +388,12 @@ export function PublicShell({
         {choose({ bn: "মূল অংশে যান", en: "Skip to main content" })}
       </a>
       <UtilityBar />
-      <SiteHeader current={current} />
+      <SiteHeader current={current} onNavigate={onNavigate} />
       <main id="ax-content" className="ax-main">
         <GlobalNoticeBanner />
         {children}
       </main>
-      <SiteFooter />
+      <SiteFooter onNavigate={onNavigate} />
       <HelpWidget />
     </div>
   );
