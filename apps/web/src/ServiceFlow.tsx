@@ -9,7 +9,7 @@ import {
   type FieldDefinition,
   type FormSchema,
   type ValidationIssue,
-} from "@astra/shared-schemas";
+} from "@astra/shared-schemas/web";
 import { api, errorCode, items } from "./api.js";
 import { choose, recordName, useLanguage } from "./i18n.js";
 import { DynamicForm } from "./DynamicForm.js";

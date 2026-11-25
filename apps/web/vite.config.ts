@@ -38,11 +38,26 @@ export default defineConfig(({ command }) => {
   return {
     root: path.resolve("apps/web"),
     resolve: {
-      alias: {
-        "@astra/shared-schemas": path.resolve(
-          "packages/shared-schemas/src/index.ts",
-        ),
-      },
+      // B-003: exact-match aliases, most specific first — the object
+      // form matches by prefix, so the root alias would swallow the
+      // /web and /legacy subpaths (src/index.ts/web). The web entry
+      // resolves to source (like the root entry) so the bundle carries
+      // current schemas only; the legacy entry is the dynamic-import
+      // target for pinned versions.
+      alias: [
+        {
+          find: /^@astra\/shared-schemas\/web$/,
+          replacement: path.resolve("packages/shared-schemas/src/web.ts"),
+        },
+        {
+          find: /^@astra\/shared-schemas\/legacy$/,
+          replacement: path.resolve("packages/shared-schemas/src/legacy.ts"),
+        },
+        {
+          find: /^@astra\/shared-schemas$/,
+          replacement: path.resolve("packages/shared-schemas/src/index.ts"),
+        },
+      ],
     },
     server: {
       host: "127.0.0.1",

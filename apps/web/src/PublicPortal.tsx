@@ -30,7 +30,7 @@ import {
 } from "./seo/service-seo.js";
 import { applyPageHead } from "./seo/head.js";
 import { BrandLockup } from "./BrandLockup.js";
-import { getServiceSchema } from "@astra/shared-schemas";
+import { getServiceSchema } from "@astra/shared-schemas/web";
 import { lazyWithRetry } from "./AsyncPanel.js";
 import React, { Suspense, useEffect, useRef, useState } from "react";
 // Phase 4c: the witness generator loads only on /witness, keeping the public start-up bundle small.

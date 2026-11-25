@@ -71,3 +71,52 @@ test("P-009: the cPanel packager excludes *.b64 decode sources", () => {
   const packager = fs.readFileSync(path.join(repoRoot, "scripts/package-cpanel.mjs"), "utf-8");
   assert.match(packager, /base\.endsWith\("\.b64"\)\) return false/, "package-cpanel.mjs must exclude *.b64");
 });
+
+/**
+ * B-003 / F-015: bundle budget. The GeographyFields chunk was 623 KB
+ * because it carried every historical schema version
+ * (expanded-v1-schemas.json, 512 KB on disk) through the shared-schemas
+ * root entry. The web now imports the /web entry (current schemas only)
+ * and loads pinned legacy versions on demand from the /legacy entry, so
+ * no JS chunk may exceed 500 KB and the entry chunk stays at or under
+ * 400 KB. The budget is measured on the uncompressed .js files Vite
+ * emits (the .br/.gz twins are delivery compression, not bundle size).
+ */
+test("B-003: no JS chunk exceeds 500 kB; the entry chunk stays at or under 400 kB", () => {
+  const files = walkFiles(dist).filter((f) => f.endsWith(".js"));
+  assert.ok(files.length > 0, "no .js chunks in apps/web/dist");
+  const oversize = files
+    .map((f) => ({ name: path.basename(f), size: fs.statSync(f).size }))
+    .filter(({ size }) => size > 500 * 1024);
+  assert.deepEqual(
+    oversize,
+    [],
+    `JS chunks over the 500 kB budget: ${oversize.map((o) => `${o.name} (${o.size} B)`).join(", ")}`,
+  );
+  const entry = files
+    .map((f) => ({ name: path.basename(f), size: fs.statSync(f).size }))
+    .find(({ name }) => name.startsWith("index-"));
+  assert.ok(entry, "entry chunk index-*.js missing from dist");
+  assert.ok(
+    entry.size <= 400 * 1024,
+    `entry chunk ${entry.name} is ${entry.size} B, over the 400 kB budget`,
+  );
+});
+
+test("B-003: the legacy schemas ship only as a lazy chunk, never in the initial bundle", () => {
+  // The dynamic import in PinnedSchema (WorkspaceApp) must emit a
+  // separate chunk: that is what keeps the 512 KB historical-schema JSON
+  // out of first paint. The budget test above enforces the outcome; this
+  // one names the mechanism — a legacy chunk exists, and the chunk that
+  // used to carry the v1 blob (GeographyFields, 623 KB before the split)
+  // is under the budget.
+  const js = walkFiles(dist).filter((f) => f.endsWith(".js"));
+  const legacy = js.filter((f) => /legacy/i.test(path.basename(f)));
+  assert.ok(legacy.length > 0, "no lazy legacy chunk in dist — the split did not happen");
+  const geo = js.find((f) => path.basename(f).startsWith("GeographyFields-"));
+  assert.ok(geo, "GeographyFields chunk missing from dist");
+  assert.ok(
+    fs.statSync(geo).size <= 500 * 1024,
+    `GeographyFields chunk is ${fs.statSync(geo).size} B, still over the 500 kB budget`,
+  );
+});

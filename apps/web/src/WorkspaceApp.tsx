@@ -7,11 +7,12 @@ import {
   LanguageSwitcher,
 } from "./i18n.js";
 import { randomUUID } from "./uuid.js";
-import React, { useEffect, useRef, useState, useSyncExternalStore } from "react";
+import React, { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import {
   operationalServiceNumbers,
   getServiceSchema,
-} from "@astra/shared-schemas";
+  type FormSchema,
+} from "@astra/shared-schemas/web";
 import { api, clearSessionToken, items } from "./api.js";
 import { useBranding } from "./branding.js";
 import { GlobalNoticeBanner } from "./GlobalNotices.js";
@@ -353,6 +354,73 @@ function OwnerSettledRevenueCard() {
     />
   );
 }
+
+/**
+ * B-003 / F-015: the pinned schema for one application. The current
+ * operational schema ships with the bundle (web entry); an application
+ * pinned to a superseded version loads its schema on demand from the
+ * legacy entry, so the 512 KB historical-schema JSON never enters the
+ * initial bundle. While it loads, the payload section shows a loading
+ * status — never a wrong (current-version) form — and a failed load is
+ * an alert, not a silent empty form.
+ */
+function PinnedSchema({
+  serviceNo,
+  schemaVersion,
+  order,
+  children,
+}: {
+  serviceNo: number;
+  schemaVersion?: number;
+  order: boolean;
+  children: (schema: FormSchema) => React.ReactNode;
+}) {
+  const current = useMemo(() => getServiceSchema(serviceNo), [serviceNo]);
+  const needsLegacy =
+    schemaVersion != null && schemaVersion !== current.version;
+  const [legacy, setLegacy] = useState<FormSchema | null>(null);
+  const [failed, setFailed] = useState(false);
+  useEffect(() => {
+    if (!needsLegacy) return;
+    let live = true;
+    setLegacy(null);
+    setFailed(false);
+    import("@astra/shared-schemas/legacy")
+      .then((m) => {
+        if (live)
+          setLegacy(m.getLegacyServiceSchema(serviceNo, schemaVersion!));
+      })
+      .catch(() => {
+        if (live) setFailed(true);
+      });
+    return () => {
+      live = false;
+    };
+  }, [serviceNo, schemaVersion, needsLegacy]);
+  if (failed) {
+    return (
+      <p role="alert" className="ax-flow-error">
+        {choose({
+          bn: "এই আবেদনের ফরমের পুরনো সংস্করণটি লোড করা যায়নি।",
+          en: "The older form version for this application could not be loaded.",
+        })}
+      </p>
+    );
+  }
+  if (needsLegacy && !legacy) {
+    return (
+      <p role="status" className="ax-flow-muted">
+        {choose({
+          bn: "আবেদনের ফরম লোড হচ্ছে…",
+          en: "Loading the application's form…",
+        })}
+      </p>
+    );
+  }
+  const schema = legacy ?? current;
+  return <>{children(order ? withoutOrderLanguage(schema) : schema)}</>;
+}
+
 export function WorkspaceApp({
   session,
   onSignOut,
@@ -3018,22 +3086,19 @@ export function WorkspaceApp({
                     </p>
                   </>
                 )}
-                {(() => {
-                  const detailSchema = (detail.order
-                    ? withoutOrderLanguage
-                    : (value: ReturnType<typeof getServiceSchema>) => value)(
-                    getServiceSchema(
-                      application.serviceNo || application.service_no,
-                      application.schemaVersion || 1,
-                    ),
-                  );
-                  const canEditPayload =
-                    (staff || role === "citizen") &&
-                    ["DRAFT", "CORRECTION_REQUIRED"].includes(application.state);
-                  // FULL-UIUX-01 (B18/P1-7): a non-editable payload renders
-                  // as the shared read-only summary — never a greyed-out
-                  // form pretending to be a record.
-                  return canEditPayload ? (
+                <PinnedSchema
+                  serviceNo={application.serviceNo || application.service_no}
+                  schemaVersion={application.schemaVersion}
+                  order={!!detail.order}
+                >
+                  {(detailSchema) => {
+                    const canEditPayload =
+                      (staff || role === "citizen") &&
+                      ["DRAFT", "CORRECTION_REQUIRED"].includes(application.state);
+                    // FULL-UIUX-01 (B18/P1-7): a non-editable payload renders
+                    // as the shared read-only summary — never a greyed-out
+                    // form pretending to be a record.
+                    return canEditPayload ? (
                     <>
                       <DynamicForm
                         key={application.id}
@@ -3073,7 +3138,8 @@ export function WorkspaceApp({
                       payload={detailPayload}
                     />
                   );
-                })()}
+                  }}
+                </PinnedSchema>
                 {!approver && <div id="application-actions" tabIndex={-1} />}
                 {actionError && (
                   <div

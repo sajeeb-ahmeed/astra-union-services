@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { t, useLanguage } from "./i18n.js";
 import { api } from "./api.js";
-import { citizenProfileCompleteness } from "@astra/shared-schemas";
+import { citizenProfileCompleteness } from "@astra/shared-schemas/web";
 import { ProfileCompleteness } from "./ProfileCompleteness.js";
 import { IdentityDocument } from "./IdentityDocument.js";
 
