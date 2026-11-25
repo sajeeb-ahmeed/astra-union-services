@@ -1,6 +1,6 @@
 {
   "status": "PASS_WITH_WARNINGS",
-  "checkedAt": "2026-11-21T17:41:53.298Z",
+  "checkedAt": "2026-11-25T20:58:00.329Z",
   "method": "Independent verification of supplied bytes; does not certify current official boundaries.",
   "files": [
     {
@@ -42,7 +42,7 @@
     {
       "file": "unions.json",
       "records": 4586,
-      "sha256": "80664b1a45b865d03013b760bd3aabd653e5c71cc33d24e8214192a5a7ae49a5",
+      "sha256": "799dcdeb68329262d13f1c0e4f3995ad276726d0123ff7cf9b42029e8e7bfa50",
       "uniqueCodes": true,
       "orphanCount": 0,
       "utf8Nfc": true,
