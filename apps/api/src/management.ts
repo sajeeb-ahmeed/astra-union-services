@@ -12,7 +12,13 @@ import {
 import { ApiError, camelRow, fail, fieldFail } from "./models.js";
 import { applySubscriptionAction } from "./subscriptions.js";
 import { consumeSignupOtp } from "./otp.js";
-import { emailAvailable, placeholderEmail } from "./mailer.js";
+import {
+  emailAvailable,
+  emailHint,
+  isPlaceholderEmail,
+  placeholderEmail,
+  sendEmail,
+} from "./mailer.js";
 import { decodeUpload } from "./attachments.js";
 import {
   issueEmailVerificationToken,
@@ -219,12 +225,26 @@ managementRouter.post(
       .strict()
       .parse(req.body ?? {});
     const token = randomToken();
-    const result = await transaction(a.tenantId!, async (db) => {
+    // S-007: the plaintext token is NEVER returned in JSON and NEVER put
+    // in a URL query param. It is delivered out-of-band only, to the
+    // account holder's own email, in a fragment link (`/recover#token=…`
+    // — the fragment never reaches the server, a proxy, or a log). Where
+    // no mail provider is configured, or the account has no real email,
+    // the response carries only a masked hint: the token is then
+    // undeliverable until a channel exists (owner decision — configure
+    // EMAIL_PROVIDER=smtp), and a new grant can be created once one does.
+    const created = await transaction(a.tenantId!, async (db) => {
       // Same ordering as login and password changes: account, then recovery token.
       // An office admin cannot inspect another office's account via this check.
       await recoveryEligible(db, a.tenantId!, id, false);
       await lockAccount(db, id);
       await recoveryEligible(db, a.tenantId!, id);
+      const target = (
+        await db.query(
+          "SELECT email, display_name FROM platform_users WHERE id=$1",
+          [id],
+        )
+      ).rows[0];
       await db.query(
         "UPDATE password_recovery_tokens SET consumed_at=now() WHERE user_id=$1 AND consumed_at IS NULL",
         [id],
@@ -235,16 +255,61 @@ managementRouter.post(
           [digest(token), a.tenantId, id, a.userId],
         )
       ).rows[0];
+      const deliverable =
+        emailAvailable() && !isPlaceholderEmail(target?.email);
       await audit(db, a.tenantId!, a.userId, "PASSWORD_RECOVERY_CREATED", id, {
-        delivery: "MANUAL_TRUSTED_CHANNEL",
+        delivery: deliverable ? "EMAIL" : "UNAVAILABLE",
+        ...(deliverable ? { recipientHint: emailHint(target.email) } : {}),
       });
       return {
-        token,
-        recoveryUrl: `${process.env.PUBLIC_ORIGIN ?? "http://127.0.0.1:5173"}/recover?token=${token}`,
         expiresAt: row.expires_at,
+        email: deliverable ? target.email : null,
+        displayName: target?.display_name ?? null,
       };
     });
-    res.status(201).json(result);
+    // Sent only after the transaction commits (same pattern as the signup
+    // verification email): a failed send must not roll back the grant,
+    // and the grant must exist before the link goes out. The audit above
+    // records the intended channel; the response reports the actual
+    // delivery outcome.
+    let delivery: "EMAIL" | "EMAIL_FAILED" | "UNAVAILABLE" = "UNAVAILABLE";
+    let recipientHint: string | undefined;
+    if (created.email) {
+      recipientHint = emailHint(created.email);
+      const origin = process.env.PUBLIC_ORIGIN ?? "http://127.0.0.1:5173";
+      const sent = await sendEmail({
+        to: created.email,
+        subject: "DigitalUnion — password recovery",
+        text: [
+          `A password recovery link was created for your DigitalUnion office account${created.displayName ? ` (${created.displayName})` : ""} by your office administrator.`,
+          "Use this link within 15 minutes to choose a new password. It works once.",
+          `${origin}/recover#token=${token}`,
+          "If you did not ask for this, tell your office administrator.",
+        ].join("\n\n"),
+      });
+      delivery = sent ? "EMAIL" : "EMAIL_FAILED";
+    }
+    res.setHeader("Cache-Control", "no-store");
+    res.status(201).json({
+      created: true,
+      userId: id,
+      expiresAt: created.expiresAt,
+      delivery,
+      ...(recipientHint ? { recipientHint } : {}),
+      ...(delivery === "UNAVAILABLE"
+        ? {
+            tokenHint: `…${token.slice(-4)}`,
+            message:
+              "No email delivery is configured for this account, so the recovery link could not be sent. Configure EMAIL_PROVIDER=smtp (or add a real email address for the account) and generate a new link.",
+          }
+        : {}),
+      ...(delivery === "EMAIL_FAILED"
+        ? {
+            message:
+              "Email delivery failed. Generate a new recovery link.",
+          }
+        : {}),
+    });
   }),
 );
 publicManagementRouter.post(

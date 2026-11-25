@@ -6,6 +6,11 @@ import { app } from "../src/app.js";
 import { pool, adminConnectionString } from "../src/db.js";
 import { hashPassword, digest, randomToken } from "../src/security.js";
 import {
+  logMailProvider,
+  setMailProvider,
+  type MailMessage,
+} from "../src/mailer.js";
+import {
   decryptMfaSecret,
   encryptMfaSecret,
   matchTotp,
@@ -673,13 +678,23 @@ test("MFA-RECOVERY: tenant admin password reset cannot bypass enrolled MFA and d
   const user = await createUser("recovery-target"),
     admin = await createUser("recovery-admin", "admin"),
     neighbor = await createUser("recovery-other", "citizen", otherTenant);
+  // S-007: the grant no longer returns the token — it is delivered
+  // out-of-band to the account holder's email. Capture the mail to
+  // exercise the token, then restore the log provider.
+  const mailSent: MailMessage[] = [];
+  setMailProvider({ async send(m) { mailSent.push(m); } });
   const before = await request(
     "POST",
     `/admin/users/${user.id}/recovery`,
     {},
     admin.session,
   );
+  setMailProvider(logMailProvider);
   assert.equal(before.status, 201);
+  assert.equal(before.body.token, undefined, "S-007: no plaintext token in the response");
+  assert.equal(before.body.recoveryUrl, undefined);
+  const beforeToken = mailSent[0].text.match(/#token=([a-f0-9]{64})/)?.[1] as string;
+  assert.ok(beforeToken, "the out-of-band email carries the fragment link");
   await enroll(user);
   assert.equal(
     (
@@ -695,7 +710,7 @@ test("MFA-RECOVERY: tenant admin password reset cannot bypass enrolled MFA and d
   assert.equal(
     (
       await request("POST", "/auth/recover", {
-        token: before.body.token,
+        token: beforeToken,
         newPassword: "Rec-Synth-MFA-Pa1!",
       })
     ).status,

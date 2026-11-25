@@ -23,6 +23,12 @@ import {
   DEMO_NOTICE_EN,
 } from "../src/demo-notice.js";
 import { payloadGeographyNames } from "../src/geography.js";
+import { digest } from "../src/security.js";
+import {
+  logMailProvider,
+  setMailProvider,
+  type MailMessage,
+} from "../src/mailer.js";
 // B2: these tests exercise the sandbox settlement route, which is off unless explicitly enabled.
 process.env.DEMO_SETTLE_ENABLED = "true";
 const db = new pg.Pool({ connectionString: adminConnectionString });
@@ -1094,6 +1100,11 @@ test("AUTH-RECOVERY: tenant-admin manual recovery is one-use, expires, blocks pr
     ).status,
     404,
   );
+  // S-007: the grant no longer returns the token — it is delivered
+  // out-of-band to the account holder's email. Capture the mail to
+  // exercise the tokens, then restore the log provider.
+  const mailSent: MailMessage[] = [];
+  setMailProvider({ async send(m) { mailSent.push(m); } });
   const grant = await req(
     "POST",
     `/admin/users/${s.staff!.user.id}/recovery`,
@@ -1101,14 +1112,18 @@ test("AUTH-RECOVERY: tenant-admin manual recovery is one-use, expires, blocks pr
     s.admin,
   );
   assert.equal(grant.status, 201, JSON.stringify(grant.body));
-  assert.match(grant.body.token, /^[a-f0-9]{64}$/);
+  assert.equal(grant.body.token, undefined, "S-007: no plaintext token in the response");
+  assert.equal(grant.body.recoveryUrl, undefined);
+  assert.equal(grant.body.delivery, "EMAIL");
+  const grantToken = mailSent[0].text.match(/#token=([a-f0-9]{64})/)?.[1] as string;
+  assert.ok(grantToken, "the out-of-band email carries the fragment link");
   const results = await Promise.all([
     req("POST", "/auth/recover", {
-      token: grant.body.token,
+      token: grantToken,
       newPassword: "Rec-Synthetic-Pa1!",
     }),
     req("POST", "/auth/recover", {
-      token: grant.body.token,
+      token: grantToken,
       newPassword: "Rec-Synthetic-Pa1!",
     }),
   ]);
@@ -1125,6 +1140,9 @@ test("AUTH-RECOVERY: tenant-admin manual recovery is one-use, expires, blocks pr
     {},
     s.admin,
   );
+  const expiredToken = mailSent[1].text.match(/#token=([a-f0-9]{64})/)?.[1] as string;
+  assert.ok(expiredToken, "the second grant also arrives out-of-band");
+  setMailProvider(logMailProvider);
   await db.query(
     "UPDATE password_recovery_tokens SET expires_at=now()-interval '1 minute' WHERE user_id=$1 AND consumed_at IS NULL",
     [s.staff!.user.id],
@@ -1132,7 +1150,7 @@ test("AUTH-RECOVERY: tenant-admin manual recovery is one-use, expires, blocks pr
   assert.equal(
     (
       await req("POST", "/auth/recover", {
-        token: expired.body.token,
+        token: expiredToken,
         newPassword: password,
       })
     ).status,
@@ -1142,7 +1160,10 @@ test("AUTH-RECOVERY: tenant-admin manual recovery is one-use, expires, blocks pr
     "SELECT token_hash FROM password_recovery_tokens WHERE user_id=$1",
     [s.staff!.user.id],
   );
-  assert.ok(snapshots.rows.every((r) => r.token_hash !== grant.body.token));
+  // S-007: tokens are stored hashed, never plaintext — the stored hash
+  // is the digest of the emailed token, and never the token itself.
+  assert.ok(snapshots.rows.some((r) => r.token_hash === digest(grantToken)));
+  assert.ok(snapshots.rows.every((r) => r.token_hash !== grantToken));
   await db.query(
     "INSERT INTO staff_memberships(user_id,tenant_id,role) VALUES($1,$2,'staff')",
     [s.staff!.user.id, other.id],

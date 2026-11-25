@@ -209,39 +209,16 @@ export function AdminWorkspace() {
         {tx(
           recovery && (
             <div className="notice">
-              <strong>{t("Private one-use recovery link")}</strong>
+              <strong>{t("One-use recovery link")}</strong>
               <p>
-                {t(
-                  "Only provide this to the intended account holder through your trusted contact channel. Valid until",
+                {tx(
+                  recovery.delivery === "EMAIL"
+                    ? `${t("Recovery link sent to the account holder's email")} (${recovery.recipientHint}). ${t("Valid until")} ${new Date(recovery.expiresAt).toLocaleString()}.`
+                    : recovery.delivery === "EMAIL_FAILED"
+                      ? t("Email delivery failed. Generate a new recovery link.")
+                      : `${t("No email delivery is configured, so the recovery link could not be sent. Reference")} ${recovery.tokenHint}. ${t("Valid until")} ${new Date(recovery.expiresAt).toLocaleString()}.`,
                 )}
-                {tx(" ")}
-                {tx(new Date(recovery.expiresAt).toLocaleString())}
-                {t(". ")}
               </p>
-              <label htmlFor="admin-recovery-link">{t("Recovery link")}</label>
-              <input
-                id="admin-recovery-link"
-                readOnly
-                value={recovery.recoveryUrl}
-                onFocus={(e) => e.target.select()}
-              />
-              <button
-                className="secondary"
-                onClick={async () => {
-                  try {
-                    await navigator.clipboard.writeText(recovery.recoveryUrl);
-                    setMessage("Recovery link copied.");
-                  } catch {
-                    document.getElementById("admin-recovery-link")?.focus();
-                    setMessage(
-                      "Select and copy the recovery link from the field.",
-                    );
-                  }
-                }}
-              >
-                {t("Copy recovery link ")}
-              </button>
-              {tx(" ")}
               <button className="text-button" onClick={() => setRecovery(null)}>
                 {t("Dismiss recovery link ")}
               </button>

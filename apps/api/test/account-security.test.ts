@@ -5,6 +5,11 @@ import pg from "pg";
 import { app } from "../src/app.js";
 import { pool, adminConnectionString } from "../src/db.js";
 import { digest, hashPassword, randomToken } from "../src/security.js";
+import {
+  logMailProvider,
+  setMailProvider,
+  type MailMessage,
+} from "../src/mailer.js";
 
 const db = new pg.Pool({ connectionString: adminConnectionString });
 const password = "Synth-Security-P1!";
@@ -206,13 +211,24 @@ test("SEC-REVOKE: reauthentication, CSRF and strict body protect own-session rev
 
 test("SEC-PASSWORD: change consumes previously issued recovery links across account memberships", async () => {
   const target = await user("password");
+  // S-007: the grant no longer returns the token — it is delivered
+  // out-of-band to the account holder's email. Capture the mail to
+  // exercise the token, then restore the log provider.
+  const mailSent: MailMessage[] = [];
+  setMailProvider({ async send(m) { mailSent.push(m); } });
   const grant = await request(
     "POST",
     `/admin/users/${target.id}/recovery`,
     {},
     officeAdmin,
   );
+  setMailProvider(logMailProvider);
   assert.equal(grant.status, 201);
+  assert.equal(grant.body.token, undefined, "S-007: no plaintext token in the response");
+  assert.equal(grant.body.recoveryUrl, undefined);
+  assert.equal(grant.body.delivery, "EMAIL");
+  const grantToken = mailSent[0].text.match(/#token=([a-f0-9]{64})/)?.[1];
+  assert.ok(grantToken, "the out-of-band email carries the fragment link");
   const secondToken = randomToken();
   await db.query(
     "INSERT INTO staff_memberships(user_id,tenant_id,role) VALUES($1,$2,'citizen')",
@@ -235,7 +251,7 @@ test("SEC-PASSWORD: change consumes previously issued recovery links across acco
     (await request("GET", "/auth/me", undefined, second)).status,
     401,
   );
-  for (const token of [grant.body.token, secondToken])
+  for (const token of [grantToken!, secondToken])
     assert.equal(
       (await request("POST", "/auth/recover", { token, newPassword: password }))
         .status,

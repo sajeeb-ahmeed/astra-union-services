@@ -67,15 +67,20 @@ const publicPages: Record<string, [string, string]> = {
 const value = (o: any, camel: string, snake: string) =>
   o?.[camel] ?? o?.[snake] ?? "";
 function RecoveryForm() {
+  // S-007: the recovery link carries the token in the URL fragment
+  // (/recover#token=…), never in a query param — a fragment never
+  // reaches the server, a proxy, or a log. It is read once, moved into
+  // the form state, and stripped from the address bar; the token is
+  // then sent only in the POST body.
   const [token, setToken] = useState(
-      new URLSearchParams(location.search).get("token") || "",
+      new URLSearchParams(location.hash.replace(/^#/, "")).get("token") || "",
     ),
     [message, setMessage] = useState(""),
     [busy, setBusy] = useState(false),
     [done, setDone] = useState(false);
   const [mfaRecoveryBlocked, setMfaRecoveryBlocked] = useState(false);
   useEffect(() => {
-    if (location.search) history.replaceState({}, "", "/recover");
+    if (location.hash) history.replaceState({}, "", "/recover");
   }, []);
   return (
     <section className="panel narrow">
