@@ -29,7 +29,7 @@ import {
 import { generatePdf, DEMO_TEMPLATE_VERSION } from "./pdf.js";
 import { publicManagementRouter, managementRouter } from "./management.js";
 import { publicToolsRouter, protectedToolsRouter } from "./portal-tools.js";
-import { httpHardening } from "./http-hardening.js";
+import { createHttpsRedirect, httpHardening } from "./http-hardening.js";
 import { paymentsRouter, publicPaymentsRouter } from "./payments.js";
 import {
   attachmentsRouter,
@@ -147,6 +147,7 @@ const webhookSecret =
   process.env.DEMO_WEBHOOK_SECRET ?? fs.readFileSync(secretFile, "utf8").trim();
 export const app = express();
 app.disable("x-powered-by");
+app.use(createHttpsRedirect());
 app.use(httpHardening);
 app.use((req, res, next) => {
   res.setHeader("X-Content-Type-Options", "nosniff");
