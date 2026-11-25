@@ -78,9 +78,13 @@ before(async () => {
     "INSERT INTO tenant_service_configuration(tenant_id,service_no) VALUES($1,45) ON CONFLICT DO NOTHING",
     [officeA],
   );
-  for (const [name, tenant] of [
-    ["staff-a", officeA],
-    ["staff-b", officeB],
+  for (const [name, tenant, role] of [
+    ["staff-a", officeA, "staff"],
+    ["staff-b", officeB, "staff"],
+    // S-010 interaction: plain staff is now 403 ROLE_DENIED on the identity
+    // endpoint before any isolation check runs, so the cross-tenant identity
+    // assertion needs a caller who passes the role gate — office B's admin.
+    ["admin-b", officeB, "admin"],
   ] as const) {
     const email = `${name}-${run}@isolation.synthetic.test`;
     const id = (
@@ -90,8 +94,8 @@ before(async () => {
       )
     ).rows[0].id as string;
     await db.query(
-      "INSERT INTO staff_memberships(user_id,tenant_id,role) VALUES($1,$2,'staff')",
-      [id, tenant],
+      "INSERT INTO staff_memberships(user_id,tenant_id,role) VALUES($1,$2,$3)",
+      [id, tenant, role],
     );
     s[name] = await signIn(email);
   }
@@ -138,7 +142,13 @@ test("S-012: office B cannot read office A's application through the API", async
   );
   assert.equal(
     (await req("GET", `/citizens/${citizenA}/identity`, undefined, s["staff-b"])).status,
+    403,
+    "plain staff is denied full identity numbers anywhere (S-010)",
+  );
+  assert.equal(
+    (await req("GET", `/citizens/${citizenA}/identity`, undefined, s["admin-b"])).status,
     404,
+    "office B's admin passes the role gate but must still not see office A's citizen (S-012)",
   );
 });
 

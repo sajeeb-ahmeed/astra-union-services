@@ -1301,6 +1301,19 @@ async function issuedV2ApplicationWith(no: number, overrides: Record<string, str
   // no language field at all.
   const langPair: Record<string, unknown> = no === 41 ? { delivery_language: "en" } : {};
   const payload = { ...rest, ...purposePair, ...langPair, ...v2LocationText[no], ...overrides };
+  // W-013: the submit gate now fully validates the stored payload against
+  // its PINNED version. This fixture builds the "v2 application" from the
+  // CURRENT demo payload, which carries fields v2 never had (service 36's
+  // noc_subject arrived in v6) — submit rightly rejects those as
+  // unknown_field. A real v2 application created through the API could never
+  // contain them (create-time validation), so keep only v2's own fields;
+  // the renewal path migrates the rest (location text, purpose pair) onto
+  // the latest schema itself.
+  const v2FieldIds = new Set(
+    v2.sections.flatMap((section: any) => section.fields.map((field: any) => field.id)),
+  );
+  for (const key of Object.keys(payload))
+    if (!v2FieldIds.has(key)) delete (payload as Record<string, unknown>)[key];
   const hash = (
     await db.query("SELECT schema_hash FROM service_versions WHERE service_no=$1 AND version=2", [no])
   ).rows[0].schema_hash;

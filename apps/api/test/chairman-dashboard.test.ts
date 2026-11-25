@@ -154,7 +154,8 @@ test("CHAIRMAN-DASH-01: the applications list filters by service and composes wi
 test("CHAIRMAN-DASH-01: counts are per-state, grouped for the queue, and tenant-scoped", async () => {
   const betaBefore = await counts(s.betaStaff);
   const before = await counts(s.staff);
-  // The response always carries every state, zero-filled.
+  // The response always carries every state, zero-filled, plus the W-015
+  // overdue total (a cross-state count, not a state — hence lowercase).
   assert.deepEqual(Object.keys(before.counts).sort(), [
     "APPROVED",
     "CANCELLED",
@@ -166,6 +167,7 @@ test("CHAIRMAN-DASH-01: counts are per-state, grouped for the queue, and tenant-
     "REVOKED",
     "SUBMITTED",
     "UNDER_REVIEW",
+    "overdue",
   ]);
 
   // Build one application per reachable state in the alpha office.
