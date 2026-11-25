@@ -454,7 +454,12 @@ export function WorkspaceApp({
   const [citizenPage, setCitizenPage] = useState(1),
     [directoryCitizens, setDirectoryCitizens] = useState<any[]>([]),
     [directoryTotal, setDirectoryTotal] = useState<number | null>(null),
-    [directoryLoading, setDirectoryLoading] = useState(false);
+    [directoryLoading, setDirectoryLoading] = useState(false),
+    // CH-009 follow-up: the directory is its own fetch, so a citizen
+    // registered on this page does not appear in it until something
+    // re-triggers the fetch — bumping this epoch after a registration
+    // refetches page 1 (newest first), where the new citizen lands.
+    [directoryEpoch, setDirectoryEpoch] = useState(0);
   const [applicationReference, setApplicationReference] = useState("");
   /* FULL-UIUX-01 · OWNER-DECISION 2: one global header search — services
      from the loaded catalog, applications and citizens from the existing
@@ -562,7 +567,7 @@ export function WorkspaceApp({
     return () => {
       active = false;
     };
-  }, [session, page, citizenQuery, citizenPage]);
+  }, [session, page, citizenQuery, citizenPage, directoryEpoch]);
   const [citizenForm, setCitizenForm] = useState({
     nameBn: "",
     nameEn: "",
@@ -2228,6 +2233,13 @@ export function WorkspaceApp({
                             details: citizenDetailsPayload(citizenDetails),
                           });
                           await refresh();
+                          // CH-009 follow-up: refresh() only refetches the
+                          // shared register — the directory renders its own
+                          // paginated fetch, so the new citizen would never
+                          // appear in it until the page/search changed.
+                          // Back to page 1 (newest first) and refetch.
+                          setCitizenPage(1);
+                          setDirectoryEpoch((epoch) => epoch + 1);
                           setRegStep(0);
                           setCitizenPresentAddress(emptyPresentAddress());
                           setCitizenDetails(emptyCitizenDetails());
