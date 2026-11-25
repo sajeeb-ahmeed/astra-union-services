@@ -183,6 +183,9 @@ test("MFA-SETUP: current password, CSRF, origin and strict body required; setup 
     {
       enabled: false,
       available: true,
+      // CH-008: the requirement flag is surfaced (false here — the user is
+      // a citizen, and the flag is off by default).
+      approverMfaRequired: false,
       pendingExpiresAt: null,
       recoveryCodesRemaining: 0,
     },
@@ -871,4 +874,40 @@ test("MFA-UNAVAILABLE: missing or wrong encryption key fails closed; unprotected
   } finally {
     process.env.MFA_ENCRYPTION_KEY = key;
   }
+});
+
+test("CH-008: APPROVER_MFA_REQUIRED refuses password-only approver sign-in; enrolled approvers still challenge", async () => {
+  const adminUser = await createUser("ch008-admin", "admin");
+  const approver = await createUser("ch008-approver", "approver");
+  const staff = await createUser("ch008-staff", "staff");
+  const previous = process.env.APPROVER_MFA_REQUIRED;
+  try {
+    process.env.APPROVER_MFA_REQUIRED = "true";
+    // Flag on, no MFA enrolled: the approver is refused; other roles are not.
+    const refused = await request("POST", "/auth/login", { email: approver.email, password });
+    assert.equal(refused.status, 403, JSON.stringify(refused.body));
+    assert.equal(refused.body.error.code, "APPROVER_MFA_REQUIRED");
+    assert.equal((await request("POST", "/auth/login", { email: staff.email, password })).status, 200);
+    // The requirement is surfaced on the MFA status — to the approver only.
+    assert.equal((await request("GET", "/auth/mfa", undefined, approver.session)).body.approverMfaRequired, true);
+    assert.equal((await request("GET", "/auth/mfa", undefined, staff.session)).body.approverMfaRequired, false);
+    // The office admin sees who has enrolled and who has not.
+    const users = (await request("GET", "/admin/users", undefined, adminUser.session)).body.items;
+    assert.equal(users.find((u: any) => u.id === approver.id)?.mfaEnabled, false);
+    assert.equal(users.find((u: any) => u.id === staff.id)?.mfaEnabled, false);
+    // An enrolled approver is not blocked — the challenge flow runs as before.
+    await enroll(approver);
+    const challenged = await request("POST", "/auth/login", { email: approver.email, password });
+    assert.equal(challenged.status, 200, JSON.stringify(challenged.body));
+    assert.equal(challenged.body.mfaRequired, true);
+    assert.equal(challenged.headers.get("set-cookie"), null);
+    const usersAfter = (await request("GET", "/admin/users", undefined, adminUser.session)).body.items;
+    assert.equal(usersAfter.find((u: any) => u.id === approver.id)?.mfaEnabled, true);
+  } finally {
+    if (previous === undefined) delete process.env.APPROVER_MFA_REQUIRED;
+    else process.env.APPROVER_MFA_REQUIRED = previous;
+  }
+  // Flag off again: an unenrolled approver signs in normally.
+  const plain = await createUser("ch008-approver2", "approver");
+  assert.equal((await request("POST", "/auth/login", { email: plain.email, password })).status, 200);
 });

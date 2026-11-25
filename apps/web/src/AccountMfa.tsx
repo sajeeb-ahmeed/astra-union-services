@@ -7,6 +7,7 @@ import "./account-mfa.css";
 type MfaStatus = {
   enabled: boolean;
   available: boolean;
+  approverMfaRequired?: boolean;
   pendingExpiresAt: string | null;
   recoveryCodesRemaining: number;
 };
@@ -214,6 +215,14 @@ export function AccountMfa({
           </span>
         )}
       </div>
+      {status?.approverMfaRequired && !status.enabled && (
+        <p className="notice error" role="alert">
+          {choose({
+            bn: "অনুমোদনকারীদের জন্য দুই ধাপের নিরাপত্তা বাধ্যতামূলক — এটি চালু না করলে পরেরবার লগইন করা যাবে না।",
+            en: "Two-step security is required for approvers — sign-in will be refused until you enroll.",
+          })}
+        </p>
+      )}
       {loadFailed && (
         <div className="notice error" role="alert">
           <p>

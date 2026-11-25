@@ -2749,8 +2749,12 @@ export function WorkspaceApp({
                   </form>
                 </details>
                 <div className="application-filter-tools">
+                  {/* CH-005: while a filter/page/search fetch is in flight the
+                      count shows "—", not the previous filter's total — the
+                      rows below are skeletoned the same way, so nothing on
+                      screen reads as the new filter's answer until it lands. */}
                   <p className="hint" role="status">
-                    {appTotal === null
+                    {appListLoading || appTotal === null
                       ? "—"
                       : appTotal.toLocaleString(
                           language === "bn" ? "bn-BD" : "en-GB",

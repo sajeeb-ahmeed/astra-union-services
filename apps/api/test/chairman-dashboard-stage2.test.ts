@@ -137,6 +137,17 @@ before(async () => {
   citizenId = (
     await req("GET", "/citizens", undefined, citizenSession)
   ).body.items[0].id;
+  // Stage 3 (S-011): reject/correct now require the same per-service
+  // authorization as approve — grant it so the CH-007 reject step below
+  // exercises the notification feed, not the authorization gate (which
+  // workflow-stage3.test.ts covers directly).
+  const authorization = await req(
+    "PUT",
+    `/admin/authorizations/${sessions.approver.user.id}/45`,
+    { active: true, authorityNote: "Chairman dashboard regression only" },
+    adminSession,
+  );
+  assert.equal(authorization.status, 200, JSON.stringify(authorization.body));
 });
 after(async () => {
   await closePdfBrowser();

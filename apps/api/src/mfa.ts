@@ -212,6 +212,14 @@ export function sendLogin(
   );
   res.json(session.body);
 }
+// CH-008: platform-wide switch for mandating two-step verification on
+// approver sign-in. Default off — enabling it is an OWNER DECISION, and it
+// must only be switched on after the approvers have enrolled (enrollment
+// needs a signed-in session; an unenrolled approver locked out by the flag
+// is re-enabled by switching the flag off, enrolling, and switching it on).
+export function approverMfaRequired() {
+  return process.env.APPROVER_MFA_REQUIRED === "true";
+}
 const unknownAccountHash = hashPassword(randomToken());
 export async function passwordLogin(email: string, password: string) {
   const db = await pool.connect();
@@ -241,6 +249,20 @@ export async function passwordLogin(email: string, password: string) {
     }
     const membership = await membershipFor(db, user);
     const state = await mfaState(db, user.id);
+    // CH-008: with the requirement switched on, an approver without
+    // enrolled two-step cannot sign in on a password alone. Other roles
+    // are unaffected, and an enrolled approver takes the challenge path
+    // below as before.
+    if (
+      !state?.enabled_at &&
+      approverMfaRequired() &&
+      membership?.role === "approver"
+    )
+      fail(
+        403,
+        "APPROVER_MFA_REQUIRED",
+        "Approver sign-in requires two-step verification. Enroll an authenticator in Account security first — ask the office admin to pause the requirement while you enroll.",
+      );
     if (state?.enabled_at) {
       if (!mfaAvailable())
         fail(
@@ -374,6 +396,10 @@ mfaRouter.get(
       return {
         enabled: Boolean(state?.enabled_at),
         available: mfaAvailable(),
+        // CH-008: surfaced only to approvers — the requirement applies to
+        // them alone, so other roles must not see a warning about it.
+        approverMfaRequired:
+          req.auth!.role === "approver" && approverMfaRequired(),
         pendingExpiresAt:
           state?.pending_expires_at > state?.checked_at
             ? state.pending_expires_at

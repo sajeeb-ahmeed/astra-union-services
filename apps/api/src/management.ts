@@ -1118,14 +1118,30 @@ managementRouter.get(
   "/admin/users",
   wrap(async (req, res) => {
     const a = role(req, ["admin"]);
-    const rows = await transaction(a.tenantId!, async (db) =>
-      (
+    const rows = await transaction(a.tenantId!, async (db) => {
+      const users = (
         await db.query(
           "SELECT u.id,u.email,u.display_name,m.role,m.active,m.account_type,t.name_bn account_type_bn,t.name_en account_type_en FROM staff_memberships m JOIN platform_users u ON u.id=m.user_id LEFT JOIN account_types t ON t.code=m.account_type WHERE m.tenant_id=$1 ORDER BY u.display_name",
           [a.tenantId],
         )
-      ).rows.map(camelRow),
-    );
+      ).rows;
+      // CH-008: MFA posture per user, so the office admin can see which
+      // approvers still need to enroll before APPROVER_MFA_REQUIRED is
+      // switched on. account_mfa is account-scoped by forced RLS, so each
+      // user's row is only visible after scoping to that user — the same
+      // pattern recoveryEligible uses for a single target account.
+      for (const u of users) {
+        await accountScope(db, u.id);
+        u.mfa_enabled =
+          (
+            await db.query(
+              "SELECT 1 FROM account_mfa WHERE user_id=$1 AND enabled_at IS NOT NULL",
+              [u.id],
+            )
+          ).rowCount! > 0;
+      }
+      return users.map(camelRow);
+    });
     res.json({ items: rows });
   }),
 );
