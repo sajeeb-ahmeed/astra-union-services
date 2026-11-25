@@ -72,6 +72,9 @@ export function setOtpProvider(next: OtpProvider | null) {
   provider = next;
 }
 export const otpAvailable = () => provider !== null && identifiersAvailable();
+/** W-010: the configured provider name for the health endpoint (never a secret or a value). */
+export const otpProviderName = () =>
+  provider === null ? null : provider === logOtpProvider ? "log" : "http";
 /** Security Audit 01, F1: lets the server boot path warn when the log provider is live in production. */
 export const otpProviderIsLog = () => provider === logOtpProvider;
 

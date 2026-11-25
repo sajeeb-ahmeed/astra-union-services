@@ -92,6 +92,7 @@ const OwnerPointsPanel = lazyWithRetry(() => import("./PointsWallet.js"), (m) =>
 const OwnerSubscriptionPanel = lazyWithRetry(() => import("./OwnerSubscriptions.js"), (m) => m.OwnerSubscriptionPanel);
 const OwnerPendingOrders = lazyWithRetry(() => import("./OwnerSubscriptions.js"), (m) => m.OwnerPendingOrders);
 const OfficeRefunds = lazyWithRetry(() => import("./Refunds.js"), (m) => m.OfficeRefunds);
+const NotificationHealthCard = lazyWithRetry(() => import("./NotificationHealth.js"), (m) => m.NotificationHealthCard);
 const AccountSecurity = lazyWithRetry(() => import("./AdminWorkspace.js"), (m) => m.AccountSecurity);
 const OwnerOnboarding = lazyWithRetry(() => import("./AdminWorkspace.js"), (m) => m.OwnerOnboarding);
 const AdditionalWorkspace = lazyWithRetry(() => import("./AdditionalWorkspace.js"), (m) => m.AdditionalWorkspace);
@@ -3763,6 +3764,9 @@ export function WorkspaceApp({
                     />
                     <OwnerSettledRevenueCard />
                   </div>
+                  {/* W-010: notification provider health — a log provider
+                      sends nothing, so the card says so plainly. */}
+                  <NotificationHealthCard />
                   <OwnerOperations
                     onOpen={(section, selector) => {
                       // PORTAL-D: open the section that handles the queue,

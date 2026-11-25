@@ -96,7 +96,9 @@ import { ownerInclusionRouter, publicInclusionRouter } from "./office-inclusion.
 import { ownerWitnessRouter, publicWitnessRouter } from "./witness.js";
 import { operationsRouter } from "./operations.js";
 import { otpRouter } from "./otp.js";
-import { emailAvailable } from "./mailer.js";
+import { emailAvailable, emailProviderIsLog, emailProviderName } from "./mailer.js";
+import { otpAvailable, otpProviderIsLog, otpProviderName } from "./otp.js";
+import { smsAvailable, smsProviderIsLog, smsProviderName } from "./sms.js";
 import { publicEmailRouter, emailRouter } from "./email-verification.js";
 import {
   notifyCertificateIssued,
@@ -1838,6 +1840,30 @@ app.get(
     res.json(result);
   }),
 );
+/**
+ * W-010: delivery outcomes for one application's status notifications.
+ * One row per attempted channel (email/sms) with an honest status — sent,
+ * logged (recorded locally, reached no handset/mailbox), failed,
+ * unavailable (no provider configured), or no_contact. Office staff and
+ * the owning citizen can read it; it never exposes message contents.
+ */
+app.get(
+  "/api/v1/applications/:id/notification-deliveries",
+  wrap(async (req, res) => {
+    const a = roles(req, [...staffRead, "citizen", "finance"]);
+    const result = await transaction(tenant(req), async (db) => {
+      const r = await loadApplication(db, String(req.params.id), a);
+      const items = (
+        await db.query(
+          "SELECT kind,channel,status,created_at FROM notification_deliveries WHERE application_id=$1 ORDER BY created_at DESC, id DESC LIMIT 100",
+          [r.id],
+        )
+      ).rows.map(camelRow);
+      return { applicationId: r.id, items };
+    });
+    res.json(result);
+  }),
+);
 app.post(
   "/api/v1/applications/:id/renew",
   wrap(async (req, res) => {
@@ -3199,6 +3225,70 @@ app.post(
     );
     if (result.replayed) res.setHeader("X-Idempotency-Replayed", "true");
     res.status(201).json(result.row);
+  }),
+);
+/**
+ * W-010: notification provider health for the owner. Read-only, and it
+ * reports only provider names and booleans — never hosts, credentials or
+ * message contents. A 'log' provider records messages locally and sends
+ * nothing to a handset or mailbox, so readyForLive is false while any
+ * channel is log-only or unconfigured; the warnings say so plainly in
+ * both languages. OTP codes and status SMS share OTP_PROVIDER (see
+ * sms.ts), so they report the same provider with different availability:
+ * OTP also needs the sign-in identifiers configured.
+ */
+app.get(
+  "/api/v1/owner/notification-health",
+  wrap(async (req, res) => {
+    roles(req, ["owner"]);
+    const email = {
+      provider: emailProviderName(),
+      available: emailAvailable(),
+      logOnly: emailProviderIsLog(),
+    };
+    const sms = {
+      provider: smsProviderName(),
+      available: smsAvailable(),
+      logOnly: smsProviderIsLog(),
+    };
+    const otp = {
+      provider: otpProviderName(),
+      available: otpAvailable(),
+      logOnly: otpProviderIsLog(),
+    };
+    const warnings: string[] = [];
+    if (!email.available)
+      warnings.push(
+        "Email is not configured (EMAIL_PROVIDER is missing): verification and status emails are not sent. / ইমেইল কনফিগার করা হয়নি (EMAIL_PROVIDER নেই): যাচাই ও স্ট্যাটাস ইমেইল পাঠানো হচ্ছে না।",
+      );
+    else if (email.logOnly)
+      warnings.push(
+        "Email uses the log provider (EMAIL_PROVIDER=log): messages are recorded locally and reach no mailbox. Set EMAIL_PROVIDER=smtp before go-live. / ইমেইল লগ প্রোভাইডার ব্যবহার করছে (EMAIL_PROVIDER=log): বার্তা শুধু স্থানীয়ভাবে সংরক্ষিত হচ্ছে, কোনো মেইলবক্সে যাচ্ছে না। চালুর আগে EMAIL_PROVIDER=smtp করুন।",
+      );
+    if (!sms.available)
+      warnings.push(
+        "SMS is not configured (OTP_PROVIDER is missing): status SMS is not sent. / এসএমএস কনফিগার করা হয়নি (OTP_PROVIDER নেই): স্ট্যাটাস এসএমএস পাঠানো হচ্ছে না।",
+      );
+    else if (sms.logOnly)
+      warnings.push(
+        "SMS uses the log provider (OTP_PROVIDER=log): messages are recorded locally and reach no handset. Set OTP_PROVIDER=http before go-live. / এসএমএস লগ প্রোভাইডার ব্যবহার করছে (OTP_PROVIDER=log): বার্তা শুধু স্থানীয়ভাবে সংরক্ষিত হচ্ছে, কোনো হ্যান্ডসেটে যাচ্ছে না। চালুর আগে OTP_PROVIDER=http করুন।",
+      );
+    if (!otp.available)
+      warnings.push(
+        "Mobile OTP verification is not available: citizens cannot complete mobile signup. / মোবাইল ওটিপি যাচাই চালু নেই: নাগরিকরা মোবাইল সাইনআপ সম্পূর্ণ করতে পারবেন না।",
+      );
+    res.json({
+      email,
+      sms,
+      otp,
+      readyForLive:
+        email.available &&
+        !email.logOnly &&
+        sms.available &&
+        !sms.logOnly &&
+        otp.available,
+      warnings,
+    });
   }),
 );
 app.post(

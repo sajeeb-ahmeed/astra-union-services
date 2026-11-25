@@ -16837,6 +16837,114 @@
           }
         }
       }
+    },
+    "/api/v1/owner/notification-health": {
+      "get": {
+        "summary": "Notification provider health for the owner",
+        "description": "W-010: read-only provider health for status notifications — per channel (email, SMS, OTP) the configured provider name, availability, and whether it is the log provider, plus readyForLive and bilingual warnings. Reports only provider names and booleans, never hosts, credentials, or message contents. A log provider records messages locally and sends nothing, so readyForLive is false while any channel is log-only or unconfigured. Owner only.",
+        "tags": [
+          "Admin"
+        ],
+        "x-visibility": "authenticated",
+        "x-source": "apps/api/src/app.ts",
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "x-roles": [
+          "owner"
+        ],
+        "responses": {
+          "200": {
+            "description": "Success; see apps/api/src/app.ts for the response contract.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Session missing or inactive."
+          },
+          "403": {
+            "description": "Role, CSRF or Origin denied."
+          },
+          "404": {
+            "description": "Record unavailable in this scope."
+          },
+          "409": {
+            "description": "Duplicate or workflow conflict."
+          },
+          "422": {
+            "description": "Validated request failed."
+          }
+        }
+      }
+    },
+    "/api/v1/applications/{id}/notification-deliveries": {
+      "get": {
+        "summary": "Delivery outcomes for one application's status notifications",
+        "description": "W-010: one row per attempted notification channel (email/sms) with an honest status — sent, logged (recorded locally, reached no handset/mailbox), failed, unavailable (no provider configured), or no_contact. Office staff and the owning citizen can read it; message contents are never exposed.",
+        "tags": [
+          "Applications"
+        ],
+        "x-visibility": "authenticated",
+        "x-source": "apps/api/src/app.ts",
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "x-roles": [
+          "staff",
+          "admin",
+          "reviewer",
+          "approver",
+          "citizen",
+          "finance"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Path identifier (see apps/api/src/app.ts)."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success; see apps/api/src/app.ts for the response contract.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Session missing or inactive."
+          },
+          "403": {
+            "description": "Role, CSRF or Origin denied."
+          },
+          "404": {
+            "description": "Record unavailable in this scope."
+          },
+          "409": {
+            "description": "Duplicate or workflow conflict."
+          },
+          "422": {
+            "description": "Validated request failed."
+          }
+        }
+      }
     }
   },
   "tags": [
@@ -16927,8 +17035,8 @@
     "All other authenticated mutations": "session + CSRF required; no additional global limiter (per-route limiters are listed on the operation)"
   },
   "x-coverage": {
-    "documentedOperations": 208,
-    "documentedPaths": 185,
+    "documentedOperations": 210,
+    "documentedPaths": 187,
     "generatedBy": "scripts/update-batch-c-openapi.mjs (Batch C / A-001)",
     "note": "Counts are spec-side only; live coverage is enforced by scripts/check-openapi-coverage.mjs against the running Express route table."
   }

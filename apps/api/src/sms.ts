@@ -54,6 +54,9 @@ export function setSmsProvider(next: SmsProvider | null) {
   provider = next;
 }
 export const smsAvailable = () => provider !== null;
+/** W-010: the configured provider name for the health endpoint (never a secret or a value). */
+export const smsProviderName = () =>
+  provider === null ? null : provider === logSmsProvider ? "log" : "http";
 /** Security Audit 01, F1: lets the server boot path warn when the log provider is live in production. */
 export const smsProviderIsLog = () => provider === logSmsProvider;
 
