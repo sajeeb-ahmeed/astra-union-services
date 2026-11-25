@@ -139,7 +139,19 @@ test(
       // references and citizen names.
       await page.locator("#state-filter").selectOption("");
       const search = page.getByPlaceholder("Reference, citizen name or service");
+      // The search is debounced (250 ms) and the state-clear above also
+      // refetches: wait for the search's own response before reading
+      // rows, or the still-unfiltered list is read as if it were the
+      // search result.
+      const searchResponse = page.waitForResponse((response) => {
+        const url = new URL(response.url());
+        return (
+          url.pathname === "/api/v1/applications" &&
+          url.searchParams.get("q") === "Permanent Resident"
+        );
+      });
       await search.fill("Permanent Resident");
+      await searchResponse;
       await page.locator(".table-wrap tbody tr").first().waitFor({ timeout: 15000 });
       const serviceCells = await page.locator("tbody tr td:nth-child(3)").allTextContents();
       assert.ok(serviceCells.length > 0, "service-name search returns rows");
