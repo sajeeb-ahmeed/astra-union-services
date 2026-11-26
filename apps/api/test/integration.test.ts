@@ -1340,6 +1340,7 @@ test("B2: sandbox settlement route exists only when DEMO_SETTLE_ENABLED is exact
     process.env.NODE_ENV = "test";
     await login("alpha:finance");
     const finance = sessions["alpha:finance"];
+    const enabled = await request("POST", path, {}, finance);
     assert.equal(enabled.status, 404);
     assert.equal(enabled.body.error.code, "ORDER_NOT_FOUND");
     assert.equal(
