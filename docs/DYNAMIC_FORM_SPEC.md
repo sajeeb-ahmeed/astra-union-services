@@ -27,7 +27,7 @@ For example, service #45's source contains a common checkout form with no servic
 `FormSchema` carries the service number, integer version, bilingual title, stage, sections and evidence provenance. `getServiceSchema(serviceNo)` returns the latest published operational schema; an explicit second argument selects an exact historical version. Unknown services or versions fail instead of silently selecting another profile.
 
 <!-- SCHEMA-VERSIONS:BEGIN -->
-> Generated 2026-11-26 from the schema catalogue — do not hand-edit. Regenerate with `npx tsx scripts/generate-schema-version-table.ts`.
+> Generated from the schema catalogue — do not hand-edit. Regenerate with `npx tsx scripts/generate-schema-version-table.ts`.
 
 The catalogue holds **47 operational schemas** (one latest version per service) and **220 retained versions** in total. An application is pinned to the version current at creation; older versions stay valid for pinned applications only.
 

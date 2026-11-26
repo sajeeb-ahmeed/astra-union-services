@@ -23,7 +23,13 @@ import { isCommonPassword } from "../src/security.js";
  */
 
 type Session = { cookie: string; csrf: string; user: any };
-const run = randomUUID().slice(0, 8);
+// Stage 6: the citizens search also matches a digits-only form of the query
+// against synthetic_reference, so a random hex suffix containing digits can
+// false-positive the digits branch in the F8 test (a digits substring of the
+// run suffix matching the X citizen's reference). Keep the suffix digits-free
+// (hex letters a-f only); uniqueness is unaffected and no other test in this
+// file depends on digits in the suffix.
+const run = randomUUID().replace(/[^a-f]/g, "").padEnd(8, "a").slice(0, 8);
 const admin = new pg.Pool({ connectionString: adminConnectionString });
 let server: ReturnType<typeof app.listen>, base: string;
 let owner: Session;

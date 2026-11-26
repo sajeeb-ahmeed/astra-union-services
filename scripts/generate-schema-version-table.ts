@@ -35,7 +35,11 @@ function table(): string {
       return `| ${schema.serviceNo} | v${schema.version} | ${versions.join(", ")} |`;
     });
   return [
-    `> Generated ${new Date().toISOString().slice(0, 10)} from the schema catalogue — do not hand-edit. Regenerate with \`npx tsx scripts/generate-schema-version-table.ts\`.`,
+    // Stage 6 (W-019): no date stamp — a generation-date line makes --check
+    // fail on any later day, which is a defect in the generator, not drift
+    // in the catalogue. The table content is the versioned fact; the date
+    // added nothing.
+    `> Generated from the schema catalogue — do not hand-edit. Regenerate with \`npx tsx scripts/generate-schema-version-table.ts\`.`,
     ``,
     `The catalogue holds **${operationalSchemas.length} operational schemas** (one latest version per service) and **${allServiceSchemaVersions.length} retained versions** in total. An application is pinned to the version current at creation; older versions stay valid for pinned applications only.`,
     ``,
