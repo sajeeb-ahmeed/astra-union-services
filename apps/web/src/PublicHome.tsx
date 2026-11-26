@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { api, items } from "./api.js";
 import { choose, useLanguage } from "./i18n.js";
-import serviceCatalog from "./public-service-catalog.json" with { type: "json" };
+import serviceCatalog from "./service-catalog.js";
 import { PublicShell } from "./PublicShell.js";
 import { PublicOffers } from "./GlobalNotices.js";
 import { categoryLabel } from "./service-categories.js";

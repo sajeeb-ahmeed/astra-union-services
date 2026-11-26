@@ -139,7 +139,22 @@ jobs:
       # no stale operations; the check enumerates the live Express route table
       # (needs the seeded test database environment of this job).
       - run: npm run test:openapi
-      - run: npm run build
+      # B-001/B-004: the production build must leave the working tree clean
+      # and emit no import-attributes warnings; fail the job if either
+      # regresses. The log is kept for the warning grep (the build's own
+      # exit code still fails the step first via pipefail).
+      - name: Build and assert a clean tree with no import-attributes warnings
+        run: |
+          npm run build 2>&1 | tee /tmp/astra-build.log
+          if grep -q "tried to import.*with no attributes" /tmp/astra-build.log; then
+            echo "::error::production build emitted an import-attributes warning (B-004)"
+            exit 1
+          fi
+          if [ -n "$(git status --porcelain)" ]; then
+            echo "::error::production build dirtied the working tree (B-001)"
+            git status --porcelain
+            exit 1
+          fi
       # T-002: the browser fixture stands in for the scanner worker over
       # the internal scanner API. The secret is random per run, lives only
       # in this isolated job, and is never persisted or deployed.

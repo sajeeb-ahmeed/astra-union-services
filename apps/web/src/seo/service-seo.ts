@@ -1,4 +1,4 @@
-import serviceCatalog from "../public-service-catalog.json" with { type: "json" };
+import serviceCatalog from "../service-catalog.js";
 
 /**
  * SEO-STRATEGY-01, development plan P1: the SEO registry.
