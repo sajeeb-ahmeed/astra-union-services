@@ -51,6 +51,7 @@ import {
   type GeographyValue,
 } from "./GeographyFields.js";
 import { LanguageSwitcher } from "./i18n.js";
+import faqData from "./faq.json" with { type: "json" };
 
 /* FULL-UIUX-01 (A1/P0-2): page names ARE the one shell's nav labels —
    PUBLIC_NAV in PublicShell.tsx is the single vocabulary. */
@@ -530,6 +531,9 @@ export function PublicPortal({
     Number(initialFilters.pageSize || 6),
   );
   const [directory, setDirectory] = useState<any>({
+      // F-015: false until the first /offices answer, so the page neither
+      // claims "no offices" nor collapses the grid before data arrives.
+      loaded: false,
       items: [],
       total: 0,
       page: Number(initialFilters.page || 1),
@@ -616,12 +620,12 @@ export function PublicPortal({
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [page]);
-  // Phase 6b: the FAQ text loads only when the help page opens, keeping the public start-up bundle small.
-  const [faq, setFaq] = useState<{ id: string; q: { bn: string; en: string }; a: { bn: string; en: string } }[]>([]);
-  useEffect(() => {
-    if (page !== "help" || faq.length) return;
-    import("./faq.json").then((m) => setFaq(m.default)).catch(() => setFaq([]));
-  }, [page]);
+  // Phase 6b kept the FAQ out of the public start-up bundle. PublicPortal is
+  // itself a lazy chunk now, so the FAQ (about 4 KB gzipped) is bundled with
+  // it: the start-up bundle is unchanged, and the help page renders complete
+  // in its first frame. F-015: loading it after the first render made the
+  // page grow by about 1,400 px and every section below jump (CLS 0.3-0.9).
+  const faq: { id: string; q: { bn: string; en: string }; a: { bn: string; en: string } }[] = faqData;
   // UIUX-FIX-01: there is exactly one public homepage — the PublicHome
   // composition at "/". The portal no longer renders its own home view;
   // any legacy "home" state redirects there.
@@ -766,6 +770,8 @@ export function PublicPortal({
       history.replaceState({}, "", `${base}?${query}`);
     } catch (e) {
       setError((e as Error).message);
+      // F-015: drop the placeholders on failure; the error is shown instead.
+      setDirectory((current: any) => ({ ...current, loaded: true }));
     } finally {
       setWorking(false);
     }
@@ -1757,6 +1763,20 @@ export function PublicPortal({
                       })}
                     </p>
                     <div className="office-grid">
+                      {/* F-015: placeholder cards hold the grid's height until the
+                          first answer, so the pagination and the sections below
+                          do not jump down when the offices arrive (CLS 0.30). */}
+                      {directory.loaded === false &&
+                        Array.from({ length: officePageSize }, (_, i) => (
+                          <article className="panel office-card is-placeholder" aria-hidden="true" key={`placeholder-${i}`}>
+                            <CivicIcon index={1} />
+                            <h2>&nbsp;</h2>
+                            <p>&nbsp;</p>
+                            <button className="secondary" tabIndex={-1} disabled>
+                              &nbsp;
+                            </button>
+                          </article>
+                        ))}
                       {tx(
                         items(directory).map((o) => (
                           <article className="panel office-card" key={o.id}>
@@ -1798,7 +1818,7 @@ export function PublicPortal({
                         the services search already uses, with a one-click
                         filter reset. */}
                     {tx(
-                      !working && directory.total === 0 && (
+                      !working && directory.loaded !== false && directory.total === 0 && (
                         <EmptyState
                           title={choose({
                             bn: "এই ফিল্টারে কোনো অফিস পাওয়া যায়নি।",

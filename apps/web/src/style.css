@@ -2015,3 +2015,21 @@ legend {
   font-variant-numeric: tabular-nums;
   letter-spacing: 0.04em;
 }
+
+/* F-015: the prerendered SEO fallback (apps/web/scripts/prerender-public.mjs)
+   is for crawlers and no-JS visitors. With scripting on, the app replaces it
+   about 400 ms later; painting it first made every public page jump
+   (CLS up to 0.88). The real layout renders straight into #root instead.
+   Laid out but invisible and out of flow (not display:none): its Bengali
+   text still makes the browser fetch the web fonts at first paint (M-002),
+   instead of only after the app mounts. */
+@media (scripting: enabled) {
+  .seo-fallback {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    visibility: hidden;
+  }
+}
