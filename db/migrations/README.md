@@ -35,6 +35,10 @@ the next free integer; check `ls db/migrations` before creating one.
 
 ## Row-level security on the identity tables (A-013)
 
+> The design for closing this gap safely (definer functions for the pre-tenant
+> and cross-tenant reads, then one table policy per release) is in
+> [docs/A-013-IDENTITY-AUTHORIZATION.md](../../docs/A-013-IDENTITY-AUTHORIZATION.md).
+
 RLS covers the workflow, finance and attachment tables. It deliberately
 does **not** cover `sessions`, `platform_users`, `staff_memberships`
 or `tenants`, and that is a known residual risk, not an oversight:
