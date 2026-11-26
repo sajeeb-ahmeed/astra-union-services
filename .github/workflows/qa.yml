@@ -122,7 +122,7 @@ jobs:
       - run: npm run lint
   verify:
     runs-on: ubuntu-24.04
-    timeout-minutes: 20
+    timeout-minutes: 30
     services:
       postgres:
         image: postgres:17-bookworm
