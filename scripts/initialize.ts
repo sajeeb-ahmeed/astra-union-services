@@ -12,7 +12,20 @@ try{
     for(const schema of [getCatalogPreviewSchema(service.service_no),...allServiceSchemaVersions.filter(s=>s.serviceNo===service.service_no)]){
       const json=stableSchemaJson(schema),hash=createHash('sha256').update(json).digest('hex');
       const stored=(await client.query('SELECT schema_hash FROM service_versions WHERE service_no=$1 AND version=$2',[schema.serviceNo,schema.version])).rows[0];
-      if(stored&&stored.schema_hash!==hash)throw Error(`Service ${schema.serviceNo} version ${schema.version} is immutable; publish a new schema version.`);
+      if(stored&&stored.schema_hash!==hash){
+        // A-006: version 0 is the catalog PREVIEW row, regenerated from the catalog on every
+        // release, so its hash legitimately changes. Refresh it in this transaction (the same
+        // DISABLE/UPDATE/ENABLE pattern as reconcile migrations 054/057/058; the ALTERs roll back
+        // with the transaction) — but ONLY while no application pins it. A referenced v0 row and
+        // any v1+ mismatch are real drift and still fail closed.
+        const pinned=schema.version===0&&(await client.query('SELECT 1 FROM applications WHERE service_no=$1 AND schema_version=0 LIMIT 1',[schema.serviceNo])).rowCount;
+        if(schema.version!==0||pinned)throw Error(`Service ${schema.serviceNo} version ${schema.version} is immutable; publish a new schema version.`);
+        await client.query('ALTER TABLE service_versions DISABLE TRIGGER immutable');
+        await client.query('UPDATE service_versions SET schema_json=$3,schema_hash=$4 WHERE service_no=$1 AND version=$2',[schema.serviceNo,schema.version,json,hash]);
+        await client.query('ALTER TABLE service_versions ENABLE TRIGGER immutable');
+        console.log(`Refreshed catalog preview schema for service ${schema.serviceNo} (version 0, not pinned by any application).`);
+        continue;
+      }
       await client.query('INSERT INTO service_versions(service_no,version,schema_json,schema_hash) VALUES($1,$2,$3,$4) ON CONFLICT DO NOTHING',[schema.serviceNo,schema.version,json,hash]);
     }
   }
