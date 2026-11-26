@@ -24,6 +24,10 @@ import { ensureSyntheticSignature, publishZeroFeePolicy } from "./fixtures/issua
  * failing service (screenshot in execution/screenshots/all47/), so one run
  * shows the whole picture; the test fails at the end unless all 47 pass.
  *
+ * State: the zero-fee policies it publishes are referenced by the applications
+ * it creates, so they survive the T-003 reset; scripts/test-web.ts therefore
+ * runs this file last.
+ *
  * Long (about 47 x 15 s), so it runs only when E2E_ALL47=1:
  *   E2E_ALL47=1 npm run test:web
  * Evidence: execution/all-services-browser-qa.json
