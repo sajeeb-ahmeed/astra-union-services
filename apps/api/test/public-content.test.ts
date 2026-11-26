@@ -102,6 +102,8 @@ test("R13-GAPS: in OFFICIAL mode demo-flagged offices leave every public surface
   const demoInfo = await req("GET", "/services/12/office-info");
   assert.equal(demoInfo.status, 200);
   const demoInfoHasAlpha = demoInfo.body.offices.some((o: any) => o.slug === "alpha");
+  const alphaId = (await req("GET", "/offices/alpha")).body.office?.id;
+  assert.ok(alphaId, "seed office id");
 
   process.env.ISSUANCE_MODE = "official";
   try {
@@ -130,6 +132,22 @@ test("R13-GAPS: in OFFICIAL mode demo-flagged offices leave every public surface
     );
     if (demoInfoHasAlpha)
       assert.ok(officialInfo.body.offices.length < demoInfo.body.offices.length);
+    // Integration fix: the demo office's notices leave the public notice list,
+    // and a direct signup POST with its tenantId is refused like an unknown office.
+    const officialNotices = await req("GET", "/notices?pageSize=100");
+    assert.equal(officialNotices.status, 200);
+    assert.equal(
+      officialNotices.body.items.some((n: any) => n.officeSlug === "alpha"),
+      false,
+      "official mode hides demo-office notices",
+    );
+    const signup = await req("POST", "/auth/signup", {
+      tenantId: alphaId,
+      name: "Demo Office Signup",
+      mobile: `01712${String(Date.now()).slice(-6)}`,
+      password: "Synthetic-91x",
+    });
+    assert.equal(signup.status, 404, JSON.stringify(signup.body));
   } finally {
     delete process.env.ISSUANCE_MODE;
   }

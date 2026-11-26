@@ -719,7 +719,7 @@ publicManagementRouter.get(
 // policy for the service contribute; services with none are absent
 // (the cards then show the honest "not yet published" line).
 // The aggregate spans tenants, so it reads through the SECURITY DEFINER
-// function public_service_summaries() (migration 071) — the app role is
+// function public_service_summaries() (migration 077, formerly Phase 4 071) — the app role is
 // restricted by the tenant_scope RLS policy and a plain query here
 // would see nothing.
 publicManagementRouter.get(
@@ -743,14 +743,23 @@ publicManagementRouter.get(
       .string()
       .max(100)
       .parse(req.query.q ?? "")}%`;
+    // R13-GAPS (integration fix): in OFFICIAL mode a demo-flagged office's
+    // notices are not public either (its page and list entry are already
+    // hidden). Notices with no office stay visible.
+    const hiddenSlugs: string[] =
+      process.env.ISSUANCE_MODE === "official"
+        ? (
+            await pool.query("SELECT slug FROM tenants WHERE demo=true")
+          ).rows.map((r: { slug: string }) => r.slug)
+        : [];
     const [rows, count] = await Promise.all([
       pool.query(
-        "SELECT * FROM public_notices() WHERE ($1='' OR office_slug=$1) AND (title_bn ILIKE $4 OR title_en ILIKE $4 OR body_bn ILIKE $4 OR body_en ILIKE $4) ORDER BY created_at DESC,id LIMIT $2 OFFSET $3",
-        [office, p.pageSize, (p.page - 1) * p.pageSize, search],
+        "SELECT * FROM public_notices() WHERE ($1='' OR office_slug=$1) AND (office_slug IS NULL OR office_slug <> ALL($5::text[])) AND (title_bn ILIKE $4 OR title_en ILIKE $4 OR body_bn ILIKE $4 OR body_en ILIKE $4) ORDER BY created_at DESC,id LIMIT $2 OFFSET $3",
+        [office, p.pageSize, (p.page - 1) * p.pageSize, search, hiddenSlugs],
       ),
       pool.query(
-        "SELECT count(*)::int total FROM public_notices() WHERE ($1='' OR office_slug=$1) AND (title_bn ILIKE $2 OR title_en ILIKE $2 OR body_bn ILIKE $2 OR body_en ILIKE $2)",
-        [office, search],
+        "SELECT count(*)::int total FROM public_notices() WHERE ($1='' OR office_slug=$1) AND (office_slug IS NULL OR office_slug <> ALL($3::text[])) AND (title_bn ILIKE $2 OR title_en ILIKE $2 OR body_bn ILIKE $2 OR body_en ILIKE $2)",
+        [office, search, hiddenSlugs],
       ),
     ]);
     res.json({
@@ -862,6 +871,11 @@ publicManagementRouter.post(
         )
       ).rows[0];
       if (!office) fail(404, "NOT_FOUND", "Active office not found.");
+      // R13-GAPS (integration fix): in OFFICIAL mode a demo-flagged office is a
+      // test office that citizens must not sign up at. The public list already
+      // hides it; a direct POST with its tenantId is refused the same way.
+      if (process.env.ISSUANCE_MODE === "official" && office.demo)
+        fail(404, "NOT_FOUND", "Active office not found.");
       // REG-UX §2.2/§3.5: the short form makes no area claim — the citizen's area is
       // the chosen office's own (division…union; the ward is a deferred profile item).
       // Jurisdiction holds by construction and UNION_NOT_LISTED cannot arise.
