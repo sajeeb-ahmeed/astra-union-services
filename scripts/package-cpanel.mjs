@@ -138,6 +138,10 @@ copy("data");
 for (const file of [
   path.join("scripts", "bootstrap-cpanel.ts"),
   path.join("scripts", "migrate-cpanel.ts"),
+  // r15 bundle-gate fix: migrate-cpanel.ts imports ./migration-renames.js
+  // (legacy-name reconciliation for the 065-081 renumber) — without it the
+  // extracted bundle's migrate crashes with ERR_MODULE_NOT_FOUND.
+  path.join("scripts", "migration-renames.ts"),
   path.join("scripts", "initialize.ts"),
   path.join("scripts", "geography-data.ts"),
   // A-002: post-deployment readiness check (migrations + published
