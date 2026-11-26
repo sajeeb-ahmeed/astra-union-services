@@ -51,6 +51,11 @@ export function numberDigest(value: string, kind: NumberKind) {
   return createHmac("sha256", digestKey!).update(`${kind}:${value}`).digest("hex");
 }
 const hint = (value: string) => `${"•".repeat(4)}${value.slice(-3)}`;
+/** S-010: the masked form of a full identity number — same shape as the
+ * stored hints (four bullets + last three digits), never the full number. */
+export function maskIdentityNumber(value: string | null): string | null {
+  return value === null ? null : hint(value);
+}
 
 const name = z.string().trim().min(2).max(120);
 /** Optional personal and identity details; null clears a value. */

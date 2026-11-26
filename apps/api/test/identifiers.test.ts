@@ -5,7 +5,8 @@ import pg from "pg";
 import { app } from "../src/app.js";
 import { pool, adminConnectionString } from "../src/db.js";
 import { hashPassword } from "../src/security.js";
-import { identifierHint, normalizeIdentifier } from "../src/identifiers.js";
+import { identifierDigest, identifierHint, normalizeIdentifier } from "../src/identifiers.js";
+import { logOtpProvider, setOtpProvider } from "../src/otp.js";
 
 const db = new pg.Pool({ connectionString: adminConnectionString });
 // Test-only credentials are generated per run so no password-like literal sits in the repository.
@@ -45,8 +46,18 @@ const mobile = `017${tail}`;
 const nid = `19${tail}${tail.slice(0, 7)}`.slice(0, 17);
 const birthReg = `20${tail}${tail.slice(0, 7)}`.slice(0, 17);
 let email: string, otherEmail: string, session: Session;
+const sent: { mobile: string; code: string }[] = [];
+async function verifiedMobileToken(mobile: string) {
+  const sentCode = await request("POST", "/auth/otp/signup", { mobile });
+  assert.equal(sentCode.status, 202, JSON.stringify(sentCode.body));
+  const code = [...sent].reverse().find((s) => s.mobile === mobile)!.code;
+  const ok = await request("POST", "/auth/otp/verify", { challengeToken: sentCode.body.challengeToken, code });
+  assert.equal(ok.status, 200, JSON.stringify(ok.body));
+  return sentCode.body.challengeToken as string;
+}
 
 before(async () => {
+  setOtpProvider({ async send({ mobile, code }) { sent.push({ mobile, code }); } });
   server = app.listen(0, "127.0.0.1");
   await new Promise<void>((resolve) => server.once("listening", resolve));
   base = `http://127.0.0.1:${(server.address() as any).port}`;
@@ -71,6 +82,7 @@ before(async () => {
   session = await signIn({ email, password });
 });
 after(async () => {
+  setOtpProvider(logOtpProvider);
   await new Promise<void>((resolve) => server.close(() => resolve()));
   await pool.end();
   await db.end();
@@ -93,13 +105,28 @@ test("Phase 2b: an account holder sets identifiers with the current password; on
   assert.equal(wrong.body.error.code, "PASSWORD_MISMATCH");
   const invalid = await request("PUT", "/account/identifiers/nid", { value: "123", currentPassword: password }, session);
   assert.equal(invalid.body.error.code, "IDENTIFIER_INVALID");
-  for (const [kind, value] of [["mobile", mobile], ["nid", nid], ["birth_reg", birthReg]]) {
+  // S-001: a mobile needs a code proven for it — a password alone never
+  // binds a number, so the PUT without a token is refused and spends nothing.
+  const noCode = await request("PUT", "/account/identifiers/mobile", { value: mobile, currentPassword: password }, session);
+  assert.equal(noCode.status, 422);
+  assert.equal(noCode.body.error.code, "OTP_REQUIRED");
+  const mobileToken = await verifiedMobileToken(mobile);
+  const setMobile = await request(
+    "PUT",
+    "/account/identifiers/mobile",
+    { value: mobile, currentPassword: password, otpToken: mobileToken },
+    session,
+  );
+  assert.equal(setMobile.status, 200, JSON.stringify(setMobile.body));
+  assert.equal(setMobile.body.verified, true);
+  for (const [kind, value] of [["nid", nid], ["birth_reg", birthReg]]) {
     const set = await request("PUT", `/account/identifiers/${kind}`, { value, currentPassword: password }, session);
     assert.equal(set.status, 200, JSON.stringify(set.body));
   }
   const listed = await request("GET", "/account/identifiers", undefined, session);
   assert.equal(listed.body.available, true);
   assert.deepEqual(listed.body.items.map((i: any) => [i.kind, i.set]), [["mobile", true], ["nid", true], ["birth_reg", true]]);
+  assert.equal(listed.body.items.find((i: any) => i.kind === "mobile").verified, true, "S-001: the mobile is verified");
   // The database holds digests and masked hints, never the numbers.
   const stored = (await db.query("SELECT kind,digest,hint FROM account_identifiers i JOIN platform_users u ON u.id=i.user_id WHERE u.email=$1", [email])).rows;
   assert.equal(stored.length, 3);
@@ -109,9 +136,21 @@ test("Phase 2b: an account holder sets identifiers with the current password; on
   }
   const events = (await db.query("SELECT count(*)::int n FROM account_security_events e JOIN platform_users u ON u.id=e.user_id WHERE u.email=$1 AND e.action='SIGN_IN_IDENTIFIER_SET'", [email])).rows[0].n;
   assert.equal(events, 3);
-  // Another account cannot claim the same number.
+  // Another account cannot claim the same number — even with a code proven
+  // for it, the duplicate check refuses before the identifier is written.
   const other = await signIn({ email: otherEmail, password });
-  const taken = await request("PUT", "/account/identifiers/mobile", { value: mobile, currentPassword: password }, other);
+  // The holder's code went out less than a minute ago; age it past the
+  // resend window so the second code can be sent.
+  await db.query("UPDATE otp_challenges SET created_at=created_at - interval '61 seconds' WHERE identifier_digest=$1", [
+    identifierDigest("mobile", mobile),
+  ]);
+  const otherToken = await verifiedMobileToken(mobile);
+  const taken = await request(
+    "PUT",
+    "/account/identifiers/mobile",
+    { value: mobile, currentPassword: password, otpToken: otherToken },
+    other,
+  );
   assert.equal(taken.status, 409);
 });
 

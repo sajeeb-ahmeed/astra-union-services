@@ -13,6 +13,7 @@ import {
   normalizeIdentifier,
   type IdentifierKind,
 } from "./identifiers.js";
+import { consumeSignupOtp } from "./otp.js";
 
 type Request = express.Request & { auth?: Auth };
 const wrap =
@@ -39,7 +40,7 @@ identifierRouter.get(
     const rows = await accountTransaction(actor, async (db) =>
       (
         await db.query(
-          "SELECT kind,hint,created_at FROM account_identifiers WHERE user_id=$1 ORDER BY kind",
+          "SELECT kind,hint,created_at,verified_at FROM account_identifiers WHERE user_id=$1 ORDER BY kind",
           [actor.userId],
         )
       ).rows,
@@ -49,7 +50,16 @@ identifierRouter.get(
       email: actor.email,
       items: identifierKinds.map((kind) => {
         const row = rows.find((r: any) => r.kind === kind);
-        return { kind, set: !!row, hint: row?.hint ?? null, setAt: row?.created_at ?? null };
+        return {
+          kind,
+          set: !!row,
+          hint: row?.hint ?? null,
+          setAt: row?.created_at ?? null,
+          // S-001: only a verified mobile signs in. NID / birth
+          // registration carry no verification state (verified null).
+          verified: kind === "mobile" ? !!row?.verified_at : null,
+          verifiedAt: row?.verified_at ?? null,
+        };
       }),
     });
   }),
@@ -61,7 +71,18 @@ identifierRouter.put(
     requireAvailable();
     const kind = kindParam.parse(req.params.kind) as IdentifierKind;
     const input = z
-      .object({ value: z.string().min(1).max(40), currentPassword: passwordInput })
+      .object({
+        value: z.string().min(1).max(40),
+        currentPassword: passwordInput,
+        // S-001: changing the mobile needs a code proven for the NEW number
+        // (POST /auth/otp/signup + /auth/otp/verify first). A password alone
+        // never binds a mobile — otherwise anyone holding a session could
+        // squat someone else's number as their sign-in identifier.
+        otpToken: z
+          .string()
+          .regex(/^[a-f0-9]{64}$/)
+          .optional(),
+      })
       .strict()
       .parse(req.body);
     const normalized = normalizeIdentifier(kind, input.value);
@@ -76,11 +97,34 @@ identifierRouter.put(
     await accountTransaction(actor, async (db, user) => {
       if (!checkPassword(input.currentPassword, user.password_hash))
         fail(422, "PASSWORD_MISMATCH", "Current password is incorrect.");
+      if (kind === "mobile" && !input.otpToken)
+        fail(
+          422,
+          "OTP_REQUIRED",
+          "Verify this mobile number with a fresh code before adding it. / এই মোবাইল নম্বরটি যোগ করার আগে একটি নতুন কোড দিয়ে যাচাই করুন।",
+        );
+      if (kind === "mobile") {
+        // The duplicate check runs BEFORE the code is consumed, so a taken
+        // number never spends the caller's fresh code.
+        if (
+          (
+            await db.query(
+              "SELECT 1 FROM account_identifiers WHERE kind='mobile' AND digest=$1 AND user_id<>$2",
+              [identifierDigest(kind, normalized), actor.userId],
+            )
+          ).rowCount
+        )
+          fail(409, "IDENTIFIER_TAKEN", "This number is already used by another account.");
+        await consumeSignupOtp(db, input.otpToken!, normalized);
+      }
       try {
         await db.query("SAVEPOINT identifier");
         await db.query(
-          `INSERT INTO account_identifiers(user_id,kind,digest,hint) VALUES($1,$2,$3,$4)
-           ON CONFLICT (user_id,kind) DO UPDATE SET digest=excluded.digest,hint=excluded.hint,created_at=clock_timestamp()`,
+          kind === "mobile"
+            ? `INSERT INTO account_identifiers(user_id,kind,digest,hint,self_declared,verified_at) VALUES($1,$2,$3,$4,false,clock_timestamp())
+               ON CONFLICT (user_id,kind) DO UPDATE SET digest=excluded.digest,hint=excluded.hint,self_declared=false,verified_at=clock_timestamp(),created_at=clock_timestamp()`
+            : `INSERT INTO account_identifiers(user_id,kind,digest,hint) VALUES($1,$2,$3,$4)
+               ON CONFLICT (user_id,kind) DO UPDATE SET digest=excluded.digest,hint=excluded.hint,created_at=clock_timestamp()`,
           [actor.userId, kind, identifierDigest(kind, normalized), hint],
         );
       } catch (error: any) {
@@ -90,7 +134,7 @@ identifierRouter.put(
       }
       await securityAudit(db, actor.userId, "SIGN_IN_IDENTIFIER_SET");
     });
-    res.json({ kind, set: true, hint });
+    res.json({ kind, set: true, hint, verified: kind === "mobile" ? true : null });
   }),
 );
 identifierRouter.delete(

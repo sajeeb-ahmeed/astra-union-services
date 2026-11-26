@@ -1,28 +1,21 @@
-import React, { lazy, useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { api, adoptSession, clearSessionToken } from "./api.js";
 import { t, tx, choose, useLanguage } from "./i18n.js";
-const PublicPortal = lazy(() =>
-  import("./PublicPortal.js").then((module) => ({
-    default: module.PublicPortal,
-  })),
-);
+const PublicPortal = lazyWithRetry(() => import("./PublicPortal.js"), (module) => module.PublicPortal);
 import { VERIFY_SEO } from "./seo/service-seo.js";
 import { applyPageHead } from "./seo/head.js";
 import { IssuanceModeProvider } from "./mode.js";
 import { applicationStatusMeta } from "./ui/kit.js";
 import { formatDateTime } from "./ui/fmt.js";
-import { AsyncPanel, LoadingPanel } from "./AsyncPanel.js";
+import { AsyncPanel, LoadingPanel, lazyWithRetry } from "./AsyncPanel.js";
+import { installPublicLinkInterceptor } from "./navigate.js";
 import { MfaChallenge, type MfaLoginChallenge } from "./MfaChallenge.js";
 import "./fonts.css";
 import "./style.css";
 
 // Authenticated workflows and form history are downloaded only after a valid session.
-const WorkspaceApp = lazy(() =>
-  import("./WorkspaceApp.js").then((module) => ({
-    default: module.WorkspaceApp,
-  })),
-);
+const WorkspaceApp = lazyWithRetry(() => import("./WorkspaceApp.js"), (module) => module.WorkspaceApp);
 const returnedApplication =
   location.pathname === "/payments/return"
     ? new URLSearchParams(location.search).get("applicationId")
@@ -493,7 +486,7 @@ function SignedOutPortal({
         </section>
   );
   // Phase 1: signed-out visitors get the new public home on "/"; other public pages stay legacy for now.
-  if (location.pathname === "/") return <AsyncPanel><PublicHome login={loginForm} /></AsyncPanel>;
+  if (location.pathname === "/") return <AsyncPanel><PublicHome /></AsyncPanel>;
   // Phase 2d: office staff ask for an account for their post.
   if (location.pathname === "/register-office")
     return (
@@ -553,14 +546,35 @@ function showSignInAfterSession() {
   if (location.pathname === "/") history.replaceState(history.state, "", "/login");
 }
 
+// L-006: the last adopted session in this page lifetime, in memory
+// only — never persisted (the product stores nothing in localStorage
+// except astra.language, and this cache must not become a second store).
+// The App switches SessionApp off when it renders a verify-result route
+// and back on when the user returns to a portal page; without this cache
+// the remount re-ran the first-load session gate and re-showed the splash
+// for a navigation that never left the app. `sessionCheckDone` records
+// that a probe has completed at least once, so a remount skips the gate
+// but still revalidates in the background (see the effect in SessionApp).
+let lastSession: any = null;
+let sessionCheckDone = false;
+
 function SessionApp() {
-  const [session, setSession] = useState<any>(null);
-  const [loaded, setLoaded] = useState(false);
+  const [session, setSession] = useState<any>(lastSession);
+  const [loaded, setLoaded] = useState(sessionCheckDone);
   const [pendingPaymentReturn, setPendingPaymentReturn] = useState(
     paymentReturnApplication,
   );
-  const sessionRef = useRef<any>(null);
-  const loadedRef = useRef(false);
+  const sessionRef = useRef<any>(lastSession);
+  const loadedRef = useRef(sessionCheckDone);
+  // L-006: the last adopted session survives a SessionApp remount in
+  // this page lifetime (see the module-level cache above). The mount
+  // probe still runs on every mount and revalidates it in the
+  // background, so a session that vanished elsewhere is corrected
+  // within one /auth/me round-trip.
+  useEffect(() => {
+    lastSession = session;
+    if (loaded) sessionCheckDone = true;
+  }, [session, loaded]);
   // BUNDLE06-R5 D3: in-memory record that this page lifetime's last
   // probe came back anonymous. The mount probe is session restore and
   // must stay (a browser can hold a valid cookie with no client-side
@@ -702,17 +716,18 @@ function SessionApp() {
 }
 
 // Phase 1 slice (i), approved: the new public home (loaded on demand).
-const PublicHome = lazy(() =>
-  import("./PublicHome.js").then((module) => ({ default: module.PublicHome })),
-);
-const OfficeRegistrationPage = lazy(() =>
-  Promise.all([import("./PublicShell.js"), import("./OfficeRegistration.js")]).then(([shell, page]) => ({
-    default: () => (
-      <shell.PublicShell current="/register-office">
-        <page.OfficeRegistration />
-      </shell.PublicShell>
-    ),
-  })),
+const PublicHome = lazyWithRetry(() => import("./PublicHome.js"), (module) => module.PublicHome);
+const OfficeRegistrationPage = lazyWithRetry(
+  () => Promise.all([import("./PublicShell.js"), import("./OfficeRegistration.js")]),
+  ([shell, page]) => () => (
+    <shell.PublicShell current="/register-office">
+      <page.OfficeRegistration />
+    </shell.PublicShell>
+  ),
+  // M-003: no cache-busting retry — a two-module load cannot be busted
+  // from the single failed URL in the import error, so this degrades to
+  // the boundary panel + Reload, as before.
+  { bust: false },
 );
 
 // FULL-UIUX-01 (A14): /home-preview no longer silently redirects — an
@@ -720,19 +735,17 @@ const OfficeRegistrationPage = lazy(() =>
 
 // Phase UX: the verify pages live inside the public shell, loaded lazily so
 // the shell stays out of the initial bundle (performance budget).
-const VerifyShell = lazy(() =>
-  import("./PublicShell.js").then((module) => ({
-    default: ({ children }: { children: React.ReactNode }) => (
-      <module.PublicShell current="/verify">{children}</module.PublicShell>
-    ),
-  })),
+const VerifyShell = lazyWithRetry(
+  () => import("./PublicShell.js"),
+  (module) => ({ children }: { children: React.ReactNode }) => (
+    <module.PublicShell current="/verify">{children}</module.PublicShell>
+  ),
 );
-const BareShell = lazy(() =>
-  import("./PublicShell.js").then((module) => ({
-    default: ({ children }: { children: React.ReactNode }) => (
-      <module.PublicShell current="">{children}</module.PublicShell>
-    ),
-  })),
+const BareShell = lazyWithRetry(
+  () => import("./PublicShell.js"),
+  (module) => ({ children }: { children: React.ReactNode }) => (
+    <module.PublicShell current="">{children}</module.PublicShell>
+  ),
 );
 
 /** FULL-UIUX-01 (A14/P2-13): the bare payment-return explanation. */
@@ -774,9 +787,28 @@ function PaymentReturnNotice() {
 
 /** QA-04: pages that render the public portal even when a session exists. */
 const PUBLIC_WHILE_SIGNED_IN =
-  /^\/(verify|tracking|services|offices|notices|help|guide|policies)(\/|$)/;
+  /^\/(verify|tracking|services|offices|notices|help|guide|policies|privacy|terms)(\/|$)/;
 
 function App() {
+  // L-006: client-side public navigation. The App reads location.pathname
+  // at render time for the verify routes, and SessionApp/SignedOutPortal
+  // read it for home vs portal — none of them re-render on a pushState
+  // by themselves. `navigate()` (see navigate.ts) dispatches
+  // "astra:navigate" after the pushState, and back/forward fires
+  // "popstate"; either one re-renders the App, so in-app navigation no
+  // longer needs a full page load (which re-showed the splash).
+  const [, setRouteRevision] = useState(0);
+  useEffect(() => {
+    const rerender = () => setRouteRevision((v) => v + 1);
+    addEventListener("popstate", rerender);
+    addEventListener("astra:navigate", rerender);
+    return () => {
+      removeEventListener("popstate", rerender);
+      removeEventListener("astra:navigate", rerender);
+    };
+  }, []);
+  // L-006: plain-anchor safety net — see installPublicLinkInterceptor.
+  useEffect(() => installPublicLinkInterceptor(), []);
   if (barePaymentReturn)
     return (
       <AsyncPanel>

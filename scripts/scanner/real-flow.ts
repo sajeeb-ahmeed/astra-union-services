@@ -71,7 +71,7 @@ function handle(file: any) {
 }
 try {
   evidence.engine = await engineIdentity();
-  for (const name of ["staff", "citizen", "reviewer", "approver", "foreign"]) {
+  for (const name of ["staff", "citizen", "reviewer", "approver", "admin", "foreign"]) {
     const r = await request("POST", "/auth/login", {
       email:
         name === "foreign" ? "staff@beta.local.test" : `${name}@alpha.local.test`,
@@ -86,6 +86,42 @@ try {
   const citizen = (
     await request("GET", "/citizens", undefined, sessions.citizen)
   ).body.items[0];
+  // W-002: issuance gates run in every mode, so this synthetic run needs
+  // an explicitly identified synthetic signature fixture and a zero-fee
+  // order for service 1 (the holding-tax receipt) before anything can
+  // issue. The signature is a 1x1 PNG — clearly not a real chairman
+  // signature. The isolated database is freshly seeded, so no other
+  // suite's seeded-state assertions are affected.
+  const signature = await request(
+    "PUT",
+    "/office/certificate-assets/signature",
+    {
+      mimeType: "image/png",
+      base64:
+        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==",
+      reason:
+        "Synthetic signature fixture for demo-mode issuance regression (W-002); not a real chairman signature",
+    },
+    sessions.approver,
+  );
+  assert.ok([200, 201].includes(signature.status), JSON.stringify(signature.body));
+  const service1Policy = await request(
+    "POST",
+    "/admin/services/1/order-policies",
+    {
+      expectedVersion: 0,
+      reason: "Synthetic zero-fee policy for demo-mode issuance regression (W-002); not a government tariff",
+      statutoryFeeMinor: 0,
+      processingFeeMinor: 0,
+      emergencySurchargeMinor: 0,
+      deliveryFeesMinor: { office_collection: 0, digital_copy: 0 },
+      deliveryModes: ["office_collection", "digital_copy"],
+      urgencies: ["normal"],
+    },
+    sessions.admin,
+  );
+  assert.equal(service1Policy.status, 201, JSON.stringify(service1Policy.body));
+  const service1PolicyVersion = service1Policy.body.policy.version;
   const worker = new AttachmentWorker(
     { origin, secret, workerId: "real-local-qa", clamdPort: 3310 },
     true,
@@ -190,9 +226,21 @@ try {
         serviceNo: 1,
         payload: {
           ...demoPayloads[1],
+          // W-002: the attached order's language must match the payload's.
+          delivery_language: "en",
           supporting_documents: [
             { description: "Real scanner synthetic QA", file: handle(file) },
           ],
+        },
+        // W-002: the AMOUNTS gate needs an order snapshot for service 1.
+        order: {
+          policyVersion: service1PolicyVersion,
+          preferences: {
+            addressBasis: "registered_profile",
+            certificateLanguage: "en",
+            deliveryMode: "office_collection",
+            urgency: "normal",
+          },
         },
       },
       sessions.staff,

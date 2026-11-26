@@ -142,6 +142,10 @@ test(
 
       // The tracking page itself still works from an empty form.
       await page.goto(`${origin}/tracking`);
+      // Task C: wait for the mounted input before filling it — the
+      // fill used to be the first render assertion on this navigation
+      // and timed out on a blank page.
+      await page.locator("#tracking-id").waitFor();
       await page.locator("#tracking-id").fill(unknown);
       await page.locator("#public-content").getByRole("button", { name: "Track application", exact: true }).click();
       await page.getByRole("alert").waitFor();

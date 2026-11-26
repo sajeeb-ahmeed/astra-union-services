@@ -9,6 +9,13 @@ import {
   certificateAssetsBundle,
   type CertificateAssetsBundle,
 } from "./template-assets.js";
+import {
+  DEMO_BANNER_BN,
+  DEMO_BANNER_EN,
+  DEMO_NOTICE_BN,
+  DEMO_NOTICE_EN,
+  isDemoIssuance,
+} from "./demo-notice.js";
 
 /**
  * Template 7 (Phase Y) — the official Union Parishad document format, modelled
@@ -2878,8 +2885,16 @@ export function renderCertificateHtmlV7(input: PdfInput, qrDataUrl: string): str
           // line — left-aligned at the bottom-left (Md's order 25 Nov
           // 2026 15:21; was centred since QR-MOVE).
           `${signature}<footer class="doc-foot"><div class="verify-line">${escape(verifyLine)}</div></footer>`;
-  const bannerBits = "";
-  const honesty = "";
+  // W-001 (Phase 4, integrated): a demo document says so on its face, in
+  // both languages. Official mode stays clean (owner instruction 16 Nov 2026:
+  // production output carries no demo content of any kind).
+  const demo = isDemoIssuance();
+  const bannerBits = demo
+    ? `<div class="draft-wm">DEMO</div><div class="draft-banner">${escape(DEMO_BANNER_BN)}<br>${escape(DEMO_BANNER_EN)}</div>`
+    : "";
+  const honesty = demo
+    ? `<p class="honesty">${escape(DEMO_NOTICE_BN)} ${escape(DEMO_NOTICE_EN)}</p>`
+    : "";
   // Md's order of 25 Nov 2026 (supersedes CERTNO-01; per-UP resolution
   // re-confirmed 25 Nov 2026, 12:12): the centre watermark is the issuing
   // office's own UP SEAL (bundle.watermark — profile SEAL first per

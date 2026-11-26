@@ -79,6 +79,12 @@ import {
   governmentEmblemDataUrl,
 } from "./template-assets.js";
 import {
+  DEMO_BANNER_BN,
+  DEMO_BANNER_EN,
+  DEMO_NOTICE_BN,
+  DEMO_NOTICE_EN,
+} from "./demo-notice.js";
+import {
   CERT_BENGALI_FAMILY,
   CERT_LATIN_FAMILY,
   ensureCertificateFonts,
@@ -532,6 +538,39 @@ function QrWithEmblem({
           }}
         />
       ) : null}
+    </View>
+  );
+}
+
+/**
+ * W-001: the demo banner — the same Bengali + English wording as the HTML
+ * templates, in one bordered box at the top of the document, plus the
+ * "not an official certificate" lines. Official mode renders neither this
+ * nor the DEMO watermark below.
+ */
+function DemoBanner({ base }: { base: CertFamily }) {
+  return (
+    <View
+      style={{
+        borderWidth: 2,
+        borderColor: "#b3261e",
+        padding: 6,
+        marginBottom: 4 * MM,
+        alignItems: "center",
+      }}
+    >
+      <Text style={{ fontSize: 13, fontWeight: 700, color: "#b3261e", textAlign: "center", lineHeight: 1.4 }}>
+        <Runs segs={[seg(DEMO_BANNER_BN, true)]} base={base} bold />
+      </Text>
+      <Text style={{ fontSize: 13, fontWeight: 700, color: "#b3261e", textAlign: "center", lineHeight: 1.4 }}>
+        <Runs segs={[seg(DEMO_BANNER_EN, true)]} base={base} bold />
+      </Text>
+      <Text style={{ fontSize: 9, color: "#444", textAlign: "center", lineHeight: 1.4, marginTop: 2 }}>
+        <Runs segs={[seg(DEMO_NOTICE_BN)]} base={base} />
+      </Text>
+      <Text style={{ fontSize: 9, color: "#444", textAlign: "center", lineHeight: 1.4 }}>
+        <Runs segs={[seg(DEMO_NOTICE_EN)]} base={base} />
+      </Text>
     </View>
   );
 }
@@ -2708,6 +2747,9 @@ function CertificateDocument({
 }) {
   const ctx = buildCtx(input);
   const { bn } = ctx;
+  // W-001: demo mode carries the demo banner + DEMO watermark; official
+  // mode renders neither.
+  const demo = !ctx.official;
   const serviceNo = input.service.service_no ?? 0;
   const format = certificatePageFormat(serviceNo);
   const isTrade = serviceNo === 42;
@@ -3002,6 +3044,25 @@ function CertificateDocument({
           }}
         />
         {sealNode}
+        {demo ? (
+          <Text
+            fixed
+            style={{
+              position: "absolute",
+              left: (pageW - 300) / 2,
+              top: 380,
+              width: 300,
+              textAlign: "center",
+              fontSize: 68,
+              fontWeight: 700,
+              color: "#b3261e",
+              opacity: 0.09,
+              transform: "rotate(-30deg)",
+            }}
+          >
+            DEMO
+          </Text>
+        ) : null}
         <View
           style={{
             paddingTop: margin + 5 * MM,
@@ -3013,6 +3074,7 @@ function CertificateDocument({
             paddingRight: margin + 6 * MM,
           }}
         >
+          {demo ? <DemoBanner base={base} /> : null}
           {body}
           {anchored ? null : (
             <>

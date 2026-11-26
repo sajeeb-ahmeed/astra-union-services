@@ -1,10 +1,12 @@
 import React, { useEffect, useState, useSyncExternalStore } from "react";
 import { HelpWidget, UtilityBar } from "./PublicHelp.js";
-import { SUPPORT_CONTACT } from "./support-contact.js";
+import { useSupportContact } from "./support-contact.js";
+import { useWitnessAvailable } from "./witness-availability.js";
 import { choose, LanguageSwitcher, useLanguage } from "./i18n.js";
 import { useBranding } from "./branding.js";
 import { hasPageHead } from "./seo/head.js";
 import { GlobalNoticeBanner } from "./GlobalNotices.js";
+import { DemoModeBanner } from "./DemoModeBanner.js";
 import "./ui/kit.js";
 import { BrandLockup } from "./BrandLockup.js";
 import "./public-shell.css";
@@ -43,6 +45,8 @@ const DRAWER_EXTRA = [
   { href: "/witness", bn: "সাক্ষীর প্রত্যয়ন", en: "Witness statement" },
   { href: "/guide", bn: "ব্যবহার নির্দেশিকা", en: "User guide" },
   { href: "/policies", bn: "নীতি", en: "Policies" },
+  { href: "/privacy", bn: "গোপনীয়তা নীতি", en: "Privacy policy" },
+  { href: "/terms", bn: "ব্যবহারের শর্তাবলী", en: "Terms of use" },
   { href: "/register-office", bn: "অফিস অ্যাকাউন্ট খুলুন", en: "Open an office account" },
 ] as const;
 
@@ -89,19 +93,37 @@ function NavLink({
 }) {
   const active = current === href;
   if (onNavigate && !HARD_LINKS.has(href))
+    // L-006 follow-up: navigation stays a real <a href> — a <button>
+    // broke link semantics (screen readers, middle-click / new tab,
+    // right-click copy-link, crawlers) and every getByRole("link")
+    // query in the browser suite. A plain left-click is intercepted
+    // here (preventDefault + onNavigate, no reload); the delegated
+    // interceptor in navigate.ts sees defaultPrevented and stands down,
+    // so the navigation runs exactly once. Modified clicks keep the
+    // browser default (new tab).
     return (
-      <button
-        type="button"
+      <a
         className={className}
+        href={href}
         aria-current={active ? "page" : undefined}
         aria-label={ariaLabel}
-        onClick={() => {
+        onClick={(event) => {
+          if (
+            event.defaultPrevented ||
+            event.button !== 0 ||
+            event.metaKey ||
+            event.ctrlKey ||
+            event.shiftKey ||
+            event.altKey
+          )
+            return;
+          event.preventDefault();
           onDone?.();
           onNavigate(href);
         }}
       >
         {children}
-      </button>
+      </a>
     );
   return (
     <a
@@ -133,6 +155,9 @@ export function SiteHeader({
 }) {
   useLanguage();
   const branding = useBranding();
+  // L-004: the witness entry points hide once the options list is
+  // confirmed empty (fail-open while unknown — see witness-availability.ts).
+  const witnessAvailable = useWitnessAvailable();
   useEffect(() => {
     // SEO P5: a page that applied its own head (seo/head.ts) owns the
     // title; the branding default must not overwrite it when the branding
@@ -255,7 +280,9 @@ export function SiteHeader({
                     {choose({ bn: "বন্ধ করুন", en: "Close" })}
                   </button>
                 </div>
-                {[...PUBLIC_NAV, ...DRAWER_EXTRA].map((item) => (
+                {[...PUBLIC_NAV, ...DRAWER_EXTRA]
+                  .filter((item) => witnessAvailable || item.href !== "/witness")
+                  .map((item) => (
                   <NavLink
                     key={item.href}
                     href={item.href}
@@ -289,6 +316,11 @@ export function SiteFooter({
 }) {
   useLanguage();
   const branding = useBranding();
+  // F-001: the owner-configured support contact (empty until set).
+  const contact = useSupportContact();
+  // L-004: the witness quick link hides once the options list is
+  // confirmed empty (fail-open while unknown).
+  const witnessAvailable = useWitnessAvailable();
   const link = (href: string, bn: string, en: string, key?: string) => (
     <li key={key ?? href}>
       <NavLink href={href} onNavigate={onNavigate} className="du-footlink">
@@ -319,7 +351,7 @@ export function SiteFooter({
           <ul>
             {link("/verify", "সনদ যাচাই", "Verify certificate")}
             {link("/tracking", "আবেদনের অবস্থা", "Track application")}
-            {link("/witness", "সাক্ষীর প্রত্যয়ন", "Witness statement")}
+            {witnessAvailable && link("/witness", "সাক্ষীর প্রত্যয়ন", "Witness statement")}
             {link("/notices", "নোটিশ", "Notices")}
             {link("/register", "নতুন অ্যাকাউন্ট", "Create an account")}
             {link("/register-office", "অফিস অ্যাকাউন্ট খুলুন", "Open an office account")}
@@ -331,17 +363,19 @@ export function SiteFooter({
             {link("/help", "সাধারণ জিজ্ঞাসা", "Help & FAQ")}
             {link("/guide", "ব্যবহার নির্দেশিকা", "User guide")}
             {link("/policies", "নীতি", "Policies")}
+            {link("/privacy", "গোপনীয়তা নীতি", "Privacy policy")}
+            {link("/terms", "ব্যবহারের শর্তাবলী", "Terms of use")}
           </ul>
-          {(SUPPORT_CONTACT.phone || SUPPORT_CONTACT.email) && (
+          {(contact.phone || contact.email) && (
             <ul className="du-footer-contact">
-              {SUPPORT_CONTACT.phone && (
+              {contact.phone && (
                 <li>
-                  <a href={`tel:${SUPPORT_CONTACT.phone.replace(/s+/g, "")}`}>{SUPPORT_CONTACT.phone}</a>
+                  <a href={`tel:${contact.phone.replace(/s+/g, "")}`}>{contact.phone}</a>
                 </li>
               )}
-              {SUPPORT_CONTACT.email && (
+              {contact.email && (
                 <li>
-                  <a href={`mailto:${SUPPORT_CONTACT.email}`}>{SUPPORT_CONTACT.email}</a>
+                  <a href={`mailto:${contact.email}`}>{contact.email}</a>
                 </li>
               )}
             </ul>
@@ -369,9 +403,18 @@ export function SiteFooter({
 export function PublicShell({
   current,
   children,
+  onNavigate,
 }: {
   current: string;
   children: React.ReactNode;
+  /**
+   * L-006: client-side navigation for the shell's links. PublicHome
+   * passes `navigate` here; without it every header/drawer/footer link
+   * rendered as a plain `<a href>` and a click from the homepage was a
+   * full page load (and another splash). Surfaces that render their own
+   * shell (PublicPortal) pass their own handler instead.
+   */
+  onNavigate?: ShellNavigate;
 }) {
   useLanguage();
   return (
@@ -380,12 +423,14 @@ export function PublicShell({
         {choose({ bn: "মূল অংশে যান", en: "Skip to main content" })}
       </a>
       <UtilityBar />
-      <SiteHeader current={current} />
+      <SiteHeader current={current} onNavigate={onNavigate} />
+      {/* F-008: the issuance-mode banner — renders only in DEMO mode. */}
+      <DemoModeBanner />
       <main id="ax-content" className="ax-main">
         <GlobalNoticeBanner />
         {children}
       </main>
-      <SiteFooter />
+      <SiteFooter onNavigate={onNavigate} />
       <HelpWidget />
     </div>
   );

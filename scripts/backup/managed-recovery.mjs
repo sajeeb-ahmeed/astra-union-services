@@ -350,6 +350,12 @@ function derivedState(tables) {
       if (typeof c.pdf !== "string" || !/^\\x(?:[a-f0-9]{2})*$/.test(c.pdf))
         throw Error("Malformed PDF byte representation.");
       const bytes = Buffer.from(c.pdf.slice(2), "hex");
+      // Stage 5: submit-time settlement evidence (migration 044, W-003) —
+      // same shape as captureState in backup.mjs. The retired 'ISSUANCE'
+      // ledger kind is written by no code path any more.
+      const application = records.applications.find(
+        (a) => a.id === c.application_id,
+      );
       return {
         id: c.id,
         tenant_id: c.tenant_id,
@@ -357,11 +363,18 @@ function derivedState(tables) {
         bytes: bytes.length,
         pdf_sha256: digest(bytes),
         pdf_header: bytes.subarray(0, 5).equals(Buffer.from("%PDF-")),
-        issuance_debits: records.credit_ledger.filter(
+        fee_method: application?.fee_method ?? null,
+        fee_settled: application?.fee_settled_at != null,
+        fee_debits: records.credit_ledger.filter(
           (l) =>
             l.tenant_id === c.tenant_id &&
-            l.certificate_id === c.id &&
-            l.kind === "ISSUANCE",
+            l.application_id === c.application_id &&
+            l.kind === "APPLICATION_FEE",
+        ).length,
+        allowance_rows: records.subscription_allowance_consumptions.filter(
+          (s) =>
+            s.tenant_id === c.tenant_id &&
+            s.application_id === c.application_id,
         ).length,
       };
     })

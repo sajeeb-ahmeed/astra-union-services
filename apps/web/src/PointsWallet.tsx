@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { randomUUID } from "./uuid.js";
 import { api } from "./api.js";
 import { choose, useLanguage } from "./i18n.js";
 import { formatMinorAsTaka, parseTakaToMinor } from "./OrderPolicySettings.js";
@@ -98,7 +99,7 @@ export function OwnerPointsAdjust({ tenantId }: { tenantId: string }) {
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
   // One key per intended adjustment: a retried submit after a lost response applies once.
-  const [requestKey, setRequestKey] = useState(() => crypto.randomUUID());
+  const [requestKey, setRequestKey] = useState(() => randomUUID());
   const load = () =>
     api(`/owner/tenants/${tenantId}/points`)
       .then((r) => setBalance(r.balanceMinor))
@@ -126,7 +127,7 @@ export function OwnerPointsAdjust({ tenantId }: { tenantId: string }) {
             reason,
             requestKey,
           });
-          setRequestKey(crypto.randomUUID());
+          setRequestKey(randomUUID());
           setAmount("");
           setReason("");
           await load();

@@ -29,8 +29,8 @@ The **platform owner** verifies requests (owner decision) in Platform management
 | Create draft / edit eligible payload | — | Own | Tenant | — | — | Tenant | — | — |
 | List/read applications | — | Own | Tenant | Tenant | Tenant | Tenant | — | — |
 | Submit/resubmit/cancel eligible application | — | Own | Tenant | — | — | Tenant | — | — |
-| Begin review / request correction | — | — | — | Tenant | — | — | — | — |
-| Reject active submitted/review application | — | — | — | Tenant | Tenant | — | — | — |
+| Request correction | — | — | — | — | Authority | — | — | — |
+| Reject active submitted/review application | — | — | — | — | Authority | — | — | — |
 | Approve current reviewed payload | — | — | — | — | Authority | — | — | — |
 | Issue / retry DEMO certificate | — | — | — | — | Authority | — | — | — |
 | Revoke certificate with reason | — | — | — | — | Authority | — | — | — |
@@ -65,10 +65,10 @@ The SaaS owner owns the independent software and commercial platform; this is no
 2. The tenant is loaded from the session's membership. Body/query tenant values cannot override it. The current release selects the first active membership at login; a deliberate account switcher is future work.
 3. The route checks role before invoking a tenant-scoped database transaction. Citizen operations also join against `citizens.user_id`; knowing a UUID does not grant access.
 4. PostgreSQL FORCE RLS restricts tenant rows and composite foreign keys prevent mixed-tenant associations. A non-superuser/non-bypass app role is used. The context is local to the transaction, preventing pool leakage.
-5. Approval, issuance and revocation require `approval_authorizations(tenant_id,user_id,service_no)` to be active. Active user, approver membership and tenant are rechecked under share locks. Final issuance repeats this check after PDF preparation.
+5. Approval, issuance, revocation, rejection, correction requests and summons require `approval_authorizations(tenant_id,user_id,service_no)` to be active. Active user, approver membership and tenant are rechecked under share locks. Final issuance repeats this check after PDF preparation.
 6. Workflow state and approved payload version must also match. Role permission alone cannot jump from draft to issue. Subscription, service enablement and credit checks are additional issuance conditions.
 
-Rejection currently requires reviewer/approver role and tenant/state policy, without a separate service authorization. No review assignment table limits a reviewer to claimed applications yet. Those distinctions must be preserved in UI labels and future permission design.
+Rejection and correction requests require the approver role **and** an active service-specific approval authorization (`approval_authorizations`), the same gate as approve/issue/revoke/summon (Phase 4 Stage 3, S-011; regression tests in `apps/api/test/workflow-stage3.test.ts`). The reviewer is read-only since Phase W: it can list and read, never decide. There is no begin-review action — decisions are taken directly from SUBMITTED / RESUBMITTED / UNDER_REVIEW, and no role can invoke a transition into UNDER_REVIEW. No review-assignment table limits a reviewer to claimed applications yet (tracked as a roadmap item, A-018). Those distinctions must be preserved in UI labels and future permission design.
 
 ## UI and audit behavior
 
@@ -87,6 +87,8 @@ Tenant administrators can create local accounts/memberships, change roles or act
 Self-registration creates a synthetic citizen account/profile with a DEMO reference. Password changes verify the current password under a row lock and invalidate other sessions. This is a local development identity flow, with no real OTP/NID verification or email delivery. The active session can continue. The first-active-membership login rule is unchanged.
 
 ## Proposed authority design
+
+> **Status note (Phase 4 Stage 3, 2026-11-26):** the gaps below are architecture items, not documentation errors, and are tracked as roadmap items (A-018) — they are NOT fixed by this doc update. The platform-level audit stream for owner/global denials and auth failures is Stage 5 scope (S-014). The other three — a review-assignment table (reviewer queues are unscoped), dual-control on grants, and a delegated/limited owner support-access mechanism — have no implementation yet and no owner decision on record.
 
 Contracted production onboarding still needs staff invitations, appointment evidence, dated grant expiry and independent approval. Consider dual-control grant/revoke operations. Official service/fee/template changes need domain approval and version history beyond the demo service settings. Never derive legal authority from SaaS ownership or a dropdown role.
 

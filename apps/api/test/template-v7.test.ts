@@ -26,6 +26,12 @@ import {
   ordDate,
   ordDateIso,
 } from "../src/certificate-template-v7.js";
+import {
+  DEMO_BANNER_BN,
+  DEMO_BANNER_EN,
+  DEMO_NOTICE_BN,
+  DEMO_NOTICE_EN,
+} from "../src/demo-notice.js";
 import { app } from "../src/app.js";
 import { pool } from "../src/db.js";
 import { closePdfBrowser } from "../src/pdf.js";
@@ -661,7 +667,14 @@ test("v7 modes: demo shows no emblem; official shows the emblem header + UP-seal
   };
   delete process.env.ISSUANCE_MODE;
   const demo = render(input);
-  assert.ok(!demo.includes("DEMO / NOT OFFICIAL"));
+  // W-001: a demo document marks itself demo, in both languages (the old
+  // no-demo-wording assertions here encoded the bug).
+  assert.ok(demo.includes(DEMO_BANNER_BN), "Bengali demo banner");
+  assert.ok(demo.includes(DEMO_BANNER_EN), "English demo banner");
+  assert.ok(demo.includes(DEMO_NOTICE_BN), "Bengali not-official line");
+  assert.ok(demo.includes(DEMO_NOTICE_EN), "English not-official line");
+  assert.ok(demo.includes('class="draft-wm"'), "DEMO watermark in demo mode");
+  assert.ok(demo.includes('class="draft-banner"'), "demo banner box in demo mode");
   assert.ok(!demo.includes('class="emblem"'), "no emblem in demo mode");
   assert.ok(!demo.includes('class="emblem-wm"'), "no emblem watermark in demo mode");
   assert.ok(!demo.includes('class="seal-wm"'), "no seal watermark in demo mode");
@@ -678,7 +691,12 @@ test("v7 modes: demo shows no emblem; official shows the emblem header + UP-seal
     assert.ok(official.includes('class="seal-wm"'), "UP-seal watermark in official mode");
     assert.ok(!official.includes("emblem-wm"), "no emblem watermark in official mode");
     assert.ok(!official.includes("DEMO / NOT OFFICIAL"));
+    assert.ok(!official.includes(DEMO_BANNER_BN), "no demo banner in official mode");
+    assert.ok(!official.includes(DEMO_BANNER_EN), "no demo banner in official mode");
+    assert.ok(!official.includes(DEMO_NOTICE_BN), "no disclaimer in official mode");
+    assert.ok(!official.includes(DEMO_NOTICE_EN), "no disclaimer in official mode");
     assert.ok(!official.includes('class="draft-wm"'));
+    assert.ok(!official.includes('class="draft-banner"'));
     // Owner instruction (16 Nov 2026): production output carries NO demo
     // content of any kind — with a production number the whole document is clean.
     const production = render({ ...input, number: "2026-ABC123" });
@@ -870,7 +888,9 @@ test("template 6 remains selectable and byte-stable in shape", () => {
     qr,
     6,
   );
-  assert.ok(!html.includes("DEMO / NOT OFFICIAL"));
+  // W-001: template 6 in demo mode carries the demo banner + watermark.
+  assert.ok(html.includes(DEMO_BANNER_BN), "Bengali demo banner");
+  assert.ok(html.includes(DEMO_BANNER_EN), "English demo banner");
   assert.ok(html.includes("Template 6"));
   assert.ok(!html.includes("সনদ নং:-"));
 });

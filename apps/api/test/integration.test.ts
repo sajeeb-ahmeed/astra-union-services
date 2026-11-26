@@ -12,6 +12,10 @@ import {
   renderCertificateHtml,
   DEMO_TEMPLATE_VERSION,
 } from "../src/pdf.js";
+import {
+  DEMO_BANNER_BN,
+  DEMO_BANNER_EN,
+} from "../src/demo-notice.js";
 // B2: these tests exercise the sandbox settlement route, which is off unless explicitly enabled.
 process.env.DEMO_SETTLE_ENABLED = "true";
 process.env.NODE_ENV = "test";
@@ -1241,7 +1245,9 @@ test("CER-01: current resident PDFs contain approved purpose/residency and genui
       "data:image/png;base64,DEMO",
       6,
     );
-    assert.ok(!html.includes("DEMO / NOT OFFICIAL"));
+    // W-001: a demo document marks itself demo, in both languages.
+    assert.ok(html.includes(DEMO_BANNER_BN), "Bengali demo banner");
+    assert.ok(html.includes(DEMO_BANNER_EN), "English demo banner");
     const body = html.match(/<main\b[^>]*>([\s\S]*?)<\/main>/)![1]!;
     assert.ok(html.includes(`data-delivery-language="${language}"`));
     if (language !== "en") {
@@ -1299,7 +1305,6 @@ test("CER-01: current resident PDFs contain approved purpose/residency and genui
   );
 });
 test("B2: sandbox settlement route exists only when DEMO_SETTLE_ENABLED is exactly true", async () => {
-  const finance = sessions["alpha:finance"];
   const path = `/billing/orders/${randomUUID()}/demo-settle`;
   const saved = {
     flag: process.env.DEMO_SETTLE_ENABLED,
@@ -1316,6 +1321,14 @@ test("B2: sandbox settlement route exists only when DEMO_SETTLE_ENABLED is exact
       if (flag === undefined) delete process.env.DEMO_SETTLE_ENABLED;
       else process.env.DEMO_SETTLE_ENABLED = flag;
       process.env.NODE_ENV = nodeEnv;
+      // Stage 5 (S-005): the session cookie name is env-dependent
+      // (__Host-astra_session in production, astra_session otherwise),
+      // so a session issued under one NODE_ENV is not recognised under
+      // the other. Re-login per iteration so the requests below test
+      // route registration, not a stale cookie. NODE_ENV never changes
+      // under a running production server; this is test-only.
+      await login("alpha:finance");
+      const finance = sessions["alpha:finance"];
       const r = await request("POST", path, {}, finance);
       assert.equal(r.status, 404, `flag=${flag} NODE_ENV=${nodeEnv}`);
       // Unregistered: the route handler never ran, so its ORDER_NOT_FOUND code is absent.
@@ -1325,6 +1338,8 @@ test("B2: sandbox settlement route exists only when DEMO_SETTLE_ENABLED is exact
     }
     process.env.DEMO_SETTLE_ENABLED = "true";
     process.env.NODE_ENV = "test";
+    await login("alpha:finance");
+    const finance = sessions["alpha:finance"];
     const enabled = await request("POST", path, {}, finance);
     assert.equal(enabled.status, 404);
     assert.equal(enabled.body.error.code, "ORDER_NOT_FOUND");

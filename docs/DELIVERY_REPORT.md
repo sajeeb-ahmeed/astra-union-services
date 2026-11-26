@@ -36,7 +36,7 @@ Applications pin schema/version/hash; corrections create new immutable payload r
 
 Tests cover tenant/role attacks, revoked/suspended access, invalid conditions/repeatables, private uploads, corrections, renewal lineage, forged/replayed settlements, insufficient credit, injected transaction failure, concurrent issuance, safe retries, minimal public data and financial UTC boundaries. Browser tests use real API/database interactions, desktop/mobile viewports, labels/error associations and download verification. They do not constitute a full assistive-technology/WCAG certification.
 
-The source is built with strict TypeScript, an optimized production frontend and lazy administration/utility chunks. Static serving negotiates Brotli/gzip and caches hashed assets. Read queries have limits/indexes; PDF work is bounded. `execution/asset-sizes.json` and `performance-smoke.json` contain measurements for this local machine, not production SLAs. The final dependency scan reports zero known vulnerabilities at audit time; it is not a guarantee against future vulnerabilities.
+The source is built with strict TypeScript, an optimized production frontend and lazy administration/utility chunks. Static serving negotiates Brotli/gzip and caches hashed assets. Read queries have limits/indexes; PDF work is bounded. `apps/web/dist/asset-sizes.json` (per-build manifest) and `performance-smoke.json` contain measurements for this local machine, not production SLAs. The final dependency scan reports zero known vulnerabilities at audit time; it is not a guarantee against future vulnerabilities.
 
 ## Security and privacy
 

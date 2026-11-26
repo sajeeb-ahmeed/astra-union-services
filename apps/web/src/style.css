@@ -51,9 +51,9 @@ button, input, select, textarea {
 
 button, .button {
   cursor: pointer;
-  border: 1px solid #1f7d5e;
+  border: 1px solid var(--du-green-700, #1f7d5e);
   border-radius: 7px;
-  background: #1f7d5e;
+  background: var(--du-green-700, #1f7d5e);
   color: white;
   padding: 10px 17px;
   text-decoration: none;
@@ -65,12 +65,12 @@ button, .button {
 }
 
 button:hover, .button:hover {
-  background: #175f48;
+  background: var(--du-green-800, #175f48);
 }
 
 button.secondary, .button.secondary {
   background: white;
-  color: #1f7d5e;
+  color: var(--du-green-700, #1f7d5e);
 }
 
 button.danger {
@@ -81,7 +81,7 @@ button.danger {
 
 .text-button {
   background: transparent;
-  color: #1f7d5e;
+  color: var(--du-green-700, #1f7d5e);
   border: 0;
   padding: 8px;
   min-height: 44px;
@@ -166,7 +166,7 @@ input[type="radio"] {
   min-height: 20px;
   height: 20px;
   margin: 0;
-  accent-color: #1f7d5e;
+  accent-color: var(--du-green-700, #1f7d5e);
 }
 
 .repeatable {
@@ -392,7 +392,7 @@ td small {
 
 .subscription-badge {
   font-size: 13px;
-  color: #1f7d5e;
+  color: var(--du-green-700, #1f7d5e);
 }
 
 .subscription-badge[data-urgent] {
@@ -1186,12 +1186,6 @@ label {
   border-color: #e0a49c;
   background: var(--du-error-bg, #fdecea);
   color: var(--du-error-ink, #9b2c1f);
-}
-
-color: #59461f;
-  font-size: 13px;
-  border-radius: 8px;
-  line-height: 1.7;
 }
 
 .hint, .working, small {

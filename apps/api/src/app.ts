@@ -30,6 +30,20 @@ import { generatePdf, DEMO_TEMPLATE_VERSION } from "./pdf.js";
 import { publicManagementRouter, managementRouter } from "./management.js";
 import { publicToolsRouter, protectedToolsRouter } from "./portal-tools.js";
 import { httpHardening } from "./http-hardening.js";
+import {
+  SESSION_TOUCH_STALE_MS,
+  clearSessionCookie,
+  expireSession,
+  isSessionIdle,
+  sessionCookieName,
+  touchSession,
+} from "./session-hygiene.js";
+import { logPlatformSecurityEvent } from "./security-audit.js";
+import {
+  createSharedRateLimiter,
+  createFailureBudget,
+  sharedRateLimitsEnabled,
+} from "./shared-rate-limit.js";
 import { paymentsRouter, publicPaymentsRouter } from "./payments.js";
 import {
   attachmentsRouter,
@@ -46,6 +60,7 @@ import {
   citizenDetailsInput,
   decryptNumber,
   duplicateNumberError,
+  maskIdentityNumber,
   type CitizenDetails,
 } from "./citizen-data.js";
 import {
@@ -77,6 +92,7 @@ import { applySubscriptionAction } from "./subscriptions.js";
 import { rechargeRouter } from "./recharge.js";
 import { merchantRouter } from "./gateways.js";
 import { applyOrderSettlement } from "./order-settlement.js";
+import { releaseInfo, publicRelease, processStartedAt } from "./release.js";
 import {
   orderPaymentsRouter,
   publicOrderPaymentsRouter,
@@ -89,8 +105,13 @@ import { refundsRouter } from "./refunds.js";
 import { ownerInclusionRouter, publicInclusionRouter } from "./office-inclusion.js";
 import { ownerWitnessRouter, publicWitnessRouter } from "./witness.js";
 import { operationsRouter } from "./operations.js";
+import { ownerStatisticsRouter } from "./owner-statistics.js";
+import { platformHealthRouter } from "./platform-health.js";
+import { ownerSupportContactRouter, supportContactRouter } from "./support-contact.js";
 import { otpRouter } from "./otp.js";
-import { emailAvailable } from "./mailer.js";
+import { emailAvailable, emailProviderIsLog, emailProviderName } from "./mailer.js";
+import { otpAvailable, otpProviderIsLog, otpProviderName } from "./otp.js";
+import { smsAvailable, smsProviderIsLog, smsProviderName } from "./sms.js";
 import { publicEmailRouter, emailRouter } from "./email-verification.js";
 import {
   notifyCertificateIssued,
@@ -148,6 +169,21 @@ const webhookSecret =
 export const app = express();
 app.disable("x-powered-by");
 app.use(httpHardening);
+// S-004: the public verify/track budget is shared across server processes
+// when shared limits are enabled (production, or SHARED_RATE_LIMITS=on);
+// otherwise httpHardening's per-process in-memory limiter is the only
+// enforcement and this mount is a no-op. On a DB failure the shared
+// check falls back to its own in-memory budget instead of failing open.
+if (sharedRateLimitsEnabled()) {
+  const sharedPublicLimiter = createSharedRateLimiter({
+    pool,
+    limit: 120,
+    windowMs: 60_000,
+    keyPrefix: "public:",
+  });
+  app.use("/api/v1/verify", sharedPublicLimiter.middleware());
+  app.use("/api/v1/track", sharedPublicLimiter.middleware());
+}
 app.use((req, res, next) => {
   res.setHeader("X-Content-Type-Options", "nosniff");
   res.setHeader("Referrer-Policy", "no-referrer");
@@ -192,6 +228,29 @@ const normalizeSearchQuery = (raw: string): string =>
     .trim()
     .replace(/\s+/g, " ")
     .replace(/[\\%_]/g, (c) => `\\${c}`);
+// CH-002: the free-text search also matches service names ("Citizenship
+// Certificate"), which the applications table cannot match in SQL —
+// resolve the query to service numbers from the catalog and match
+// a.service_no against them. Same normalization as the text search
+// (Bangla digits, case, NFC) but without LIKE escaping, which is only
+// for the SQL pattern.
+const matchingServiceNumbers = (raw: string): number[] => {
+  const q = raw
+    .replace(/[০-৯]/g, (d) => String(d.charCodeAt(0) - 0x09e6))
+    .trim()
+    .replace(/\s+/g, " ")
+    .toLowerCase()
+    .normalize("NFC");
+  if (!q) return [];
+  return serviceCatalog
+    .filter((s) =>
+      `${s.service_no} ${s.name_bn} ${s.name_en}`
+        .toLowerCase()
+        .normalize("NFC")
+        .includes(q),
+    )
+    .map((s) => s.service_no);
+};
 async function authorization(db: DB, a: Auth, no: number) {
   const current = await db.query(
     "SELECT 1 FROM approval_authorizations aa JOIN staff_memberships m ON m.tenant_id=aa.tenant_id AND m.user_id=aa.user_id JOIN platform_users u ON u.id=m.user_id JOIN tenants t ON t.id=m.tenant_id WHERE aa.tenant_id=$1 AND aa.user_id=$2 AND aa.service_no=$3 AND aa.active AND m.active AND m.role='approver' AND u.active AND t.status='ACTIVE' FOR SHARE OF aa,m,u,t",
@@ -203,6 +262,28 @@ async function authorization(db: DB, a: Auth, no: number) {
       "APPROVAL_AUTHORITY_REQUIRED",
       "An active service-specific approval authorization is required.",
     );
+}
+// W-015: charter-deadline columns for an `applications a` row — the
+// office's current charter days for the service (migration 027; the latest
+// policy version wins) and the last time the application reached the office
+// (submit/resubmit event). The clock runs from the latest submission, not
+// from creation: a correction cycle sends the application back to the
+// citizen, and the office's promised time restarts when it is resubmitted.
+// States waiting on the citizen (DRAFT, CORRECTION_REQUIRED) and terminal
+// states never count as overdue — nothing is due from the office then.
+const CHARTER_DEADLINE_COLUMNS = `
+  (SELECT p.charter_days FROM service_order_policies p WHERE p.tenant_id=a.tenant_id AND p.service_no=a.service_no ORDER BY p.version DESC LIMIT 1) AS charter_days,
+  (SELECT MAX(e.created_at) FROM application_events e WHERE e.tenant_id=a.tenant_id AND e.application_id=a.id AND e.to_state IN ('SUBMITTED','RESUBMITTED')) AS last_submitted_at`;
+const OFFICE_WAITING_STATES = ["SUBMITTED", "RESUBMITTED", "UNDER_REVIEW", "APPROVED"];
+function charterDeadline(row: any) {
+  const days = Number(row.charterDays ?? row.charter_days ?? NaN);
+  const last = row.lastSubmittedAt ?? row.last_submitted_at;
+  if (!Number.isFinite(days) || !last) return { dueAt: null, overdue: false };
+  const due = new Date(new Date(last).getTime() + days * 86_400_000);
+  return {
+    dueAt: due.toISOString(),
+    overdue: OFFICE_WAITING_STATES.includes(row.state) && due.getTime() < Date.now(),
+  };
 }
 async function loadApplication(db: DB, id: string, a: Auth, lock = false) {
   uuid.parse(id);
@@ -482,23 +563,19 @@ async function cancelOrderManually(
 }
 /**
  * Owner endpoints act across offices while payment_orders sits behind
- * per-tenant RLS, so locate an order's office the same way GET
- * /owner/tenants enumerates offices: one tenant transaction at a time.
+ * per-tenant RLS, so locate an order's office with the SECURITY DEFINER
+ * function from migration 075 (A-012) instead of one tenant transaction
+ * per tenant. The function runs as the migration owner and returns only
+ * the tenant id (or NULL when the order does not exist).
  */
 async function locateOrderTenant(orderId: string): Promise<string | null> {
-  const tenants = (await pool.query("SELECT id FROM tenants ORDER BY slug"))
-    .rows;
-  for (const t of tenants) {
-    const found = await transaction(t.id, async (db) =>
-      (
-        await db.query("SELECT tenant_id FROM payment_orders WHERE id=$1", [
-          orderId,
-        ])
-      ).rows[0],
-    );
-    if (found) return t.id;
-  }
-  return null;
+  const row = (
+    await pool.query(
+      "SELECT locate_payment_order_tenant($1) AS tenant_id",
+      [orderId],
+    )
+  ).rows[0];
+  return row?.tenant_id ?? null;
 }
 app.post(
   "/api/v1/billing/webhook",
@@ -524,6 +601,7 @@ app.use("/api/v1", attachmentScannerRouter);
 app.use("/api/v1", otpRouter);
 app.use("/api/v1", publicEmailRouter);
 app.use("/api/v1", brandingRouter);
+app.use("/api/v1", supportContactRouter);
 app.use("/api/v1", publicCouponsRouter);
 app.use("/api/v1", publicNoticesRouter);
 app.use("/api/v1", publicOfficeRegistrationRouter);
@@ -538,10 +616,31 @@ app.get(
   "/api/v1/health",
   wrap(async (_req, res) => {
     await pool.query("SELECT 1");
+    // A-002: the applied migration version is public release metadata (a
+    // version number, never data). A missing schema_migrations table means
+    // the database predates migration tracking; health stays "ok" and the
+    // version reports null instead of failing the probe.
+    let migrationVersion: string | null = null;
+    try {
+      migrationVersion =
+        (
+          await pool.query(
+            "SELECT name FROM schema_migrations ORDER BY name DESC LIMIT 1",
+          )
+        ).rows[0]?.name ?? null;
+    } catch {
+      migrationVersion = null;
+    }
     res.json({
       status: "ok",
       database: "PostgreSQL",
       mode: issuanceMode() === "official" ? "OFFICIAL" : "DEMO_ONLY",
+      // A-002 release traceability: app version, packaged commit, build
+      // time, release package id, process start (= deploy timestamp as far
+      // as this server knows it), and the applied DB migration version.
+      // Only non-sensitive values; see GET /api/v1/admin/release for the
+      // detailed operational view (admin role only).
+      release: publicRelease(migrationVersion),
       // Whether each optional server key is in place (true/false only, never a value), so an operator can
       // confirm a deployment without signing in.
       features: {
@@ -622,9 +721,20 @@ app.get(
     // (legacy numbers keep their hyphens), then the plain-digit form.
     // CERTNO-DDMM numbers are 14 digits; already-issued CERTNO-01
     // numbers are 16 digits and must keep resolving (nothing renumbers).
+    // S-006: the per-number failure budget. A malformed number is refused
+    // without recording (it cannot match a real record); a well-formed
+    // guess that misses records one failure against this number only.
     const candidates = [number];
     const digitsOnly = number.replace(/\D/g, "");
-    if (digitsOnly.length === 14 || digitsOnly.length === 16) {
+    const wellFormedDigits = digitsOnly.length === 14 || digitsOnly.length === 16;
+    const budgetKey = wellFormedDigits ? digitsOnly : number;
+    if (await lookupBudget.blocked(budgetKey))
+      fail(
+        429,
+        "VERIFY_RATE_LIMIT",
+        "Too many failed lookups for this number. Try again later.",
+      );
+    if (wellFormedDigits) {
       candidates.push(digitsOnly, `DEMO-${digitsOnly}`);
     }
     let record: any;
@@ -638,7 +748,10 @@ app.get(
         break;
       }
     }
-    if (!record) fail(404, "NOT_FOUND", "Verification record not found.");
+    if (!record) {
+      await lookupBudget.recordFailure(budgetKey);
+      fail(404, "NOT_FOUND", "Verification record not found.");
+    }
     // QA-06: a demo-mode number must never verify as a real document, and the
     // verifier gets a masked holder name to compare against the paper.
     const holder = (
@@ -646,6 +759,9 @@ app.get(
         matched,
       ])
     ).rows[0];
+    // S-006: a successful lookup clears this number's failure budget, so a
+    // holder who mistyped twice is not punished for eventually succeeding.
+    await lookupBudget.clear(budgetKey);
     res.json({
       ...camelRow(record),
       demo: Boolean(record.demo) || matched.startsWith("DEMO-"),
@@ -669,18 +785,46 @@ function maskName(name: unknown): string | null {
     })
     .join(" ");
 }
-const loginAttempts = new Map<string, { count: number; expires: number }>();
-const identifierAttempts = new Map<string, { count: number; expires: number }>();
+// S-006: per-number failure budget for the public verify/track lookups.
+// Ten failed lookups of one number in 15 minutes lock that number out;
+// a success clears it. The budget is shared across processes when
+// shared limits are enabled (same store as S-004). This bounds guessing
+// against a single number; it does NOT stop distributed enumeration
+// across distinct numbers — that needs a CAPTCHA/challenge step, which
+// no provider in this stack supplies (owner decision, see the batch-D
+// fragment). Re-keying legacy references is likewise an owner decision.
+const lookupBudget = createFailureBudget({
+  pool,
+  limit: 10,
+  windowMs: 15 * 60_000,
+  keyPrefix: "lookup:",
+  shared: sharedRateLimitsEnabled(),
+});
+// S-004: sign-in budgets. The per-IP budget (60/min) and the
+// per-identifier failure budget (10 failures/5 min) are shared across
+// server processes through rate_limit_buckets when shared limits are
+// enabled; otherwise they run from a per-process Map with identical
+// limits and messages (see shared-rate-limit.ts for why the test
+// environment keeps the in-memory path).
+const loginIpLimiter = createSharedRateLimiter({
+  pool,
+  limit: 60,
+  windowMs: 60_000,
+  keyPrefix: "login:ip:",
+  shared: sharedRateLimitsEnabled(),
+});
+const loginIdBudget = createFailureBudget({
+  pool,
+  limit: 10,
+  windowMs: 300_000,
+  keyPrefix: "login:id:",
+  shared: sharedRateLimitsEnabled(),
+});
 app.post(
   "/api/v1/auth/login",
   wrap(async (req, res) => {
     const key = req.ip ?? "local";
-    let bucket = loginAttempts.get(key);
-    if (!bucket || bucket.expires < Date.now()) {
-      bucket = { count: 0, expires: Date.now() + 60000 };
-      loginAttempts.set(key, bucket);
-    }
-    if (++bucket.count > 60)
+    if (!(await loginIpLimiter.consume(key)).allowed)
       fail(
         429,
         "RATE_LIMIT",
@@ -718,40 +862,75 @@ app.post(
           "IDENTIFIERS_UNAVAILABLE",
           "Sign-in with mobile, NID or birth registration is not configured on this server. Use your email.",
         );
+      // S-001: a mobile signs in only once a code sent to that handset proved
+      // it (verified_at NOT NULL). A pending mobile resolves to no account at
+      // all, so the failure is indistinguishable from an unknown number or a
+      // wrong password — no oracle for whether the number is registered or
+      // merely unverified. NID / birth registration keep their existing
+      // password-bound behaviour (they are set only from an authenticated
+      // session, never self-declared at signup).
       email =
         (
           await pool.query(
-            "SELECT u.email FROM account_identifiers i JOIN platform_users u ON u.id=i.user_id WHERE i.kind=$1 AND i.digest=$2",
+            "SELECT u.email FROM account_identifiers i JOIN platform_users u ON u.id=i.user_id WHERE i.kind=$1 AND i.digest=$2 AND (i.kind<>'mobile' OR i.verified_at IS NOT NULL)",
             [kind, identifierDigest(kind, normalized)],
           )
         ).rows[0]?.email ?? "";
     }
     // Same limit for every identifier kind, keyed by the identifier itself (not only by address).
     const identifierKey = `${kind}:${normalized ?? "invalid"}`;
-    let perIdentifier = identifierAttempts.get(identifierKey);
-    if (!perIdentifier || perIdentifier.expires < Date.now()) {
-      perIdentifier = { count: 0, expires: Date.now() + 300000 };
-      identifierAttempts.set(identifierKey, perIdentifier);
-      if (identifierAttempts.size > 10000)
-        for (const [k, v] of identifierAttempts)
-          if (v.expires < Date.now()) identifierAttempts.delete(k);
-    }
+    // S-014: resolve the account for the audit row when it exists (null
+    // for unknown identifiers — the failure is still logged, without the
+    // identifier value, which is never logged).
+    const auditActorId = email
+      ? (
+          await pool.query("SELECT id FROM platform_users WHERE email=$1", [email])
+        ).rows[0]?.id ?? null
+      : null;
     // Failed attempts only: ten failures for one identifier pause it for five minutes, whatever its kind.
-    if (perIdentifier.count >= 10)
+    if (await loginIdBudget.blocked(identifierKey)) {
+      // S-014: lockout, durable. Best-effort: a failed audit insert must
+      // not mask the 429.
+      await logPlatformSecurityEvent(pool, {
+        actorId: auditActorId,
+        action: "LOGIN_LOCKED_OUT",
+        identifierKind: kind,
+        ip: req.ip ?? null,
+        metadata: { windowMinutes: 5 },
+      }).catch((error) =>
+        console.error(
+          JSON.stringify({ event: "PLATFORM_AUDIT_FAILED", action: "LOGIN_LOCKED_OUT", error: error instanceof Error ? error.message : String(error) }),
+        ),
+      );
       fail(
         429,
         "RATE_LIMIT",
         "Too many sign-in attempts. Try again in five minutes.",
       );
+    }
     let result: Awaited<ReturnType<typeof passwordLogin>>;
     try {
       // An unknown or malformed identifier takes the same path as a wrong password.
       result = await passwordLogin(email || "unknown@invalid.invalid", data.password);
     } catch (error) {
-      if (error instanceof ApiError && error.code === "INVALID_LOGIN") perIdentifier.count++;
+      if (error instanceof ApiError && error.code === "INVALID_LOGIN") {
+        await loginIdBudget.recordFailure(identifierKey);
+        // S-014: failed login, durable. Best-effort, as above.
+        await logPlatformSecurityEvent(pool, {
+          actorId: auditActorId,
+          action: "LOGIN_FAILED",
+          identifierKind: kind,
+          ip: req.ip ?? null,
+          metadata: { reason: "INVALID_LOGIN" },
+        }).catch((error) =>
+          console.error(
+            JSON.stringify({ event: "PLATFORM_AUDIT_FAILED", action: "LOGIN_FAILED", error: error instanceof Error ? error.message : String(error) }),
+          ),
+        );
+      }
       throw error;
     }
-    identifierAttempts.delete(identifierKey);
+    await loginIdBudget.clear(identifierKey);
     if (result.challenge) res.json(result.challenge);
     else sendLogin(res, result.session!);
   }),
@@ -768,10 +947,12 @@ app.use("/api/v1", publicMfaRouter);
 // handler below: an invalid or inactive session still 401s,
 // which the client's session-drop logic depends on.
 app.get("/api/v1/auth/me", (req, res, next) => {
+  // S-005: the cookie name is __Host-astra_session in production.
+  const cookieName = sessionCookieName();
   const hasSessionCookie = (req.headers.cookie ?? "")
     .split(";")
     .map((x) => x.trim())
-    .some((x) => x.startsWith("astra_session=") && x.length > 14);
+    .some((x) => x.startsWith(`${cookieName}=`) && x.length > cookieName.length + 1);
   if (hasSessionCookie) return next();
   res.json({ user: null, tenant: null, csrfToken: null, anonymous: true });
 });
@@ -779,16 +960,19 @@ app.use(
   "/api/v1",
   (req: Req, res: express.Response, next: express.NextFunction) => {
     (async () => {
+      // S-005: the cookie name is __Host-astra_session in production.
+      const cookieName = sessionCookieName();
       const token = req.headers.cookie
         ?.split(";")
         .map((x) => x.trim())
-        .find((x) => x.startsWith("astra_session="))
-        ?.slice(14);
+        .find((x) => x.startsWith(`${cookieName}=`))
+        ?.slice(cookieName.length + 1);
       if (!token) fail(401, "LOGIN_REQUIRED", "Sign in required.");
+      const tokenHash = digest(token);
       const result = (
         await pool.query(
           "SELECT s.*,u.email,u.display_name,u.active,u.platform_role,u.email_verified_at,m.role,m.active membership_active,t.status tenant_status FROM sessions s JOIN platform_users u ON u.id=s.user_id LEFT JOIN staff_memberships m ON m.user_id=s.user_id AND m.tenant_id=s.tenant_id LEFT JOIN tenants t ON t.id=s.tenant_id WHERE s.token_hash=$1 AND s.expires_at>now()",
-          [digest(token)],
+          [tokenHash],
         )
       ).rows[0];
       if (
@@ -802,6 +986,19 @@ app.use(
           "SESSION_INACTIVE",
           "This session or tenant membership is inactive.",
         );
+      // S-005: idle timeout (45 min) + touch. An idle session is refused
+      // and expired so it cannot be revived; an active one slides its
+      // expiry forward, never past created_at + 8 h. The touch is
+      // throttled to one rewrite per minute per session.
+      if (isSessionIdle(result)) {
+        await expireSession(pool, tokenHash);
+        fail(401, "SESSION_IDLE", "This session expired due to inactivity. Sign in again.");
+      }
+      if (
+        Date.now() - new Date(result.last_seen_at).getTime() >
+        SESSION_TOUCH_STALE_MS
+      )
+        await touchSession(pool, tokenHash);
       req.auth = {
         userId: result.user_id,
         email: result.email,
@@ -841,6 +1038,9 @@ app.use("/api/v1", refundsRouter);
 app.use("/api/v1", ownerInclusionRouter);
 app.use("/api/v1", ownerWitnessRouter);
 app.use("/api/v1", operationsRouter);
+app.use("/api/v1", ownerStatisticsRouter);
+app.use("/api/v1", platformHealthRouter);
+app.use("/api/v1", ownerSupportContactRouter);
 app.use("/api/v1", paymentsRouter);
 app.use("/api/v1", orderPaymentsRouter);
 app.use("/api/v1", orderRefundsRouter);
@@ -882,11 +1082,40 @@ app.post(
       "UPDATE sessions SET expires_at=now() WHERE user_id=$1 AND csrf_token=$2",
       [a.userId, a.csrfToken],
     );
-    res.setHeader(
-      "Set-Cookie",
-      "astra_session=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0",
-    );
+    res.setHeader("Set-Cookie", clearSessionCookie());
     res.json({ ok: true });
+  }),
+);
+/**
+ * A-002: detailed release metadata for operators. Admin role only — the
+ * public health endpoint carries the non-sensitive subset. The full applied
+ * migration list and the packaged web-asset manifest let an operator prove
+ * which bundle is running and whether the database matches it, without
+ * exposing any secret, credential, or environment value.
+ */
+app.get(
+  "/api/v1/admin/release",
+  wrap(async (req, res) => {
+    roles(req, ["admin"]);
+    const migrations = (
+      await pool.query(
+        "SELECT name, applied_at FROM schema_migrations ORDER BY name",
+      )
+    ).rows.map((r: any) => ({ name: r.name, appliedAt: r.applied_at }));
+    res.json({
+      release: {
+        ...publicRelease(migrations.at(-1)?.name ?? null),
+        branch: releaseInfo.branch,
+        files: releaseInfo.files,
+        bytes: releaseInfo.bytes,
+      },
+      mode: issuanceMode() === "official" ? "OFFICIAL" : "DEMO_ONLY",
+      nodeVersion: process.version,
+      uptimeSeconds: Math.floor(process.uptime()),
+      startedAt: processStartedAt().toISOString(),
+      migrations,
+      assets: releaseInfo.assets,
+    });
   }),
 );
 /** Phase 3b: the citizen with profile completeness under this office's rules. */
@@ -1280,6 +1509,14 @@ app.delete(
     const id = uuid.parse(req.params.id);
     const item = await transaction(tenant(req), async (db) => {
       await reachableCitizen(db, a, id, "id");
+      // A-011: capture what is about to be removed (mime + byte count,
+      // never the bytes) for the append-only deletion ledger below.
+      const removed = (
+        await db.query(
+          "SELECT photo_mime,octet_length(photo) AS bytes FROM citizens WHERE tenant_id=$1 AND id=$2",
+          [a.tenantId, id],
+        )
+      ).rows[0];
       const row = (
         await db.query(
           "UPDATE citizens SET photo=NULL,photo_mime=NULL,photo_updated_at=NULL WHERE tenant_id=$1 AND id=$2 RETURNING *",
@@ -1287,6 +1524,18 @@ app.delete(
         )
       ).rows[0];
       await audit(db, a.tenantId!, a.userId, "CITIZEN_PHOTO_REMOVED", id, {});
+      await db.query(
+        "INSERT INTO citizen_artifact_deletions(tenant_id,actor_id,citizen_id,artifact_type,detail) VALUES($1,$2,$3,'citizen_photo',$4)",
+        [
+          a.tenantId,
+          a.userId,
+          id,
+          JSON.stringify({
+            mimeType: removed?.photo_mime ?? null,
+            bytes: removed?.bytes ? Number(removed.bytes) : 0,
+          }),
+        ],
+      );
       return citizenRow(row);
     });
     res.json(item);
@@ -1309,15 +1558,44 @@ app.get(
 app.get(
   "/api/v1/citizens/:id/identity",
   wrap(async (req, res) => {
-    const a = roles(req, [...staffRead, "citizen"]);
+    // S-010: full identity numbers are NOT for plain office staff. The
+    // reviewer and approver need them for issuance checks, the office admin
+    // for account administration, and the citizen for their own record; a
+    // staff member works from the masked hints on the citizen row instead.
+    // `?masked=true` returns the masked form even for authorized roles.
+    const a = roles(req, ["admin", "reviewer", "approver", "citizen"]);
     const id = uuid.parse(req.params.id);
+    const masked = req.query.masked === "true";
     const numbers = await transaction(tenant(req), async (db) => {
       const r = await reachableCitizen(db, a, id, "nid_cipher,birth_reg_cipher");
       // Reading the full numbers is recorded, like other access to personal data.
       await audit(db, a.tenantId!, a.userId, "CITIZEN_IDENTITY_VIEWED", id);
+      // S-010: bulk/rapid reads are flagged once per window so a compromised
+      // or curious account harvesting numbers leaves a distinct audit event
+      // instead of blending into the per-read log.
+      const recentReads = (
+        await db.query(
+          "SELECT count(*)::int n FROM audit_events WHERE tenant_id=$1 AND actor_id=$2 AND action='CITIZEN_IDENTITY_VIEWED' AND created_at > now() - interval '10 minutes'",
+          [a.tenantId, a.userId],
+        )
+      ).rows[0].n as number;
+      if (recentReads >= 20) {
+        const alreadyFlagged = (
+          await db.query(
+            "SELECT 1 FROM audit_events WHERE tenant_id=$1 AND actor_id=$2 AND action='CITIZEN_IDENTITY_BULK_READ' AND created_at > now() - interval '10 minutes'",
+            [a.tenantId, a.userId],
+          )
+        ).rowCount;
+        if (!alreadyFlagged)
+          await audit(db, a.tenantId!, a.userId, "CITIZEN_IDENTITY_BULK_READ", id, {
+            readsInWindow: recentReads,
+          });
+      }
+      const nid = r.nid_cipher ? decryptNumber(r.nid_cipher, a.tenantId!, "nid") : null;
+      const birthReg = r.birth_reg_cipher ? decryptNumber(r.birth_reg_cipher, a.tenantId!, "birth_reg") : null;
       return {
-        nid: r.nid_cipher ? decryptNumber(r.nid_cipher, a.tenantId!, "nid") : null,
-        birthReg: r.birth_reg_cipher ? decryptNumber(r.birth_reg_cipher, a.tenantId!, "birth_reg") : null,
+        nid: masked ? maskIdentityNumber(nid) : nid,
+        birthReg: masked ? maskIdentityNumber(birthReg) : birthReg,
       };
     });
     res.setHeader("Cache-Control", "no-store");
@@ -1333,10 +1611,10 @@ app.get(
     // digits-only form, so the grouped Phase 5 reference can be pasted with or without hyphens.
     const q = normalizeSearchQuery(String(req.query.q ?? "").slice(0, 100));
     const digits = referenceDigits(q);
-    // WS-D3: real pagination for the citizens register. No page/pageSize in
-    // the query keeps the previous behaviour (first 100 rows); a page
-    // request honours pageSize (1–100) so the register can be browsed past
-    // the first page instead of stopping at an unexplained cap.
+    // WS-D3 / CH-009: real pagination for the citizens register. No
+    // page/pageSize keeps the previous behaviour (first 100 rows), so existing
+    // callers (dashboard totals, global search) are unaffected; a page request
+    // honours pageSize (1-100).
     const page = z.coerce.number().int().min(1).max(100000).default(1).parse(req.query.page);
     const pageSize = z.coerce.number().int().min(1).max(100).default(100).parse(req.query.pageSize);
     const { items, total } = await transaction(tenant(req), async (db) => {
@@ -1487,6 +1765,11 @@ app.get(
       z.string().max(100).default("").parse(req.query.q),
     );
     const searchDigits = referenceDigits(search);
+    // CH-002: resolve the raw query to catalog service numbers (the
+    // escaped `search` above is only for the SQL LIKE pattern).
+    const serviceNos = matchingServiceNumbers(
+      z.string().max(100).default("").parse(req.query.q),
+    );
     const state = req.query.state
       ? z
           .enum([
@@ -1536,6 +1819,9 @@ app.get(
         a.role === "citizen" ? a.userId : null,
         `%${search}%`,
         searchDigits ? `%${searchDigits}%` : null,
+        // CH-002: service numbers whose catalog name matches the query
+        // (null when none — the clause below then matches nothing extra).
+        serviceNos.length ? serviceNos : null,
       ];
       // Security Audit 01, F7: the (already Zod-validated) range bounds are bound
       // as parameters like every other value, never interpolated into the SQL text.
@@ -1548,17 +1834,20 @@ app.get(
         values.push(range.to);
         rangeFilter += ` AND (a.created_at AT TIME ZONE 'Asia/Dhaka')::date <= $${values.length}::date`;
       }
-      const from = `FROM applications a JOIN citizens c ON c.id=a.citizen_id AND c.tenant_id=a.tenant_id LEFT JOIN certificates cert ON cert.tenant_id=a.tenant_id AND cert.application_id=a.id WHERE a.tenant_id=$1 AND ($2::text IS NULL OR a.state=$2) AND ($3::int IS NULL OR a.service_no=$3) AND ($4::uuid IS NULL OR c.user_id=$4) AND (a.id::text ILIKE $5 OR a.reference ILIKE $5 OR ($6::text IS NOT NULL AND replace(a.reference,'-','') ILIKE $6) OR c.full_name_bn ILIKE $5 OR c.full_name_en ILIKE $5 OR c.synthetic_reference ILIKE $5 OR ($6::text IS NOT NULL AND replace(c.synthetic_reference,'-','') ILIKE $6) OR c.contact_mobile ILIKE $5)${rangeFilter}${renewalOnly ? " AND EXISTS(SELECT 1 FROM renewal_links l WHERE l.tenant_id=a.tenant_id AND l.application_id=a.id)" : ""}`;
+      const from = `FROM applications a JOIN citizens c ON c.id=a.citizen_id AND c.tenant_id=a.tenant_id LEFT JOIN certificates cert ON cert.tenant_id=a.tenant_id AND cert.application_id=a.id WHERE a.tenant_id=$1 AND ($2::text IS NULL OR a.state=$2) AND ($3::int IS NULL OR a.service_no=$3) AND ($4::uuid IS NULL OR c.user_id=$4) AND (a.id::text ILIKE $5 OR a.reference ILIKE $5 OR ($6::text IS NOT NULL AND replace(a.reference,'-','') ILIKE $6) OR c.full_name_bn ILIKE $5 OR c.full_name_en ILIKE $5 OR c.synthetic_reference ILIKE $5 OR ($6::text IS NOT NULL AND replace(c.synthetic_reference,'-','') ILIKE $6) OR c.contact_mobile ILIKE $5 OR ($7::int[] IS NOT NULL AND a.service_no = ANY($7)))${rangeFilter}${renewalOnly ? " AND EXISTS(SELECT 1 FROM renewal_links l WHERE l.tenant_id=a.tenant_id AND l.application_id=a.id)" : ""}`;
       const items = (
         await db.query(
           // WS-D1: certificate_issued_at feeds the issued rows' chip (the
           // waiting chip must never render on an issued row); the join is
           // 1:0/1 (UNIQUE tenant_id,application_id), so the count below
-          // is unaffected.
-          `SELECT a.*,cert.issued_at AS certificate_issued_at,EXISTS(SELECT 1 FROM renewal_links l WHERE l.tenant_id=a.tenant_id AND l.application_id=a.id) AS is_renewal ${from} ORDER BY ${orderBy} LIMIT $${values.length + 1} OFFSET $${values.length + 2}`,
+          // is unaffected. W-015: charter deadline columns feed the overdue chip.
+          `SELECT a.*,cert.issued_at AS certificate_issued_at,EXISTS(SELECT 1 FROM renewal_links l WHERE l.tenant_id=a.tenant_id AND l.application_id=a.id) AS is_renewal,${CHARTER_DEADLINE_COLUMNS} ${from} ORDER BY ${orderBy} LIMIT $${values.length + 1} OFFSET $${values.length + 2}`,
           [...values, pageSize, (page - 1) * pageSize],
         )
-      ).rows.map(camelRow);
+      ).rows.map((r: any) => {
+        const row = camelRow(r);
+        return { ...row, ...charterDeadline(row) };
+      });
       const total = (
         await db.query(`SELECT count(*)::int total ${from}`, values)
       ).rows[0].total;
@@ -1577,7 +1866,9 @@ app.get(
     // figures. The tenant transaction applies forced RLS, and the explicit tenant
     // predicate keeps the count scoped even if policies change.
     // CORRECTION_REQUIRED is deliberately NOT part of either pending group: after a
-    // correction request the next move is the citizen's, not the office's.
+    // correction request the next move is the citizen's, not the office's. It is
+    // exposed separately as awaitingCitizen (W-011) so the Chairman still sees the
+    // applications waiting on citizens instead of losing them from the queue.
     const a = roles(req, [...staffRead, "citizen"]);
     const ownOnly = a.role === "citizen";
     const { byState: counts, oldestPendingAt } = await transaction(tenant(req), async (db) => {
@@ -1613,10 +1904,26 @@ app.get(
           ownOnly ? [a.tenantId, a.userId] : [a.tenantId],
         )
       ).rows[0]?.oldest as Date | null;
+      // W-015: how many office-waiting applications are past their charter
+      // due date (latest submit/resubmit + the service's current charter
+      // days). A NULL charter policy or no submit event makes the sum NULL,
+      // which is never < now(), so those rows are excluded. A citizen caller
+      // gets the figure for their OWN applications only, never office-wide.
+      const overdue = (
+        await db.query(
+          `SELECT count(*)::int AS overdue FROM applications a WHERE a.tenant_id=$1 ${ownOnly ? "AND EXISTS(SELECT 1 FROM citizens c WHERE c.id=a.citizen_id AND c.tenant_id=a.tenant_id AND c.user_id=$2) " : ""}AND a.state IN ('SUBMITTED','RESUBMITTED','UNDER_REVIEW','APPROVED') AND (SELECT MAX(e.created_at) FROM application_events e WHERE e.tenant_id=a.tenant_id AND e.application_id=a.id AND e.to_state IN ('SUBMITTED','RESUBMITTED')) + ((SELECT p.charter_days FROM service_order_policies p WHERE p.tenant_id=a.tenant_id AND p.service_no=a.service_no ORDER BY p.version DESC LIMIT 1) || ' days')::interval < now()`,
+          ownOnly ? [a.tenantId, a.userId] : [a.tenantId],
+        )
+      ).rows[0].overdue;
+      // (Kept on the byState record rather than spread into a new object:
+      // TypeScript drops index signatures through spread, and the counts
+      // below read named states off this record.)
+      byState.overdue = overdue;
       return { byState, oldestPendingAt: oldest ? oldest.toISOString() : null };
     });
     res.json({
       counts,
+      overdue: counts.overdue,
       awaitingReview:
         counts.SUBMITTED + counts.RESUBMITTED + counts.UNDER_REVIEW,
       // ISSUANCE_PENDING is not a state in the current state machine (migration
@@ -1624,6 +1931,9 @@ app.get(
       awaitingIssuance:
         counts.APPROVED + (counts.ISSUANCE_PENDING ?? 0),
       oldestPendingAt,
+      // W-011: applications waiting on the citizen (correction requested).
+      // Not office-pending work, but the Chairman needs the group visible.
+      awaitingCitizen: counts.CORRECTION_REQUIRED,
     });
   }),
 );
@@ -1637,11 +1947,28 @@ app.post(
         serviceNo: z.number().int(),
         payload: z.record(z.string(), z.unknown()),
         order: applicationOrderInput.optional(),
+        // W-004: optional client-supplied idempotency key. A replay of
+        // the same key for the same citizen + service returns the
+        // original application instead of creating a duplicate draft;
+        // a new key (or no key) still creates a legitimate repeat
+        // application. The key is claimed only after every validation
+        // passes, inside the creation transaction, so a rejected
+        // request never consumes it.
+        requestKey: uuid.optional(),
+        // W-013: a partial draft saves a half-filled form. Only the form
+        // validation is skipped — profile, service and order checks still
+        // run, and submit/resubmit re-validate fully, so a partial draft
+        // can never leave DRAFT in an invalid state. The draft is marked
+        // partial (applications.partial_payload) until a fully valid
+        // payload is saved over it.
+        partial: z.boolean().optional(),
       })
       .strict()
       .parse(req.body);
-    const result = await transaction(tenant(req), async (db) => {
-      const citizen = (
+    const { application, replayed } = await transaction(
+      tenant(req),
+      async (db) => {
+        const citizen = (
         await db.query(
           `SELECT * FROM citizens WHERE id=$1 AND tenant_id=$2 ${a.role === "citizen" ? "AND user_id=$3" : ""}`,
           a.role === "citizen"
@@ -1673,13 +2000,15 @@ app.post(
       const schemaVersion = getServiceSchema(
         z.number().int().min(1).max(47).parse(data.serviceNo),
       ).version;
-      await validatePayload(
-        db,
-        data.serviceNo,
-        data.payload,
-        schemaVersion,
-        data.citizenId,
-      );
+      // W-013: partial drafts skip form validation only (see the body comment).
+      if (!data.partial)
+        await validatePayload(
+          db,
+          data.serviceNo,
+          data.payload,
+          schemaVersion,
+          data.citizenId,
+        );
       const sv = (
         await db.query(
           "SELECT * FROM service_versions WHERE service_no=$1 AND version=$2",
@@ -1706,15 +2035,47 @@ app.post(
         data.order,
         data.payload,
       );
+      // W-004: claim the idempotency key before creating anything. The
+      // advisory lock serializes concurrent replays of the same key: the
+      // loser waits for the winner's transaction, then reads the
+      // committed key row and returns the same application. No second
+      // draft, no second order snapshot, no second fee settlement.
+      let replayedApplication: any = null;
+      if (data.requestKey) {
+        await db.query(
+          "SELECT pg_advisory_xact_lock(hashtext('application_create'), hashtext($1))",
+          [
+            `${a.tenantId}:${data.citizenId}:${data.serviceNo}:${data.requestKey}`,
+          ],
+        );
+        const claimed = (
+          await db.query(
+            "SELECT application_id FROM application_creation_keys WHERE tenant_id=$1 AND citizen_id=$2 AND service_no=$3 AND request_key=$4",
+            [a.tenantId, data.citizenId, data.serviceNo, data.requestKey],
+          )
+        ).rows[0];
+        if (claimed) {
+          replayedApplication = (
+            await db.query(
+              "SELECT * FROM applications WHERE id=$1 AND tenant_id=$2",
+              [claimed.application_id, a.tenantId],
+            )
+          ).rows[0];
+        }
+      }
+      if (replayedApplication)
+        return { application: camelRow(replayedApplication), replayed: true };
       // CERTNO-01: every new application carries the public 16-digit reference
       // (Asia/Dhaka submission date + 8 random digits, uniqueness-checked). The UUID id
       // remains the internal key; previously created applications keep their reference
       // (or NULL) and stay reachable by UUID.
       const reference = await mintReference(applicationReferenceExists(db));
+      const applicationId = randomUUID();
       const r = (
         await db.query(
-          "INSERT INTO applications(tenant_id,citizen_id,service_no,schema_version,schema_hash,created_by,order_mode,reference) VALUES($1,$2,$3,$6,$4,$5,$7,$8) RETURNING *",
+          "INSERT INTO applications(id,tenant_id,citizen_id,service_no,schema_version,schema_hash,created_by,order_mode,reference,partial_payload) VALUES($1,$2,$3,$4,$7,$5,$6,$8,$9,$10) RETURNING *",
           [
+            applicationId,
             a.tenantId,
             data.citizenId,
             data.serviceNo,
@@ -1723,6 +2084,7 @@ app.post(
             schemaVersion,
             order ? "POLICY" : "LEGACY",
             reference,
+            !!data.partial,
           ],
         )
       ).rows[0];
@@ -1738,9 +2100,16 @@ app.post(
       );
       await saveApplicationOrder(db, a.tenantId!, r.id, data.serviceNo, order);
       await event(db, { ...r, state: null }, a, "create", "DRAFT");
-      return camelRow(r);
-    });
-    res.status(201).json(result);
+      if (data.requestKey)
+        await db.query(
+          "INSERT INTO application_creation_keys(tenant_id,citizen_id,service_no,request_key,application_id) VALUES($1,$2,$3,$4,$5)",
+          [a.tenantId, data.citizenId, data.serviceNo, data.requestKey, r.id],
+        );
+      return { application: camelRow(r), replayed: false };
+      },
+    );
+    if (replayed) res.set("X-Idempotency-Replayed", "true");
+    res.status(201).json(application);
   }),
 );
 app.get(
@@ -1805,6 +2174,14 @@ app.get(
     const a = roles(req, [...staffRead, "citizen"]);
     const result = await transaction(tenant(req), async (db) => {
       const r = await loadApplication(db, String(req.params.id), a);
+      // W-015: charter deadline for this application (same rule as the list).
+      const deadlineRow = (
+        await db.query(
+          `SELECT ${CHARTER_DEADLINE_COLUMNS} FROM applications a WHERE a.id=$1 AND a.tenant_id=$2`,
+          [r.id, a.tenantId],
+        )
+      ).rows[0];
+      const applicationRow = { ...camelRow(r), ...camelRow(deadlineRow) };
       const versions = (
         await db.query(
           "SELECT version,payload,payload_hash,created_at FROM application_payload_versions WHERE application_id=$1 ORDER BY version",
@@ -1812,7 +2189,7 @@ app.get(
         )
       ).rows.map(camelRow);
       return {
-        application: camelRow(r),
+        application: { ...applicationRow, ...charterDeadline(applicationRow) },
         order: await getApplicationOrder(db, r.id),
         serviceConfiguration: camelRow(
           (
@@ -1863,6 +2240,30 @@ app.get(
     res.json(result);
   }),
 );
+/**
+ * W-010: delivery outcomes for one application's status notifications.
+ * One row per attempted channel (email/sms) with an honest status — sent,
+ * logged (recorded locally, reached no handset/mailbox), failed,
+ * unavailable (no provider configured), or no_contact. Office staff and
+ * the owning citizen can read it; it never exposes message contents.
+ */
+app.get(
+  "/api/v1/applications/:id/notification-deliveries",
+  wrap(async (req, res) => {
+    const a = roles(req, [...staffRead, "citizen", "finance"]);
+    const result = await transaction(tenant(req), async (db) => {
+      const r = await loadApplication(db, String(req.params.id), a);
+      const items = (
+        await db.query(
+          "SELECT kind,channel,status,created_at FROM notification_deliveries WHERE application_id=$1 ORDER BY created_at DESC, id DESC LIMIT 100",
+          [r.id],
+        )
+      ).rows.map(camelRow);
+      return { applicationId: r.id, items };
+    });
+    res.json(result);
+  }),
+);
 app.post(
   "/api/v1/applications/:id/renew",
   wrap(async (req, res) => {
@@ -1872,9 +2273,18 @@ app.post(
         .object({
           payload: z.record(z.string(), z.unknown()).optional(),
           order: applicationOrderInput.optional(),
+          // W-004 (follow-up): a renewal is a second creation path into
+          // applications, and it accepted no requestKey — a retried renew
+          // created a second renewal draft (the one_active_renewal unique
+          // index turned a concurrent race into a 500 instead of a clean
+          // replay). The same application_creation_keys claim as POST
+          // /applications applies: one renewal per (tenant, citizen,
+          // service, key).
+          requestKey: uuid.optional(),
         })
         .strict()
         .parse(req.body ?? {});
+    let replayed = false;
     const result = await transaction(
       tenant(req),
       async (db) => {
@@ -1885,6 +2295,50 @@ app.post(
             [id],
           )
         ).rows[0];
+        // W-004: the replay lookup runs BEFORE the RENEWAL_EXISTS check
+        // below, so a replay returns the original renewal instead of a
+        // 409; a keyless or different-key repeat still gets the 409. The
+        // claim is taken only after every validation passes, inside the
+        // transaction, so a rejected renew never consumes its key.
+        if (d.requestKey) {
+          await db.query(
+            "SELECT pg_advisory_xact_lock(hashtext('application_renew'), hashtext($1))",
+            [
+              `${a.tenantId}:${parent.citizen_id}:${parent.service_no}:${d.requestKey}`,
+            ],
+          );
+          const claimed = (
+            await db.query(
+              "SELECT application_id FROM application_creation_keys WHERE tenant_id=$1 AND citizen_id=$2 AND service_no=$3 AND request_key=$4",
+              [a.tenantId, parent.citizen_id, parent.service_no, d.requestKey],
+            )
+          ).rows[0];
+          if (claimed) {
+            const original = (
+              await db.query(
+                "SELECT * FROM applications WHERE id=$1 AND tenant_id=$2",
+                [claimed.application_id, a.tenantId],
+              )
+            ).rows[0];
+            if (original) {
+              replayed = true;
+              return {
+                ...camelRow(original),
+                sourceCertificateId: cert.id,
+                // The creation-time locationUpgrade is not stored; it is
+                // derived from the versions — a child on a newer schema
+                // version than its parent means the upgrade resolved.
+                // NONE vs UNRESOLVED cannot be told apart on replay
+                // (both stay on the parent's version); no client reads
+                // this field (the workspace uses only the id).
+                locationUpgrade:
+                  original.schema_version > parent.schema_version
+                    ? "RESOLVED"
+                    : "NONE",
+              };
+            }
+          }
+        }
         if (parent.state !== "ISSUED" || !cert)
           fail(
             409,
@@ -2063,6 +2517,11 @@ app.post(
           "INSERT INTO renewal_links(tenant_id,application_id,source_certificate_id) VALUES($1,$2,$3)",
           [a.tenantId, child.id, cert.id],
         );
+        if (d.requestKey)
+          await db.query(
+            "INSERT INTO application_creation_keys(tenant_id,citizen_id,service_no,request_key,application_id) VALUES($1,$2,$3,$4,$5)",
+            [a.tenantId, parent.citizen_id, parent.service_no, d.requestKey, child.id],
+          );
         await event(
           db,
           { ...child, state: null },
@@ -2079,6 +2538,179 @@ app.post(
       },
       true,
     );
+    if (replayed) res.set("X-Idempotency-Replayed", "true");
+    res.status(201).json(result);
+  }),
+);
+/**
+ * W-014: re-apply from a rejected application. Rejection is no longer a dead
+ * end: the citizen (or office staff) starts a new DRAFT that reuses the
+ * rejected payload, linked via applications.reapplication_of so the history
+ * stays connected. The new application is a fresh application in every other
+ * respect — its own reference, its own fee settlement at submit, and its own
+ * Chairman decision. The submit fee is charged again under the implemented
+ * billing model (charge at first submit); waiving the second fee is an OWNER
+ * DECISION, not implemented here. If the carried payload no longer validates
+ * against the current schema it is saved as a partial draft (W-013) so the
+ * citizen can fix it instead of losing it. The order snapshot is NOT carried
+ * over: delivery choices and fees are re-chosen under the current policy.
+ */
+app.post(
+  "/api/v1/applications/:id/reapply",
+  wrap(async (req, res) => {
+    const a = roles(req, ["citizen", "staff", "admin"]);
+    const id = uuid.parse(req.params.id);
+    const d = z
+      .object({
+        payload: z.record(z.string(), z.unknown()).optional(),
+        order: applicationOrderInput.optional(),
+        // W-004: same idempotency claim as POST /applications and renew — a
+        // retried reapply returns the original re-application draft.
+        requestKey: uuid.optional(),
+      })
+      .strict()
+      .parse(req.body ?? {});
+    let replayed = false;
+    const result = await transaction(
+      tenant(req),
+      async (db) => {
+        const original = await loadApplication(db, id, a, true);
+        if (d.requestKey) {
+          await db.query(
+            "SELECT pg_advisory_xact_lock(hashtext('application_reapply'), hashtext($1))",
+            [
+              `${a.tenantId}:${original.citizen_id}:${original.service_no}:${d.requestKey}`,
+            ],
+          );
+          const claimed = (
+            await db.query(
+              "SELECT application_id FROM application_creation_keys WHERE tenant_id=$1 AND citizen_id=$2 AND service_no=$3 AND request_key=$4",
+              [a.tenantId, original.citizen_id, original.service_no, d.requestKey],
+            )
+          ).rows[0];
+          if (claimed) {
+            const existing = (
+              await db.query(
+                "SELECT * FROM applications WHERE id=$1 AND tenant_id=$2",
+                [claimed.application_id, a.tenantId],
+              )
+            ).rows[0];
+            if (existing) {
+              replayed = true;
+              return { ...camelRow(existing), sourceApplicationId: id };
+            }
+          }
+        }
+        if (original.state !== "REJECTED")
+          fail(
+            409,
+            "REAPPLY_SOURCE_INVALID",
+            "Only a rejected application can be re-applied for.",
+          );
+        const sourcePayload = (
+          await db.query(
+            "SELECT payload FROM application_payload_versions WHERE application_id=$1 AND version=$2",
+            [id, original.latest_version],
+          )
+        ).rows[0].payload;
+        const carried = { ...(d.payload ?? sourcePayload) };
+        // Carry the payload onto the current schema when it validates there;
+        // otherwise keep it on the pinned version, as a partial draft when it
+        // validates nowhere, so the citizen's work is never lost.
+        const latestVersion = getServiceSchema(original.service_no).version;
+        const validOn = async (version: number) => {
+          try {
+            await validatePayload(
+              db,
+              original.service_no,
+              carried,
+              version,
+              original.citizen_id,
+            );
+            return true;
+          } catch (error) {
+            if (error instanceof ApiError && error.code === "FORM_INVALID")
+              return false;
+            throw error;
+          }
+        };
+        let payload = carried,
+          schemaVersion = latestVersion,
+          partial = false;
+        if (await validOn(latestVersion)) schemaVersion = latestVersion;
+        else if (await validOn(original.schema_version))
+          schemaVersion = original.schema_version;
+        else {
+          schemaVersion = original.schema_version;
+          partial = true;
+        }
+        const order = await prepareApplicationOrder(
+          db,
+          a.tenantId!,
+          original.service_no,
+          d.order,
+          payload,
+        );
+        const schema = (
+          await db.query(
+            "SELECT schema_hash FROM service_versions WHERE service_no=$1 AND version=$2",
+            [original.service_no, schemaVersion],
+          )
+        ).rows[0];
+        const reference = await mintReference(applicationReferenceExists(db));
+        const child = (
+          await db.query(
+            "INSERT INTO applications(id,tenant_id,citizen_id,service_no,schema_version,schema_hash,created_by,order_mode,reference,partial_payload,reapplication_of) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING *",
+            [
+              randomUUID(),
+              a.tenantId,
+              original.citizen_id,
+              original.service_no,
+              schemaVersion,
+              schema.schema_hash,
+              a.userId,
+              order ? "POLICY" : "LEGACY",
+              reference,
+              partial,
+              id,
+            ],
+          )
+        ).rows[0];
+        await db.query(
+          "INSERT INTO application_payload_versions(tenant_id,application_id,version,payload,payload_hash,actor_id) VALUES($1,$2,1,$3,$4,$5)",
+          [
+            a.tenantId,
+            child.id,
+            JSON.stringify(payload),
+            digest(stablePayload(payload)),
+            a.userId,
+          ],
+        );
+        await saveApplicationOrder(
+          db,
+          a.tenantId!,
+          child.id,
+          original.service_no,
+          order,
+        );
+        if (d.requestKey)
+          await db.query(
+            "INSERT INTO application_creation_keys(tenant_id,citizen_id,service_no,request_key,application_id) VALUES($1,$2,$3,$4,$5)",
+            [a.tenantId, original.citizen_id, original.service_no, d.requestKey, child.id],
+          );
+        await event(
+          db,
+          { ...child, state: null },
+          a,
+          "reapply",
+          "DRAFT",
+          `Re-applies for rejected ${original.reference ?? original.id}`,
+        );
+        return { ...camelRow(child), sourceApplicationId: id };
+      },
+      true,
+    );
+    if (replayed) res.set("X-Idempotency-Replayed", "true");
     res.status(201).json(result);
   }),
 );
@@ -2087,7 +2719,13 @@ app.patch(
   wrap(async (req, res) => {
     const a = roles(req, ["staff", "admin", "citizen"]);
     const data = z
-      .object({ payload: z.record(z.string(), z.unknown()) })
+      .object({
+        payload: z.record(z.string(), z.unknown()),
+        // W-013: a partial edit saves a half-filled form without full
+        // validation. The order agreement is still checked; submit/resubmit
+        // re-validate fully. A fully valid save clears the partial marker.
+        partial: z.boolean().optional(),
+      })
       .strict()
       .parse(req.body);
     const result = await transaction(tenant(req), async (db) => {
@@ -2098,13 +2736,14 @@ app.patch(
           "STATE_CONFLICT",
           "This application cannot be edited in its current state.",
         );
-      await validatePayload(
-        db,
-        r.service_no,
-        data.payload,
-        r.schema_version,
-        r.citizen_id,
-      );
+      if (!data.partial)
+        await validatePayload(
+          db,
+          r.service_no,
+          data.payload,
+          r.schema_version,
+          r.citizen_id,
+        );
       await validateApplicationOrder(db, r, data.payload);
       const version = r.latest_version + 1;
       await db.query(
@@ -2120,8 +2759,8 @@ app.patch(
       );
       const next = (
         await db.query(
-          "UPDATE applications SET latest_version=$2,updated_at=now() WHERE id=$1 RETURNING *",
-          [r.id, version],
+          "UPDATE applications SET latest_version=$2,partial_payload=$3,updated_at=now() WHERE id=$1 RETURNING *",
+          [r.id, version, !!data.partial],
         )
       ).rows[0];
       await event(db, r, a, "edit", r.state);
@@ -2145,6 +2784,10 @@ app.patch(
  * subscription is not required to issue, and neither wallet is debited here.
  */
 const DECISION_STATES = ["SUBMITTED", "RESUBMITTED", "UNDER_REVIEW"];
+// W-023: a correction request counts as one correction cycle. After this many
+// cycles the Chairman must decide (approve or reject) instead of asking for
+// another correction — the loop cannot ping-pong forever.
+const CORRECTION_CYCLE_LIMIT = 3;
 const APPROVE_STATES = [...DECISION_STATES, "APPROVED"];
 const ISSUANCE_GATE_CODES = new Set([
   "ORDER_PAYMENT_REQUIRED",
@@ -2631,6 +3274,10 @@ app.post(
             [r.id, r.latest_version],
           )
         ).rows[0].payload;
+        // W-013: final submission enforces FULL validation. A partial draft
+        // reaches here without ever having passed it, so this is the gate
+        // that makes partial drafts safe — an invalid payload stays a draft.
+        await validatePayload(db, r.service_no, payload, r.schema_version, r.citizen_id);
         await validateApplicationOrder(db, r, payload);
       }
       switch (data.action) {
@@ -2653,6 +3300,10 @@ app.post(
         case "request_correction":
           // Phase W: the Chairman asks for corrections himself; there is no reviewer step.
           roles(req, ["approver"]);
+          // S-011: a negative decision needs the same per-service authorization
+          // as approve/issue — an approver authorized for service X cannot demand
+          // corrections on service Y applications.
+          await authorization(db, a, r.service_no);
           if (!DECISION_STATES.includes(r.state))
             fail(
               409,
@@ -2661,6 +3312,14 @@ app.post(
             );
           if (!data.reason)
             fail(422, "REASON_REQUIRED", "A correction reason is required.");
+          // W-023: the correction loop is capped. At the limit the Chairman must
+          // decide (approve or reject) or ask the citizen to contact the office.
+          if (r.correction_count >= CORRECTION_CYCLE_LIMIT)
+            fail(
+              409,
+              "CORRECTION_LIMIT_REACHED",
+              `This application has already had ${CORRECTION_CYCLE_LIMIT} correction requests. Approve or reject it, or ask the citizen to contact the office.`,
+            );
           next = "CORRECTION_REQUIRED";
           break;
         case "summon":
@@ -2681,6 +3340,9 @@ app.post(
         case "reject":
           // Phase W: only the Chairman rejects (the reviewer/secretary no longer decides).
           roles(req, ["approver"]);
+          // S-011: same per-service authorization as approve/issue (see
+          // request_correction above).
+          await authorization(db, a, r.service_no);
           if (!DECISION_STATES.includes(r.state))
             fail(
               409,
@@ -2693,7 +3355,10 @@ app.post(
           break;
         case "cancel":
           roles(req, ["citizen", "staff", "admin"]);
-          if (!["DRAFT", "SUBMITTED", "CORRECTION_REQUIRED"].includes(r.state))
+          // A-015: a resubmitted application can be cancelled too — before this
+          // the citizen was stuck with no cancel path after resubmitting and the
+          // Chairman had to reject instead (a terminal, negatively-framed outcome).
+          if (!["DRAFT", "SUBMITTED", "CORRECTION_REQUIRED", "RESUBMITTED"].includes(r.state))
             fail(409, "STATE_CONFLICT", "Application cannot be cancelled now.");
           if (!data.reason)
             fail(422, "REASON_REQUIRED", "A cancellation reason is required.");
@@ -2721,8 +3386,11 @@ app.post(
         await settleApplicationFee(db, r.tenant_id, r, a.userId);
       const updated = (
         await db.query(
-          "UPDATE applications SET state=$2,updated_at=now(),approved_by=CASE WHEN $2='APPROVED' THEN $3 ELSE approved_by END,approved_version=CASE WHEN $2='APPROVED' THEN latest_version ELSE approved_version END WHERE id=$1 RETURNING *",
-          [r.id, next, a.userId],
+          // W-023: a correction request advances the cycle counter in the same
+          // statement that moves the state, so the count and the state can never
+          // disagree.
+          "UPDATE applications SET state=$2,updated_at=now(),correction_count=correction_count + CASE WHEN $4 THEN 1 ELSE 0 END,approved_by=CASE WHEN $2='APPROVED' THEN $3 ELSE approved_by END,approved_version=CASE WHEN $2='APPROVED' THEN latest_version ELSE approved_version END WHERE id=$1 RETURNING *",
+          [r.id, next, a.userId, data.action === "request_correction"],
         )
       ).rows[0];
       await event(db, r, a, data.action, next, data.reason);
@@ -2744,11 +3412,19 @@ app.post(
           [a.tenantId, r.id, data.reason],
         );
       // QA-08: the citizen also hears about a correction request, with the reason.
-      else if (data.action === "request_correction")
+      else if (data.action === "request_correction") {
         await db.query(
           "INSERT INTO outbox_events(tenant_id,kind,resource_id,detail) VALUES($1,'APPLICATION_CORRECTION_REQUIRED',$2,$3)",
           [a.tenantId, r.id, data.reason],
         );
+        // W-023: reaching the cap is itself an event — the citizen learns the
+        // next step is a decision, not another correction round.
+        if (updated.correction_count >= CORRECTION_CYCLE_LIMIT)
+          await db.query(
+            "INSERT INTO outbox_events(tenant_id,kind,resource_id,detail) VALUES($1,'APPLICATION_CORRECTION_LIMIT',$2,$3)",
+            [a.tenantId, r.id, String(updated.correction_count)],
+          );
+      }
       return camelRow(updated);
     });
     // Phase X: a rejection also reaches the citizen by email and status SMS (the in-app
@@ -3167,14 +3843,48 @@ app.post(
           .max(10000)
           .refine((n) => n !== 0),
         reason: z.string().trim().min(8).max(500),
+        // W-009: the caller mints one key per intended adjustment, like the
+        // points adjustment. A retried request replays the original entry
+        // instead of applying twice; without a key the old behaviour
+        // (server-generated key, every call applies) is preserved.
+        requestKey: uuid.optional(),
       })
       .strict()
       .parse(req.body);
     if (!(await pool.query("SELECT 1 FROM tenants WHERE id=$1", [id])).rowCount)
       fail(404, "NOT_FOUND", "Tenant not found.");
+    const key = data.requestKey
+      ? `adjustment:${data.requestKey}`
+      : `adjustment:${randomUUID()}`;
     const result = await transaction(
       id,
       async (db) => {
+        // A replay returns the original entry: same key, same payload.
+        // The same key with a different payload is a client error, not a
+        // replay — the operator must mint a fresh key for a new adjustment.
+        const replay = async () => {
+          const existing = (
+            await db.query(
+              "SELECT id,delta,kind,reason,balance_after,created_at FROM credit_ledger WHERE tenant_id=$1 AND idempotency_key=$2",
+              [id, key],
+            )
+          ).rows[0];
+          if (!existing) return null;
+          if (
+            existing.delta !== data.delta ||
+            existing.reason !== data.reason
+          )
+            fail(
+              409,
+              "IDEMPOTENCY_CONFLICT",
+              "This adjustment key was already used for a different adjustment. Mint a fresh key for a new adjustment. / এই সমন্বয় কীটি ইতিমধ্যে অন্য একটি সমন্বয়ের জন্য ব্যবহৃত হয়েছে। নতুন সমন্বয়ের জন্য নতুন কী ব্যবহার করুন।",
+            );
+          return { row: camelRow(existing), replayed: true };
+        };
+        if (data.requestKey) {
+          const found = await replay();
+          if (found) return found;
+        }
         const balance = (
           await db.query("SELECT balance FROM lock_tenant_wallet()")
         ).rows[0]?.balance;
@@ -3184,27 +3894,97 @@ app.post(
             "NEGATIVE_BALANCE",
             "Adjustment cannot create a negative wallet.",
           );
-        const r = (
-          await db.query(
-            "INSERT INTO credit_ledger(tenant_id,delta,kind,idempotency_key,actor_id,reason,balance_after) VALUES($1,$2,'ADJUSTMENT',$3,$4,$5,0) RETURNING id,delta,kind,reason,balance_after,created_at",
-            [
-              id,
-              data.delta,
-              `adjustment:${randomUUID()}`,
-              a.userId,
-              data.reason,
-            ],
-          )
-        ).rows[0];
+        let r: any;
+        try {
+          r = (
+            await db.query(
+              "INSERT INTO credit_ledger(tenant_id,delta,kind,idempotency_key,actor_id,reason,balance_after) VALUES($1,$2,'ADJUSTMENT',$3,$4,$5,0) RETURNING id,delta,kind,reason,balance_after,created_at",
+              [id, data.delta, key, a.userId, data.reason],
+            )
+          ).rows[0];
+        } catch (error: any) {
+          // A concurrent retry with the same key can lose the insert race
+          // (unique violation) after the lookup above; the row it raced
+          // with is the replay, not an error.
+          if (error?.code !== "23505") throw error;
+          const found = await replay();
+          if (found) return found;
+          throw error;
+        }
         await audit(db, id, a.userId, "WALLET_ADJUSTMENT", r.id, {
           delta: data.delta,
           reason: data.reason,
         });
-        return camelRow(r);
+        return { row: camelRow(r), replayed: false };
       },
       true,
     );
-    res.status(201).json(result);
+    if (result.replayed) res.setHeader("X-Idempotency-Replayed", "true");
+    res.status(201).json(result.row);
+  }),
+);
+/**
+ * W-010: notification provider health for the owner. Read-only, and it
+ * reports only provider names and booleans — never hosts, credentials or
+ * message contents. A 'log' provider records messages locally and sends
+ * nothing to a handset or mailbox, so readyForLive is false while any
+ * channel is log-only or unconfigured; the warnings say so plainly in
+ * both languages. OTP codes and status SMS share OTP_PROVIDER (see
+ * sms.ts), so they report the same provider with different availability:
+ * OTP also needs the sign-in identifiers configured.
+ */
+app.get(
+  "/api/v1/owner/notification-health",
+  wrap(async (req, res) => {
+    roles(req, ["owner"]);
+    const email = {
+      provider: emailProviderName(),
+      available: emailAvailable(),
+      logOnly: emailProviderIsLog(),
+    };
+    const sms = {
+      provider: smsProviderName(),
+      available: smsAvailable(),
+      logOnly: smsProviderIsLog(),
+    };
+    const otp = {
+      provider: otpProviderName(),
+      available: otpAvailable(),
+      logOnly: otpProviderIsLog(),
+    };
+    const warnings: string[] = [];
+    if (!email.available)
+      warnings.push(
+        "Email is not configured (EMAIL_PROVIDER is missing): verification and status emails are not sent. / ইমেইল কনফিগার করা হয়নি (EMAIL_PROVIDER নেই): যাচাই ও স্ট্যাটাস ইমেইল পাঠানো হচ্ছে না।",
+      );
+    else if (email.logOnly)
+      warnings.push(
+        "Email uses the log provider (EMAIL_PROVIDER=log): messages are recorded locally and reach no mailbox. Set EMAIL_PROVIDER=smtp before go-live. / ইমেইল লগ প্রোভাইডার ব্যবহার করছে (EMAIL_PROVIDER=log): বার্তা শুধু স্থানীয়ভাবে সংরক্ষিত হচ্ছে, কোনো মেইলবক্সে যাচ্ছে না। চালুর আগে EMAIL_PROVIDER=smtp করুন।",
+      );
+    if (!sms.available)
+      warnings.push(
+        "SMS is not configured (OTP_PROVIDER is missing): status SMS is not sent. / এসএমএস কনফিগার করা হয়নি (OTP_PROVIDER নেই): স্ট্যাটাস এসএমএস পাঠানো হচ্ছে না।",
+      );
+    else if (sms.logOnly)
+      warnings.push(
+        "SMS uses the log provider (OTP_PROVIDER=log): messages are recorded locally and reach no handset. Set OTP_PROVIDER=http before go-live. / এসএমএস লগ প্রোভাইডার ব্যবহার করছে (OTP_PROVIDER=log): বার্তা শুধু স্থানীয়ভাবে সংরক্ষিত হচ্ছে, কোনো হ্যান্ডসেটে যাচ্ছে না। চালুর আগে OTP_PROVIDER=http করুন।",
+      );
+    if (!otp.available)
+      warnings.push(
+        "Mobile OTP verification is not available: citizens cannot complete mobile signup. / মোবাইল ওটিপি যাচাই চালু নেই: নাগরিকরা মোবাইল সাইনআপ সম্পূর্ণ করতে পারবেন না।",
+      );
+    res.json({
+      email,
+      sms,
+      otp,
+      readyForLive:
+        email.available &&
+        !email.logOnly &&
+        sms.available &&
+        !sms.logOnly &&
+        otp.available,
+      warnings,
+    });
   }),
 );
 app.post(
@@ -3266,30 +4046,14 @@ app.get(
       .enum(["PENDING", "SETTLED", "CANCELLED", "ALL"])
       .default("PENDING")
       .parse(req.query.status ?? undefined);
-    const tenants = (await pool.query("SELECT * FROM tenants ORDER BY slug"))
-      .rows;
-    const items: any[] = [];
-    for (const t of tenants) {
-      const orders = await transaction(t.id, async (db) =>
-        (
-          await db.query(
-            status === "ALL"
-              ? "SELECT * FROM payment_orders WHERE tenant_id=$1 ORDER BY created_at DESC"
-              : "SELECT * FROM payment_orders WHERE tenant_id=$1 AND status=$2 ORDER BY created_at DESC",
-            status === "ALL" ? [t.id] : [t.id, status],
-          )
-        ).rows.map((o) => ({
-          ...camelRow(o),
-          tenantSlug: t.slug,
-          tenantNameBn: t.name_bn,
-          tenantNameEn: t.name_en,
-        })),
-      );
-      items.push(...orders);
-    }
-    items.sort((x, y) =>
-      String(y.createdAt).localeCompare(String(x.createdAt)),
-    );
+    // A-012: one SECURITY DEFINER call (migration 075) across all offices
+    // instead of one tenant transaction + query per tenant. The function
+    // returns the same columns in the same created_at DESC order (see the
+    // migration header); camelRow maps tenant_slug/tenant_name_* to the
+    // tenantSlug/tenantNameBn/tenantNameEn shape this endpoint returned.
+    const items = (
+      await pool.query("SELECT * FROM owner_payment_orders($1)", [status])
+    ).rows.map((o) => camelRow(o));
     res.json({ items });
   }),
 );

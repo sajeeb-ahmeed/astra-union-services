@@ -1,0 +1,12 @@
+-- F-001: let the application role clear a platform setting.
+--
+-- platform_settings.value cannot be empty (CHECK length 1..500), so
+-- clearing a setting deletes its key and the read falls back to the
+-- empty default — that is how the owner un-publishes the support contact
+-- (or any future optional setting). The table previously granted the app
+-- role SELECT, INSERT and UPDATE only, so the DELETE in the support
+-- contact PUT failed with a permission error. This grants DELETE; the
+-- API still only deletes keys it manages, owner-only, with a reason and
+-- an audit row, and the append-only platform_setting_changes history is
+-- untouched (its immutable trigger still forbids UPDATE/DELETE there).
+GRANT DELETE ON platform_settings TO astra_app;

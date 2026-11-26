@@ -1,5 +1,7 @@
 # DigitalUnion
 
+**Live site (current): https://digitalunion.com.bd/** — deployed from the cPanel bundle ([runbook](docs/DEPLOY-CPANEL.md)); release traceability via `GET /api/v1/health` (`release` object) and `GET /api/v1/admin/release`. The Render URL (`astra-union-services.onrender.com`) that older sections below still name is retired; the 0.9 notes are history. Live parity itself is unverified from this repo — a source version never establishes what is deployed.
+
 **Release 1.0 candidate (15 November 2026), awaiting the owner's sign-off:** citizen identity and completeness, price list and coupons, points wallet and bank recharge, SSLCommerz checkout (sandbox) and refunds, the Chairman's summons step and signature blocks, office inclusion requests, FAQ and the witness-statement generator. See [Release 1.0](docs/RELEASE_1_0.md) and [Parity status](docs/PARITY_STATUS.md). The 0.9 notes below are history.
 
 Attachment quarantine and PC malware scanner: [0.9 notes](docs/RELEASE_0_9.md) · [operator runbook](docs/ATTACHMENT_SCANNER_RUNTIME.md). Hosted status is recorded separately; source version alone does not establish deployment.
@@ -12,7 +14,7 @@ Private uploads enter quarantine and cannot be downloaded or used for submission
 
 **Keep the PC awake and online with the scanner/worker running.** Files wait quarantined while it is unavailable. After Windows restarts, run the startup command in the [operator runbook](docs/ATTACHMENT_SCANNER_RUNTIME.md); no automatic startup task was installed. Earlier optional MFA/account-security and verified encrypted backup/restore remain available. The existing backup predates migration 015 and the new scanner fixtures.
 
-[Live website](https://astra-union-services.onrender.com/) · [Release results](docs/RELEASE_0_9.md) · [Bangla status and next steps](docs/STATUS_AND_NEXT_STEPS.md) · [Deployment instructions](docs/DEPLOYMENT.md) · [Recovery runbook](docs/MANAGED_RECOVERY.md).
+[Live website](https://digitalunion.com.bd/) · [Release results](docs/RELEASE_0_9.md) · [Bangla status and next steps](docs/STATUS_AND_NEXT_STEPS.md) · [Deployment instructions](docs/DEPLOYMENT.md) · [Recovery runbook](docs/MANAGED_RECOVERY.md).
 
 Payment collection remains disabled and certificates remain DEMO / NOT OFFICIAL. Backup is local-only by owner choice; offsite/key custody and durable hosting before **12 November 2026** remain open. The next unblocked milestone is operational monitoring, scanner queue-age alerts and shared rate limiting. Attachment retention and always-on scanner hosting remain owner decisions. Historical release sections below retain their original scope and measurements.
 
@@ -33,7 +35,7 @@ The first CI attempt caught an environment-dependent development React bundle ex
 
 **পরে কাজ চালিয়ে যাওয়ার নোট:** [বর্তমান অবস্থা, সম্পন্ন কাজ, bKash onboarding ও পরবর্তী করণীয়](docs/STATUS_AND_NEXT_STEPS.md)। Engineering priorities and acceptance criteria: [current delivery backlog](docs/DELIVERY_BACKLOG.md).
 
-**Open:** [live demo](https://astra-union-services.onrender.com) or [local website](http://127.0.0.1:5173). **Read:** [hosted deployment and live test results](docs/HOSTED_DEPLOYMENT.md), [delivery report](docs/DELIVERY_REPORT.md), [deployment instructions](docs/DEPLOYMENT.md), [acceptance evidence](docs/TEST_MATRIX.md).
+**Open:** [live site](https://digitalunion.com.bd/) or [local website](http://127.0.0.1:5173). **Read:** [hosted deployment and live test results](docs/HOSTED_DEPLOYMENT.md), [delivery report](docs/DELIVERY_REPORT.md), [deployment instructions](docs/DEPLOYMENT.md), [acceptance evidence](docs/TEST_MATRIX.md).
 
 The 0.6 release ran on the same Render Free/PostgreSQL 17 service. Its hosted checks passed: **four account-security, seven payment, six historical-record readback and five geography groups**. Existing PDF bytes and credit records remained unchanged. Five live browser groups and seven JS/CSS asset hashes passed at that milestone. See [historical 0.6 live results](execution/security-live-release.json); historical 0.7 acceptance is recorded above. The Free database expires on **12 November 2026**, and the web service can sleep when idle. Live identity and merchant payment collection remain unconfigured.
 
@@ -126,6 +128,14 @@ node scripts/backup/recovery-drill.mjs
 ```
 
 Tests create synthetic rows and sandbox payments; use test/development databases. Clean-bootstrap creates a new DB, applies all migrations, seeds twice, verifies every schema hash and runs the entire API suite. Recovery restores into a new DB without dropping the source. `test:web` starts the local stack if necessary.
+
+Document-bearing browser tests need a scanner verdict path, or uploads stay quarantined and submissions fail with 409 `ATTACHMENT_NOT_READY`. For isolated test environments only, generate a throwaway fixture secret and export it before running the suite — the browser-test fixture then stands in for the scanner worker over the internal scanner API (`scripts/scanner/preflight.ts` fails fast with a clear message when no verdict path exists). Never set this secret in production; production uses its own provisioned secret and the real outbound worker (see [scanner runtime](docs/ATTACHMENT_SCANNER_RUNTIME.md)).
+
+```powershell
+$env:ATTACHMENT_SCANNER_SECRET = (openssl rand -hex 32)  # test environments only
+```
+
+`test:web` also resets test-created order policies before the suite runs (`scripts/test-support/reset-test-order-policies.ts`, loopback test database only), so one suite's published fee policy cannot break a later suite's no-policy assumption (T-003).
 
 ## Source map
 

@@ -52,16 +52,37 @@ publicToolsRouter.post("/public/subscribe", wrap(async (req,res) => {
 }));
 
 export const protectedToolsRouter = express.Router();
+// QAFIX-01 (live QA §1 bugs 1–5): the citizen record's core fields — the ones
+// profile completeness and every certificate read — ride on /profile so the
+// profile page can actually complete them. Before this, the page edited only
+// platform_users while completeness read citizens, so saving there never
+// moved the meter and the apply pre-step asked for the same data again.
+const citizenProfileColumns="full_name_bn,full_name_en,date_of_birth,address_bn,address_en";
+const citizenCoreFields=(citizen:any)=>citizen?{
+  citizenNameBn:citizen.full_name_bn??null,
+  citizenNameEn:citizen.full_name_en??null,
+  dateOfBirth:typeof citizen.date_of_birth==="string"?citizen.date_of_birth:citizen.date_of_birth?.toISOString().slice(0,10)??null,
+  permanentAddressBn:citizen.address_bn??null,
+  permanentAddressEn:citizen.address_en??null,
+}:{};
+const citizenSelect=`SELECT division_code,district_code,upazila_code,union_code,ward_code,${citizenProfileColumns},${presentAddressColumns} FROM citizens WHERE tenant_id=$1 AND user_id=$2 LIMIT 1`;
 protectedToolsRouter.get("/profile",wrap(async(req,res)=>{
   const a=identity(req);
   const r=await pool.query("SELECT id,email,display_name,name_bn,phone,address FROM platform_users WHERE id=$1",[a.userId]);
-  const citizen = a.tenantId ? await transaction(a.tenantId,async(db)=>(await db.query(`SELECT division_code,district_code,upazila_code,union_code,ward_code,${presentAddressColumns} FROM citizens WHERE tenant_id=$1 AND user_id=$2 LIMIT 1`,[a.tenantId,a.userId])).rows[0]) : undefined;
-  res.json({...camelRow(r.rows[0]),role:a.role,geography:geographyRow(citizen),presentAddress:citizen?presentAddressRow(citizen):null});
+  const citizen = a.tenantId ? await transaction(a.tenantId,async(db)=>(await db.query(citizenSelect,[a.tenantId,a.userId])).rows[0]) : undefined;
+  res.json({...camelRow(r.rows[0]),role:a.role,...citizenCoreFields(citizen),geography:geographyRow(citizen),presentAddress:citizen?presentAddressRow(citizen):null});
 }));
+const profileDateOfBirth=z.string().regex(/^\d{4}-\d{2}-\d{2}$/,"জন্ম তারিখ দিন। / Enter a date of birth.").refine((v)=>Number.isFinite(Date.parse(v))&&new Date(v).toISOString().slice(0,10)===v&&v<=new Date().toISOString().slice(0,10)&&v>="1900-01-01","জন্ম তারিখ আজকের বা তার আগের হতে হবে। / Date of birth must be today or earlier.");
 protectedToolsRouter.patch("/profile",wrap(async(req,res)=>{
   const a=identity(req);
-  const d=z.object({displayName:text(120,2),nameBn:text(120,0).optional(),phone:z.string().regex(/^(?:01\d{9})?$/).optional(),address:text(1000,0).optional(),geography:geographyInput.optional(),presentAddress:presentAddressInput.optional()}).strict().parse(req.body);
+  const d=z.object({displayName:text(120,2),nameBn:text(120,0).optional(),phone:z.string().regex(/^(?:01\d{9})?$/).optional(),address:text(1000,0).optional(),geography:geographyInput.optional(),presentAddress:presentAddressInput.optional(),citizenNameEn:z.string().trim().min(2).max(120).optional(),dateOfBirth:profileDateOfBirth.optional(),permanentAddressBn:z.string().trim().min(4).max(500).optional(),permanentAddressEn:z.string().trim().min(4).max(500).optional()}).strict().parse(req.body);
   if((d.geography||d.presentAddress) && (!a.tenantId || a.role!=="citizen")) fail(403,"GEOGRAPHY_PROFILE_UNAVAILABLE","Only citizen profiles can update an address hierarchy.");
+  // QAFIX-01: the citizen-only core fields belong to the citizen record.
+  // (nameBn is shared: every role keeps it on the account row; for a
+  // citizen it is additionally synced to the citizen record below.)
+  const touchesCitizenOnly = d.citizenNameEn!==undefined || d.dateOfBirth!==undefined || d.permanentAddressBn!==undefined || d.permanentAddressEn!==undefined;
+  if(touchesCitizenOnly && (!a.tenantId || a.role!=="citizen")) fail(403,"CITIZEN_PROFILE_UNAVAILABLE","Only citizen profiles carry citizen record fields.");
+  const touchesCitizenCore = a.role==="citizen" && (touchesCitizenOnly || d.nameBn!==undefined);
   const save=async(db:Pick<typeof pool,'query'>)=>{
     if(d.geography) {
       await validateGeography(db,d.geography,"citizen");
@@ -74,10 +95,29 @@ protectedToolsRouter.patch("/profile",wrap(async(req,res)=>{
       const updated=await db.query("UPDATE citizens SET present_same_as_permanent=$3,present_address_bn=$4,present_address_en=$5,present_division_code=$6,present_district_code=$7,present_upazila_code=$8,present_union_code=$9,present_ward_code=$10 WHERE tenant_id=$1 AND user_id=$2",[a.tenantId,a.userId,...await presentAddressValues(db,d.presentAddress)]);
       if(!updated.rowCount)fail(404,"PROFILE_NOT_FOUND","Citizen profile not found.");
     }
+    if(touchesCitizenCore) {
+      // The Bangla name the citizen saves here is the citizen record's name
+      // too — one name, one store — so completeness and the apply pre-step
+      // see exactly what the profile page shows.
+      const sets:string[]=[]; const values:unknown[]=[];
+      const put=(column:string,value:unknown)=>{ if(value===undefined)return; values.push(value); sets.push(`${column}=$${values.length+2}`); };
+      // An empty account nameBn means "not provided" here, never "erase the
+      // citizen record's Bangla name" — the account row keeps its own
+      // empty-string semantics, the citizen record only takes real values.
+      put("full_name_bn",d.nameBn?.trim()?d.nameBn:undefined);
+      put("full_name_en",d.citizenNameEn);
+      put("date_of_birth",d.dateOfBirth);
+      put("address_bn",d.permanentAddressBn);
+      put("address_en",d.permanentAddressEn);
+      if(sets.length) {
+        const updated=await db.query(`UPDATE citizens SET ${sets.join(",")} WHERE tenant_id=$1 AND user_id=$2`,[a.tenantId,a.userId,...values]);
+        if(!updated.rowCount)fail(404,"PROFILE_NOT_FOUND","Citizen profile not found.");
+      }
+    }
     const r=await db.query("UPDATE platform_users SET display_name=$1,name_bn=COALESCE($2,name_bn),phone=COALESCE($3,phone),address=COALESCE($4,address) WHERE id=$5 RETURNING id,email,display_name,name_bn,phone,address",[d.displayName,d.nameBn??null,d.phone??null,d.address??null,a.userId]);
     if(a.tenantId)await audit(db as any,a.tenantId,a.userId,"PROFILE_UPDATED",a.userId,{fields:Object.keys(d)});
-    const citizen = a.tenantId ? (await db.query(`SELECT division_code,district_code,upazila_code,union_code,ward_code,${presentAddressColumns} FROM citizens WHERE tenant_id=$1 AND user_id=$2 LIMIT 1`,[a.tenantId,a.userId])).rows[0] : undefined;
-    return {...camelRow(r.rows[0]),geography:geographyRow(citizen),presentAddress:citizen?presentAddressRow(citizen):null};
+    const citizen = a.tenantId ? (await db.query(citizenSelect,[a.tenantId,a.userId])).rows[0] : undefined;
+    return {...camelRow(r.rows[0]),...citizenCoreFields(citizen),geography:geographyRow(citizen),presentAddress:citizen?presentAddressRow(citizen):null};
   };
   res.json(a.tenantId?await transaction(a.tenantId,save):await save(pool));
 }));

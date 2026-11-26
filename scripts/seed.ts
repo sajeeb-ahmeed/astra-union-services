@@ -2,6 +2,12 @@ import fs from "node:fs";
 import pg from "pg";
 import { createHash } from "node:crypto";
 import { hashPassword } from "../apps/api/src/security.js";
+import { assertSeedAllowed } from "./seed-guard.js";
+// S-003/A-004: fail loudly before opening any database connection when the
+// environment is not explicitly non-production. The seed creates 13 accounts
+// sharing the published password Demo-Phase1!; they must never exist on a
+// live database.
+assertSeedAllowed();
 import {
   serviceCatalog,
   getServiceSchema,

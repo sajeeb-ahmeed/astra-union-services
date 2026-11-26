@@ -214,6 +214,39 @@ export function applicationStatusMeta(state: string | null | undefined) {
   return APPLICATION_STATUS[String(state ?? "").toUpperCase()] ?? null;
 }
 
+/**
+ * CH-004 (P1): the states the list API accepts (GET /applications `state`
+ * query, apps/api/src/app.ts Zod enum). This is the single allowlist the
+ * workspace uses to validate a state filter coming from the URL hash.
+ * ISSUANCE_PENDING is deliberately NOT in it: it is not a state in the
+ * current state machine — the API rejects it with 422 INPUT_INVALID — so
+ * it must never be sent as a filter. It stays in APPLICATION_STATUS above
+ * only so legacy rows, if any ever surface, still render a label.
+ */
+export const APPLICATION_STATES = [
+  "DRAFT",
+  "SUBMITTED",
+  "UNDER_REVIEW",
+  "CORRECTION_REQUIRED",
+  "RESUBMITTED",
+  "APPROVED",
+  "ISSUED",
+  "REJECTED",
+  "CANCELLED",
+  "REVOKED",
+] as const;
+
+/** CH-004: an unknown/blank state filter normalizes to "" (all states) — a bad link must degrade to the unfiltered list, never crash the section or 422 the list request. */
+export function normalizeApplicationState(value: string | null | undefined): string {
+  const state = String(value ?? "").trim().toUpperCase();
+  return (APPLICATION_STATES as readonly string[]).includes(state) ? state : "";
+}
+
+/** CH-004: the label for a state filter chip — never throws. An unmapped value renders as the plain "Recorded" label, the same fallback ApplicationStatus uses. */
+export function applicationStatusLabel(state: string | null | undefined): { bn: string; en: string } {
+  return applicationStatusMeta(state) ?? { bn: "নথিভুক্ত", en: "Recorded" };
+}
+
 export function ApplicationStatus({ state }: { state: string | null | undefined }) {
   const meta = applicationStatusMeta(state);
   return (

@@ -380,6 +380,12 @@ test("language browser: preference persists across public pages and authenticate
     assert.equal(await page.locator("#signup-geo-division").inputValue(), "div-01");
     for (const route of ["/services", "/offices", "/notices", "/help", "/verify", "/tracking", "/policies"]) {
       await page.goto(origin + route);
+      // Task C: wait for the mounted page shell (observable ready
+      // state) before asserting on it. The html[lang] attribute is
+      // static in index.html, so it passes even when the app never
+      // mounts; the বাংলা button wait below used to be the first real
+      // render assertion and timed out on a blank page.
+      await page.locator("#public-content").waitFor();
       assert.equal(await page.locator("html").getAttribute("lang"), "bn", route);
       await page.getByRole("button", { name: "বাংলা", exact: true }).waitFor();
       assert.equal(await page.getByRole("button", { name: "বাংলা", exact: true }).getAttribute("aria-pressed"), "true");

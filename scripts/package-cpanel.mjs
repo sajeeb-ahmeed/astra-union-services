@@ -26,11 +26,17 @@
  * runbook), handoff/, every test directory and *.test.* file,
  * scripts/verify-hosted-*, *.ps1, apps/api/openapi.json, .pgdata,
  * .runtime, .git, logs, and the web sources (only the built dist ships).
+ * P-009: `*.b64` decode sources are excluded too — the decoded binaries
+ * are already in the bundle (step 0 decodes any missing ones first) and
+ * nothing on the server decodes .b64 at runtime, so shipping them was
+ * ~2.2 MB of dead weight (API fonts/emblem/seal + web favicon/font).
+ * The .b64 files stay in the repository for clean checkouts.
  *
  * Usage: node scripts/package-cpanel.mjs   (run from the repository root)
  */
 import fs from "node:fs";
 import path from "node:path";
+import { createHash } from "node:crypto";
 import { execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
@@ -95,6 +101,7 @@ function keep(rel) {
   if (/^test-support\./.test(base)) return false;
   if (base.startsWith("verify-hosted-")) return false;
   if (base.endsWith(".ps1") || base.endsWith(".log")) return false;
+  if (base.endsWith(".b64")) return false; // P-009: decode sources only
   if (rel === path.join("apps", "api", "openapi.json")) return false;
   // Manual end-to-end flow script with demo credentials baked in; the
   // scanner worker (run.ts) never imports it. Not production content.
@@ -133,6 +140,14 @@ for (const file of [
   path.join("scripts", "migrate-cpanel.ts"),
   path.join("scripts", "initialize.ts"),
   path.join("scripts", "geography-data.ts"),
+  // A-002: post-deployment readiness check (migrations + published
+  // service versions + live smoke checks). Ships in the bundle so the
+  // operator runs the deployed bundle's own copy on the server.
+  path.join("scripts", "verify-deployment-readiness.ts"),
+  // P-012: the single post-deploy gate (runs --db then --live with the
+  // expectations read from the bundle's release.json). Also ships, for
+  // the same reason.
+  path.join("scripts", "verify-deployment-gate.ts"),
 ])
   copy(file);
 copy(path.join("scripts", "backup"));
@@ -165,4 +180,52 @@ let bytes = 0;
   }
 })(out);
 console.log(`dist-cpanel assembled: ${files} files, ${(bytes / 1048576).toFixed(1)} MiB (${bytes} bytes).`);
-console.log("Excluded: execution/, docs/ (except DEPLOY-CPANEL.md), handoff/, tests, verify-hosted-*, *.ps1, openapi.json, .pgdata, web sources.");
+console.log("Excluded: execution/, docs/ (except DEPLOY-CPANEL.md), handoff/, tests, verify-hosted-*, *.ps1, openapi.json, .pgdata, web sources, *.b64 decode sources (P-009).");
+
+// 5. A-002 release record: release.json at the bundle root is the
+// bundle→commit mapping the running server reports on /api/v1/health
+// (public subset) and /api/v1/admin/release (full manifest). The asset
+// manifest covers every file under apps/web/dist (the user-facing assets),
+// each with bytes + sha256, so an operator can prove which assets shipped.
+function git(args) {
+  try {
+    return execFileSync("git", args, { cwd: root, encoding: "utf8" }).trim() || null;
+  } catch {
+    return null;
+  }
+}
+const commit = git(["rev-parse", "HEAD"]);
+const branch = git(["rev-parse", "--abbrev-ref", "HEAD"]);
+const builtAt = new Date().toISOString();
+const packageId = commit
+  ? `digitalunion-${commit.slice(0, 12)}-${builtAt.replace(/[-:]/g, "").replace("T", "-").slice(0, 15)}`
+  : `digitalunion-unknown-${builtAt.replace(/[-:]/g, "").replace("T", "-").slice(0, 15)}`;
+const assets = [];
+(function walkAssets(dir, rel) {
+  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+    const p = path.join(dir, entry.name);
+    const r = rel ? `${rel}/${entry.name}` : entry.name;
+    if (entry.isDirectory()) walkAssets(p, r);
+    else if (entry.isFile()) {
+      const data = fs.readFileSync(p);
+      assets.push({
+        path: `apps/web/dist/${r}`,
+        bytes: data.length,
+        sha256: createHash("sha256").update(data).digest("hex"),
+      });
+    }
+  }
+})(path.join(out, "apps", "web", "dist"), "");
+assets.sort((a, b) => (a.path < b.path ? -1 : 1));
+const release = {
+  packageId,
+  version: JSON.parse(fs.readFileSync(path.join(root, "package.json"), "utf8")).version,
+  commit,
+  branch,
+  builtAt,
+  files,
+  bytes,
+  assets,
+};
+fs.writeFileSync(path.join(out, "release.json"), JSON.stringify(release, null, 2) + "\n");
+console.log(`release.json: package ${packageId} (commit ${commit ?? "unknown"}, ${assets.length} web assets).`);

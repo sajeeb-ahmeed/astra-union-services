@@ -1,0 +1,23 @@
+-- S-001 (P1) — a mobile number must be OTP-verified before it becomes a
+-- trusted sign-in identifier.
+--
+-- account_identifiers.verified_at records WHEN a mobile was proven by a
+-- one-time code sent to that handset. NULL means pending verification: the
+-- identifier is stored (so the number stays reserved for the account that
+-- declared it) but mobile sign-in is blocked until the holder proves the
+-- number through POST /auth/otp/verify-mobile. Email sign-in is unaffected.
+--
+-- Backfill: NO historical mobile is auto-marked verified. Before this
+-- migration the database recorded no proof of verification — the short
+-- signup bound mobiles with self_declared=true and no code, the full
+-- signup and office-registration paths consumed a code but never recorded
+-- that fact on the identifier row, and the account settings PUT bound a
+-- mobile on password alone. Marking any of those verified would re-encode
+-- the bug. Every existing row therefore stays NULL (pending); the holder
+-- re-verifies with a code sent to the handset, which is also the recovery
+-- path for an email-less account whose only sign-in was its mobile.
+-- (A future owner-approved attestation could consult otp_challenges
+-- history — a consumed signup_mobile challenge proves a code was verified
+-- for that digest — but that is an owner decision, not done here.)
+ALTER TABLE account_identifiers
+  ADD COLUMN verified_at timestamptz;

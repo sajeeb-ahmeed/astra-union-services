@@ -97,6 +97,20 @@ rechargeRouter.post(
   "/recharges",
   wrap(async (req, res) => {
     const a = role(req, ["admin", "finance"]);
+    // W-016: points recharge is PAUSED. The issuance spend path is retired
+    // (points.ts header: issuing no longer deducts points), so nothing can
+    // spend points — taking new bank deposits for them would sell dead
+    // money. Refuse BEFORE any validation or slip storage, so no deposit
+    // evidence is accepted for a paused product. The implementation below
+    // is retained for re-enablement: restoring a spend path — or turning
+    // recharge back on — is an OWNER DECISION, not implemented here.
+    // Requests that were PENDING before the pause are still decided by the
+    // owner below; their deposits were already made.
+    fail(
+      410,
+      "POINTS_RECHARGE_DISABLED",
+      "Points recharge is paused: points currently have no spend path, so no new deposits are accepted. Ask the platform owner about a spend path before re-enabling recharge.",
+    );
     const d = z
       .object({
         amountMinor: z.number().int().min(100).max(100000000),
@@ -207,7 +221,11 @@ rechargeRouter.get(
     res.send(row.bytes);
   }),
 );
-/** Owner: confirm (credits points once) or reject (with a reason) a pending request. */
+/** Owner: confirm (credits points once) or reject (with a reason) a pending request.
+ * W-016: confirmation stays enabled for requests that were PENDING before the
+ * recharge pause — those deposits were already made, so the credit is owed
+ * (and the points may become spendable if a spend path is ever restored).
+ * New requests are refused at POST /recharges, so nothing new enters the queue. */
 rechargeRouter.post(
   "/owner/recharges/:id/decision",
   wrap(async (req, res) => {

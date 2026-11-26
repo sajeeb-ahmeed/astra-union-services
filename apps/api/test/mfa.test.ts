@@ -6,6 +6,11 @@ import { app } from "../src/app.js";
 import { pool, adminConnectionString } from "../src/db.js";
 import { hashPassword, digest, randomToken } from "../src/security.js";
 import {
+  logMailProvider,
+  setMailProvider,
+  type MailMessage,
+} from "../src/mailer.js";
+import {
   decryptMfaSecret,
   encryptMfaSecret,
   matchTotp,
@@ -178,6 +183,9 @@ test("MFA-SETUP: current password, CSRF, origin and strict body required; setup 
     {
       enabled: false,
       available: true,
+      // CH-008: the requirement flag is surfaced (false here — the user is
+      // a citizen, and the flag is off by default).
+      approverMfaRequired: false,
       pendingExpiresAt: null,
       recoveryCodesRemaining: 0,
     },
@@ -673,13 +681,23 @@ test("MFA-RECOVERY: tenant admin password reset cannot bypass enrolled MFA and d
   const user = await createUser("recovery-target"),
     admin = await createUser("recovery-admin", "admin"),
     neighbor = await createUser("recovery-other", "citizen", otherTenant);
+  // S-007: the grant no longer returns the token — it is delivered
+  // out-of-band to the account holder's email. Capture the mail to
+  // exercise the token, then restore the log provider.
+  const mailSent: MailMessage[] = [];
+  setMailProvider({ async send(m) { mailSent.push(m); } });
   const before = await request(
     "POST",
     `/admin/users/${user.id}/recovery`,
     {},
     admin.session,
   );
+  setMailProvider(logMailProvider);
   assert.equal(before.status, 201);
+  assert.equal(before.body.token, undefined, "S-007: no plaintext token in the response");
+  assert.equal(before.body.recoveryUrl, undefined);
+  const beforeToken = mailSent[0].text.match(/#token=([a-f0-9]{64})/)?.[1] as string;
+  assert.ok(beforeToken, "the out-of-band email carries the fragment link");
   await enroll(user);
   assert.equal(
     (
@@ -695,7 +713,7 @@ test("MFA-RECOVERY: tenant admin password reset cannot bypass enrolled MFA and d
   assert.equal(
     (
       await request("POST", "/auth/recover", {
-        token: before.body.token,
+        token: beforeToken,
         newPassword: "Rec-Synth-MFA-Pa1!",
       })
     ).status,
@@ -760,11 +778,22 @@ test("MFA-OWNER-AUDIT: owner MFA works without tenant; own security history is d
     ),
   );
   assert.ok(!JSON.stringify(response.body).includes(enrolled.secret));
-  assert.deepEqual(
-    (await request("GET", "/auth/security-events", undefined, neighbor.session))
-      .body.items,
-    [],
-  );
+  // CH-007: a plain-password sign-in is now recorded (SIGNED_IN), and
+  // createUser mints the neighbour's session with exactly such a sign-in —
+  // so the neighbour's history holds that one event, and nothing of the
+  // owner's. Isolation is that no MFA event leaks across, not that the
+  // neighbour's own sign-in is invisible.
+  const neighborItems = (
+    await request("GET", "/auth/security-events", undefined, neighbor.session)
+  ).body.items;
+  assert.equal(neighborItems.length, 1);
+  assert.equal(neighborItems[0].action, "SIGNED_IN");
+  assert.deepEqual(Object.keys(neighborItems[0]).sort(), [
+    "action",
+    "createdAt",
+    "id",
+    "metadata",
+  ]);
   assert.equal((await request("GET", "/auth/security-events")).status, 401);
   const client = await pool.connect();
   try {
@@ -845,4 +874,40 @@ test("MFA-UNAVAILABLE: missing or wrong encryption key fails closed; unprotected
   } finally {
     process.env.MFA_ENCRYPTION_KEY = key;
   }
+});
+
+test("CH-008: APPROVER_MFA_REQUIRED refuses password-only approver sign-in; enrolled approvers still challenge", async () => {
+  const adminUser = await createUser("ch008-admin", "admin");
+  const approver = await createUser("ch008-approver", "approver");
+  const staff = await createUser("ch008-staff", "staff");
+  const previous = process.env.APPROVER_MFA_REQUIRED;
+  try {
+    process.env.APPROVER_MFA_REQUIRED = "true";
+    // Flag on, no MFA enrolled: the approver is refused; other roles are not.
+    const refused = await request("POST", "/auth/login", { email: approver.email, password });
+    assert.equal(refused.status, 403, JSON.stringify(refused.body));
+    assert.equal(refused.body.error.code, "APPROVER_MFA_REQUIRED");
+    assert.equal((await request("POST", "/auth/login", { email: staff.email, password })).status, 200);
+    // The requirement is surfaced on the MFA status — to the approver only.
+    assert.equal((await request("GET", "/auth/mfa", undefined, approver.session)).body.approverMfaRequired, true);
+    assert.equal((await request("GET", "/auth/mfa", undefined, staff.session)).body.approverMfaRequired, false);
+    // The office admin sees who has enrolled and who has not.
+    const users = (await request("GET", "/admin/users", undefined, adminUser.session)).body.items;
+    assert.equal(users.find((u: any) => u.id === approver.id)?.mfaEnabled, false);
+    assert.equal(users.find((u: any) => u.id === staff.id)?.mfaEnabled, false);
+    // An enrolled approver is not blocked — the challenge flow runs as before.
+    await enroll(approver);
+    const challenged = await request("POST", "/auth/login", { email: approver.email, password });
+    assert.equal(challenged.status, 200, JSON.stringify(challenged.body));
+    assert.equal(challenged.body.mfaRequired, true);
+    assert.equal(challenged.headers.get("set-cookie"), null);
+    const usersAfter = (await request("GET", "/admin/users", undefined, adminUser.session)).body.items;
+    assert.equal(usersAfter.find((u: any) => u.id === approver.id)?.mfaEnabled, true);
+  } finally {
+    if (previous === undefined) delete process.env.APPROVER_MFA_REQUIRED;
+    else process.env.APPROVER_MFA_REQUIRED = previous;
+  }
+  // Flag off again: an unenrolled approver signs in normally.
+  const plain = await createUser("ch008-approver2", "approver");
+  assert.equal((await request("POST", "/auth/login", { email: plain.email, password })).status, 200);
 });

@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 import { workspacePage, goToWorkspacePage } from "./fixtures/workspace-nav.js";
+import { readOtpCode } from "./fixtures/otp-outbox.js";
 import { chromium, type Browser, type Page } from "playwright";
 const origin = "http://127.0.0.1:5173";
 async function browserInstance(): Promise<Browser> {
@@ -50,6 +51,15 @@ test(
       await mobileRow.getByRole("button", { name: /Add|Change/ }).click();
       await panel.locator("#identifier-value").fill(`+88 ${mobile}`);
       await panel.locator("#identifier-current-password").fill(password);
+      // S-001: a mobile is saved only with a code proven for the new
+      // number — send the code, prove it, then save.
+      const sentAt = Date.now();
+      await panel.getByRole("button", { name: "Send code", exact: true }).click();
+      await panel
+        .locator("#identifier-otp-code")
+        .fill(await readOtpCode(mobile.slice(-8), sentAt));
+      await panel.getByRole("button", { name: "Verify code", exact: true }).click();
+      await panel.getByText("Verified. Now save.").waitFor();
       await panel.getByRole("button", { name: "Save identifier" }).click();
       await panel.getByText("Saved. You can now sign in with it.").waitFor();
       assert.match((await mobileRow.textContent()) ?? "", new RegExp(`${mobile.slice(0, 3)}\\*+${mobile.slice(-2)}`));

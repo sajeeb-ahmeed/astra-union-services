@@ -38,7 +38,32 @@ const lightMode = process.env.PDF_LIGHT_MODE === "1";
  * with the sandbox on (see .env.cpanel.example). The renderer's other defences
  * (server-escaped HTML, every non-data: request aborted) apply either way.
  */
-const chromiumSandbox = process.env.PDF_CHROMIUM_SANDBOX === "1";
+const chromiumSandbox = () => process.env.PDF_CHROMIUM_SANDBOX === "1";
+/**
+ * P-013: test seam for the sandbox opt-in. Read at call time (not module
+ * load) so tests can flip the flag per case without a restart; production
+ * behaviour is identical (the env does not change at runtime there).
+ * Default stays unset = --no-sandbox for shared-hosting compatibility —
+ * enabling the sandbox is a deploy-time decision made only after the host
+ * proves Chromium starts with it on (see .env.cpanel.example).
+ */
+export function pdfChromiumSandboxEnabled(
+  env: NodeJS.ProcessEnv = process.env,
+) {
+  return env.PDF_CHROMIUM_SANDBOX === "1";
+}
+/** Light-mode launch args; --no-sandbox is dropped when the sandbox opt-in is on. */
+export function pdfLightLaunchArgs(
+  env: NodeJS.ProcessEnv = process.env,
+): string[] {
+  return [
+    "--single-process",
+    "--no-zygote",
+    "--disable-gpu",
+    "--disable-dev-shm-usage",
+    ...(pdfChromiumSandboxEnabled(env) ? [] : ["--no-sandbox"]),
+  ];
+}
 const configuredRenderLimit = Number(process.env.PDF_MAX_CONCURRENCY ?? 4);
 if (
   !Number.isInteger(configuredRenderLimit) ||
@@ -86,20 +111,14 @@ async function launchBrowser(light: boolean = lightMode): Promise<Browser> {
     executablePath: executable,
     // F3: only present when PDF_CHROMIUM_SANDBOX=1; omitted otherwise so the
     // launch options are byte-identical to the pre-hardening behaviour.
-    ...(chromiumSandbox ? { chromiumSandbox: true } : {}),
+    ...(chromiumSandbox() ? { chromiumSandbox: true } : {}),
     // Light mode only (PDF_LIGHT_MODE=1, see above): one process instead
     // of 5+, no zygote/GPU children, small footprint. --no-sandbox is part
     // of that profile only while the F3 opt-in is off: passing it alongside
     // chromiumSandbox:true would defeat the sandbox again.
     ...(light
       ? {
-          args: [
-            "--single-process",
-            "--no-zygote",
-            "--disable-gpu",
-            "--disable-dev-shm-usage",
-            ...(chromiumSandbox ? [] : ["--no-sandbox"]),
-          ],
+          args: pdfLightLaunchArgs(),
         }
       : {}),
   });

@@ -7,6 +7,12 @@ import { chromium, type Browser, type Page } from "playwright";
 import { demoPayloads } from "@astra/shared-schemas";
 import { signOut } from "./fixtures/session.js";
 import { fillApplicationForm } from "./fixtures/fill-form.js";
+import {
+  SYNTHETIC_SIGNATURE_BASE64,
+  SYNTHETIC_SIGNATURE_REASON,
+  publishZeroFeePolicy,
+} from "./fixtures/issuance-fixtures.js";
+import { readRecoveryLink } from "./fixtures/email-outbox.js";
 const origin = "http://127.0.0.1:5173";
 async function browserInstance(): Promise<Browser> {
   const local = path.join(process.env.LOCALAPPDATA || "", "ms-playwright");
@@ -153,7 +159,7 @@ test(
         .waitFor();
       await page
         .getByRole("navigation", { name: "Public navigation" })
-        .getByRole("button", { name: "Help & FAQ", exact: true })
+        .getByRole("link", { name: "Help & FAQ", exact: true })
         .click();
       await page
         .getByText("How do I apply?", { exact: true })
@@ -337,17 +343,26 @@ test(
       const recoveryResponse = page.waitForResponse(
         (r) => r.url().endsWith("/recovery") && r.request().method() === "POST",
       );
+      // S-007: the plaintext token is never returned in JSON, so the test
+      // reads the fragment link from the dev email outbox, as the holder
+      // would open it from their inbox.
+      const recoverySentAfter = Date.now();
       await member
         .getByRole("button", { name: "Generate recovery link", exact: true })
         .click();
       const recoveryResult = await recoveryResponse;
       assert.equal(recoveryResult.status(), 201, await recoveryResult.text());
       const recovery = await recoveryResult.json();
+      assert.equal(recovery.delivery, "EMAIL");
+      const recoveryUrl = await readRecoveryLink(
+        approverEmail,
+        recoverySentAfter,
+      );
       const recoveryContext = await browser.newContext(),
         recoveryPage = await recoveryContext.newPage();
       await recoveryContext.addInitScript(() => { if (!localStorage.getItem("astra.language")) localStorage.setItem("astra.language", "en"); });
         await recoveryContext.addInitScript(() => { if (!localStorage.getItem("astra.language")) localStorage.setItem("astra.language", "en"); });
-      await recoveryPage.goto(recovery.recoveryUrl);
+      await recoveryPage.goto(recoveryUrl);
       await recoveryPage
         .getByLabel("New password", { exact: true })
         .fill("Rec-Browser-2026!");
@@ -680,36 +695,69 @@ test(
       publicPage = await publicContext.newPage();
     await staffContext.addInitScript(() => { if (!localStorage.getItem("astra.language")) localStorage.setItem("astra.language", "en"); });
     try {
-      await login(staff, "staff@alpha.local.test");
+      await login(staff, "staff@beta.local.test");
       const citizenList = await request(staff, "/citizens");
       const citizens = Array.isArray(citizenList.data)
         ? citizenList.data
         : citizenList.data.items;
-      // When the office has an order policy for service 42 (the API suite's
-      // certificate-assets test publishes a zero-fee one on this seeded
-      // tenant earlier in the shared-DB `npm test` run, and a policy can
-      // never be removed), creation must carry a matching order — the API
-      // answers 409 ORDER_REQUIRED otherwise — and the form's document
-      // language must agree with the order's (integration.test.ts does the same).
-      const options = await request(staff, "/services/42/order-options");
+      // W-002: service 42 is a money service — issuance needs an order
+      // snapshot, which needs a published fee policy, and the seed
+      // configures none. This test runs on beta (no other browser test
+      // uses it) so its synthetic zero-fee policy cannot disturb alpha:
+      // the order-browser suite asserts alpha/42 has NO policy, and
+      // policies are append-only with no delete. Publish the explicitly
+      // identified synthetic policy when none is configured, then read
+      // the current policy — exactly as the API suite's FOR-02 does — and
+      // supply matching order preferences when one exists, instead of
+      // assuming none does (that assumption 409s with ORDER_REQUIRED).
+      let options = await request(staff, "/services/42/order-options");
+      if (!options.data.configured) {
+        const adminApi = await browser.newContext();
+        try {
+          const adminLogin = await adminApi.request.post(
+            `${origin}/api/v1/auth/login`,
+            {
+              data: {
+                email: "admin@beta.local.test",
+                password: "Demo-Phase1!",
+              },
+            },
+          );
+          assert.equal(adminLogin.status(), 200);
+          await publishZeroFeePolicy(
+            adminApi.request,
+            origin,
+            (await adminLogin.json()).csrfToken,
+            42,
+          );
+        } finally {
+          await adminApi.close();
+        }
+        options = await request(staff, "/services/42/order-options");
+      }
       assert.equal(options.status, 200, JSON.stringify(options.data));
+      let payload: Record<string, unknown> = demoPayloads[42];
+      let order: Record<string, unknown> | undefined;
+      if (options.data.configured) {
+        const policy = options.data.policy;
+        payload = { ...payload, delivery_language: "en" };
+        order = {
+          policyVersion: policy.version,
+          preferences: {
+            addressBasis: "registered_profile",
+            certificateLanguage: "en",
+            deliveryMode: policy.deliveryModes.includes("office_collection")
+              ? "office_collection"
+              : policy.deliveryModes[0],
+            urgency: policy.urgencies[0],
+          },
+        };
+      }
       const created = await request(staff, "/applications", "POST", {
         citizenId: citizens[0].id,
         serviceNo: 42,
-        ...(options.data.configured
-          ? {
-              payload: { ...demoPayloads[42], delivery_language: "en" },
-              order: {
-                policyVersion: options.data.policy.version,
-                preferences: {
-                  addressBasis: "registered_profile",
-                  certificateLanguage: "en",
-                  deliveryMode: options.data.policy.deliveryModes[0],
-                  urgency: options.data.policy.urgencies[0],
-                },
-              },
-            }
-          : { payload: demoPayloads[42] }),
+        payload,
+        ...(order ? { order } : {}),
       });
       assert.equal(created.status, 201, JSON.stringify(created.data));
       const source = created.data;
@@ -726,7 +774,21 @@ test(
       );
       // Phase W: no secretary review — the Chairman approves the submitted
       // application and his approval issues the certificate.
-      await login(approver, "approver@alpha.local.test");
+      await login(approver, "approver@beta.local.test");
+      // W-002: issuance also needs a chairman signature for the office —
+      // the seed gives beta only a SEAL, so upload the explicitly
+      // identified synthetic signature before approving.
+      const sig = await request(
+        approver,
+        "/office/certificate-assets/signature",
+        "PUT",
+        {
+          mimeType: "image/png",
+          base64: SYNTHETIC_SIGNATURE_BASE64,
+          reason: SYNTHETIC_SIGNATURE_REASON,
+        },
+      );
+      assert.ok([200, 201].includes(sig.status), JSON.stringify(sig.data));
       assert.equal(
         (
           await request(
@@ -755,23 +817,36 @@ test(
       await staff
         .getByRole("button", { name: "Find record", exact: true })
         .click();
-      await staff
-        .getByRole("button", {
-          name: "Start trade license renewal",
-          exact: true,
-        })
-        .waitFor();
+      const renewalButton = staff.getByRole("button", {
+        name: "Start trade license renewal",
+        exact: true,
+      });
+      await renewalButton.waitFor();
       if (options.data.configured) {
-        // Under an office order policy the renewal is gated on the order
-        // panel: the fees are reviewed and the breakdown accepted before
-        // the renewal can start (the source was issued under the same
-        // zero-fee policy, so nothing is charged either way).
-        await staff.getByRole("button", { name: "Review fees", exact: true }).click();
-        await staff
-          .getByRole("checkbox", {
-            name: "I have reviewed the certificate options and fee breakdown.",
-          })
-          .check();
+        // T-003 (continued): with an order policy configured, the renewal
+        // order panel on the issued record must be completed before the
+        // renewal button enables — language, fee quote, acceptance.
+        // Without a policy the panel reports ready at load and this block
+        // is skipped. The renewal then carries the order snapshot, so its
+        // submit passes validateApplicationOrder.
+        const orderPanel = staff.locator(
+          'section.order-panel[aria-label="Certificate options and fees"]',
+        );
+        await orderPanel.locator("#order-language").waitFor();
+        await orderPanel.locator("#order-language").selectOption("en");
+        await orderPanel
+          .getByRole("button", { name: "Review fees", exact: true })
+          .click();
+        const accept = orderPanel.getByLabel(
+          "I have reviewed the certificate options and fee breakdown.",
+        );
+        await accept.waitFor();
+        await accept.check();
+        for (let i = 0; i < 120; i++) {
+          if (await renewalButton.isEnabled().catch(() => false)) break;
+          await staff.waitForTimeout(250);
+        }
+        assert.equal(await renewalButton.isEnabled(), true);
       }
       const renewalResponse = staff.waitForResponse(
         (r) => r.url().endsWith("/renew") && r.request().method() === "POST",

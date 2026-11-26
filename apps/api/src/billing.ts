@@ -1,7 +1,7 @@
 import express from "express";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
-import { pool, type DB } from "./db.js";
+import { pool, transaction, type DB } from "./db.js";
 import { fail } from "./models.js";
 import type { Auth } from "./app.js";
 
@@ -164,6 +164,152 @@ export async function settleApplicationFee(
   return markSettled(db, application.id, { method: "CREDIT", credits: price, priceVersion: version });
 }
 
+/**
+ * W-006: the fee outcome a submit would produce, computed READ-ONLY so the
+ * citizen / responsible office can see it BEFORE submitting. It mirrors
+ * settleApplicationFee's decision exactly (same inputs, same order) but
+ * takes no locks, writes nothing, and consumes nothing — so it is
+ * advisory: the balance or allowance can move between the preview and
+ * the submit, and the submit stays authoritative. `willBlockSubmit` is
+ * true exactly when settleApplicationFee would throw and leave the
+ * application a draft. It MUST run with the tenant set (inside
+ * transaction()) — the wallet, subscription and allowance rows are
+ * FORCE RLS, and a bare pool connection reads none of them.
+ */
+export type FeePreview = {
+  serviceNo: number;
+  priceCredits: number;
+  priceVersion: number;
+  isDefaultPrice: boolean;
+  payer: "office" | "citizen";
+  method: "ALLOWANCE" | "CREDIT" | "FREE";
+  credits: number;
+  allowance: { limit: number | null; used: number; remaining: number | null } | null;
+  walletBalance: number;
+  willBlockSubmit: boolean;
+  blockReason: string | null;
+  orderPolicyConfigured: boolean;
+};
+export async function previewFeeSettlement(
+  db: DB,
+  tenantId: string,
+  serviceNo: number,
+): Promise<FeePreview> {
+  const { price, version } = await currentCreditPrice(db, serviceNo);
+  const subscription = (
+    await db.query(
+      "SELECT tenant_id, plan_allowance_limit FROM tenant_subscriptions WHERE tenant_id=$1 AND status='ACTIVE' AND valid_until>now()",
+      [tenantId],
+    )
+  ).rows[0];
+  const payer = await applicationFeePayer(db);
+  const wallet = (
+    await db.query("SELECT balance FROM tenant_wallets WHERE tenant_id=$1", [tenantId])
+  ).rows[0];
+  const walletBalance = (wallet?.balance ?? 0) as number;
+  const policyConfigured = (
+    await db.query(
+      "SELECT 1 FROM service_order_policies WHERE tenant_id=$1 AND service_no=$2 LIMIT 1",
+      [tenantId, serviceNo],
+    )
+  ).rows.length > 0;
+  const base = {
+    serviceNo,
+    priceCredits: price,
+    priceVersion: version,
+    isDefaultPrice: version === 0,
+    payer,
+    walletBalance,
+    orderPolicyConfigured: policyConfigured,
+  };
+  if (subscription) {
+    const limit = subscription.plan_allowance_limit as number | null;
+    const used = await allowanceUsedThisMonth(db, tenantId);
+    if (limit == null || used < limit)
+      return {
+        ...base,
+        method: "ALLOWANCE",
+        credits: 0,
+        allowance: { limit, used, remaining: limit == null ? null : limit - used },
+        willBlockSubmit: false,
+        blockReason: null,
+      };
+    // Allowance exhausted: fall through to the per-service credit charge.
+    if (price === 0)
+      return {
+        ...base,
+        method: "FREE",
+        credits: 0,
+        allowance: { limit, used, remaining: 0 },
+        willBlockSubmit: false,
+        blockReason: null,
+      };
+    if (payer === "citizen")
+      return {
+        ...base,
+        method: "CREDIT",
+        credits: price,
+        allowance: { limit, used, remaining: 0 },
+        willBlockSubmit: true,
+        blockReason:
+          "Citizen payment is not available yet, so this application would stay a draft. / নাগরিকের মাধ্যমে ফি পরিশোধের সুবিধা এখনো চালু হয়নি, তাই আবেদনটি খসড়া হিসেবেই থাকবে।",
+      };
+    if (walletBalance < price)
+      return {
+        ...base,
+        method: "CREDIT",
+        credits: price,
+        allowance: { limit, used, remaining: 0 },
+        willBlockSubmit: true,
+        blockReason: `Insufficient office credit for this application fee: ${price} credit${price === 1 ? "" : "s"} needed, ${walletBalance} available. The application would stay a draft. / এই আবেদনের ফি দেওয়ার জন্য অফিসের ক্রেডিট যথেষ্ট নয়: প্রয়োজন ${price} ক্রেডিট, আছে ${walletBalance}। আবেদনটি খসড়া হিসেবেই থাকবে।`,
+      };
+    return {
+      ...base,
+      method: "CREDIT",
+      credits: price,
+      allowance: { limit, used, remaining: 0 },
+      willBlockSubmit: false,
+      blockReason: null,
+    };
+  }
+  if (price === 0)
+    return {
+      ...base,
+      method: "FREE",
+      credits: 0,
+      allowance: null,
+      willBlockSubmit: false,
+      blockReason: null,
+    };
+  if (payer === "citizen")
+    return {
+      ...base,
+      method: "CREDIT",
+      credits: price,
+      allowance: null,
+      willBlockSubmit: true,
+      blockReason:
+        "Citizen payment is not available yet, so this application would stay a draft. / নাগরিকের মাধ্যমে ফি পরিশোধের সুবিধা এখনো চালু হয়নি, তাই আবেদনটি খসড়া হিসেবেই থাকবে।",
+    };
+  if (walletBalance < price)
+    return {
+      ...base,
+      method: "CREDIT",
+      credits: price,
+      allowance: null,
+      willBlockSubmit: true,
+      blockReason: `Insufficient office credit for this application fee: ${price} credit${price === 1 ? "" : "s"} needed, ${walletBalance} available. The application would stay a draft. / এই আবেদনের ফি দেওয়ার জন্য অফিসের ক্রেডিট যথেষ্ট নয়: প্রয়োজন ${price} ক্রেডিট, আছে ${walletBalance}। আবেদনটি খসড়া হিসেবেই থাকবে।`,
+    };
+  return {
+    ...base,
+    method: "CREDIT",
+    credits: price,
+    allowance: null,
+    willBlockSubmit: false,
+    blockReason: null,
+  };
+}
+
 export const billingRouter = express.Router();
 
 const priceRow = (r: any) => ({
@@ -284,6 +430,19 @@ billingRouter.put(
       })
       .strict()
       .parse(req.body);
+    // W-005: the citizen payment rail does not exist yet (Phase 7), so
+    // the flip to citizen-pays is refused outright — accepting it would
+    // brick every citizen submit (each stays a draft with 402
+    // CITIZEN_PAYMENT_UNAVAILABLE). The setting stays "office" and the
+    // refusal is explicit, not a silent warning. The 402 in
+    // settleApplicationFee stays as a backstop for a value set directly
+    // in the database, and migration 064 resets any value already stored.
+    if (d.applicationFeePayer === "citizen")
+      fail(
+        409,
+        "CITIZEN_PAYMENT_UNSUPPORTED",
+        "Citizen payment is not available yet — there is no citizen payment rail until Phase 7 — so the fee payer cannot be switched to the citizen. Applications would stay as drafts. The setting stays on the office wallet. / নাগরিকের মাধ্যমে ফি পরিশোধের সুবিধা এখনো চালু হয়নি, তাই ফি প্রদানকারী নাগরিক করা যাবে না। সেটিংটি অফিসের ওয়ালেটেই থাকবে।",
+      );
     const client = await pool.connect();
     try {
       await client.query("BEGIN");
@@ -305,6 +464,24 @@ billingRouter.put(
       client.release();
     }
     res.json({ applicationFeePayer: d.applicationFeePayer });
+  }),
+);
+
+/** W-006: read-only fee preview for a service in this office — what a submit would cost and whether it would go through. No application needs to exist yet (the review step calls it before creating one); the result is advisory and the submit stays authoritative. */
+billingRouter.get(
+  "/fee-preview",
+  wrap(async (req, res) => {
+    const a = role(req, ["citizen", "staff", "admin", "approver", "finance"]);
+    const serviceNo = serviceNumber.parse(req.query.serviceNo);
+    // The preview reads tenant-scoped rows (wallet, subscription,
+    // allowance) that FORCE RLS hides on a bare connection, so it runs
+    // inside a transaction like every other tenant-scoped read. The
+    // transaction writes nothing and commits empty.
+    res.json(
+      await transaction(a.tenantId!, (db) =>
+        previewFeeSettlement(db, a.tenantId!, serviceNo),
+      ),
+    );
   }),
 );
 

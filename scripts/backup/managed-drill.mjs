@@ -440,7 +440,7 @@ async function drill() {
           [citizen, tenant, crypto.randomUUID()],
         );
         await fixture.query(
-          "INSERT INTO applications(id,tenant_id,citizen_id,service_no,schema_version,schema_hash,state,created_by) VALUES($1,$2,$3,45,1,$4,'ISSUED',$5)",
+          "INSERT INTO applications(id,tenant_id,citizen_id,service_no,schema_version,schema_hash,state,fee_method,fee_credits,fee_price_version,fee_settled_at,created_by) VALUES($1,$2,$3,45,1,$4,'ISSUED','CREDIT',1,1,now(),$5)",
           [application, tenant, citizen, "a".repeat(64), user],
         );
         const token = crypto.randomBytes(32).toString("hex");
@@ -457,9 +457,12 @@ async function drill() {
             user,
           ],
         );
+        // Stage 5: the fixture settles at submit (migration 044, W-003) —
+        // one APPLICATION_FEE row for the application, not the retired
+        // 'ISSUANCE' kind (which no code path writes any more).
         await fixture.query(
-          "INSERT INTO credit_ledger(tenant_id,delta,kind,idempotency_key,certificate_id,actor_id,reason,balance_after) VALUES($1,-1,'ISSUANCE','fixture-issuance',$2,$3,'Synthetic recovery fixture',0)",
-          [tenant, certificate, user],
+          "INSERT INTO credit_ledger(tenant_id,delta,kind,idempotency_key,application_id,actor_id,reason,balance_after) VALUES($1,-1,'APPLICATION_FEE',$2,$3,$4,'Synthetic recovery fixture',0)",
+          [tenant, `fixture-application-fee-${application}`, application, user],
         );
         await fixture.query("INSERT INTO account_mfa(user_id) VALUES($1)", [
           user,
@@ -475,7 +478,7 @@ async function drill() {
         await fixture.query("COMMIT");
       }
       record(
-        "Synthetic source contains two populated tenant scopes, actual PDF bytes, issuance debits, account scopes and nullable global sessions.",
+        "Synthetic source contains two populated tenant scopes, actual PDF bytes, submit-time fee settlements, account scopes and nullable global sessions.",
       );
     } finally {
       await fixture.end();

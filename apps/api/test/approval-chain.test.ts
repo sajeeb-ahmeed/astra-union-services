@@ -1,8 +1,10 @@
 import test, { before, after } from "node:test";
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
+import pg from "pg";
 import { demoPayloads, getServiceSchema } from "@astra/shared-schemas";
 import { app } from "../src/app.js";
-import { pool } from "../src/db.js";
+import { pool, adminConnectionString } from "../src/db.js";
 import { renderCertificateHtml, DEMO_TEMPLATE_VERSION } from "../src/certificate-template.js";
 import { closePdfBrowser } from "../src/pdf.js";
 
@@ -10,6 +12,7 @@ process.env.NODE_ENV = "test";
 let server: ReturnType<typeof app.listen>, base: string, citizenId: string;
 type Session = { cookie: string; csrf: string };
 const s: Record<string, Session> = {};
+const admin = new pg.Pool({ connectionString: adminConnectionString });
 async function req(method: string, path: string, data?: unknown, who?: string) {
   const session = who ? s[who] : undefined;
   const response = await fetch(`${base}/api/v1${path}`, {
@@ -48,11 +51,49 @@ before(async () => {
   base = `http://127.0.0.1:${(server.address() as any).port}`;
   for (const name of ["staff", "reviewer", "approver", "citizen"]) await login(name);
   citizenId = (await req("GET", "/citizens", undefined, "citizen")).body.items[0].id;
+  // W-002: issuance gates run in every mode, so the office needs an
+  // explicitly identified synthetic signature fixture before anything can
+  // issue. A 1x1 PNG — clearly not a real chairman signature. Inserted
+  // directly (not via the assets API) because the API writes append-only
+  // change history that cannot be removed, and this file must restore the
+  // seeded "no signature" state in after() for certificate-assets.test.ts
+  // (which asserts it).
+  const png = Buffer.from(
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==",
+    "base64",
+  );
+  const approverId = (
+    await admin.query(
+      "SELECT id FROM platform_users WHERE email='approver@alpha.local.test'",
+    )
+  ).rows[0].id;
+  const tenantId = (
+    await admin.query(
+      "SELECT tenant_id FROM staff_memberships WHERE user_id=$1",
+      [approverId],
+    )
+  ).rows[0].tenant_id;
+  await admin.query(
+    "INSERT INTO office_certificate_assets(tenant_id,kind,version,mime_type,byte_length,content_sha256,bytes,uploaded_by) VALUES($1,'SIGNATURE',1,'image/png',$2,$3,$4,$5)",
+    [
+      tenantId,
+      png.length,
+      createHash("sha256").update(png).digest("hex"),
+      png,
+      approverId,
+    ],
+  );
 });
 after(async () => {
   await closePdfBrowser();
   await new Promise<void>((resolve) => server.close(() => resolve()));
   await pool.end();
+  // W-002: remove the synthetic signature row again — a direct insert, so
+  // no append-only change history references it.
+  await admin.query(
+    "DELETE FROM office_certificate_assets WHERE kind='SIGNATURE' AND tenant_id IN (SELECT tenant_id FROM staff_memberships WHERE user_id=(SELECT id FROM platform_users WHERE email='approver@alpha.local.test'))",
+  );
+  await admin.end();
 });
 
 test("Phase W: the Chairman may ask the applicant to come; the application stays submitted and he then decides it himself", async () => {

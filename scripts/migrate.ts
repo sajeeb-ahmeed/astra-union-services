@@ -2,6 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import pg from "pg";
 import { importGeographyDataset } from "./geography-data.js";
+import { reconcileRenamedMigrations } from "./migration-renames.js";
 const local = fs.existsSync(".runtime/postgres.json")
   ? JSON.parse(fs.readFileSync(".runtime/postgres.json", "utf8"))
   : {};
@@ -13,6 +14,10 @@ try {
   await db.query(
     "CREATE TABLE IF NOT EXISTS schema_migrations(name text PRIMARY KEY,applied_at timestamptz NOT NULL DEFAULT now())",
   );
+  // R-001: a DB that applied Phase 4 migrations under their pre-integration
+  // numbers gets the new names recorded instead of re-running them.
+  for (const name of await reconcileRenamedMigrations(db))
+    console.log(`Recorded renumbered ${name} (already applied under its pre-integration name)`);
   for (const name of fs
     .readdirSync("db/migrations")
     .filter((n) => n.endsWith(".sql"))

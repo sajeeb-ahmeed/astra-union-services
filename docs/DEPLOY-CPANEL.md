@@ -55,6 +55,26 @@ runs everything as that one user:
    characters such as `@ : / #`):
    `postgres://USER:PASSWORD@127.0.0.1:5432/DATABASE`
 
+## 2b. Entry points — which `app.js` is which (A-019)
+
+The repository has two `app.js` files and neither is a stray stub:
+
+- **Repo-root `app.js`** is the live cPanel / LiteSpeed (lsnode) entry
+  point. lsnode loads it with `require()` from CommonJS, which rejects
+  modules whose graph contains top-level await, so it registers `tsx`
+  and loads the server through a plain dynamic `import()` of
+  `./apps/api/src/server.ts` — the real server entry point. Do not delete
+  it: the Node app's startup file is `app.js` (§4).
+- **`dist-cpanel/app.js`** is the packaged variant produced by
+  `node scripts/package-cpanel.mjs`: it loads the pre-compiled server
+  (`./apps/api/dist/server.js`, no tsx registration).
+- **`dist-cpanel/`** (tracked, ~176 files) is the assembled release
+  bundle, regenerated per release by `package-cpanel.mjs` (P-005). It is
+  kept in the branch deliberately as the deployable artifact — do not
+  treat it as build output to delete, and do not hand-edit it; regenerate
+  it instead. A stale bundle is a release-process failure, not a reason to
+  remove the directory.
+
 ## 3. Upload the bundle
 
 1. On your own machine, from the repository root:
@@ -156,12 +176,69 @@ folder inside the application directory before running it.)
 
 ## 6. Start and verify
 
-Restart the application in **Setup Node.js App**, then check:
+Restart the application in **Setup Node.js App**, then run the post-deployment
+gate — a deployment is **not signed off** until it passes. The gate runs the
+database checks and then the live checks in one command, reading the expected
+commit/package from the bundle's own `release.json` so nothing is hand-copied
+(P-012, Phase 4 Stage 3). It catches incomplete deployments, in particular
+the `SCHEMA_UNAVAILABLE` recurrence: after the r9 deploy (24 Nov 2026) live
+applications failed with 422 `SCHEMA_UNAVAILABLE` because step 5
+(`db:initialize-cpanel`) had been skipped, so the service versions the
+bundle's code defines were never published. The checks verify applied
+migrations and published service versions directly.
+
+On the server (in the application directory, with the app environment loaded):
+
+```sh
+npm run verify:gate -- --live https://your-domain
+```
+
+Expected: `P-012 gate: PASS — database and live readiness both passed.`
+The database half reports `Deployment readiness PASS: 5/5 checks passed`
+(every migration file applied; every canonical schema version published with
+matching hashes; 47 services; an owner account exists; tenant isolation —
+RLS + FORCE RLS on the tenant tables with scope-gated policies). The live half reports
+`Deployment readiness PASS: 8/8 checks passed` — health reports the deployed
+commit/package and the latest migration, the homepage returns the real app
+shell, the services list has 47 entries, service 1's schema resolves (a 422
+here is the `SCHEMA_UNAVAILABLE` recurrence: run `db:initialize-cpanel` on
+the server and re-check), and plain HTTP does not serve the app (see below).
+
+If a half fails, fix it and re-run the whole gate — do not sign off on a
+partial pass. If `migrations-applied` fails, run `npm run db:migrate-cpanel`
+and re-check. If `service-versions-published` fails, run
+`npm run db:initialize-cpanel` and re-check (see the reconcile note in step 5
+if initialize itself throws).
+
+The two halves can also be run individually for diagnosis (same script the
+gate calls; `--expect-commit` / `--expect-package` come from the bundle's
+`release.json`):
+
+```sh
+node --import tsx scripts/verify-deployment-readiness.ts --db
+node --import tsx scripts/verify-deployment-readiness.ts --live https://your-domain \
+  --expect-commit <full commit sha from release.json> \
+  --expect-package <packageId from release.json>
+```
+
+Before packaging a release, run the performance smoke locally
+(`npm run verify:performance`) — it boots the built frontend + API on
+loopback, checks both desktop and mobile viewports for overflow/page
+errors, and measures the public directory at concurrency 10. It is a
+pre-packaging check, not part of the post-deploy gate: it needs a local
+database and the build's `apps/web/dist/asset-sizes.json` (the committed
+`execution/asset-sizes.json` is the stable reference), which do not travel
+in the bundle.
+
+Then check:
 
 - [ ] `https://your-domain/api/v1/health` returns
       `{"status":"ok","database":"PostgreSQL","mode":"DEMO_ONLY", ...}`
       with `features` all `true` (mode flips to `OFFICIAL` only when the
-      owner later sets `ISSUANCE_MODE=official`).
+      owner later sets `ISSUANCE_MODE=official`) and a `release` object whose
+      `commit` and `packageId` match the bundle just uploaded (`release.json`
+      at the bundle root) and whose `migrationVersion` is the latest file in
+      `db/migrations/`.
 - [ ] **HTTPS is forced (SEC-HTTPS).** From any terminal, run:
       `curl -sI http://digitalunion.com.bd/` — it MUST answer
       `HTTP/1.1 301 Moved Permanently` with
@@ -176,6 +253,10 @@ Restart the application in **Setup Node.js App**, then check:
       still returns 200. Also confirm `curl -sI https://digitalunion.com.bd/`
       returns 200 and carries `Strict-Transport-Security: max-age=31536000`.
 - [ ] The public homepage loads at `https://your-domain/`.
+- [ ] Strict HTTPS mode (S-008) is OFF by default because LiteSpeed may omit
+      `X-Forwarded-Proto`. Set `HTTPS_STRICT=true` only after confirming every
+      proxied request carries the header; with it on, a request without the
+      header gets `421 HTTPS_REQUIRED` instead of being served.
 - [ ] Sign in with the owner account created in step 5.
 - [ ] Open the services list — it shows the 47-service catalog.
 - [ ] Issue one test certificate for a test citizen and download the PDF.
@@ -200,16 +281,29 @@ a managed backup tool (`node scripts/backup/backup.mjs backup`, driven by
 
 ## 8. Updating and rollback
 
-- **Update:** rebuild the bundle (`node scripts/package-cpanel.mjs`),
-  upload over the app directory, run `npm run db:migrate-cpanel` from a
-  terminal (it applies only migrations that are not yet recorded), then
-  restart the app and re-check step 6.
+- **Update:** rebuild the bundle (`node scripts/package-cpanel.mjs` — it writes
+  a fresh `release.json` with the new package id, commit, build time and asset
+  manifest), upload over the app directory, run `npm run db:migrate-cpanel`
+  from a terminal (it applies only migrations that are not yet recorded), then
+  run `npm run db:initialize-cpanel` (step 5 — never skip, even with no new
+  migration), restart the app, run the step-6 gate
+  (`npm run verify:gate -- --live https://your-domain`), and record the new
+  bundle→commit mapping in the
+  [hosted deployment record](HOSTED_DEPLOYMENT.md) before calling the deploy done.
 - **Rollback:** the previous bundle is the rollback unit — keep the last
-  known-good upload (e.g. `astra-app-prev/`) and point the Node.js app's
-  root back to it, then restart. Database changes from migrations are
-  additive; if a rollback must also undo data, restore the latest nightly
-  `pg_dump` into a fresh database and repoint the two `DATABASE_*_URL`
-  variables. Never edit files inside `db/migrations/` — merged migrations
+  known-good upload (e.g. `astra-app-prev/`, **including its `release.json`**,
+  so health keeps reporting the rolled-back release truthfully) and point the
+  Node.js app's root back to it, then restart. Before rolling back, take a
+  fresh `pg_dump` (step 7) so the pre-rollback state is recoverable.
+  Database changes from migrations are additive and are **not** undone by a
+  bundle rollback: if a rollback must also undo data, restore the latest
+  nightly `pg_dump` into a fresh database and repoint the two `DATABASE_*_URL`
+  variables — never hand-edit the live database to "unapply" a migration.
+  After a rollback, run the step-6 gate again
+  (`npm run verify:gate -- --live https://your-domain`) with the previous
+  bundle's expectations (the gate reads them from that bundle's `release.json`)
+  and record the rollback in the hosted deployment
+  record. Never edit files inside `db/migrations/` — merged migrations
   are immutable; fixes ship as new migrations.
 
 ## 9. Going official

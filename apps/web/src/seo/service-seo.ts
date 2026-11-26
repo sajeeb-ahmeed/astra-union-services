@@ -1,4 +1,4 @@
-import serviceCatalog from "../public-service-catalog.json" with { type: "json" };
+import serviceCatalog from "../service-catalog.js";
 
 /**
  * SEO-STRATEGY-01, development plan P1: the SEO registry.
@@ -45,6 +45,15 @@ export interface ServiceSeo {
   introEn: string;
   noteBn?: string;
   noteEn?: string;
+  /**
+   * F-002: who can apply for this service, in both languages. These are
+   * government eligibility requirements — they may ONLY be filled in
+   * from an owner-supplied, office-confirmed source, never invented.
+   * Until a service has them, the service page renders an honest
+   * "not published yet" state instead of guessing.
+   */
+  eligibilityBn?: string;
+  eligibilityEn?: string;
   extraFaq?: ServiceFaq[];
   related: number[];
 }
@@ -461,12 +470,91 @@ export function serviceDescription(seo: ServiceSeo, lang: "bn" | "en"): string {
 }
 
 /**
+ * F-004: the per-service facts the service page derives from the
+ * service's own form schema — the plain checklist of information the
+ * form asks for, and whether it asks for attachments. Schema internals
+ * stay out: section titles are form machinery, upload fields are
+ * covered by the documents note, and the declaration checkbox is a
+ * confirmation the citizen ticks in the form, not information they
+ * bring. This is the single source for the page's "What information
+ * you will need" section, the service-specific FAQ item and the
+ * service-specific apply step, so the three can never drift apart —
+ * and so no two service pages share identical steps/FAQ text without
+ * inventing per-service copy: the text comes from the real schema.
+ */
+export interface ServiceFormFacts {
+  fields: { bn: string; en: string }[];
+  attachmentsAsked: boolean;
+}
+export function serviceFormFacts(schema: any): ServiceFormFacts {
+  const fields: { bn: string; en: string }[] = [];
+  const seen = new Set<string>();
+  let attachmentsAsked = false;
+  try {
+    for (const section of schema?.sections ?? []) {
+      for (const field of section.fields ?? []) {
+        if (field.type === "attachment" || field.type === "repeatable") {
+          attachmentsAsked = true;
+          continue;
+        }
+        if (field.type === "checkbox" || !field.label) continue;
+        const key = field.label.en ?? field.label.bn ?? "";
+        if (!key || seen.has(key)) continue;
+        seen.add(key);
+        fields.push(field.label);
+      }
+    }
+  } catch {
+    return { fields: [], attachmentsAsked: false };
+  }
+  return { fields, attachmentsAsked };
+}
+
+/**
+ * F-004: the "How to apply" steps with the service's own second step —
+ * the form it names and what it asks for — so the steps block is no
+ * longer the same four generic lines on all 47 pages. Steps 1/3/4 are
+ * genuinely the same process everywhere, so they stay shared text.
+ */
+export function stepsFor(
+  seo: ServiceSeo,
+  facts?: ServiceFormFacts,
+): { bn: string; en: string }[] {
+  const entry = catalogEntry(seo.no);
+  const specific =
+    facts && facts.fields.length > 0
+      ? {
+          bn: `${entry.name_bn} ফরমটি পূরণ করুন — ${facts.fields.length}টি তথ্য লিখতে হবে${facts.attachmentsAsked ? " এবং চাওয়া নথি যুক্ত করুন" : ""}।`,
+          en: `Complete the ${entry.name_en} form — ${facts.fields.length} detail${facts.fields.length === 1 ? "" : "s"} to fill in${facts.attachmentsAsked ? " — and attach the required documents" : ""}.`,
+        }
+      : {
+          bn: "সেবার ফরম পূরণ করুন এবং চাওয়া নথি যুক্ত করুন।",
+          en: "Complete the service form and attach the requested documents.",
+        };
+  return [
+    {
+      bn: "আপনার অংশগ্রহণকারী অফিস বেছে অ্যাকাউন্ট খুলুন।",
+      en: "Choose your participating office and create your account.",
+    },
+    specific,
+    {
+      bn: "অফিসের যাচাইয়ের জন্য জমা দিন; সংশোধনের অনুরোধ এলে তা অনুসরণ করুন।",
+      en: "Submit for office review; follow any correction request.",
+    },
+    {
+      bn: "অনুমোদিত হলে সনদ ইস্যু হবে। অ্যাকাউন্টে অবস্থা দেখুন এবং QR লিংক দিয়ে যাচাই করুন।",
+      en: "Once approved, the certificate is issued. View status in your account and verify its QR link.",
+    },
+  ];
+}
+
+/**
  * The visible FAQ for a service page (design D4). Generated from the
  * registry so the rendered FAQ and the FAQPage JSON-LD are the same data.
  * Answers never invent fees, times or document lists: those are per-office
  * facts rendered from the office-info API on the same page.
  */
-export function faqFor(seo: ServiceSeo): ServiceFaq[] {
+export function faqFor(seo: ServiceSeo, facts?: ServiceFormFacts): ServiceFaq[] {
   const entry = catalogEntry(seo.no);
   const standard: ServiceFaq[] = [
     {
@@ -507,6 +595,24 @@ export function faqFor(seo: ServiceSeo): ServiceFaq[] {
       },
     },
   ];
+  // F-004: the schema-derived item — the form's real field list, so the
+  // FAQ is no longer identical on all 47 pages. Only when the caller
+  // passes the service's form facts (page and prerender both do); the
+  // four standard items above are unchanged without them.
+  if (facts && facts.fields.length > 0) {
+    const labelsBn = facts.fields.map((f) => f.bn).join(", ");
+    const labelsEn = facts.fields.map((f) => f.en).join(", ");
+    standard.push({
+      q: {
+        bn: `${entry.name_bn}-এর জন্য কী তথ্য লাগবে?`,
+        en: `What information will I need for a ${entry.name_en.toLowerCase()}?`,
+      },
+      a: {
+        bn: `ফরমে নিচের তথ্যগুলো চাওয়া হয়: ${labelsBn}।${facts.attachmentsAsked ? " ফরমে চাওয়া হলে প্রয়োজনীয় নথির স্ক্যান বা ছবি যুক্ত করতে হবে।" : ""}`,
+        en: `The form asks for: ${labelsEn}.${facts.attachmentsAsked ? " Where the form asks, attach a scan or photo of the required document." : ""}`,
+      },
+    });
+  }
   return [...standard, ...(seo.extraFaq ?? [])];
 }
 

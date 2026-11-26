@@ -2,9 +2,13 @@ import { useEffect, useRef, useState } from "react";
 import { api } from "./api.js";
 import { choose, useLanguage } from "./i18n.js";
 
+// W-024: "bilingual" is a legitimate certificate language — the form
+// offers it, and issuance renders both language versions under one
+// number, so the panel must represent it instead of silently falling
+// back to displaying "bn" while the prop stays "bilingual".
 export type OrderPreferences = {
   addressBasis: "registered_profile";
-  certificateLanguage: "bn" | "en";
+  certificateLanguage: "bn" | "en" | "bilingual";
   deliveryMode: "office_collection" | "digital_copy";
   urgency: "normal" | "urgent";
 };
@@ -26,6 +30,11 @@ export type IntakeOrderState = {
   ready: boolean;
   configured: boolean;
   order?: OrderInput;
+  // W-006: the accepted quote's BDT total, for the review step's pre-submit
+  // fee disclosure. The state deliberately carries only the OrderInput
+  // subset (policyVersion/preferences/couponCode) for the create call —
+  // the total is display data, kept separate so it can never leak into it.
+  quoteTotalMinor?: number;
 };
 const label = (bn: string, en: string) => choose({ bn, en });
 
@@ -82,7 +91,9 @@ export function OrderSummary({ order }: { order: OrderQuote }) {
         ·{" "}
         {order.preferences.certificateLanguage === "bn"
           ? label("বাংলা সনদ", "Bangla certificate")
-          : label("ইংরেজি সনদ", "English certificate")}
+          : order.preferences.certificateLanguage === "bilingual"
+            ? label("দ্বিভাষিক সনদ (বাংলা ও ইংরেজি)", "Bilingual certificate (Bangla and English)")
+            : label("ইংরেজি সনদ", "English certificate")}
       </p>
       <p>
         {order.preferences.deliveryMode === "office_collection"
@@ -137,7 +148,7 @@ export function ApplicationOrder({
   certificateLanguage?: string;
   officeName: string;
   address: string;
-  onLanguageChange: (language: "bn" | "en") => void;
+  onLanguageChange: (language: "bn" | "en" | "bilingual") => void;
   onChange: (state: IntakeOrderState) => void;
 }) {
   useLanguage();
@@ -167,8 +178,14 @@ export function ApplicationOrder({
   // "bilingual" (দ্বিভাষিক) choice with "bn" on entering this step, so the
   // review screen showed বাংলা for a bilingual selection. Only an explicit
   // change in the select below syncs to the form (onLanguageChange).
-  const effectiveLanguage: "bn" | "en" =
-    certificateLanguage === "en" ? "en" : "bn";
+  // W-024 (Phase 4): "bilingual" is now a legitimate order language
+  // (orders.ts accepts bn | en | bilingual), so the effective language
+  // carries it through instead of collapsing it to "bn"; any other or
+  // missing value still falls back to "bn" so the step never dead-ends.
+  const effectiveLanguage: OrderPreferences["certificateLanguage"] =
+    certificateLanguage === "en" || certificateLanguage === "bilingual"
+      ? certificateLanguage
+      : "bn";
   const requestEpoch = useRef(0);
   const currentPreferences = JSON.stringify({
     certificateLanguage: effectiveLanguage,
@@ -220,6 +237,7 @@ export function ApplicationOrder({
               preferences: quote.preferences,
               ...(quote.couponCode ? { couponCode: quote.couponCode } : {}),
             },
+            quoteTotalMinor: quote.totalMinor,
           }
         : {}),
     });
@@ -287,13 +305,20 @@ export function ApplicationOrder({
           <select
             id="order-language"
             value={effectiveLanguage}
-            onChange={(e) => onLanguageChange(e.target.value as "bn" | "en")}
+            onChange={(e) =>
+              onLanguageChange(
+                e.target.value as "bn" | "en" | "bilingual",
+              )
+            }
           >
             <option value="" disabled>
               {label("ভাষা নির্বাচন করুন", "Choose language")}
             </option>
             <option value="bn">{label("বাংলা", "Bangla")}</option>
             <option value="en">{label("ইংরেজি", "English")}</option>
+            <option value="bilingual">
+              {label("দ্বিভাষিক (বাংলা ও ইংরেজি)", "Bilingual (Bangla and English)")}
+            </option>
           </select>
         </div>
         <div className="field">

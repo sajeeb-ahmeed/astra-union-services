@@ -70,6 +70,22 @@ export function ShortSignupForm({
   const [pageError, setPageError] = useState("");
   const [taken, setTaken] = useState<"email" | "mobile" | null>(null);
   const [working, setWorking] = useState(false);
+  // S-001: a short signup without a verified code creates the account with the
+  // mobile PENDING — mobile sign-in stays blocked until the holder proves the
+  // number with a code. The panel below completes that proof, then signs the
+  // citizen straight in with the mobile they just verified.
+  const [pending, setPending] = useState<{ mobile: string; password: string; result: ShortSignupResult } | null>(null);
+  const [otpChallenge, setOtpChallenge] = useState<string | null>(null);
+  const [otpCode, setOtpCode] = useState("");
+  const [otpMessage, setOtpMessage] = useState("");
+  const [otpBusy, setOtpBusy] = useState(false);
+  const [otpWaitUntil, setOtpWaitUntil] = useState(0);
+  const [otpNow, setOtpNow] = useState(Date.now());
+  useEffect(() => {
+    if (!pending || otpWaitUntil <= Date.now()) return;
+    const timer = setInterval(() => setOtpNow(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, [pending, otpWaitUntil]);
   const refs = {
     name: useRef<HTMLInputElement>(null),
     mobile: useRef<HTMLInputElement>(null),
@@ -133,7 +149,7 @@ export function ShortSignupForm({
     setTaken(null);
     const mobile = asciiDigits(form.mobile.trim());
     try {
-      await api("/auth/signup", "POST", {
+      const created: any = await api("/auth/signup", "POST", {
         tenantId,
         name: form.name.trim(),
         mobile,
@@ -144,6 +160,14 @@ export function ShortSignupForm({
       const result: ShortSignupResult = form.email.trim()
         ? { signInWith: "email", identifier: form.email.trim().toLowerCase() }
         : { signInWith: "mobile", identifier: mobile };
+      // S-001: the mobile is pending until a code proves it. Email sign-in
+      // still works, so an account WITH an email signs straight in below;
+      // a mobile-only account stops here for the one-code proof instead of
+      // failing a sign-in it cannot pass yet.
+      if (result.signInWith === "mobile" && created?.mobileVerification === "pending") {
+        setPending({ mobile, password: form.password, result });
+        return;
+      }
       // PORTAL-B: no second form — sign the new citizen in with the
       // password they just typed and open their workspace. Anything
       // unexpected (rate limit, a second factor) falls back to the
@@ -179,6 +203,118 @@ export function ShortSignupForm({
     } finally {
       setWorking(false);
     }
+  }
+
+  // S-001: pending-mobile verification — one code sent to the handset, then
+  // the mobile becomes a trusted sign-in identifier and the citizen is signed
+  // straight in. "Verify later" hands over to the normal sign-in screen; the
+  // account already exists and the number can be verified from settings.
+  if (pending) {
+    const otpWait = Math.max(0, Math.ceil((otpWaitUntil - otpNow) / 1000));
+    return (
+      <section className="du-short-signup" aria-labelledby="signup-verify-title">
+        <h2 id="signup-verify-title">{choose({ bn: "মোবাইল নম্বর যাচাই করুন", en: "Verify your mobile number" })}</h2>
+        <p>
+          {choose({
+            bn: "আপনার অ্যাকাউন্ট তৈরি হয়েছে। মোবাইল দিয়ে সাইন ইন করার আগে নম্বরটি যাচাই করতে হবে — কোডটি SMS-এ যাবে।",
+            en: "Your account is created. Before you can sign in with your mobile, the number needs verifying — the code is sent by SMS.",
+          })}
+        </p>
+        <p className="hint">
+          {choose({ bn: "মোবাইল: ", en: "Mobile: " })}
+          <strong>{pending.mobile}</strong>
+        </p>
+        <div className="mobile-otp-send">
+          <button
+            type="button"
+            className="secondary"
+            disabled={otpBusy || otpWait > 0}
+            onClick={async () => {
+              setOtpBusy(true);
+              setOtpMessage("");
+              try {
+                const r: any = await api("/auth/otp/signup", "POST", { mobile: pending.mobile });
+                setOtpChallenge(r.challengeToken);
+                setOtpWaitUntil(Date.now() + (r.resendAfterSeconds ?? 60) * 1000);
+                setOtpNow(Date.now());
+                setOtpMessage(choose({ bn: "কোড পাঠানো হয়েছে।", en: "Code sent." }));
+              } catch (error) {
+                setOtpMessage((error as Error).message);
+              } finally {
+                setOtpBusy(false);
+              }
+            }}
+          >
+            {otpWait > 0
+              ? choose({ bn: `আবার পাঠান (${otpWait} সে.)`, en: `Resend (${otpWait}s)` })
+              : otpChallenge
+                ? choose({ bn: "আবার কোড পাঠান", en: "Resend code" })
+                : choose({ bn: "কোড পাঠান", en: "Send code" })}
+          </button>
+        </div>
+        {otpChallenge && (
+          <>
+            <label htmlFor="signup-verify-code">
+              {choose({ bn: "৬ অঙ্কের কোড", en: "6-digit code" })}
+              <input
+                id="signup-verify-code"
+                inputMode="numeric"
+                autoComplete="one-time-code"
+                maxLength={6}
+                value={otpCode}
+                onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+              />
+            </label>
+            <div className="actions">
+              <button
+                type="button"
+                className="du-btn-primary"
+                disabled={otpBusy || otpCode.length !== 6}
+                onClick={async () => {
+                  setOtpBusy(true);
+                  setOtpMessage("");
+                  try {
+                    await api("/auth/otp/verify-mobile", "POST", {
+                      challengeToken: otpChallenge,
+                      code: otpCode,
+                      mobile: pending.mobile,
+                    });
+                    try {
+                      const session: any = await api("/auth/login", "POST", {
+                        identifierType: "mobile",
+                        identifier: pending.mobile,
+                        password: pending.password,
+                      });
+                      if (session?.user?.id && !session.mfaRequired) {
+                        adoptSession(session);
+                        history.replaceState({}, "", "/");
+                        window.dispatchEvent(new CustomEvent("astra:session-changed"));
+                        return;
+                      }
+                    } catch {
+                      // Fall through to the manual sign-in hand-over below.
+                    }
+                    onRegistered(pending.result);
+                  } catch (error) {
+                    setOtpMessage((error as Error).message);
+                  } finally {
+                    setOtpBusy(false);
+                  }
+                }}
+              >
+                {choose({ bn: "যাচাই করুন ও সাইন ইন করুন", en: "Verify and sign in" })}
+              </button>
+            </div>
+          </>
+        )}
+        {otpMessage && <p role="status">{otpMessage}</p>}
+        <p>
+          <button type="button" className="text-button" onClick={() => onRegistered(pending.result)}>
+            {choose({ bn: "পরে যাচাই করব — সাইন ইন পাতায় যান", en: "Verify later — go to the sign-in page" })}
+          </button>
+        </p>
+      </section>
+    );
   }
 
   return (
@@ -251,8 +387,8 @@ export function ShortSignupForm({
           />
           <small id={"signup-mobile-hint"} className="hint">
             {choose({
-              bn: "এই মোবাইল নম্বর ও পাসওয়ার্ড দিয়ে সাইন ইন করবেন।",
-              en: "You will sign in with this mobile number and your password.",
+              bn: "এই মোবাইল নম্বর ও পাসওয়ার্ড দিয়ে সাইন ইন করবেন — নম্বরটিতে একটি কোড পাঠিয়ে যাচাই করা হবে।",
+              en: "You will sign in with this mobile number and your password — the number is verified with a code first.",
             })}
           </small>
           {fieldError("mobile")}
