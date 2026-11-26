@@ -1,4 +1,4 @@
-import serviceCatalog from "./public-service-catalog.json" with { type: "json" };
+import serviceCatalog from "./service-catalog.js";
 
 /**
  * FULL-UIUX-01 (checklist A5): every public service gets a stable, readable

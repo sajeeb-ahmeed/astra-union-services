@@ -1,6 +1,6 @@
 import { choose, t, tx, useLanguage } from "./i18n.js";
 import { randomUUID } from "./uuid.js";
-import serviceCatalog from "./public-service-catalog.json" with { type: "json" };
+import serviceCatalog from "./service-catalog.js";
 import { formatDateTime } from "./ui/fmt.js";
 import { EmptyState, applicationStatusMeta, ledgerKindMeta } from "./ui/kit.js";
 import React, { useEffect, useState } from "react";

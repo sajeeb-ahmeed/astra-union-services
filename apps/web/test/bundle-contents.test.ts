@@ -120,3 +120,38 @@ test("B-003: the legacy schemas ship only as a lazy chunk, never in the initial 
     `GeographyFields chunk is ${fs.statSync(geo).size} B, still over the 500 kB budget`,
   );
 });
+
+/**
+ * B-004: the service catalog JSON has exactly one module importer.
+ *
+ * Six modules used to import public-service-catalog.json directly with
+ * `with { type: "json" }`. Vite's vite:build-import-analysis strips
+ * import attributes from the static imports of any file that contains a
+ * dynamic import(), so PublicHome.tsx and PublicPortal.tsx reached
+ * Rollup with no attributes while the other four kept theirs, and every
+ * production build warned INCONSISTENT_IMPORT_ATTRIBUTES. The catalog
+ * now flows through apps/web/src/service-catalog.ts — the only module
+ * that imports the JSON (it contains no dynamic import, so its
+ * attributes survive) — and every other consumer imports the wrapper.
+ * This pins that invariant: a second direct JSON importer re-opens the
+ * warning. The prerender script reads the same file via fs (not a
+ * module import) and is out of scope here.
+ */
+test("B-004: public-service-catalog.json has exactly one module importer (service-catalog.ts)", () => {
+  const src = walkFiles(path.join(repoRoot, "apps/web/src")).filter((f) => /\.(ts|tsx)$/.test(f));
+  const testFiles = walkFiles(path.join(repoRoot, "apps/web/test")).filter((f) => /\.test\.ts$/.test(f));
+  const direct = [...src, ...testFiles].filter((f) =>
+    /import\s+\w+\s+from\s+["'][^"']*public-service-catalog\.json["']/.test(fs.readFileSync(f, "utf-8")),
+  );
+  assert.deepEqual(
+    direct.map((f) => path.relative(repoRoot, f)),
+    ["apps/web/src/service-catalog.ts"],
+    `direct importers of public-service-catalog.json (must be only service-catalog.ts): ${direct.join(", ")}`,
+  );
+  const wrapper = fs.readFileSync(path.join(repoRoot, "apps/web/src/service-catalog.ts"), "utf-8");
+  assert.match(
+    wrapper,
+    /from\s+"\.\/public-service-catalog\.json"\s+with\s+\{\s*type:\s*"json"\s*\}/,
+    "service-catalog.ts must import the JSON with { type: \"json\" } (tsc NodeNext requires it)",
+  );
+});

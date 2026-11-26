@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from "react";
 import { choose, useLanguage } from "./i18n.js";
-import serviceCatalog from "./public-service-catalog.json" with { type: "json" };
+import serviceCatalog from "./service-catalog.js";
 import { CategoryIcon, categoryLabel, categoryTintClass } from "./service-categories.js";
 import { servicePath } from "./service-slugs.js";
 import { localDigits } from "./ui/fmt.js";

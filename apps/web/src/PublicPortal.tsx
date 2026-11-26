@@ -39,7 +39,7 @@ const WitnessGenerator = lazyWithRetry(() => import("./WitnessGenerator.js"), (m
 import "./public-usability.css";
 import "./public-portal.css";
 // Public pages need names only; canonical metadata parity is checked by the web tests.
-import serviceCatalog from "./public-service-catalog.json" with { type: "json" };
+import serviceCatalog from "./service-catalog.js";
 import { api, items } from "./api.js";
 import { ServicePriceList, taka } from "./ServicePriceList.js";
 import { DesignatedOfficers, OfficeInclusionForm } from "./OfficeInclusion.js";

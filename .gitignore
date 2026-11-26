@@ -15,3 +15,39 @@ deliverables/
 .netlify/
 .vercel/
 .neon
+
+# B-001: decoded binaries (scripts/decode-assets.mjs). The binaries are
+# tracked in this repo, so these rules are no-ops for the tracked copies —
+# gitignore never hides a tracked file. They exist for fresh GitHub
+# checkouts, where the snapshot transport carries only the .b64 text
+# siblings: decode recreates the binaries as untracked files, and without
+# these rules every build would dirty the tree with them.
+apps/api/assets/certificates/govt-emblem.png
+apps/api/assets/fonts/LiberationSans-Bold.ttf
+apps/api/assets/fonts/LiberationSans-Regular.ttf
+apps/api/assets/fonts/NotoSansBengali-Bold.ttf
+apps/api/assets/fonts/NotoSansBengali-Regular.ttf
+apps/api/assets/offices/belabo-up/seal-watermark.png
+apps/api/assets/offices/belabo-up/seal.png
+apps/web/public/apple-touch-icon.png
+apps/web/public/favicon-192.png
+apps/web/public/favicon-32.png
+apps/web/public/favicon-512.png
+apps/web/public/fonts/noto-sans-bengali-bengali-400-normal.woff2
+apps/web/src/assets/brand/emblem.png
+apps/web/src/assets/brand/emblem.webp
+apps/web/src/assets/brand/logo-lockup.png
+apps/web/src/assets/brand/logo-lockup.webp
+apps/web/src/assets/fonts/noto-sans-bengali-bengali-400-normal.woff2
+apps/web/src/assets/fonts/noto-sans-bengali-bengali-600-normal.woff2
+apps/web/src/assets/fonts/noto-sans-bengali-bengali-700-normal.woff2
+apps/web/src/assets/fonts/noto-sans-bengali-latin-400-normal.woff2
+apps/web/src/assets/fonts/noto-sans-bengali-latin-600-normal.woff2
+apps/web/src/assets/fonts/noto-sans-bengali-latin-700-normal.woff2
+dist-cpanel/apps/api/assets/certificates/govt-emblem.png
+dist-cpanel/apps/api/assets/fonts/LiberationSans-Bold.ttf
+dist-cpanel/apps/api/assets/fonts/LiberationSans-Regular.ttf
+dist-cpanel/apps/api/assets/fonts/NotoSansBengali-Bold.ttf
+dist-cpanel/apps/api/assets/fonts/NotoSansBengali-Regular.ttf
+dist-cpanel/apps/api/assets/offices/belabo-up/seal-watermark.png
+dist-cpanel/apps/api/assets/offices/belabo-up/seal.png
