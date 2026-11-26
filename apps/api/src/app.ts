@@ -555,23 +555,19 @@ async function cancelOrderManually(
 }
 /**
  * Owner endpoints act across offices while payment_orders sits behind
- * per-tenant RLS, so locate an order's office the same way GET
- * /owner/tenants enumerates offices: one tenant transaction at a time.
+ * per-tenant RLS, so locate an order's office with the SECURITY DEFINER
+ * function from migration 075 (A-012) instead of one tenant transaction
+ * per tenant. The function runs as the migration owner and returns only
+ * the tenant id (or NULL when the order does not exist).
  */
 async function locateOrderTenant(orderId: string): Promise<string | null> {
-  const tenants = (await pool.query("SELECT id FROM tenants ORDER BY slug"))
-    .rows;
-  for (const t of tenants) {
-    const found = await transaction(t.id, async (db) =>
-      (
-        await db.query("SELECT tenant_id FROM payment_orders WHERE id=$1", [
-          orderId,
-        ])
-      ).rows[0],
-    );
-    if (found) return t.id;
-  }
-  return null;
+  const row = (
+    await pool.query(
+      "SELECT locate_payment_order_tenant($1) AS tenant_id",
+      [orderId],
+    )
+  ).rows[0];
+  return row?.tenant_id ?? null;
 }
 app.post(
   "/api/v1/billing/webhook",
@@ -1309,6 +1305,14 @@ app.delete(
     const id = uuid.parse(req.params.id);
     const item = await transaction(tenant(req), async (db) => {
       await reachableCitizen(db, a, id, "id");
+      // A-011: capture what is about to be removed (mime + byte count,
+      // never the bytes) for the append-only deletion ledger below.
+      const removed = (
+        await db.query(
+          "SELECT photo_mime,octet_length(photo) AS bytes FROM citizens WHERE tenant_id=$1 AND id=$2",
+          [a.tenantId, id],
+        )
+      ).rows[0];
       const row = (
         await db.query(
           "UPDATE citizens SET photo=NULL,photo_mime=NULL,photo_updated_at=NULL WHERE tenant_id=$1 AND id=$2 RETURNING *",
@@ -1316,6 +1320,18 @@ app.delete(
         )
       ).rows[0];
       await audit(db, a.tenantId!, a.userId, "CITIZEN_PHOTO_REMOVED", id, {});
+      await db.query(
+        "INSERT INTO citizen_artifact_deletions(tenant_id,actor_id,citizen_id,artifact_type,detail) VALUES($1,$2,$3,'citizen_photo',$4)",
+        [
+          a.tenantId,
+          a.userId,
+          id,
+          JSON.stringify({
+            mimeType: removed?.photo_mime ?? null,
+            bytes: removed?.bytes ? Number(removed.bytes) : 0,
+          }),
+        ],
+      );
       return citizenRow(row);
     });
     res.json(item);
@@ -3761,30 +3777,14 @@ app.get(
       .enum(["PENDING", "SETTLED", "CANCELLED", "ALL"])
       .default("PENDING")
       .parse(req.query.status ?? undefined);
-    const tenants = (await pool.query("SELECT * FROM tenants ORDER BY slug"))
-      .rows;
-    const items: any[] = [];
-    for (const t of tenants) {
-      const orders = await transaction(t.id, async (db) =>
-        (
-          await db.query(
-            status === "ALL"
-              ? "SELECT * FROM payment_orders WHERE tenant_id=$1 ORDER BY created_at DESC"
-              : "SELECT * FROM payment_orders WHERE tenant_id=$1 AND status=$2 ORDER BY created_at DESC",
-            status === "ALL" ? [t.id] : [t.id, status],
-          )
-        ).rows.map((o) => ({
-          ...camelRow(o),
-          tenantSlug: t.slug,
-          tenantNameBn: t.name_bn,
-          tenantNameEn: t.name_en,
-        })),
-      );
-      items.push(...orders);
-    }
-    items.sort((x, y) =>
-      String(y.createdAt).localeCompare(String(x.createdAt)),
-    );
+    // A-012: one SECURITY DEFINER call (migration 075) across all offices
+    // instead of one tenant transaction + query per tenant. The function
+    // returns the same columns in the same created_at DESC order (see the
+    // migration header); camelRow maps tenant_slug/tenant_name_* to the
+    // tenantSlug/tenantNameBn/tenantNameEn shape this endpoint returned.
+    const items = (
+      await pool.query("SELECT * FROM owner_payment_orders($1)", [status])
+    ).rows.map((o) => camelRow(o));
     res.json({ items });
   }),
 );

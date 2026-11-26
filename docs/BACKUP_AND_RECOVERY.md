@@ -27,6 +27,35 @@ Windows binaries default to `.runtime/pgsql/bin`. On Linux, matching PostgreSQL 
 
 The restore target is a newly generated `astra_restore_*` database in the same local cluster. The main database, existing database names, external hosts and artifact paths outside the immediate `.runtime/backups` directory are rejected. Existing scratch files are neither overwritten nor removed. No database-drop command exists in these scripts. Successful and failed partial restore databases remain available for operator inspection; they are never connected to live application traffic.
 
+## Deleted citizen artifacts (A-011)
+
+There is no soft delete anywhere in the product: removing a citizen
+photo (`DELETE /citizens/:id/photo`) NULLs the stored bytes, and
+removing a sign-in identifier (`DELETE /account/identifiers/:kind`)
+deletes the row. Both are deliberate — keeping the bytes would defeat
+the removal — so recovery is from backup, not from the row:
+
+- Every such removal writes an append-only record that survives the
+  deletion itself: photo removals write `CITIZEN_PHOTO_REMOVED` to
+  `audit_events` **and** a row in `citizen_artifact_deletions`
+  (migration 075, immutable trigger, mime type + byte count, never the
+  bytes); identifier removals write `SIGN_IN_IDENTIFIER_REMOVED` to the
+  append-only `account_security_events`; support-contact key removals
+  are history-tracked in `platform_setting_changes`. Use the ledger row
+  to establish *what* was removed, *when*, and *by whom* before
+  restoring.
+- To recover removed bytes or rows, restore the affected table from
+  the encrypted backup archive (see the workflow above) into a scratch
+  database and copy only the needed rows back; never restore a whole
+  production database over live data to recover one photo. The
+  append-only ledger rows themselves are part of the backup and must
+  never be edited to "undo" a deletion — a restore is a new, auditable
+  act, not an edit of history.
+- A future soft-delete (retain bytes with a `deleted_at` flag) was
+  considered and not built: it would keep personal bytes the user
+  asked to remove. If retention law ever requires it, it needs an
+  owner decision and a retention policy first.
+
 ## What is checked
 
 An exported repeatable-read, read-only PostgreSQL snapshot supplies the custom-format dump and its encrypted manifest. The archive contains real table/PDF/attachment bytes, not a seed script or a reconstruction from API responses.

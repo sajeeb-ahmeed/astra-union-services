@@ -947,22 +947,17 @@ orderRefundsRouter.get(
   }),
 );
 
-/** Owner endpoints act across offices; find a refund's office one tenant at a time. */
+/** Owner endpoints act across offices; find a refund's office with the
+ * SECURITY DEFINER function from migration 075 (A-012) instead of one
+ * tenant transaction per tenant. */
 async function locateRefundTenant(refundId: string): Promise<string | null> {
-  const tenants = (await pool.query("SELECT id FROM tenants ORDER BY slug"))
-    .rows;
-  for (const t of tenants) {
-    const found = await transaction(t.id, async (db) =>
-      (
-        await db.query(
-          "SELECT tenant_id FROM order_gateway_refunds WHERE id=$1",
-          [refundId],
-        )
-      ).rows[0],
-    );
-    if (found) return t.id;
-  }
-  return null;
+  const row = (
+    await pool.query(
+      "SELECT locate_order_refund_tenant($1) AS tenant_id",
+      [refundId],
+    )
+  ).rows[0];
+  return row?.tenant_id ?? null;
 }
 
 /** Reverse a settled refund's effects exactly once, in the settlement transaction. */
