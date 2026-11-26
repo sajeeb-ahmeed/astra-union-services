@@ -38,7 +38,7 @@ the removal — so recovery is from backup, not from the row:
 - Every such removal writes an append-only record that survives the
   deletion itself: photo removals write `CITIZEN_PHOTO_REMOVED` to
   `audit_events` **and** a row in `citizen_artifact_deletions`
-  (migration 072, immutable trigger, mime type + byte count, never the
+  (migration 075, immutable trigger, mime type + byte count, never the
   bytes); identifier removals write `SIGN_IN_IDENTIFIER_REMOVED` to the
   append-only `account_security_events`; support-contact key removals
   are history-tracked in `platform_setting_changes`. Use the ledger row

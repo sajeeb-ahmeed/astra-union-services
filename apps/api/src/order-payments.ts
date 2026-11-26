@@ -948,7 +948,7 @@ orderRefundsRouter.get(
 );
 
 /** Owner endpoints act across offices; find a refund's office with the
- * SECURITY DEFINER function from migration 072 (A-012) instead of one
+ * SECURITY DEFINER function from migration 075 (A-012) instead of one
  * tenant transaction per tenant. */
 async function locateRefundTenant(refundId: string): Promise<string | null> {
   const row = (

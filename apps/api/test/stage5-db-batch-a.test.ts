@@ -11,7 +11,7 @@ import { closePdfBrowser } from "../src/pdf.js";
  * Phase 4 Stage 5 Batch A (Database): A-014, A-007, A-011, A-012.
  *
  * A-014: applications(citizen_id) + audit_events(tenant_id, created_at)
- *   indexes exist (migration 072); the A-010 guard asserts the duplicate
+ *   indexes exist (migration 075); the A-010 guard asserts the duplicate
  *   `applications_tenant_state_time` index is still the 004 updated_at
  *   variant (no created_at variant was created).
  * A-007: approval_authorizations.service_no has a FK to service_catalog.
@@ -19,7 +19,7 @@ import { closePdfBrowser } from "../src/pdf.js";
  *   citizen_artifact_deletions row (immutable trigger) recording mime +
  *   byte count, never the bytes.
  * A-012: owner cross-tenant reads go through SECURITY DEFINER functions
- *   (migration 072) instead of one tenant transaction per tenant:
+ *   (migration 075) instead of one tenant transaction per tenant:
  *   GET /owner/payment-orders returns the same rows at >= 50 tenants,
  *   locate_* returns the right tenant (NULL when absent), and
  *   consume_password_recovery_tokens consumes across memberships in one

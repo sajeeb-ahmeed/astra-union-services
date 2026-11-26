@@ -63,7 +63,7 @@ export async function consumeAccountRecoveryLinks(db: DB, userId: string) {
     [userId],
   );
   // Recovery tokens are per-account: one SECURITY DEFINER call
-  // (migration 072, A-012) consumes every unconsumed token of this user
+  // (migration 075, A-012) consumes every unconsumed token of this user
   // in a single statement, instead of one set_config + UPDATE per
   // membership. A later password change must invalidate links issued
   // under every membership, so the UPDATE has no tenant filter by design.

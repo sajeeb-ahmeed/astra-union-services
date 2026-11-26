@@ -556,7 +556,7 @@ async function cancelOrderManually(
 /**
  * Owner endpoints act across offices while payment_orders sits behind
  * per-tenant RLS, so locate an order's office with the SECURITY DEFINER
- * function from migration 072 (A-012) instead of one tenant transaction
+ * function from migration 075 (A-012) instead of one tenant transaction
  * per tenant. The function runs as the migration owner and returns only
  * the tenant id (or NULL when the order does not exist).
  */
@@ -3777,7 +3777,7 @@ app.get(
       .enum(["PENDING", "SETTLED", "CANCELLED", "ALL"])
       .default("PENDING")
       .parse(req.query.status ?? undefined);
-    // A-012: one SECURITY DEFINER call (migration 072) across all offices
+    // A-012: one SECURITY DEFINER call (migration 075) across all offices
     // instead of one tenant transaction + query per tenant. The function
     // returns the same columns in the same created_at DESC order (see the
     // migration header); camelRow maps tenant_slug/tenant_name_* to the
