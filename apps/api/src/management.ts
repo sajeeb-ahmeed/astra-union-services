@@ -45,7 +45,12 @@ import {
   accountScope,
   invalidateMfaChallenges,
   securityAudit,
+  logPlatformSecurityEvent,
 } from "./security-audit.js";
+import {
+  listSessions,
+  revokeSession,
+} from "./session-hygiene.js";
 import {
   geographyInput,
   geographyRow,
@@ -68,6 +73,29 @@ function role(req: Req, allowed: string[]) {
   if (!req.auth || !allowed.includes(req.auth.role))
     fail(403, "ROLE_DENIED", "This role is not permitted.");
   return req.auth!;
+}
+
+/**
+ * S-014: owner actions also go to the durable platform audit stream
+ * (platform_security_events). Best-effort after commit: the action already
+ * succeeded, so a failed audit insert must not turn it into a 500 — it is
+ * reported loudly on stdout instead (the pre-S-014 record) so the gap is
+ * visible rather than silent.
+ */
+async function logOwnerPlatformEvent(
+  event: Parameters<typeof logPlatformSecurityEvent>[1],
+) {
+  try {
+    await logPlatformSecurityEvent(pool, event);
+  } catch (error) {
+    console.error(
+      JSON.stringify({
+        event: "PLATFORM_AUDIT_FAILED",
+        action: event.action,
+        error: error instanceof Error ? error.message : String(error),
+      }),
+    );
+  }
 }
 const pageInput = z.object({
   page: z.coerce.number().int().min(1).max(100000).default(1),
@@ -1038,6 +1066,14 @@ managementRouter.post(
       return expired.rowCount ?? 0;
     });
     logOwnerAccountAction(a, "PASSWORD_CHANGED", revoked);
+    // S-014: the durable owner audit stream, alongside the stdout line.
+    if (!a.tenantId)
+      await logOwnerPlatformEvent({
+        actorId: a.userId,
+        actorRole: a.role,
+        action: "OWNER_PASSWORD_CHANGED",
+        metadata: { revokedSessions: revoked },
+      });
     res.json({ changed: true });
   }),
 );
@@ -1093,7 +1129,100 @@ managementRouter.post(
       return result.rowCount ?? 0;
     });
     logOwnerAccountAction(a, "OTHER_SESSIONS_REVOKED", revoked);
+    // S-014: the durable owner audit stream, alongside the stdout line.
+    if (!a.tenantId)
+      await logOwnerPlatformEvent({
+        actorId: a.userId,
+        actorRole: a.role,
+        action: "OWNER_SESSIONS_REVOKED",
+        metadata: { revokedSessions: revoked },
+      });
     res.json({ revoked, remainingSessions: 1 });
+  }),
+);
+/** S-005: list the caller's own active sessions with their public ids, so
+ * one session can be revoked without touching the others. GET
+ * /auth/sessions keeps its pinned summary shape (see
+ * account-security.test.ts); the list lives here instead of growing it.
+ * The csrf_token is never returned — the public id is the only identifier
+ * a client needs. */
+managementRouter.get(
+  "/auth/sessions/list",
+  wrap(async (req, res) => {
+    const a = req.auth!;
+    const sessions = await accountTransaction(a, async (db, user) =>
+      listSessions(db, a.userId, a.csrfToken, user.platform_role),
+    );
+    res.json({ sessions });
+  }),
+);
+/** S-005: revoke exactly one of the caller's own sessions, identified by
+ * its public id from GET /auth/sessions/list. Requires the current
+ * password (same reauthentication as revoke-others). The caller's own
+ * current session is refused with SESSION_CURRENT (409) — sign-out ends
+ * it; a session that is not the caller's, or already expired, is
+ * SESSION_NOT_FOUND (404). */
+managementRouter.post(
+  "/auth/sessions/revoke",
+  accountActionLimiter,
+  wrap(async (req, res) => {
+    const a = req.auth!;
+    const d = z
+      .object({
+        sessionId: uuid,
+        currentPassword: z.string().min(1).max(200),
+      })
+      .strict()
+      .parse(req.body);
+    const result = await accountTransaction(a, async (db, user) => {
+      if (!checkPassword(d.currentPassword, user.password_hash))
+        fail(422, "PASSWORD_MISMATCH", "Current password is incorrect.");
+      const revoked = await revokeSession(
+        db,
+        a.userId,
+        d.sessionId,
+        a.csrfToken,
+      );
+      if (revoked.reason === "NOT_FOUND")
+        fail(404, "SESSION_NOT_FOUND", "Session not found.");
+      if (revoked.reason === "CURRENT")
+        fail(
+          409,
+          "SESSION_CURRENT",
+          "The current session cannot be revoked here. Sign out to end it.",
+        );
+      await invalidateMfaChallenges(db, a.userId);
+      await securityAudit(db, a.userId, "SESSION_REVOKED", {
+        revokedSessions: 1,
+        sessionId: d.sessionId,
+      });
+      if (a.tenantId) {
+        await db.query("SELECT set_config('astra.tenant_id',$1,true)", [
+          a.tenantId,
+        ]);
+        await audit(db, a.tenantId, a.userId, "SESSION_REVOKED", a.userId, {
+          revokedSessions: 1,
+          sessionId: d.sessionId,
+        });
+      }
+      const remaining = (
+        await db.query(
+          "SELECT count(*)::int n FROM sessions WHERE user_id=$1 AND expires_at>clock_timestamp()",
+          [a.userId],
+        )
+      ).rows[0].n;
+      return { revoked: 1, remainingSessions: remaining };
+    });
+    logOwnerAccountAction(a, "SESSION_REVOKED", result.revoked);
+    // S-014: the durable owner audit stream, alongside the stdout line.
+    if (!a.tenantId)
+      await logOwnerPlatformEvent({
+        actorId: a.userId,
+        actorRole: a.role,
+        action: "OWNER_SESSION_REVOKED",
+        metadata: { sessionId: d.sessionId, revokedSessions: 1 },
+      });
+    res.json(result);
   }),
 );
 /** Phase 2a: office posts this office may assign, with the role each one grants. */
@@ -1525,6 +1654,15 @@ managementRouter.post(
       await audit(db, id, a.userId, "TENANT_CREATED", id, { demo: false });
       return officeRow(t);
     });
+    // S-014: the durable owner audit stream. The tenant-scoped audit row
+    // above lives inside the new tenant; the platform row is the record
+    // that survives even if the tenant is later removed.
+    await logOwnerPlatformEvent({
+      actorId: a.userId,
+      actorRole: a.role,
+      action: "TENANT_CREATED",
+      metadata: { tenantId: id, slug: d.slug },
+    });
     res.status(201).json(item);
   }),
 );
@@ -1547,6 +1685,13 @@ managementRouter.patch(
       if (!t) fail(404, "NOT_FOUND", "Tenant not found.");
       await audit(db, id, a.userId, "TENANT_STATUS_UPDATED", id, d);
       return camelRow(t);
+    });
+    // S-014: the durable owner audit stream, alongside the tenant audit row.
+    await logOwnerPlatformEvent({
+      actorId: a.userId,
+      actorRole: a.role,
+      action: "TENANT_STATUS_UPDATED",
+      metadata: { tenantId: id, status: d.status },
     });
     res.json(item);
   }),
