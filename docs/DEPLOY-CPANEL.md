@@ -55,6 +55,26 @@ runs everything as that one user:
    characters such as `@ : / #`):
    `postgres://USER:PASSWORD@127.0.0.1:5432/DATABASE`
 
+## 2b. Entry points — which `app.js` is which (A-019)
+
+The repository has two `app.js` files and neither is a stray stub:
+
+- **Repo-root `app.js`** is the live cPanel / LiteSpeed (lsnode) entry
+  point. lsnode loads it with `require()` from CommonJS, which rejects
+  modules whose graph contains top-level await, so it registers `tsx`
+  and loads the server through a plain dynamic `import()` of
+  `./apps/api/src/server.ts` — the real server entry point. Do not delete
+  it: the Node app's startup file is `app.js` (§4).
+- **`dist-cpanel/app.js`** is the packaged variant produced by
+  `node scripts/package-cpanel.mjs`: it loads the pre-compiled server
+  (`./apps/api/dist/server.js`, no tsx registration).
+- **`dist-cpanel/`** (tracked, ~176 files) is the assembled release
+  bundle, regenerated per release by `package-cpanel.mjs` (P-005). It is
+  kept in the branch deliberately as the deployable artifact — do not
+  treat it as build output to delete, and do not hand-edit it; regenerate
+  it instead. A stale bundle is a release-process failure, not a reason to
+  remove the directory.
+
 ## 3. Upload the bundle
 
 1. On your own machine, from the repository root:
