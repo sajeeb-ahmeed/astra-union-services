@@ -3,7 +3,7 @@ import { z } from "zod";
 import { randomBytes } from "node:crypto";
 import QRCode from "qrcode";
 import type { Auth } from "./app.js";
-import { pool, type DB } from "./db.js";
+import { pool, setActingUser, type DB } from "./db.js";
 import { ApiError, camelRow, fail } from "./models.js";
 import { checkPassword, digest, hashPassword, randomToken } from "./security.js";
 import { pendingReviewStatus } from "./office-registration.js";
@@ -149,6 +149,8 @@ function recoveryCodes(userId: string) {
   };
 }
 async function revokeOtherSessions(db: DB, actor: Auth) {
+  // A-013: sessions rows are writable only as their own user (migration 082).
+  await setActingUser(db, actor.userId);
   const result = await db.query(
     "UPDATE sessions SET expires_at=clock_timestamp() WHERE user_id=$1 AND csrf_token<>$2 AND expires_at>clock_timestamp()",
     [actor.userId, actor.csrfToken],
@@ -177,6 +179,9 @@ async function membershipFor(db: DB, user: any, tenantId?: string | null) {
 async function createSession(db: DB, user: any, membership: any) {
   const token = randomToken(),
     csrfToken = randomToken();
+  // A-013: the new session is inserted as the user signing in (migration 082
+  // WITH CHECK user_id = astra.user_id).
+  await setActingUser(db, user.id);
   await db.query(
     "INSERT INTO sessions(token_hash,user_id,tenant_id,csrf_token,expires_at) VALUES($1,$2,$3,$4,clock_timestamp()+interval '8 hours')",
     [digest(token), user.id, membership?.tenant_id ?? null, csrfToken],

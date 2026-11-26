@@ -49,6 +49,33 @@ export async function transaction<T>(
     }
   }
 }
+/**
+ * A-013: the acting user for row-level security on identity tables
+ * (migration 082 `sessions` policy: user_id = astra.user_id). Transaction-
+ * local, so call it inside BEGIN ... COMMIT, before the first such query.
+ */
+export async function setActingUser(db: DB, userId: string) {
+  await db.query("SELECT set_config('astra.user_id',$1,true)", [userId]);
+}
+/** A-013: a short transaction acting as one user (no tenant context). */
+export async function asUser<T>(
+  userId: string,
+  fn: (db: DB) => Promise<T>,
+): Promise<T> {
+  const db = await pool.connect();
+  try {
+    await db.query("BEGIN");
+    await setActingUser(db, userId);
+    const result = await fn(db);
+    await db.query("COMMIT");
+    return result;
+  } catch (error) {
+    await db.query("ROLLBACK");
+    throw error;
+  } finally {
+    db.release();
+  }
+}
 export async function audit(
   db: DB,
   tenantId: string,
