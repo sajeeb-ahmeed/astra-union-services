@@ -96,13 +96,19 @@ function CertificateVerification({
                     icon and words all saying the same thing. */}
                 {(() => {
                   const status = String(verification.status ?? "");
-                  const verdict = verification.demo
-                    ? "demo"
-                    : status === "ISSUED"
-                      ? "valid"
-                      : status === "REVOKED"
-                        ? "revoked"
-                        : "other";
+                  // Revocation wins over the demo marker: in demo mode a
+                  // revoked certificate used to read exactly like a valid
+                  // demo one, so the withdrawal was invisible to the
+                  // verifier. Its wording ("do not accept it for official
+                  // use") is still safe for a demo document.
+                  const verdict =
+                    status === "REVOKED"
+                      ? "revoked"
+                      : verification.demo
+                        ? "demo"
+                        : status === "ISSUED"
+                          ? "valid"
+                          : "other";
                   const head =
                     verdict === "valid"
                       ? { bn: "সনদটি বৈধ", en: "This certificate is valid" }
