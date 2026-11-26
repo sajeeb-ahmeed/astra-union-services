@@ -48,7 +48,8 @@ before(async () => {
   server = app.listen(0, "127.0.0.1");
   await new Promise<void>((resolve) => server.once("listening", resolve));
   base = `http://127.0.0.1:${(server.address() as any).port}`;
-  const owner = await login(process.env.OWNER_EMAIL!, process.env.OWNER_PASSWORD!);
+  // Seeded test owner, as every other API suite uses (CI sets no OWNER_* env).
+  const owner = await login("owner@astra.demo.test", "Demo-Phase1!");
   const slug = `release-${run}`;
   const created = await req(
     "POST",
