@@ -144,7 +144,7 @@ test("B-004: public-service-catalog.json has exactly one module importer (servic
     /import\s+\w+\s+from\s+["'][^"']*public-service-catalog\.json["']/.test(fs.readFileSync(f, "utf-8")),
   );
   assert.deepEqual(
-    direct.map((f) => path.relative(repoRoot, f)),
+    direct.map((f) => path.relative(repoRoot, f).split(path.sep).join("/")),
     ["apps/web/src/service-catalog.ts"],
     `direct importers of public-service-catalog.json (must be only service-catalog.ts): ${direct.join(", ")}`,
   );
