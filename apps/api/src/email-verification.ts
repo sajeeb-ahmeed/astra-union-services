@@ -1,6 +1,6 @@
 import express from "express";
 import { z } from "zod";
-import { pool, transaction, type DB } from "./db.js";
+import { pool, transaction, setActingUser, type DB } from "./db.js";
 import { fail } from "./models.js";
 import { digest, randomToken } from "./security.js";
 import { createRateLimiter } from "./http-hardening.js";
@@ -82,6 +82,8 @@ publicEmailRouter.post("/auth/email/verify", verifyLimiter, async (req, res, nex
       if (!row || row.consumed_at || new Date(row.expires_at) <= new Date())
         fail(422, "EMAIL_VERIFICATION_INVALID", "This verification link is invalid or has expired. Ask for a new one.");
       await db.query("UPDATE email_verification_tokens SET consumed_at=now() WHERE token_hash=$1", [hash]);
+      // A-013 (migration 083): the link verifies its own account.
+      await setActingUser(db, row.user_id);
       await db.query(
         "UPDATE platform_users SET email_verified_at=COALESCE(email_verified_at, now()) WHERE id=$1",
         [row.user_id],

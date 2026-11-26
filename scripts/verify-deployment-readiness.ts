@@ -131,7 +131,20 @@ async function dbMode() {
     const services = (await pool.query("SELECT count(*)::int AS n FROM service_catalog")).rows[0].n as number;
     check("service-catalog", services === 47, `${services}/47 services in service_catalog`);
     // 4. Owner account exists.
-    const owners = (await pool.query("SELECT count(*)::int AS n FROM platform_users WHERE platform_role='owner'")).rows[0].n as number;
+    // A-013 (migration 083): an operator check; on the single-role database the
+    // admin URL is the table owner under FORCE RLS, so the lookup is declared.
+    const ownerClient = await pool.connect();
+    let owners: number;
+    try {
+      await ownerClient.query("BEGIN READ ONLY");
+      await ownerClient.query("SELECT set_config('astra.identity_lookup','on',true)");
+      owners = (
+        await ownerClient.query("SELECT count(*)::int AS n FROM platform_users WHERE platform_role='owner'")
+      ).rows[0].n as number;
+      await ownerClient.query("COMMIT");
+    } finally {
+      ownerClient.release();
+    }
     check("owner-account", owners >= 1, `${owners} platform owner account(s)`);
     // 5. S-012: tenant isolation is actually enforced by the database, not
     //    just by application WHERE clauses. Migration 055 scope-gates the

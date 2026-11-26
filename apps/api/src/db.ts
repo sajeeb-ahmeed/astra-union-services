@@ -57,6 +57,14 @@ export async function transaction<T>(
 export async function setActingUser(db: DB, userId: string) {
   await db.query("SELECT set_config('astra.user_id',$1,true)", [userId]);
 }
+/**
+ * A-013: the id of an account about to be created (migration 083 insert
+ * policy: id = astra.new_user_id). Transaction-local; the caller passes the
+ * same id in the INSERT.
+ */
+export async function declareNewUser(db: DB, userId: string) {
+  await db.query("SELECT set_config('astra.new_user_id',$1,true)", [userId]);
+}
 /** A-013: a short transaction acting as one user (no tenant context). */
 export async function asUser<T>(
   userId: string,

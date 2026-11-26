@@ -872,7 +872,8 @@ app.post(
       email =
         (
           await pool.query(
-            "SELECT u.email FROM account_identifiers i JOIN platform_users u ON u.id=i.user_id WHERE i.kind=$1 AND i.digest=$2 AND (i.kind<>'mobile' OR i.verified_at IS NOT NULL)",
+            // A-013 (migration 083): pre-sign-in lookup through the narrow definer function.
+            "SELECT auth_identifier_email($1,$2) AS email",
             [kind, identifierDigest(kind, normalized)],
           )
         ).rows[0]?.email ?? "";
@@ -884,7 +885,7 @@ app.post(
     // identifier value, which is never logged).
     const auditActorId = email
       ? (
-          await pool.query("SELECT id FROM platform_users WHERE email=$1", [email])
+          await pool.query("SELECT auth_user_id_by_email($1) AS id", [email])
         ).rows[0]?.id ?? null
       : null;
     // Failed attempts only: ten failures for one identifier pause it for five minutes, whatever its kind.

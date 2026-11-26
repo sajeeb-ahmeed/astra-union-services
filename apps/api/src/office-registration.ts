@@ -1,7 +1,8 @@
 import express from "express";
 import { z } from "zod";
 import type { Auth } from "./app.js";
-import { pool, transaction, audit } from "./db.js";
+import { randomUUID } from "node:crypto";
+import { pool, transaction, audit, setActingUser, declareNewUser } from "./db.js";
 import { camelRow, fail } from "./models.js";
 import { hashPassword, isCommonPassword } from "./security.js";
 import { createRateLimiter } from "./http-hardening.js";
@@ -82,12 +83,15 @@ publicOfficeRegistrationRouter.post(
       ).rows[0];
       if (!fit) fail(404, "NOT_FOUND", "Active office or post not found.");
       if (!fit.fits) fail(422, "ACCOUNT_TYPE_OFFICE_MISMATCH", "This post does not exist in this kind of office.");
-      if ((await db.query("SELECT 1 FROM platform_users WHERE email=$1", [d.email.toLowerCase()])).rowCount)
+      if ((await db.query("SELECT auth_email_taken($1) AS taken", [d.email.toLowerCase()])).rows[0].taken)
         fail(409, "EMAIL_TAKEN", "An account with this email already exists.");
+      // A-013 (migration 083): declare the new account's id.
+      const newUserId = randomUUID();
+      await declareNewUser(db, newUserId);
       const user = (
         await db.query(
-          "INSERT INTO platform_users(email,display_name,password_hash,active) VALUES($1,$2,$3,false) RETURNING id",
-          [d.email.toLowerCase(), d.displayName, hashPassword(d.password)],
+          "INSERT INTO platform_users(id,email,display_name,password_hash,active) VALUES($4,$1,$2,$3,false) RETURNING id",
+          [d.email.toLowerCase(), d.displayName, hashPassword(d.password), newUserId],
         )
       ).rows[0];
       if (mobile) {
@@ -126,18 +130,9 @@ ownerOfficeRegistrationRouter.get(
     owner(req);
     const status = z.enum(["PENDING", "APPROVED", "REJECTED"]).default("PENDING").parse(req.query.status ?? undefined);
     const items = (
-      await pool.query(
-        `SELECT r.id,r.status,r.reason,r.created_at,r.decided_at,r.account_type,
-                a.name_bn account_type_bn,a.name_en account_type_en,a.role,
-                u.email,u.display_name,t.name_bn office_bn,t.name_en office_en,t.office_type,
-                (SELECT hint FROM account_identifiers i WHERE i.user_id=u.id AND i.kind='mobile') mobile_hint
-           FROM office_account_requests r
-           JOIN platform_users u ON u.id=r.user_id
-           JOIN account_types a ON a.code=r.account_type
-           JOIN tenants t ON t.id=r.tenant_id
-          WHERE r.status=$1 ORDER BY r.created_at LIMIT 200`,
-        [status],
-      )
+      // A-013 (migration 083): the requesting accounts belong to no office yet,
+      // so the owner's queue is read through its definer function.
+      await pool.query("SELECT * FROM owner_account_requests($1)", [status])
     ).rows.map(camelRow);
     res.json({ items });
   }),
@@ -166,6 +161,8 @@ ownerOfficeRegistrationRouter.post(
           "INSERT INTO staff_memberships(user_id,tenant_id,role,account_type) VALUES($1,$2,$3,$4)",
           [r.user_id, r.tenant_id, type.role, r.account_type],
         );
+        // A-013 (migration 083): activating the account writes it as that account.
+        await setActingUser(db, r.user_id);
         await db.query("UPDATE platform_users SET active=true WHERE id=$1", [r.user_id]);
       }
       const updated = (

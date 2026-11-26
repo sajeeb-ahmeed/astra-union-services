@@ -231,11 +231,17 @@ export async function passwordLogin(email: string, password: string) {
   const db = await pool.connect();
   try {
     await db.query("BEGIN");
-    const user = (
-      await db.query("SELECT * FROM platform_users WHERE email=$1 FOR UPDATE", [
-        email.toLowerCase(),
-      ])
-    ).rows[0];
+    // A-013 (migration 083): find the account through the narrow lookup, then
+    // act as it to lock and read its own row.
+    const accountId = (
+      await db.query("SELECT auth_user_id_by_email($1) AS id", [email.toLowerCase()])
+    ).rows[0]?.id as string | null;
+    if (accountId) await setActingUser(db, accountId);
+    const user = accountId
+      ? (
+          await db.query("SELECT * FROM platform_users WHERE id=$1 FOR UPDATE", [accountId])
+        ).rows[0]
+      : undefined;
     // Phase 2b: an unknown account costs the same password check as a wrong password, so response
     // time does not reveal which emails or numbers are registered.
     if (!user) {
@@ -350,6 +356,8 @@ publicMfaRouter.post(
           "MFA_CHALLENGE_INVALID",
           "The sign-in request expired. Sign in again.",
         );
+      // A-013 (migration 083): the challenge's account is locked and read as itself.
+      await setActingUser(db, candidate.user_id);
       const user = await lockAccount(db, candidate.user_id);
       const challenge = (
         await db.query(
