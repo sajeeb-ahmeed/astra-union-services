@@ -101,6 +101,37 @@ export function DynamicForm({
   currentContext.current = context;
   const [uploadErrors, setUploadErrors] = useState<Record<string, string>>({});
   const [uploads, setUploads] = useState<Record<string, boolean>>({});
+  // WS-C: the citizen's documents vault, offered on every attachment
+  // field so a document uploaded once can be reused without re-upload.
+  // Loaded once per citizen; selecting a document sets the same
+  // {attachmentId, mimeType, byteLength} handle an upload would, so the
+  // server validation path is unchanged. Only scan-CLEAN documents are
+  // selectable — a quarantined one is shown disabled with its scan
+  // state, and the existing submit gate (409 ATTACHMENT_NOT_READY)
+  // still refuses anything not CLEAN.
+  const [vaultDocuments, setVaultDocuments] = useState<
+    {
+      kind: string;
+      attachmentId: string;
+      mimeType: string;
+      byteLength: number;
+      scanState: string;
+      downloadAllowed: boolean;
+    }[]
+  >([]);
+  useEffect(() => {
+    if (!citizenId) {
+      setVaultDocuments([]);
+      return;
+    }
+    let active = true;
+    api(`/citizens/${citizenId}/documents`)
+      .then((r) => active && setVaultDocuments(r.items ?? []))
+      .catch(() => active && setVaultDocuments([]));
+    return () => {
+      active = false;
+    };
+  }, [citizenId]);
   const uploading = Object.entries(uploads).some(
     ([key, active]) => key.startsWith(`${context}:`) && active,
   );
@@ -450,6 +481,69 @@ export function DynamicForm({
                     : "ব্যক্তিগত নথি: PDF, PNG বা JPEG; সর্বোচ্চ 2 MiB। / Private document, maximum 2 MiB.",
                 )}
               </p>
+              {tx(
+                !uploadUnavailable &&
+                  vaultDocuments.length > 0 && (
+                    <div className="field vault-picker">
+                      <label htmlFor={`${id}-vault`}>
+                        {t("আমার নথি থেকে বেছে নিন / Choose from my documents")}
+                      </label>
+                      <select
+                        id={`${id}-vault`}
+                        disabled={disabled || uploading}
+                        value={
+                          vaultDocuments.some(
+                            (doc) => doc.attachmentId === scope[field.id]?.attachmentId,
+                          )
+                            ? scope[field.id].attachmentId
+                            : ""
+                        }
+                        onChange={(event) => {
+                          const doc = vaultDocuments.find(
+                            (item) => item.attachmentId === event.target.value,
+                          );
+                          if (!doc) return;
+                          update({
+                            attachmentId: doc.attachmentId,
+                            mimeType: doc.mimeType,
+                            byteLength: doc.byteLength,
+                          });
+                        }}
+                      >
+                        <option value="">
+                          {t("আপলোড করা নথি বেছে নিন / Select an uploaded document")}
+                        </option>
+                        {vaultDocuments
+                          .filter(
+                            (doc) =>
+                              !field.constraints?.acceptedMimeTypes ||
+                              field.constraints.acceptedMimeTypes.includes(doc.mimeType),
+                          )
+                          .map((doc) => {
+                            const clean =
+                              doc.scanState === "CLEAN" && doc.downloadAllowed;
+                            const kindText =
+                              doc.kind === "nid"
+                                ? t("জাতীয় পরিচয়পত্র / NID")
+                                : t("জন্ম নিবন্ধন / Birth registration");
+                            return (
+                              <option
+                                key={doc.attachmentId}
+                                value={doc.attachmentId}
+                                disabled={!clean}
+                              >
+                                {clean
+                                  ? kindText
+                                  : `${kindText} — ${t(
+                                      "নিরাপত্তা পরীক্ষা শেষ হয়নি / Safety check not finished",
+                                    )}`}
+                              </option>
+                            );
+                          })}
+                      </select>
+                    </div>
+                  ),
+              )}
               {tx(
                 scope[field.id] && (
                   <AttachmentStatus

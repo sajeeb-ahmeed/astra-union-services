@@ -3,15 +3,21 @@ import serviceCatalog from "./public-service-catalog.json" with { type: "json" }
 import { formatDateTime } from "./ui/fmt.js";
 import { EmptyState, applicationStatusMeta, ledgerKindMeta } from "./ui/kit.js";
 import React, { useEffect, useState } from "react";
-import { api, items } from "./api.js";
-import { AccountSessions } from "./AccountSessions.js";
-import { AccountMfa } from "./AccountMfa.js";
+import { api, fieldErrors, items } from "./api.js";
 import {
   PresentAddressFields,
   presentAddressPayload,
   readPresentAddress,
 } from "./PresentAddressFields.js";
-import { CitizenDetailsEditor } from "./CitizenDetailsFields.js";
+import {
+  CitizenPhoto,
+  citizenDetailsPayload,
+  readCitizenDetails,
+  type CitizenDetailsDraft,
+} from "./CitizenDetailsFields.js";
+import { CitizenDocumentsVault } from "./CitizenDocumentsVault.js";
+import { ProfileCompleteness } from "./ProfileCompleteness.js";
+import { citizenProfileCompleteness } from "@astra/shared-schemas";
 import { OfficeIdentitySettings } from "./OfficeIdentity.js";
 import {
   GeographyFields,
@@ -29,6 +35,7 @@ function Field({
   maxLength = 150,
   disabled = false,
   hint,
+  error,
 }: {
   label: string;
   name: string;
@@ -39,6 +46,7 @@ function Field({
   maxLength?: number;
   disabled?: boolean;
   hint?: string;
+  error?: string;
 }) {
   return (
     <label htmlFor={name}>
@@ -57,6 +65,11 @@ function Field({
       {hint && (
         <span className="hint" id={`${name}-hint`}>
           {tx(hint)}
+        </span>
+      )}
+      {error && (
+        <span className="error" role="alert">
+          {tx(error)}
         </span>
       )}
     </label>
@@ -89,10 +102,19 @@ export function AdditionalWorkspace({
     permanentAddressBn: "",
     permanentAddressEn: "",
   });
-  const [currentPassword, setCurrentPassword] = useState(""),
-    [newPassword, setNewPassword] = useState(""),
-    [confirmPassword, setConfirmPassword] = useState("");
-  const [securityRevision, setSecurityRevision] = useState(0);
+  // Citizen dashboard + profile (2026-11-26): the citizen profile page is
+  // ONE form over two existing endpoints. `details` is the typed draft for
+  // PATCH /citizens/:id/details; `profileErrors` carries per-field errors
+  // from either endpoint; `revealed` is the audited full-number view.
+  const [details, setDetails] = useState<CitizenDetailsDraft | null>(null);
+  const [profileErrors, setProfileErrors] = useState<Record<string, string>>({});
+  const [revealed, setRevealed] = useState<{ nid: string | null; birthReg: string | null } | null>(null);
+  useEffect(() => {
+    if (ownCitizen) {
+      setDetails(readCitizenDetails(ownCitizen));
+      setRevealed(null);
+    }
+  }, [ownCitizen?.id]);
   const [citizens, setCitizens] = useState<any[]>([]),
     [requests, setRequests] = useState<any[]>([]),
     [citizenId, setCitizenId] = useState("");
@@ -222,67 +244,65 @@ export function AdditionalWorkspace({
                 {t(" · ")}
                 {tx(session.user.role)}
               </p>
-              {/* WS-D3: the stored identity, read-only — what the account
-                  actually holds (display name, Bangla name, mobile,
-                  address, role, office), with empty fields marked "not
-                  provided" instead of blank inputs that read as a
-                  placeholder. The approver's exact authority list follows:
-                  the active approval_authorizations rows for this account,
-                  displayed as stored — no grant is invented or changed. */}
-              <section className="panel" data-testid="profile-identity">
-                <h3>{t("সংরক্ষিত পরিচয় / Stored identity")}</h3>
-                <dl>
-                  <dt>{t("Account display name")}</dt>
-                  <dd>
-                    {profile.displayName?.trim() ? (
-                      profile.displayName
-                    ) : (
-                      <em>{t("Not provided / দেওয়া নেই")}</em>
+              {/* WS-D3: the stored identity, read-only — kept for office
+                  accounts; citizens see their stored values in the four
+                  sections below, so the panel would only repeat them. */}
+              {session.user.role !== "citizen" && (
+                <section className="panel" data-testid="profile-identity">
+                  <h3>{t("সংরক্ষিত পরিচয় / Stored identity")}</h3>
+                  <dl>
+                    <dt>{t("Account display name")}</dt>
+                    <dd>
+                      {profile.displayName?.trim() ? (
+                        profile.displayName
+                      ) : (
+                        <em>{t("Not provided / দেওয়া নেই")}</em>
+                      )}
+                    </dd>
+                    <dt>{t("নাম (বাংলা)")}</dt>
+                    <dd>
+                      {profile.nameBn?.trim() ? (
+                        profile.nameBn
+                      ) : (
+                        <em>{t("Not provided / দেওয়া নেই")}</em>
+                      )}
+                    </dd>
+                    <dt>{t("Email")}</dt>
+                    <dd>{session.user.email}</dd>
+                    <dt>{t("Role / ভূমিকা")}</dt>
+                    <dd>{tx(session.user.role)}</dd>
+                    <dt>{t("Office / অফিস")}</dt>
+                    <dd>
+                      {session.tenant
+                        ? uiLanguage === "bn"
+                          ? (session.tenant.nameBn ?? session.tenant.name_bn ?? "")
+                          : (session.tenant.nameEn ?? session.tenant.name_en ?? "")
+                        : "—"}
+                    </dd>
+                    <dt>{t("Mobile / মোবাইল")}</dt>
+                    <dd>
+                      {profile.phone?.trim() ? (
+                        profile.phone
+                      ) : (
+                        <em>{t("Not provided / দেওয়া নেই")}</em>
+                      )}
+                    </dd>
+                    <dt>{t("Address / ঠিকানা")}</dt>
+                    <dd>
+                      {profile.address?.trim() ? (
+                        profile.address
+                      ) : (
+                        <em>{t("Not provided / দেওয়া নেই")}</em>
+                      )}
+                    </dd>
+                  </dl>
+                  <p className="hint">
+                    {t(
+                      "নাম, মোবাইল বা ঠিকানা যোগ করতে নিচের ফর্মটি ব্যবহার করুন। / Use the form below to add a name, mobile number or address.",
                     )}
-                  </dd>
-                  <dt>{t("নাম (বাংলা)")}</dt>
-                  <dd>
-                    {profile.nameBn?.trim() ? (
-                      profile.nameBn
-                    ) : (
-                      <em>{t("Not provided / দেওয়া নেই")}</em>
-                    )}
-                  </dd>
-                  <dt>{t("Email")}</dt>
-                  <dd>{session.user.email}</dd>
-                  <dt>{t("Role / ভূমিকা")}</dt>
-                  <dd>{tx(session.user.role)}</dd>
-                  <dt>{t("Office / অফিস")}</dt>
-                  <dd>
-                    {session.tenant
-                      ? uiLanguage === "bn"
-                        ? (session.tenant.nameBn ?? session.tenant.name_bn ?? "")
-                        : (session.tenant.nameEn ?? session.tenant.name_en ?? "")
-                      : "—"}
-                  </dd>
-                  <dt>{t("Mobile / মোবাইল")}</dt>
-                  <dd>
-                    {profile.phone?.trim() ? (
-                      profile.phone
-                    ) : (
-                      <em>{t("Not provided / দেওয়া নেই")}</em>
-                    )}
-                  </dd>
-                  <dt>{t("Address / ঠিকানা")}</dt>
-                  <dd>
-                    {profile.address?.trim() ? (
-                      profile.address
-                    ) : (
-                      <em>{t("Not provided / দেওয়া নেই")}</em>
-                    )}
-                  </dd>
-                </dl>
-                <p className="hint">
-                  {t(
-                    "নাম, মোবাইল বা ঠিকানা যোগ করতে নিচের ফর্মটি ব্যবহার করুন। / Use the form below to add a name, mobile number or address.",
-                  )}
-                </p>
-              </section>
+                  </p>
+                </section>
+              )}
               {session.user.role === "approver" && (
                 <section className="panel" data-testid="approval-authority">
                   <h3>{t("অনুমোদনের ক্ষমতা / Approval authority")}</h3>
@@ -335,141 +355,438 @@ export function AdditionalWorkspace({
                   )}
                 </section>
               )}
-              <form
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  void run(async () => {
-                    const isCitizen = session.user.role === "citizen";
-                    const saved = await api("/profile", "PATCH", {
-                      displayName: profile.displayName,
-                      nameBn: profile.nameBn,
-                      phone: profile.phone,
-                      address: profile.address,
-                      // QAFIX-01 (§1 bugs 1–3): the citizen record's own
-                      // fields — English name, date of birth and the
-                      // permanent address in both scripts — are saved
-                      // from this page, so 100% completeness is reachable
-                      // here alone. Blank means "leave as saved".
-                      ...(isCitizen && profile.citizenNameEn?.trim()
-                        ? { citizenNameEn: profile.citizenNameEn.trim() }
-                        : {}),
-                      ...(isCitizen && profile.dateOfBirth
-                        ? { dateOfBirth: profile.dateOfBirth }
-                        : {}),
-                      ...(isCitizen && profile.permanentAddressBn?.trim()
-                        ? {
-                            permanentAddressBn:
-                              profile.permanentAddressBn.trim(),
-                          }
-                        : {}),
-                      ...(isCitizen && profile.permanentAddressEn?.trim()
-                        ? {
-                            permanentAddressEn:
-                              profile.permanentAddressEn.trim(),
-                          }
-                        : {}),
-                      ...(isCitizen && profile.geography?.divisionCode
-                        ? {
-                            geography: geographyPayload(
-                              readGeography(profile.geography),
-                            ),
-                          }
-                        : {}),
-                      ...(isCitizen && profile.presentAddress
-                        ? {
-                            presentAddress: presentAddressPayload(
-                              readPresentAddress(profile.presentAddress),
-                            ),
-                          }
-                        : {}),
-                    });
-                    if (isCitizen && saved.citizenNameBn)
-                      saved.nameBn = saved.citizenNameBn;
-                    setProfile(saved);
-                    // QAFIX-01 (§1 bug 4): refresh the citizen record so
-                    // the completeness meter and checklist below recompute
-                    // from what was just saved — they used to keep showing
-                    // the pre-save state.
-                    if (isCitizen)
-                      setOwnCitizen(items(await api("/citizens"))[0] ?? null);
-                    setMessage("Profile saved / প্রোফাইল সংরক্ষিত হয়েছে");
-                  });
-                }}
-              >
-                <div className="form-grid">
-                  <Field
-                    label={t("Display name")}
-                    name="profile-name"
-                    value={profile.displayName}
-                    onChange={(v) => setProfile({ ...profile, displayName: v })}
-                    required
-                    maxLength={120}
+              {session.user.role === "citizen" && ownCitizen && details ? (
+                <form
+                  data-testid="citizen-profile-form"
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    void (async () => {
+                      setBusy(true);
+                      setError("");
+                      setMessage("");
+                      setProfileErrors({});
+                      try {
+                        // ONE Save, two proven endpoints in sequence:
+                        // PATCH /profile (names, DOB, addresses, geography)
+                        // then PATCH /citizens/:id/details (parents, spouse,
+                        // gender, blood, NID/birth-reg, mobile). A failure
+                        // in either surfaces its field errors and shows no
+                        // "saved" message — partial failure is never hidden.
+                        let saved: any;
+                        try {
+                          saved = await api("/profile", "PATCH", {
+                            displayName: profile.displayName,
+                            nameBn: profile.nameBn,
+                            phone: profile.phone,
+                            address: profile.address,
+                            ...(profile.citizenNameEn?.trim()
+                              ? { citizenNameEn: profile.citizenNameEn.trim() }
+                              : {}),
+                            ...(profile.dateOfBirth
+                              ? { dateOfBirth: profile.dateOfBirth }
+                              : {}),
+                            ...(profile.permanentAddressBn?.trim()
+                              ? {
+                                  permanentAddressBn:
+                                    profile.permanentAddressBn.trim(),
+                                }
+                              : {}),
+                            ...(profile.permanentAddressEn?.trim()
+                              ? {
+                                  permanentAddressEn:
+                                    profile.permanentAddressEn.trim(),
+                                }
+                              : {}),
+                            ...(profile.geography?.divisionCode
+                              ? {
+                                  geography: geographyPayload(
+                                    readGeography(profile.geography),
+                                  ),
+                                }
+                              : {}),
+                            ...(profile.presentAddress
+                              ? {
+                                  presentAddress: presentAddressPayload(
+                                    readPresentAddress(profile.presentAddress),
+                                  ),
+                                }
+                              : {}),
+                          });
+                        } catch (err) {
+                          setProfileErrors(fieldErrors(err));
+                          throw err;
+                        }
+                        if (saved.citizenNameBn) saved.nameBn = saved.citizenNameBn;
+                        setProfile(saved);
+                        let updated: any;
+                        try {
+                          updated = await api(
+                            `/citizens/${ownCitizen.id}/details`,
+                            "PATCH",
+                            citizenDetailsPayload(details),
+                          );
+                        } catch (err) {
+                          setProfileErrors(fieldErrors(err));
+                          throw err;
+                        }
+                        setOwnCitizen(updated);
+                        setDetails(readCitizenDetails(updated));
+                        setRevealed(null);
+                        setMessage("Profile saved / প্রোফাইল সংরক্ষিত হয়েছে");
+                      } catch (err) {
+                        setError((err as Error).message);
+                      } finally {
+                        setBusy(false);
+                      }
+                    })();
+                  }}
+                >
+                  <ProfileCompleteness
+                    completeness={citizenProfileCompleteness(ownCitizen, {
+                      geographyRequired: !!session.tenant?.divisionCode,
+                    })}
                   />
-                  <Field
-                    label={t("নাম (বাংলা)")}
-                    name="profile-bn"
-                    value={profile.nameBn}
-                    onChange={(v) => setProfile({ ...profile, nameBn: v })}
-                    maxLength={120}
-                  />
-                  {session.user.role === "citizen" && (
-                    <>
+                  <fieldset className="profile-section">
+                    <legend>{t("১. ব্যক্তিগত তথ্য / 1. Personal information")}</legend>
+                    <div className="form-grid">
                       <Field
-                        label={t("নাম (ইংরেজি) / Name (English)")}
+                        label={t("Display name") + " *"}
+                        name="profile-name"
+                        value={profile.displayName}
+                        onChange={(v) => setProfile({ ...profile, displayName: v })}
+                        required
+                        maxLength={120}
+                        error={profileErrors.displayName}
+                      />
+                      <Field
+                        label={t("নাম (বাংলা)") + " *"}
+                        name="profile-bn"
+                        value={profile.nameBn}
+                        onChange={(v) => setProfile({ ...profile, nameBn: v })}
+                        maxLength={120}
+                        error={profileErrors.nameBn}
+                      />
+                      <Field
+                        label={t("নাম (ইংরেজি) / Name (English)") + " *"}
                         name="profile-name-en"
                         value={profile.citizenNameEn ?? ""}
                         onChange={(v) =>
                           setProfile({ ...profile, citizenNameEn: v })
                         }
                         maxLength={120}
+                        error={profileErrors.citizenNameEn}
                       />
+                      {(
+                        [
+                          ["fatherNameBn", "পিতার নাম (বাংলা) / Father's name (Bangla)", true],
+                          ["fatherNameEn", "পিতার নাম (ইংরেজি) / Father's name (English)", true],
+                          ["motherNameBn", "মাতার নাম (বাংলা) / Mother's name (Bangla)", true],
+                          ["motherNameEn", "মাতার নাম (ইংরেজি) / Mother's name (English)", true],
+                          ["spouseNameBn", "স্বামী/স্ত্রীর নাম (বাংলা) / Spouse's name (Bangla)", false],
+                          ["spouseNameEn", "স্বামী/স্ত্রীর নাম (ইংরেজি) / Spouse's name (English)", false],
+                        ] as const
+                      ).map(([key, label, required]) => (
+                        <Field
+                          key={key}
+                          label={t(label) + (required ? " *" : "")}
+                          name={`profile-details-${key}`}
+                          value={details[key]}
+                          onChange={(v) => setDetails({ ...details, [key]: v })}
+                          maxLength={120}
+                          error={profileErrors[key]}
+                        />
+                      ))}
+                      <div className="field">
+                        <label htmlFor="profile-details-gender">
+                          {t("লিঙ্গ / Gender")} *
+                        </label>
+                        <select
+                          id="profile-details-gender"
+                          value={details.gender}
+                          onChange={(e) =>
+                            setDetails({ ...details, gender: e.target.value })
+                          }
+                        >
+                          <option value="">{t("নির্বাচন করুন / Not given")}</option>
+                          <option value="female">{t("নারী / Female")}</option>
+                          <option value="male">{t("পুরুষ / Male")}</option>
+                          <option value="other">{t("অন্যান্য / Other")}</option>
+                        </select>
+                        {profileErrors.gender && (
+                          <span className="error" role="alert">
+                            {tx(profileErrors.gender)}
+                          </span>
+                        )}
+                      </div>
+                      <div className="field">
+                        <label htmlFor="profile-details-blood">
+                          {t("রক্তের গ্রুপ / Blood group")} *
+                        </label>
+                        <select
+                          id="profile-details-blood"
+                          value={details.bloodGroup}
+                          onChange={(e) =>
+                            setDetails({ ...details, bloodGroup: e.target.value })
+                          }
+                        >
+                          <option value="">{t("নির্বাচন করুন / Not given")}</option>
+                          {["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"].map(
+                            (group) => (
+                              <option key={group} value={group}>
+                                {group}
+                              </option>
+                            ),
+                          )}
+                        </select>
+                        {profileErrors.bloodGroup && (
+                          <span className="error" role="alert">
+                            {tx(profileErrors.bloodGroup)}
+                          </span>
+                        )}
+                      </div>
                       <Field
-                        label={t("জন্ম তারিখ / Date of birth")}
+                        label={t("জন্ম তারিখ / Date of birth") + " *"}
                         name="profile-dob"
                         value={profile.dateOfBirth ?? ""}
                         onChange={(v) =>
                           setProfile({ ...profile, dateOfBirth: v })
                         }
                         type="date"
+                        error={profileErrors.dateOfBirth}
                       />
                       <Field
-                        label={t(
-                          "স্থায়ী ঠিকানা (বাংলা) / Permanent address (Bangla)",
+                        label={t("জাতীয় পরিচয়পত্র নম্বর / NID number") + " *"}
+                        name="profile-details-nid"
+                        value={details.nid}
+                        onChange={(v) => setDetails({ ...details, nid: v })}
+                        maxLength={40}
+                        error={profileErrors.nid}
+                        hint={t(
+                          ownCitizen.nidHint
+                            ? `সংরক্ষিত: ${ownCitizen.nidHint} — খালি রাখলে আগেরটাই থাকবে। / On file: ${ownCitizen.nidHint} — leave blank to keep it.`
+                            : "NID ১০, ১৩ বা ১৭ সংখ্যার। / NID: 10, 13 or 17 digits.",
                         )}
+                      />
+                      <Field
+                        label={t("জন্ম নিবন্ধন নম্বর / Birth registration number") + " *"}
+                        name="profile-details-birth-reg"
+                        value={details.birthReg}
+                        onChange={(v) => setDetails({ ...details, birthReg: v })}
+                        maxLength={40}
+                        error={profileErrors.birthReg}
+                        hint={t(
+                          ownCitizen.birthRegHint
+                            ? `সংরক্ষিত: ${ownCitizen.birthRegHint} — খালি রাখলে আগেরটাই থাকবে। / On file: ${ownCitizen.birthRegHint} — leave blank to keep it.`
+                            : "জন্ম নিবন্ধন ১৭ সংখ্যার। / Birth registration: 17 digits.",
+                        )}
+                      />
+                    </div>
+                    <p className="hint">
+                      {t(
+                        "NID অথবা জন্ম নিবন্ধন — যেকোনো একটি নম্বর দিলেই চলবে। নম্বরগুলো এনক্রিপ্ট করে সংরক্ষিত থাকে। / Give either the NID or the birth registration number. Numbers are stored encrypted.",
+                      )}
+                    </p>
+                    {(ownCitizen.nidHint || ownCitizen.birthRegHint) && (
+                      <dl className="identity-summary">
+                        <dt>{t("জাতীয় পরিচয়পত্র / NID")}</dt>
+                        <dd data-testid="nid-value">
+                          {revealed ? (revealed.nid ?? "—") : (ownCitizen.nidHint ?? "—")}
+                        </dd>
+                        <dt>{t("জন্ম নিবন্ধন / Birth registration")}</dt>
+                        <dd data-testid="birth-reg-value">
+                          {revealed
+                            ? (revealed.birthReg ?? "—")
+                            : (ownCitizen.birthRegHint ?? "—")}
+                        </dd>
+                      </dl>
+                    )}
+                    {(ownCitizen.nidHint || ownCitizen.birthRegHint) && !revealed && (
+                      <>
+                        <button
+                          type="button"
+                          className="secondary"
+                          disabled={busy}
+                          onClick={() =>
+                            void run(async () => {
+                              const r = await api(`/citizens/${ownCitizen.id}/identity`);
+                              setRevealed({ nid: r.nid, birthReg: r.birthReg });
+                            })
+                          }
+                        >
+                          {t("পূর্ণ নম্বর দেখুন / Show full numbers")}
+                        </button>
+                        <p className="hint">
+                          {t("Viewing full numbers is recorded in the audit log.")}
+                        </p>
+                      </>
+                    )}
+                    <div className="form-grid">
+                      <Field
+                        label={t("মোবাইল নম্বর / Mobile number")}
+                        name="profile-details-mobile"
+                        value={details.mobile}
+                        onChange={(v) => setDetails({ ...details, mobile: v })}
+                        type="tel"
+                        maxLength={40}
+                        disabled={details.noMobile}
+                        error={profileErrors.mobile}
+                      />
+                      <div className="check-field">
+                        <label htmlFor="profile-details-no-mobile">
+                          <input
+                            id="profile-details-no-mobile"
+                            type="checkbox"
+                            checked={details.noMobile}
+                            onChange={(e) =>
+                              setDetails({
+                                ...details,
+                                noMobile: e.target.checked,
+                                mobile: e.target.checked ? "" : details.mobile,
+                              })
+                            }
+                          />
+                          <span>{t("মোবাইল নম্বর নেই / Has no mobile number")}</span>
+                        </label>
+                      </div>
+                      <Field
+                        label={t("সাইন-ইন মোবাইল / Sign-in mobile")}
+                        name="profile-phone"
+                        value={profile.phone}
+                        onChange={(v) => setProfile({ ...profile, phone: v })}
+                        type="tel"
+                        maxLength={11}
+                        disabled
+                        hint={t(
+                          "সাইন-ইনের নম্বর — বদলাতে অফিসে যোগাযোগ করুন। / Your sign-in number — contact the office to change it.",
+                        )}
+                      />
+                    </div>
+                  </fieldset>
+                  <fieldset className="profile-section">
+                    <legend>{t("২. ছবি / 2. Photo")}</legend>
+                    <p className="hint">
+                      {t(
+                        "ছবি আপলোড বা মুছে ফেললেই সাথে সাথে কার্যকর হয় — এর জন্য Save চাপতে হয় না। নিচের Save বাটন শুধু লেখা তথ্যগুলো সংরক্ষণ করে। / Photo upload and removal apply immediately — no Save needed. The Save button below saves the typed fields only.",
+                      )}
+                    </p>
+                    <CitizenPhoto
+                      citizen={ownCitizen}
+                      onChanged={setOwnCitizen}
+                    />
+                  </fieldset>
+                  <fieldset className="profile-section">
+                    <legend>{t("৩. ঠিকানা / 3. Address")}</legend>
+                    <div className="form-grid">
+                      <Field
+                        label={
+                          t("স্থায়ী ঠিকানা (বাংলা) / Permanent address (Bangla)") + " *"
+                        }
                         name="profile-permanent-address-bn"
                         value={profile.permanentAddressBn ?? ""}
                         onChange={(v) =>
                           setProfile({ ...profile, permanentAddressBn: v })
                         }
                         maxLength={500}
+                        error={profileErrors.permanentAddressBn}
                       />
                       <Field
-                        label={t(
-                          "স্থায়ী ঠিকানা (ইংরেজি) / Permanent address (English)",
-                        )}
+                        label={
+                          t("স্থায়ী ঠিকানা (ইংরেজি) / Permanent address (English)") + " *"
+                        }
                         name="profile-permanent-address-en"
                         value={profile.permanentAddressEn ?? ""}
                         onChange={(v) =>
                           setProfile({ ...profile, permanentAddressEn: v })
                         }
                         maxLength={500}
+                        error={profileErrors.permanentAddressEn}
                       />
-                    </>
-                  )}
-                  {session.user.role === "citizen" ? (
-                    <Field
-                      label={t("সাইন-ইন মোবাইল / Sign-in mobile")}
-                      name="profile-phone"
-                      value={profile.phone}
-                      onChange={(v) => setProfile({ ...profile, phone: v })}
-                      type="tel"
-                      maxLength={11}
-                      disabled
-                      hint={t(
-                        "সাইন-ইনের নম্বর — বদলাতে অফিসে যোগাযোগ করুন। যোগাযোগের মোবাইল নিচে নাগরিকের তথ্যে দিন। / Your sign-in number — contact the office to change it. Your contact mobile goes in Citizen details below.",
+                      <Field
+                        label={t("Address")}
+                        name="profile-address"
+                        value={profile.address}
+                        onChange={(v) => setProfile({ ...profile, address: v })}
+                        maxLength={1000}
+                        error={profileErrors.address}
+                      />
+                    </div>
+                    <fieldset className="profile-geography">
+                      <legend>{t("Geographic address")}</legend>
+                      <p>
+                        {t(
+                          "Save your division, district, upazila, union and ward.",
+                        )}
+                      </p>
+                      <GeographyFields
+                        prefix="profile-geo"
+                        value={readGeography(profile.geography)}
+                        onChange={(geography) =>
+                          setProfile({ ...profile, geography })
+                        }
+                        required={!!profile.geography?.divisionCode}
+                      />
+                    </fieldset>
+                    {profile.presentAddress && (
+                      <PresentAddressFields
+                        prefix="profile-present"
+                        value={readPresentAddress(profile.presentAddress)}
+                        onChange={(presentAddress) =>
+                          setProfile({ ...profile, presentAddress })
+                        }
+                      />
+                    )}
+                  </fieldset>
+                  <fieldset className="profile-section">
+                    <legend>{t("৪. নথিপত্র / 4. Documents")}</legend>
+                    <p className="hint">
+                      {t(
+                        "আপনার পরিচয় নথি এখানে যুক্ত করুন। নথি আপলোড/মুছে ফেলা সাথে সাথে কার্যকর হয়। / Link your identity document here. Document upload and removal apply immediately.",
                       )}
+                    </p>
+                    {/* WS-C: the documents vault replaces the older
+                        single identity-document control here — it covers
+                        both kinds, dual-reads legacy links, and keeps
+                        the legacy slot in sync (see CitizenDocumentsVault). */}
+                    <CitizenDocumentsVault
+                      citizen={ownCitizen}
+                      canEdit={true}
+                      onChanged={setOwnCitizen}
                     />
-                  ) : (
+                  </fieldset>
+                  <button disabled={busy}>{t("Save profile")}</button>
+                </form>
+              ) : session.user.role !== "citizen" ? (
+                <form
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    void run(async () => {
+                      const saved = await api("/profile", "PATCH", {
+                        displayName: profile.displayName,
+                        nameBn: profile.nameBn,
+                        phone: profile.phone,
+                        address: profile.address,
+                      });
+                      setProfile(saved);
+                      setMessage("Profile saved / প্রোফাইল সংরক্ষিত হয়েছে");
+                    });
+                  }}
+                >
+                  <div className="form-grid">
+                    <Field
+                      label={t("Display name")}
+                      name="profile-name"
+                      value={profile.displayName}
+                      onChange={(v) => setProfile({ ...profile, displayName: v })}
+                      required
+                      maxLength={120}
+                    />
+                    <Field
+                      label={t("নাম (বাংলা)")}
+                      name="profile-bn"
+                      value={profile.nameBn}
+                      onChange={(v) => setProfile({ ...profile, nameBn: v })}
+                      maxLength={120}
+                    />
                     <Field
                       label={t("Mobile (optional, 11 digits)")}
                       name="profile-phone"
@@ -478,115 +795,26 @@ export function AdditionalWorkspace({
                       type="tel"
                       maxLength={11}
                     />
-                  )}
-                  <Field
-                    label={t("Address")}
-                    name="profile-address"
-                    value={profile.address}
-                    onChange={(v) => setProfile({ ...profile, address: v })}
-                    maxLength={1000}
-                  />
-                </div>
-                {session.user.role === "citizen" && (
-                  <fieldset className="profile-geography">
-                    <legend>{t("Geographic address")}</legend>
-                    <p>
-                      {t(
-                        "Save your division, district, upazila, union and ward.",
-                      )}
-                    </p>
-                    <GeographyFields
-                      prefix="profile-geo"
-                      value={readGeography(profile.geography)}
-                      onChange={(geography) =>
-                        setProfile({ ...profile, geography })
-                      }
-                      required={!!profile.geography?.divisionCode}
+                    <Field
+                      label={t("Address")}
+                      name="profile-address"
+                      value={profile.address}
+                      onChange={(v) => setProfile({ ...profile, address: v })}
+                      maxLength={1000}
                     />
-                  </fieldset>
-                )}
-                {session.user.role === "citizen" && profile.presentAddress && (
-                  <PresentAddressFields
-                    prefix="profile-present"
-                    value={readPresentAddress(profile.presentAddress)}
-                    onChange={(presentAddress) =>
-                      setProfile({ ...profile, presentAddress })
-                    }
-                  />
-                )}
-                <button disabled={busy}>{t("Save profile")}</button>
-              </form>
+                  </div>
+                  <button disabled={busy}>{t("Save profile")}</button>
+                </form>
+              ) : null}
             </section>
-            {session.user.role === "citizen" && ownCitizen && (
-              <CitizenDetailsEditor
-                citizen={ownCitizen}
-                geographyRequired={!!session.tenant?.divisionCode}
-                onSaved={setOwnCitizen}
-              />
-            )}
             {/* PROFILE-DYNAMIC: the chairman (and the office admin) manage the
                 office identity — UP name, logo, seal, signature — from their
                 own profile page, not only from the admin workspace. */}
             {(session.user.role === "approver" ||
               session.user.role === "admin") && <OfficeIdentitySettings />}
-            <section className="panel">
-              <h2>{t("পাসওয়ার্ড পরিবর্তন / Change password")}</h2>
-              <form
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  void run(async () => {
-                    if (newPassword !== confirmPassword)
-                      throw Error("New passwords must match.");
-                    if (newPassword.length < 6 || newPassword.length > 18)
-                      throw Error("Use 6 to 18 characters.");
-                    await api("/auth/password", "POST", {
-                      currentPassword,
-                      newPassword,
-                    });
-                    setCurrentPassword("");
-                    setNewPassword("");
-                    setConfirmPassword("");
-                    setSecurityRevision((value) => value + 1);
-                    setMessage(
-                      "Password changed. Other sessions have been signed out.",
-                    );
-                  });
-                }}
-              >
-                <div className="form-grid">
-                  <Field
-                    label={t("Current password")}
-                    name="password-current"
-                    value={currentPassword}
-                    onChange={setCurrentPassword}
-                    type="password"
-                    required
-                    maxLength={200}
-                  />
-                  <Field
-                    label={t("New password (6 to 18 characters)")}
-                    name="password-new"
-                    value={newPassword}
-                    onChange={setNewPassword}
-                    type="password"
-                    required
-                    maxLength={18}
-                  />
-                  <Field
-                    label={t("Confirm new password")}
-                    name="password-confirm"
-                    value={confirmPassword}
-                    onChange={setConfirmPassword}
-                    type="password"
-                    required
-                    maxLength={18}
-                  />
-                </div>
-                <button disabled={busy}>{t("Change password")}</button>
-              </form>
-            </section>
-            <AccountSessions revision={securityRevision} />
-            <AccountMfa revision={securityRevision} onChange={() => setSecurityRevision((value) => value + 1)} />
+            {/* Citizen dashboard + profile (2026-11-26): password, sessions
+                and two-factor settings live only in Account settings — the
+                duplicated blocks that used to sit here were removed. */}
           </>
         ),
       )}

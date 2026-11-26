@@ -389,12 +389,15 @@ test("language browser: preference persists across public pages and authenticate
     await page.locator('#email').fill("admin@alpha.local.test");
     await page.locator('#password').fill("Demo-Phase1!");
     await page.getByRole("button", { name: /প্রবেশ করুন|সাইন ইন/ }).click();
-    await page.getByRole("button", { name: /বের হন|সাইন আউট|বের হয়ে যান/ }).waitFor();
+    await page.getByRole("button", { name: /বের হন|সাইন আউট|বের হয়ে যান|লগআউট/ }).waitFor();
     assert.equal(await page.locator("html").getAttribute("lang"), "bn");
     const tabs = page.getByRole("navigation", { name: "কর্মক্ষেত্রের নেভিগেশন" }).getByRole("button");
     const count = await tabs.count();
     assert.ok(count >= 8);
     for (let i = 0; i < count; i++) {
+      // The Account group now ends with the লগআউট item — clicking it would
+      // sign out mid-tour; it is exercised explicitly at the end instead.
+      if ((await tabs.nth(i).getAttribute("data-page")) === "logout") continue;
       await tabs.nth(i).click();
       assert.equal(await page.locator("html").getAttribute("lang"), "bn");
     }

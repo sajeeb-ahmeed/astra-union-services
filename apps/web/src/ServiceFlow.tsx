@@ -23,6 +23,7 @@ import { chosenCitizenAddress } from "./PresentAddressFields.js";
 import { withoutOrderLanguage } from "./order-schema.js";
 import { ApplicationStatus, RefChip, Stepper } from "./ui/kit.js";
 import { ProfileCompletionCard, profileGapsFor } from "./ProfileCompletion.js";
+import { citizenFormDefaults } from "./citizen-prefill.js";
 import "./service-flow.css";
 
 const steps = [
@@ -40,95 +41,6 @@ const presentValue = (value: unknown): boolean =>
   value !== undefined &&
   value !== null &&
   !(typeof value === "string" && value.trim() === "");
-
-/**
- * PORTAL-B: form fields that ask again for what the citizen record already
- * holds. The form opens with these filled (still editable), so nobody types
- * the same address or parents' names twice.
- * QAFIX-01 (live QA §4 item 1): the map now covers every field id that asks
- * for the APPLICANT's own facts across the catalogue — the household head
- * (service 2), the proprietor (36/41/42/46) and the same-person subject
- * (39) are the applicant themselves. Fields that belong to OTHER people
- * (the deceased on warish/death forms, heirs, the spouse on marriage
- * forms, delegates, the related person on 39) are deliberately absent:
- * pre-filling them with the applicant's data would write wrong facts.
- * The citizen's NID is never mapped: the API returns only a masked hint
- * (the full number sits behind the audited reveal endpoint), so there is
- * nothing safe to prefill.
- */
-const CITIZEN_FIELD_SOURCES: Record<string, string> = {
-  permanent_address_bn: "addressBn",
-  permanent_address_en: "addressEn",
-  father_name_bn: "fatherNameBn",
-  father_name_en: "fatherNameEn",
-  mother_name_bn: "motherNameBn",
-  mother_name_en: "motherNameEn",
-  spouse_name_bn: "spouseNameBn",
-  spouse_name_en: "spouseNameEn",
-  date_of_birth: "dateOfBirth",
-  // The applicant under another title: household head (2), proprietor
-  // (36/41/42/46), the person both names belong to (39).
-  household_name_bn: "nameBn",
-  household_name_en: "nameEn",
-  proprietor_name_bn: "nameBn",
-  proprietor_name_en: "nameEn",
-  proprietor_father_name_bn: "fatherNameBn",
-  proprietor_father_name: "fatherNameEn",
-  proprietor_mother_name_bn: "motherNameBn",
-  proprietor_mother_name: "motherNameEn",
-  proprietor_spouse_name_bn: "spouseNameBn",
-  proprietor_spouse_name: "spouseNameEn",
-  // QAFIX-07 (service 34): the childless attestation concerns the
-  // applicant couple, so its spouse pair is the applicant's own.
-  childless_spouse_name_bn: "spouseNameBn",
-  childless_spouse_name: "spouseNameEn",
-  noc_proprietor_bn: "nameBn",
-  noc_proprietor: "nameEn",
-  noc_mobile: "contactMobile",
-  primises_license_proprietor_bn: "nameBn",
-  primises_license_proprietor: "nameEn",
-  transport_license_proprietor_bn: "nameBn",
-  transport_license_proprietor: "nameEn",
-  transport_license_mobile: "contactMobile",
-  mobile: "contactMobile",
-  spi_name_bn: "nameBn",
-  spi_name_en: "nameEn",
-};
-
-/**
- * Field ids whose meaning depends on the service: on service 2 the
- * warish_info block describes the household head (the applicant), so the
- * head's parents and spouse are the applicant's own. On services 3/4 the
- * same ids describe the DECEASED — never prefilled there.
- */
-const CITIZEN_FIELD_SOURCES_BY_SERVICE: Record<number, Record<string, string>> = {
-  2: {
-    warish_info_father_name_bn: "fatherNameBn",
-    warish_info_father_name: "fatherNameEn",
-    warish_info_mother_name_bn: "motherNameBn",
-    warish_info_mother_name: "motherNameEn",
-    warish_info_spouse_name_bn: "spouseNameBn",
-    warish_info_spouse_name: "spouseNameEn",
-  },
-};
-
-/** Starting values for a new application: top-level text/date fields only. */
-export function citizenFormDefaults(schema: FormSchema, citizen: any): Record<string, string> {
-  const defaults: Record<string, string> = {};
-  if (!citizen) return defaults;
-  const sources = {
-    ...CITIZEN_FIELD_SOURCES,
-    ...(CITIZEN_FIELD_SOURCES_BY_SERVICE[schema.serviceNo] ?? {}),
-  };
-  for (const section of schema.sections)
-    for (const field of section.fields) {
-      const source = sources[field.id];
-      if (!source || !["text", "textarea", "date"].includes(field.type)) continue;
-      const value = citizen[source];
-      if (typeof value === "string" && value.trim()) defaults[field.id] = value.trim();
-    }
-  return defaults;
-}
 
 /**
  * R10LIVE-WSB (S2): a checkbox with mustBeTrue is a declaration/attestation
@@ -486,6 +398,37 @@ export function ServiceFlow({
       const missing = Object.keys(defaults).filter((key) => !(key in current));
       return missing.length ? { ...defaults, ...current } : current;
     });
+  }, [formReady, citizen, formSchema]);
+  // WS-C (Md's decision): NID autofill for the applicant's OWN record
+  // only. The full number never rides the citizen list/detail payload —
+  // it is fetched here through the existing audited reveal endpoint
+  // (GET /citizens/:id/identity, which writes a CITIZEN_IDENTITY_VIEWED
+  // audit event) inside the citizen's own authenticated session, and
+  // merged UNDER anything already typed, exactly like the other
+  // defaults. Staff intake (selfCitizen false) never autofills another
+  // person's NID. Services with a top-level nid_number field: 15/27/33/37.
+  const nidAutofillDone = useRef<string>("");
+  useEffect(() => {
+    if (!formReady || !citizen?.id || !citizen.nidHint) return;
+    const asksNid = formSchema.sections.some((section) =>
+      section.fields.some((field) => field.id === "nid_number" && field.type === "text"),
+    );
+    if (!asksNid) return;
+    const key = `${citizen.id}:${formSchema.serviceNo}`;
+    if (nidAutofillDone.current === key) return;
+    nidAutofillDone.current = key;
+    let active = true;
+    api(`/citizens/${citizen.id}/identity`)
+      .then((numbers) => {
+        if (!active || typeof numbers?.nid !== "string" || !numbers.nid) return;
+        setPayload((current) =>
+          "nid_number" in current ? current : { nid_number: numbers.nid, ...current },
+        );
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
   }, [formReady, citizen, formSchema]);
   useEffect(() => {
     let active = true;

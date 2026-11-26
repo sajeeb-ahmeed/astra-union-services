@@ -38,6 +38,7 @@ import {
   type AttachmentHandle,
 } from "./AttachmentStatus.js";
 import { WorkspaceDashboard } from "./WorkspaceDashboard.js";
+import { CitizenDashboard } from "./CitizenDashboard.js";
 import { SidebarNav } from "./ui/SidebarNav.js";
 import {
   ApplicationStatus,
@@ -173,7 +174,7 @@ const labels: Record<string, string> = {
   payments: "Payments and receipts",
   owner: "Platform management",
   admin: "Office administration",
-  security: "Account security",
+  security: "Account settings",
   profile: "My profile",
   prints: "Print requests",
   notifications: "Notifications",
@@ -191,7 +192,7 @@ const localized: Record<string, string> = {
   payments: "পেমেন্ট ও রসিদ",
   owner: "প্ল্যাটফর্ম ব্যবস্থাপনা",
   admin: "অফিস ব্যবস্থাপনা",
-  security: "অ্যাকাউন্ট নিরাপত্তা",
+  security: "অ্যাকাউন্ট সেটিংস",
   profile: "আমার প্রোফাইল",
   prints: "প্রিন্ট অনুরোধ",
   notifications: "নোটিফিকেশন",
@@ -926,47 +927,87 @@ export function WorkspaceApp({
       null
     );
   }
-  /* FULL-UIUX-01 (B17/P1-5): the citizen home is status-first — per-state
-     totals from the list endpoint itself (pageSize=1 reads), never from
-     counting a fetched page. */
-  const [citizenCounts, setCitizenCounts] = useState<Record<string, number> | null>(null);
+  /* Citizen dashboard + profile (2026-11-26): the citizen home counts now
+     come from the citizen-scoped /applications/counts endpoint inside
+     CitizenDashboard (one request, not seven). Header state: unread
+     notification count (derived from GET /notifications items without
+     readAt), the avatar dropdown, and whether the avatar photo failed to
+     load (404 = no photo -> initials, never a broken image). */
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [avatarMenuOpen, setAvatarMenuOpen] = useState(false);
+  const [avatarPhotoFailed, setAvatarPhotoFailed] = useState(false);
+  const avatarWrapRef = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
-    if (role !== "citizen" || page !== "home") return;
     let active = true;
-    (async () => {
-      const states = [
-        "DRAFT",
-        "CORRECTION_REQUIRED",
-        "SUBMITTED",
-        "UNDER_REVIEW",
-        "RESUBMITTED",
-        "APPROVED",
-        // ISSUANCE_PENDING is deliberately NOT requested: it is not a
-        // state in the current state machine (the API's state enum
-        // dropped it — see the /applications/counts note in app.ts), so
-        // the request always failed 422 INPUT_INVALID and only added a
-        // browser console error on every citizen-home load. Its count
-        // could only ever be 0, and the totals below already read it
-        // with ?? 0, so no displayed number changes.
-        "ISSUED",
-      ];
-      const entries = await Promise.all(
-        states.map(async (s) => {
-          try {
-            const r = await api(`/applications?state=${s}&pageSize=1`);
-            return [s, r.total ?? items(r).length] as const;
-          } catch {
-            return [s, 0] as const;
-          }
-        }),
-      );
-      if (active) setCitizenCounts(Object.fromEntries(entries));
-    })();
+    api("/notifications")
+      .then((r) => {
+        if (active)
+          setUnreadCount(items(r).filter((n: any) => !n.readAt).length);
+      })
+      .catch(() => undefined);
     return () => {
       active = false;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [role, page, appTotal]);
+  }, [page]);
+  useEffect(() => {
+    setAvatarMenuOpen(false);
+  }, [page]);
+  useEffect(() => {
+    if (!avatarMenuOpen) return;
+    const onDown = (e: MouseEvent) => {
+      if (
+        avatarWrapRef.current &&
+        !avatarWrapRef.current.contains(e.target as Node)
+      )
+        setAvatarMenuOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setAvatarMenuOpen(false);
+    };
+    document.addEventListener("mousedown", onDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDown);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [avatarMenuOpen]);
+  /** ONE sign-out for the sidebar item, the avatar dropdown and the mobile
+      sheet. Phase 5 (5A) semantics preserved verbatim from the former
+      sidebar-bottom button: leaving the workspace must never depend on the
+      logout request succeeding — in the broken-session state that request
+      is exactly what fails (it is CSRF-protected like every POST), which
+      left sign-out clicks doing nothing. The API client first resyncs and
+      tries to complete the server logout; whatever the outcome, local
+      state is cleared and the user returns to the sign-in portal. A server
+      session that could not be ended here expires on its own schedule. */
+  function signOut() {
+    setAvatarMenuOpen(false);
+    setTabSheet(false);
+    void run(async () => {
+      try {
+        await api("/auth/logout", "POST");
+      } catch {
+        // Ignored deliberately: local sign-out proceeds regardless.
+      }
+      clearSessionToken();
+      refreshEpoch.current++;
+      onSignOut();
+      setCitizens([]);
+      setApplications([]);
+      setWallet(null);
+      setBilling(null);
+      setTenants([]);
+      setReturnToIntake(false);
+      setCitizenSearch("");
+      setAppSearch("");
+      setApplicationReference("");
+      setAppPage(1);
+      setAppTotal(0);
+      setFilter("");
+      setDetail(null);
+      setPage("home");
+    });
+  }
   // Phase 1 slice (ii), approved: staff get the UDC sidebar; staff and office admins get the dashboard home.
   // WS-D3: the chairman (approver) gets the dashboard home too — before
   // this the chairman's home was only action cards and an explainer, with
@@ -1793,6 +1834,7 @@ export function WorkspaceApp({
           </small>
         </p>
         {udcPreview ? (
+          <>
           <SidebarNav
             items={udcNavigation}
             current={udcCurrent}
@@ -1803,6 +1845,18 @@ export function WorkspaceApp({
               else if (item.page) nav(item.page);
             }}
           />
+          {!phoneLayout && (
+          <button
+            type="button"
+            className="ax-sidebar-item ws-logout-item"
+            data-page="logout"
+            onClick={signOut}
+          >
+            <NavIcon name="logout" />
+            <span>{choose({ bn: "লগআউট", en: "Sign out" })}</span>
+          </button>
+          )}
+          </>
         ) : (
         <nav aria-label={t("Workspace navigation")} className="ws-nav">
           {tx(
@@ -1842,6 +1896,18 @@ export function WorkspaceApp({
                       filtered-destination pattern as the UDC "renewal"
                       entry; the phone "More" sheet lists pages only, so on
                       phone the issued list stays reachable via Applications. */}
+                  {group.title.en === "Account" && !phoneLayout && (
+                    <button
+                      key="logout"
+                      type="button"
+                      data-page="logout"
+                      className="ws-logout-item"
+                      onClick={signOut}
+                    >
+                      <NavIcon name="logout" />
+                      <span>{choose({ bn: "লগআউট", en: "Sign out" })}</span>
+                    </button>
+                  )}
                   {group.title.en === "Main" &&
                     ["staff", "admin", "reviewer", "approver"].includes(
                       role,
@@ -1886,44 +1952,18 @@ export function WorkspaceApp({
                 : tx(role)}
             </small>
           </p>
-          <button
-            className="text-button"
-            onClick={() =>
-              run(async () => {
-                // Phase 5 (5A): leaving the workspace must never depend on the logout
-                // request succeeding — in the broken-session state that request is
-                // exactly what fails (it is CSRF-protected like every POST), which left
-                // sign-out clicks doing nothing. The API client first resyncs and tries
-                // to complete the server logout; whatever the outcome, local state is
-                // cleared and the user returns to the sign-in portal. A server session
-                // that could not be ended here expires on its own schedule.
-                try {
-                  await api("/auth/logout", "POST");
-                } catch {
-                  // Ignored deliberately: local sign-out proceeds regardless.
-                }
-                clearSessionToken();
-                refreshEpoch.current++;
-                onSignOut();
-                setCitizens([]);
-                setApplications([]);
-                setWallet(null);
-                setBilling(null);
-                setTenants([]);
-                setReturnToIntake(false);
-                setCitizenSearch("");
-                setAppSearch("");
-                setApplicationReference("");
-                setAppPage(1);
-                setAppTotal(0);
-                setFilter("");
-                setDetail(null);
-                setPage("home");
-              })
-            }
-          >
-            {t("Sign out ")}
-          </button>
+{/* Citizen dashboard + profile (2026-11-26): sign-out lives in the
+            Account menu group, the avatar dropdown and the mobile sheet —
+            the sidebar bottom keeps only the identity display. Exception:
+            layouts where the sidebar nav itself is CSS-hidden (phone width,
+            the owner shell) would leave no visible sign-out at all, so
+            there the sidebar bottom keeps the button — it is not a
+            duplicate in those layouts. */}
+          {(phoneLayout || role === "owner") && (
+            <button type="button" className="text-button" onClick={signOut}>
+              {choose({ bn: "লগআউট", en: "Sign out" })}
+            </button>
+          )}
         </div>
       </aside>
       <main id="content" aria-busy={busy || undefined}>
@@ -2070,6 +2110,88 @@ export function WorkspaceApp({
               )}
             </div>
             <LanguageSwitcher />
+            <button
+              type="button"
+              className="ws-header-bell"
+              aria-label={choose({ bn: "নোটিফিকেশন", en: "Notifications" })}
+              onClick={() => nav("notifications")}
+            >
+              <NavIcon name="notifications" size={22} />
+              {unreadCount > 0 && (
+                <span className="ws-bell-badge">
+                  {localDigits(String(unreadCount), language)}
+                </span>
+              )}
+            </button>
+            <div className="ws-avatar-wrap" ref={avatarWrapRef}>
+              <button
+                type="button"
+                className="ws-avatar-btn"
+                aria-haspopup="menu"
+                aria-expanded={avatarMenuOpen}
+                aria-label={choose({ bn: "আমার অ্যাকাউন্ট", en: "My account" })}
+                onClick={() => setAvatarMenuOpen(!avatarMenuOpen)}
+              >
+                {(() => {
+                  const me = role === "citizen" ? ownCitizen() : null;
+                  const display =
+                    session.user.displayName ||
+                    session.user.display_name ||
+                    session.user.email ||
+                    "";
+                  if (me?.hasPhoto && !avatarPhotoFailed)
+                    return (
+                      <img
+                        className="ws-avatar"
+                        src={`/api/v1/citizens/${me.id}/photo/image`}
+                        alt=""
+                        onError={() => setAvatarPhotoFailed(true)}
+                      />
+                    );
+                  return (
+                    <span className="ws-avatar" aria-hidden="true">
+                      {tx(display.trim().charAt(0) || "?")}
+                    </span>
+                  );
+                })()}
+                <span aria-hidden="true">▾</span>
+              </button>
+              {avatarMenuOpen && (
+                <div className="ws-avatar-menu" role="menu">
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => {
+                      setAvatarMenuOpen(false);
+                      nav("profile");
+                    }}
+                  >
+                    <NavIcon name="profile" />
+                    <span>{choose({ bn: "আমার প্রোফাইল", en: "My profile" })}</span>
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => {
+                      setAvatarMenuOpen(false);
+                      nav("security");
+                    }}
+                  >
+                    <NavIcon name="security" />
+                    <span>{choose({ bn: "অ্যাকাউন্ট সেটিংস", en: "Account settings" })}</span>
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    className="ws-logout-item"
+                    onClick={signOut}
+                  >
+                    <NavIcon name="logout" />
+                    <span>{choose({ bn: "লগআউট", en: "Sign out" })}</span>
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         </header>
         {tx(
@@ -2164,162 +2286,25 @@ export function WorkspaceApp({
               <WorkspaceWelcome role={role} navigate={openTask} />
             )}
             {role === "citizen" && (
-              <section
-                className="citizen-status-home"
-                aria-label={choose({ bn: "আমার আবেদনের অবস্থা", en: "My application status" })}
-              >
-                {citizenCounts && (citizenCounts.CORRECTION_REQUIRED ?? 0) > 0 && (
-                  <div className="citizen-correction-card">
-                    <div>
-                      <strong>
-                        {choose({
-                          bn: "সংশোধন প্রয়োজন",
-                          en: "Correction needed",
-                        })}
-                        {" · "}
-                        {localDigits(String(citizenCounts.CORRECTION_REQUIRED), language)}
-                      </strong>
-                      <p>
-                        {choose({
-                          bn: "অফিস একটি আবেদনে সংশোধন চেয়েছে। কারণ পড়ে ঠিক করে আবার জমা দিন।",
-                          en: "The office asked for a correction on an application. Read the reason, fix it and resubmit.",
-                        })}
-                      </p>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => openTask("applications", "CORRECTION_REQUIRED")}
-                    >
-                      {choose({ bn: "আবেদনগুলো দেখুন", en: "View applications" })}
-                    </button>
-                  </div>
-                )}
-                <div className="citizen-status-cards">
-                  <button
-                    type="button"
-                    className="ax-stat-button"
-                    onClick={() => openTask("applications", "DRAFT")}
-                  >
-                    <StatCard
-                      value={
-                        citizenCounts
-                          ? localDigits(String(citizenCounts.DRAFT ?? 0), language)
-                          : "—"
-                      }
-                      label={choose({ bn: "খসড়া", en: "Drafts" })}
-                      icon={<NavIcon name="applications" />}
-                      context={choose({ bn: "চালিয়ে যান", en: "Continue" })}
-                    />
-                  </button>
-                  <button
-                    type="button"
-                    className="ax-stat-button"
-                    onClick={() => openTask("applications")}
-                  >
-                    <StatCard
-                      value={
-                        citizenCounts
-                          ? localDigits(
-                              String(
-                                (citizenCounts.SUBMITTED ?? 0) +
-                                  (citizenCounts.UNDER_REVIEW ?? 0) +
-                                  (citizenCounts.RESUBMITTED ?? 0) +
-                                  (citizenCounts.APPROVED ?? 0) +
-                                  (citizenCounts.ISSUANCE_PENDING ?? 0),
-                              ),
-                              language,
-                            )
-                          : "—"
-                      }
-                      label={choose({ bn: "পর্যালোচনাধীন", en: "In review" })}
-                      icon={<NavIcon name="pending" />}
-                      context={choose({ bn: "অবস্থা দেখুন", en: "Check status" })}
-                    />
-                  </button>
-                  <button
-                    type="button"
-                    className="ax-stat-button"
-                    onClick={() => openTask("applications", "ISSUED")}
-                  >
-                    <StatCard
-                      value={
-                        citizenCounts
-                          ? localDigits(String(citizenCounts.ISSUED ?? 0), language)
-                          : "—"
-                      }
-                      label={choose({ bn: "ইস্যু হয়েছে", en: "Issued" })}
-                      icon={<NavIcon name="print-certificate" />}
-                      context={choose({ bn: "সনদ ডাউনলোড", en: "Download certificates" })}
-                    />
-                  </button>
-                </div>
-                {(() => {
-                  const draft = applications.find(
-                    (a) => (a.state || a.status) === "DRAFT",
-                  );
-                  return draft ? (
-                    <div className="citizen-draft-card">
-                      <div>
-                        <strong>
-                          {choose({ bn: "খসড়া চালিয়ে যান: ", en: "Continue your draft: " })}
-                          {tx(
-                            recordName(
-                              catalog.find(
-                                (s) =>
-                                  s.service_no ===
-                                  (draft.serviceNo || draft.service_no),
-                              ),
-                            ),
-                          )}
-                        </strong>
-                        <RefChip value={draft.reference || draft.id} />
-                      </div>
-                      <button
-                        type="button"
-                        className="secondary"
-                        onClick={() => run(() => openApplication(draft.id))}
-                      >
-                        {choose({ bn: "খুলুন", en: "Open" })}
-                      </button>
-                    </div>
-                  ) : null;
-                })()}
-                {applications.length > 0 && (
-                  <div className="citizen-recent">
-                    <h2>{choose({ bn: "সাম্প্রতিক আবেদন", en: "Recent applications" })}</h2>
-                    <ul>
-                      {applications.slice(0, 5).map((a) => (
-                        <li key={a.id}>
-                          <RefChip value={displayReference(a)} />
-                          <span>
-                            {tx(
-                              recordName(
-                                catalog.find(
-                                  (s) =>
-                                    s.service_no ===
-                                    (a.serviceNo || a.service_no),
-                                ),
-                              ),
-                            )}
-                          </span>
-                          <ApplicationStatus
-                            state={String(a.state || a.status || "")}
-                          />
-                          <button
-                            type="button"
-                            className="secondary"
-                            onClick={() => run(() => openApplication(a.id))}
-                          >
-                            {choose({ bn: "খুলুন", en: "Open" })}
-                          </button>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-              </section>
+              <CitizenDashboard
+                citizen={ownCitizen()}
+                applications={applications}
+                catalog={catalog}
+                geographyRequired={!!session.tenant?.divisionCode}
+                displayName={
+                  session.user.displayName ||
+                  session.user.display_name ||
+                  session.user.email ||
+                  ""
+                }
+                loaded={initialLoaded}
+                displayReference={displayReference}
+                onNavigate={nav}
+                onOpenTask={(state) => openTask("applications", state ?? "")}
+                onOpenApplication={(id) => void run(() => openApplication(id))}
+              />
             )}
-            {!(role === "citizen" && applications.length === 0) && (
+            {role !== "citizen" && (
               <WorkspaceWelcome role={role} navigate={openTask} />
             )}
             <section className="panel">
@@ -5302,13 +5287,25 @@ export function WorkspaceApp({
                   <span>{choose({ bn: localized[p], en: labels[p] })}</span>
                 </button>
               ))}
+              <button
+                type="button"
+                data-page="logout"
+                className="ws-logout-item"
+                onClick={signOut}
+              >
+                <NavIcon name="logout" />
+                <span>{choose({ bn: "লগআউট", en: "Sign out" })}</span>
+              </button>
             </div>
           )}
           <nav
             className="ws-tabbar"
             aria-label={choose({ bn: "প্রধান পৃষ্ঠা", en: "Main pages" })}
           >
-            {["home", "pending", "applications", "services", "citizens", "profile"]
+            {(role === "citizen"
+              ? ["home", "services", "applications", "profile"]
+              : ["home", "pending", "applications", "services", "citizens", "profile"]
+            )
               .filter((p) => visiblePages.includes(p))
               .slice(0, 4)
               .map((p) => (

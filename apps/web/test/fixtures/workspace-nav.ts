@@ -23,6 +23,8 @@ const pageByLabel: Record<string, string> = {
   "নোটিফিকেশন": "notifications",
   "Account security": "security",
   "অ্যাকাউন্ট নিরাপত্তা": "security",
+  "Account settings": "security",
+  "অ্যাকাউন্ট সেটিংস": "security",
   "Subscription & credits": "billing",
   "সাবস্ক্রিপশন ও ক্রেডিট": "billing",
   Reports: "reports",

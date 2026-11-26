@@ -256,9 +256,17 @@ test("CHAIRMAN-DASH-01: counts are per-state, grouped for the queue, and tenant-
   const betaAfter = await counts(s.betaStaff);
   assert.deepEqual(betaAfter, betaBefore);
 
-  // A citizen never sees office-wide counts.
+  // A citizen never sees office-wide counts: since the citizen dashboard
+  // (2026-11-26) the same endpoint answers a citizen with the same shape
+  // scoped to their OWN applications only, so the citizen total is strictly
+  // below the office total (the gated application above belongs to another
+  // citizen). Precise own-only deltas are pinned in citizen-counts.test.ts.
   const asCitizen = await req("GET", "/applications/counts", undefined, s.citizen);
-  assert.equal(asCitizen.status, 403);
+  assert.equal(asCitizen.status, 200, JSON.stringify(asCitizen.body));
+  assert.deepEqual(Object.keys(asCitizen.body.counts).sort(), Object.keys(afterCounts.counts).sort());
+  const sum = (c: Record<string, number>) => Object.values(c).reduce((n, v) => n + v, 0);
+  assert.ok(sum(asCitizen.body.counts) < sum(afterCounts.counts), "citizen counts exclude other citizens");
+  assert.ok(asCitizen.body.counts.ISSUED >= 1, "the citizen sees their own issued application");
 });
 
 test("WS-D1: the applications list sorts newest-first by default and re-queries in the requested order", async () => {

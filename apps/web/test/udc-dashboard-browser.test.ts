@@ -51,7 +51,7 @@ test(
       assert.deepEqual(labels, [
         "Dashboard", "Profile", "Citizens", "All applications", "Pending applications", "New application",
         "Certificate renewal", "Trade licence renewal", "Print certificate",
-        "Payments and receipts", "Notifications", "Account security", "User guide",
+        "Payments and receipts", "Notifications", "Account settings", "User guide",
       ]);
       assert.equal(await sidebar.locator(".is-soon[aria-disabled='true']").count(), 0);
       assert.equal(await sidebar.locator('[data-page="guide"]').count(), 1);
