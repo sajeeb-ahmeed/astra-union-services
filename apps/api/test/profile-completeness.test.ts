@@ -86,7 +86,16 @@ test("Phase 3b: approvers see completeness; an enforcing office refuses issuance
   assert.equal(detail.status, 200);
   assert.equal(detail.body.profileCompleteness.enforced, false);
   assert.equal(detail.body.profileCompleteness.complete, false);
-  assert.deepEqual(detail.body.profileCompleteness.missing, ["identityNumber", "mobile"]);
+  // 2026-11-26 required set: parents, gender and blood group count too. The present
+  // address is satisfied by the default same-as-permanent declaration.
+  assert.deepEqual(detail.body.profileCompleteness.missing, [
+    "fatherName",
+    "motherName",
+    "gender",
+    "bloodGroup",
+    "identityNumber",
+    "mobile",
+  ]);
   const unenforced = await req("POST", `/applications/${first}/issue`, {}, s.approver);
   assert.equal(unenforced.status, 200, JSON.stringify(unenforced.body));
   assert.equal(unenforced.body.id, firstApproval.body.certificate.id);
@@ -116,7 +125,14 @@ test("Phase 3b: approvers see completeness; an enforcing office refuses issuance
   const refused = await req("POST", `/applications/${second}/transition`, { action: "approve" }, s.approver);
   assert.equal(refused.status, 409, JSON.stringify(refused.body));
   assert.equal(refused.body.error.code, "PROFILE_INCOMPLETE");
-  assert.deepEqual(refused.body.error.issues.missing, ["identityNumber", "mobile"]);
+  assert.deepEqual(refused.body.error.issues.missing, [
+    "fatherName",
+    "motherName",
+    "gender",
+    "bloodGroup",
+    "identityNumber",
+    "mobile",
+  ]);
   assert.match(refused.body.error.message, /NID or birth registration number/);
   assert.equal(
     (await admin.query("SELECT count(*)::int n FROM certificates WHERE application_id=$1", [second])).rows[0].n,
@@ -129,7 +145,16 @@ test("Phase 3b: approvers see completeness; an enforcing office refuses issuance
   const patched = await req(
     "PATCH",
     `/citizens/${citizenId}/details`,
-    { birthReg: `20${tail}${tail.slice(0, 7)}`.slice(0, 17), noMobile: true },
+    {
+      birthReg: `20${tail}${tail.slice(0, 7)}`.slice(0, 17),
+      noMobile: true,
+      fatherNameBn: "পরীক্ষা পিতা",
+      fatherNameEn: "Test Father",
+      motherNameBn: "পরীক্ষা মাতা",
+      motherNameEn: "Test Mother",
+      gender: "female",
+      bloodGroup: "O+",
+    },
     s.staff,
   );
   assert.equal(patched.status, 200, JSON.stringify(patched.body));

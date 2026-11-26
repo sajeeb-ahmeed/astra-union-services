@@ -635,7 +635,7 @@ test(
         ),
         false,
       );
-      await nav(page, /Account security|অ্যাকাউন্ট নিরাপত্তা/);
+      await nav(page, /Account settings|অ্যাকাউন্ট সেটিংস/);
       await page.getByLabel("Current password", { exact: true }).fill(password);
       await page
         .getByLabel("New password", { exact: true })

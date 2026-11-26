@@ -2329,7 +2329,7 @@ export function PublicPortal({
                     <h2>{t("Security and access")}</h2>
                     <p>
                       {t(
-                        "Keep account credentials private, use a unique password and sign out on shared devices. You may change your password from Account security; doing so expires your other sessions. ",
+                        "Keep account credentials private, use a unique password and sign out on shared devices. You may change your password from Account settings; doing so expires your other sessions. ",
                       )}
                     </p>
                   </section>

@@ -62,7 +62,7 @@ test(
         .locator(".login-form")
         .getByRole("button", { name: "Sign in", exact: true })
         .click();
-      await goToWorkspacePage(page, "profile");
+      await goToWorkspacePage(page, "security");
       const panel = page.locator(
         'section[aria-labelledby="account-sessions-title"]',
       );

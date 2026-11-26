@@ -1095,6 +1095,149 @@ app.put(
   }),
 );
 /**
+ * Citizen documents vault (migration 064): one named document slot per kind ('nid',
+ * 'birth_reg') on the citizen record, so an uploaded image is linked once and reused.
+ * The citizen photo is NOT a vault kind — it stays on citizens.photo (migration 051),
+ * the single photo source. Vault rows are ordinary private attachments: quarantined
+ * until the scanner verdict is CLEAN, and submit/issuance still refuse non-CLEAN
+ * attachments. Dual-read: a Phase 3c identity document (citizens.identity_document_id)
+ * with no vault row for its kind is surfaced here too, so documents linked through
+ * the older endpoint never disappear.
+ */
+const documentKind = z.enum(["nid", "birth_reg"]);
+async function citizenDocumentsList(
+  db: DB,
+  tenantId: string,
+  citizenId: string,
+  legacy: { identity_document_id: string | null; identity_document_kind: string | null },
+) {
+  const rows = (
+    await db.query(
+      `SELECT d.kind, d.attachment_id, d.updated_at, a.mime_type, a.byte_length, a.scan_state,
+              a.content_sha256, a.scanned_sha256, a.scanned_at
+       FROM citizen_documents d
+       JOIN attachments a ON a.tenant_id=d.tenant_id AND a.citizen_id=d.citizen_id AND a.id=d.attachment_id
+       WHERE d.tenant_id=$1 AND d.citizen_id=$2 ORDER BY d.kind`,
+      [tenantId, citizenId],
+    )
+  ).rows;
+  const item = (r: any, updatedAt: unknown) => ({
+    kind: r.kind,
+    attachmentId: r.attachment_id,
+    mimeType: r.mime_type,
+    byteLength: r.byte_length,
+    scanState: r.scan_state,
+    downloadAllowed:
+      r.scan_state === "CLEAN" && r.scanned_sha256 === r.content_sha256 && !!r.scanned_at,
+    updatedAt,
+  });
+  const items = rows.map((r: any) => item(r, r.updated_at));
+  if (
+    legacy.identity_document_id &&
+    legacy.identity_document_kind &&
+    !rows.some((r: any) => r.kind === legacy.identity_document_kind)
+  ) {
+    const att = (
+      await db.query(
+        "SELECT mime_type, byte_length, scan_state, content_sha256, scanned_sha256, scanned_at FROM attachments WHERE tenant_id=$1 AND citizen_id=$2 AND id=$3",
+        [tenantId, citizenId, legacy.identity_document_id],
+      )
+    ).rows[0];
+    if (att)
+      items.push(
+        item(
+          { ...att, kind: legacy.identity_document_kind, attachment_id: legacy.identity_document_id },
+          null,
+        ),
+      );
+    items.sort((x: any, y: any) => String(x.kind).localeCompare(String(y.kind)));
+  }
+  return { items };
+}
+app.get(
+  "/api/v1/citizens/:id/documents",
+  wrap(async (req, res) => {
+    const a = roles(req, [...staffRead, "citizen"]);
+    const id = uuid.parse(req.params.id);
+    const result = await transaction(tenant(req), async (db) => {
+      const citizen = await reachableCitizen(
+        db,
+        a,
+        id,
+        "id,identity_document_id,identity_document_kind",
+      );
+      return citizenDocumentsList(db, a.tenantId!, id, citizen);
+    });
+    res.json(result);
+  }),
+);
+app.put(
+  "/api/v1/citizens/:id/documents/:kind",
+  wrap(async (req, res) => {
+    const a = roles(req, ["staff", "admin", "citizen"]);
+    const id = uuid.parse(req.params.id);
+    const kind = documentKind.parse(req.params.kind);
+    const input = z.object({ attachmentId: uuid.nullable() }).strict().parse(req.body);
+    const result = await transaction(tenant(req), async (db) => {
+      const citizen = await reachableCitizen(
+        db,
+        a,
+        id,
+        "id,identity_document_id,identity_document_kind",
+      );
+      if (input.attachmentId) {
+        const owned = (
+          await db.query("SELECT 1 FROM attachments WHERE tenant_id=$1 AND citizen_id=$2 AND id=$3", [
+            a.tenantId,
+            id,
+            input.attachmentId,
+          ])
+        ).rowCount;
+        if (!owned) fail(404, "ATTACHMENT_NOT_FOUND", "Upload the document for this citizen first.");
+        await db.query(
+          `INSERT INTO citizen_documents(tenant_id,citizen_id,kind,attachment_id,updated_at)
+           VALUES($1,$2,$3,$4,now())
+           ON CONFLICT (tenant_id,citizen_id,kind)
+           DO UPDATE SET attachment_id=EXCLUDED.attachment_id, updated_at=now()`,
+          [a.tenantId, id, kind, input.attachmentId],
+        );
+        // Keep the Phase 3c columns in sync when they already name this kind, so the
+        // older identity-document reader never shows a stale document.
+        if (citizen.identity_document_kind === kind)
+          await db.query(
+            "UPDATE citizens SET identity_document_id=$3 WHERE tenant_id=$1 AND id=$2",
+            [a.tenantId, id, input.attachmentId],
+          );
+        await audit(db, a.tenantId!, a.userId, "CITIZEN_DOCUMENT_LINKED", id, {
+          kind,
+          attachmentId: input.attachmentId,
+        });
+      } else {
+        await db.query(
+          "DELETE FROM citizen_documents WHERE tenant_id=$1 AND citizen_id=$2 AND kind=$3",
+          [a.tenantId, id, kind],
+        );
+        // Clearing the legacy link too: otherwise dual-read would resurrect a
+        // document the citizen just removed.
+        if (citizen.identity_document_kind === kind)
+          await db.query(
+            "UPDATE citizens SET identity_document_id=NULL,identity_document_kind=NULL WHERE tenant_id=$1 AND id=$2",
+            [a.tenantId, id],
+          );
+        await audit(db, a.tenantId!, a.userId, "CITIZEN_DOCUMENT_REMOVED", id, { kind });
+      }
+      const current = (
+        await db.query(
+          "SELECT identity_document_id,identity_document_kind FROM citizens WHERE tenant_id=$1 AND id=$2",
+          [a.tenantId, id],
+        )
+      ).rows[0];
+      return citizenDocumentsList(db, a.tenantId!, id, current);
+    });
+    res.json(result);
+  }),
+);
+/**
  * CERTNO-01: the citizen's optional photo, stored on the citizen record
  * (migration 051) and printed on certificates only when present. The upload is
  * validated by the attachments pipeline's decoder (magic bytes + 2 MiB cap),
@@ -1428,17 +1571,22 @@ app.get(
   "/api/v1/applications/counts",
   wrap(async (req, res) => {
     // CHAIRMAN-DASH-01: per-state application counts for the caller's own office,
-    // feeding the Pending applications queue. Office roles only — a citizen never
-    // sees office-wide figures. The tenant transaction applies forced RLS, and the
-    // explicit tenant predicate keeps the count scoped even if policies change.
+    // feeding the Pending applications queue. Citizen dashboard (2026-11-26): a
+    // citizen caller gets the SAME response shape scoped to their OWN applications
+    // only (joined through citizens.user_id) — a citizen never sees office-wide
+    // figures. The tenant transaction applies forced RLS, and the explicit tenant
+    // predicate keeps the count scoped even if policies change.
     // CORRECTION_REQUIRED is deliberately NOT part of either pending group: after a
     // correction request the next move is the citizen's, not the office's.
-    const a = roles(req, staffRead);
+    const a = roles(req, [...staffRead, "citizen"]);
+    const ownOnly = a.role === "citizen";
     const { byState: counts, oldestPendingAt } = await transaction(tenant(req), async (db) => {
       const rows = (
         await db.query(
-          "SELECT state, count(*)::int AS count FROM applications WHERE tenant_id=$1 GROUP BY state",
-          [a.tenantId],
+          ownOnly
+            ? "SELECT a.state, count(*)::int AS count FROM applications a JOIN citizens c ON c.id=a.citizen_id AND c.tenant_id=a.tenant_id WHERE a.tenant_id=$1 AND c.user_id=$2 GROUP BY a.state"
+            : "SELECT state, count(*)::int AS count FROM applications WHERE tenant_id=$1 GROUP BY state",
+          ownOnly ? [a.tenantId, a.userId] : [a.tenantId],
         )
       ).rows as { state: string; count: number }[];
       const byState: Record<string, number> = {
@@ -1459,8 +1607,10 @@ app.get(
       // number agrees with the pending queue and the sidebar badge.
       const oldest = (
         await db.query(
-          "SELECT min(created_at) AS oldest FROM applications WHERE tenant_id=$1 AND state IN ('SUBMITTED','RESUBMITTED','UNDER_REVIEW','APPROVED')",
-          [a.tenantId],
+          ownOnly
+            ? "SELECT min(a.created_at) AS oldest FROM applications a JOIN citizens c ON c.id=a.citizen_id AND c.tenant_id=a.tenant_id WHERE a.tenant_id=$1 AND c.user_id=$2 AND a.state IN ('SUBMITTED','RESUBMITTED','UNDER_REVIEW','APPROVED')"
+            : "SELECT min(created_at) AS oldest FROM applications WHERE tenant_id=$1 AND state IN ('SUBMITTED','RESUBMITTED','UNDER_REVIEW','APPROVED')",
+          ownOnly ? [a.tenantId, a.userId] : [a.tenantId],
         )
       ).rows[0]?.oldest as Date | null;
       return { byState, oldestPendingAt: oldest ? oldest.toISOString() : null };

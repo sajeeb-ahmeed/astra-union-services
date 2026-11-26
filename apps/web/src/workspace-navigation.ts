@@ -30,7 +30,7 @@ export const udcNavigation: readonly WorkspaceNavItem[] = [
   // Astra pages the reference list does not have; kept so staff lose nothing.
   { key: "payments", bn: "পেমেন্ট ও রসিদ", en: "Payments and receipts", page: "payments" },
   { key: "notifications", bn: "নোটিফিকেশন", en: "Notifications", page: "notifications" },
-  { key: "security", bn: "অ্যাকাউন্ট নিরাপত্তা", en: "Account security", page: "security" },
+  { key: "security", bn: "অ্যাকাউন্ট সেটিংস", en: "Account settings", page: "security" },
   { key: "user-guide", bn: "ব্যবহার নির্দেশিকা", en: "User guide", page: "guide" },
 ];
 

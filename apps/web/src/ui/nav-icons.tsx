@@ -157,6 +157,11 @@ const PATHS: Record<string, React.ReactNode> = {
       <path d="m16 16 4.5 4.5" />
     </>
   ),
+  logout: (
+    <>
+      <path d="M10 4H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h4M15 8l4 4-4 4M19 12H9" />
+    </>
+  ),
 };
 
 export function NavIcon({ name, size = 20 }: { name: string; size?: number }) {

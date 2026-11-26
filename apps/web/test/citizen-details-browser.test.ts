@@ -123,9 +123,12 @@ test(
     try {
       await signIn(page, "citizen@alpha.local.test");
       await goToWorkspacePage(page, "My profile");
-      const panel = page.locator(".citizen-details-editor");
+      const panel = page.locator('[data-testid="citizen-profile-form"]');
       await panel.waitFor();
-      await panel.getByRole("button", { name: "Save details", exact: true }).waitFor();
+      await panel.getByRole("button", { name: "Save profile", exact: true }).waitFor();
+      // The four approved sections, in order.
+      for (const heading of ["1. Personal information", "2. Photo", "3. Address", "4. Documents"])
+        await panel.getByText(heading, { exact: false }).first().waitFor();
       assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), true);
     } finally {
       await browser.close();
@@ -174,6 +177,12 @@ test(
       const panel = page.locator(".citizen-details-editor");
       await panel.locator('[id$="-birth-reg"]').fill(`20${String(Date.now()).slice(-13)}11`.slice(0, 17));
       await panel.locator('[id$="-no-mobile"]').check();
+      await panel.locator('[id$="-fatherNameBn"]').fill("পূর্ণতা পিতা");
+      await panel.locator('[id$="-fatherNameEn"]').fill("Completeness Father");
+      await panel.locator('[id$="-motherNameBn"]').fill("পূর্ণতা মাতা");
+      await panel.locator('[id$="-motherNameEn"]').fill("Completeness Mother");
+      await panel.locator('[id$="-gender"]').selectOption("female");
+      await panel.locator('[id$="-blood"]').selectOption("O+");
       await panel.getByRole("button", { name: "Save details", exact: true }).click();
       await indicator.getByText("Profile complete", { exact: true }).waitFor();
       await page.getByRole("button", { name: "Sign out", exact: true }).click();

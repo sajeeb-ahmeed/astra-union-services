@@ -26,7 +26,7 @@ export function AccountSecurity({ role }: { role?: string }) {
       {/* FULL-UIUX-01 (C40/P2-20): the security page's panels share ONE
           width system — the former "narrow" first panel is gone. */}
       <section className="panel">
-        <h2>{t("Account security")}</h2>
+        <h2>{t("Account settings")}</h2>
         <p>
           {t("Change your password. Other signed-in sessions will be expired.")}
         </p>
