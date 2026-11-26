@@ -104,6 +104,22 @@ jobs:
       - uses: actions/checkout@v4
       - name: Build the deployable Docker image
         run: docker build --tag astra:ci .
+  lint:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+      # B-005: ESLint flat config, warnings-only first pass — the script
+      # exits 0 on the current tree (1056 baseline warnings); ratchet to
+      # errors later. Prettier is configured (.prettierrc) and run on
+      # demand via `npm run format`; it is not gated here because the
+      # tree is not prettier-formatted (563 files at the baseline).
+      - run: npm ci --no-audit --no-fund
+      - run: npm run lint
   verify:
     runs-on: ubuntu-24.04
     timeout-minutes: 20
