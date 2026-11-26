@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import {
   citizenProfileCompleteness,
   completenessLabels,
-} from "@astra/shared-schemas";
+} from "@astra/shared-schemas/web";
 import { api } from "./api.js";
 import { choose, recordName, tx, useLanguage } from "./i18n.js";
 import { ApplicationStatus, RefChip, StatCard } from "./ui/kit.js";

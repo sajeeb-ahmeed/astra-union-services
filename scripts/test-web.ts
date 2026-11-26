@@ -39,7 +39,7 @@ try{
     // API). The build also exercises the real shipped artifact, which
     // is what the suite should be testing. A stack that is already
     // running is still reused untouched.
-    const build = spawnSync('npm', ['run', 'build'], { stdio: 'inherit', windowsHide: true, cwd: repoRoot });
+    const build = spawnSync('npm', ['run', 'build'], { stdio: 'inherit', windowsHide: true, cwd: repoRoot, shell: process.platform === 'win32' });
     if (build.status !== 0) throw Error('Browser QA stack did not start: production build failed.');
     // B2: the browser suite settles a sandbox order, so its stack enables the otherwise-off route.
     const env = {...process.env, DEMO_SETTLE_ENABLED:'true'};

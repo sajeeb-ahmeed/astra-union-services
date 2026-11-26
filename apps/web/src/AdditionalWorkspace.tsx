@@ -18,7 +18,7 @@ import {
 } from "./CitizenDetailsFields.js";
 import { CitizenDocumentsVault } from "./CitizenDocumentsVault.js";
 import { ProfileCompleteness } from "./ProfileCompleteness.js";
-import { citizenProfileCompleteness } from "@astra/shared-schemas";
+import { citizenProfileCompleteness } from "@astra/shared-schemas/web";
 import { OfficeIdentitySettings } from "./OfficeIdentity.js";
 import {
   GeographyFields,
