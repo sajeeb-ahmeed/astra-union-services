@@ -62,21 +62,12 @@ export async function consumeAccountRecoveryLinks(db: DB, userId: string) {
     "UPDATE account_mfa SET pending_secret=NULL,pending_expires_at=NULL WHERE user_id=$1",
     [userId],
   );
-  // Recovery tokens are tenant scoped. Explicitly visit this account's memberships
-  // so a later password change invalidates every previously issued recovery link.
-  const memberships = await db.query(
-    "SELECT tenant_id FROM staff_memberships WHERE user_id=$1 ORDER BY tenant_id",
-    [userId],
-  );
-  for (const membership of memberships.rows) {
-    await db.query("SELECT set_config('astra.tenant_id',$1,true)", [
-      membership.tenant_id,
-    ]);
-    await db.query(
-      "UPDATE password_recovery_tokens SET consumed_at=now() WHERE user_id=$1 AND consumed_at IS NULL",
-      [userId],
-    );
-  }
+  // Recovery tokens are per-account: one SECURITY DEFINER call
+  // (migration 072, A-012) consumes every unconsumed token of this user
+  // in a single statement, instead of one set_config + UPDATE per
+  // membership. A later password change must invalidate links issued
+  // under every membership, so the UPDATE has no tenant filter by design.
+  await db.query("SELECT consume_password_recovery_tokens($1)", [userId]);
 }
 
 export async function accountAudit(
