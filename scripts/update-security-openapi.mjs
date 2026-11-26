@@ -17,7 +17,7 @@ doc.paths["/api/v1/auth/sessions"] = { get: {
 } };
 doc.paths["/api/v1/auth/sessions/revoke-others"] = { post: {
   summary: "Password-confirmed sign out of all other own-account sessions",
-  description: "Serializes with password change, recovery and login on the account row. Rechecks the current session and password inside the transaction; retains this session. Tenant actions append an immutable audit event; platform-owner actions emit sanitized operational logs, not a persistent global security audit.",
+  description: "Serializes with password change, recovery and login on the account row. Rechecks the current session and password inside the transaction; retains this session. Tenant actions append an immutable audit event; platform-owner actions also write the durable platform security audit stream (S-014).",
   security: [{ session: [], csrf: [] }],
   requestBody: { required: true, content: json({ type: "object", additionalProperties: false, required: ["currentPassword"], properties: { currentPassword: { type: "string", minLength: 1, maxLength: 200, writeOnly: true } } }) },
   responses: { ...errors, "200": { description: "Other sessions revoked", content: json({ type: "object", additionalProperties: false, required: ["revoked", "remainingSessions"], properties: { revoked: { type: "integer", minimum: 0 }, remainingSessions: { type: "integer", const: 1 } } }) } },
