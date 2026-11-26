@@ -1552,3 +1552,136 @@ test("Phase 2a: account types fix the membership role, suit the office type and 
   assert.equal(retype.status, 409, JSON.stringify(retype.body));
   assert.equal(retype.body.error.code, "ACCOUNT_TYPES_CONFLICT");
 });
+
+// ALL47-02 (47-service workflow coverage): ALL47-01 covers the happy path
+// (create -> approve/issue -> PDF -> public verify -> fee reconciliation).
+// This covers the rest of the cross-role workflow for EVERY service, at API
+// level, as the citizen / Chairman / platform owner would drive it:
+//   A. submit -> visible in the Chairman's pending queue -> correction with a
+//      reason -> the citizen sees the reason -> corrected payload saved ->
+//      resubmit -> approve (= issue) -> public verify by QR token AND by the
+//      printed number -> revoke with a reason -> public verify says REVOKED.
+//   B. a second application: submit -> reject with a reason -> the citizen
+//      sees REJECTED and the reason; no certificate exists.
+//   C. owner reconciliation: the owner's per-office statistics equal the
+//      office's own database counts.
+// Synthetic data only, DEMO issuance mode (no official certificates).
+test("ALL47-02: every service runs correction -> resubmit -> issue -> verify (token + number) -> revoke, and reject; owner statistics reconcile", async () => {
+  const evidence: any[] = [];
+  // ~190 anonymous lookups exceed the real public limiter (120/min/IP); the
+  // test honours it — on 429 it waits Retry-After and retries — never bypasses it.
+  let rateLimitWaits = 0;
+  const publicGet = async (path: string) => {
+    for (;;) {
+      const r = await req("GET", path);
+      if (r.status !== 429) return r;
+      rateLimitWaits++;
+      const wait = Number((r as any).headers?.get?.("retry-after")) || 30;
+      await new Promise((done) => setTimeout(done, Math.min(wait, 65) * 1000));
+    }
+  };
+  const servicePayload = (no: number) => {
+    let payload: Record<string, unknown> = getDemoPayload(no);
+    let order: Record<string, unknown> | undefined;
+    // Same W-002 gate handling as ALL47-01.
+    if ([1, 41, 42].includes(no)) {
+      payload = { ...payload, delivery_language: "en" };
+      order = moneyOrder(no);
+    } else if (no === 10) payload = { ...payload, last_occupation_en: "Sample information" };
+    return { payload, order };
+  };
+  const create = async (no: number) => {
+    const { payload, order } = servicePayload(no);
+    const created = await req(
+      "POST",
+      "/applications",
+      { citizenId: citizen.id, serviceNo: no, payload, ...(order ? { order } : {}) },
+      s.citizen,
+    );
+    assert.equal(created.status, 201, `Service ${no} create: ${JSON.stringify(created.body)}`);
+    return { id: created.body.id as string, payload };
+  };
+  for (const service of serviceCatalog) {
+    const no = service.service_no;
+    const steps: Record<string, string> = {};
+    // ---- A. correction / resubmission / issue / verify / revoke
+    const a = await create(no);
+    assert.equal((await transition(a.id, "submit", "citizen")).state, "SUBMITTED");
+    const queue = await req("GET", `/applications?state=SUBMITTED&q=${a.id}`, undefined, s.approver);
+    assert.equal(queue.status, 200);
+    assert.ok(queue.body.items.some((x: any) => x.id === a.id), `Service ${no}: in the Chairman's pending queue`);
+    steps.chairmanVisibility = "PASS";
+    const reason = `Synthetic correction for service ${no}`;
+    assert.equal((await transition(a.id, "request_correction", "approver", reason)).state, "CORRECTION_REQUIRED");
+    const seen = await req("GET", `/applications/${a.id}`, undefined, s.citizen);
+    assert.equal(seen.body.application.state, "CORRECTION_REQUIRED");
+    assert.ok(seen.body.events.some((e: any) => e.reason === reason), `Service ${no}: citizen sees the correction reason`);
+    steps.correction = "PASS";
+    const edited = await req("PATCH", `/applications/${a.id}`, { payload: a.payload }, s.citizen);
+    assert.equal(edited.status, 200, `Service ${no} corrected payload: ${JSON.stringify(edited.body)}`);
+    assert.equal((await transition(a.id, "resubmit", "citizen")).state, "RESUBMITTED");
+    steps.resubmission = "PASS";
+    const approved = await transition(a.id, "approve", "approver");
+    assert.equal(approved.state, "ISSUED", `Service ${no}: approve issues`);
+    const certificate = approved.certificate;
+    assert.ok(certificate?.id && certificate.number, `Service ${no}: certificate with a number`);
+    steps.approvalAndCertificate = "PASS";
+    const token = certificate.verificationUrl.split("/").at(-1);
+    const byToken = await publicGet(`/verify/${token}`);
+    assert.equal(byToken.body.status, "ISSUED");
+    const byNumber = await publicGet(`/verify/by-number/${encodeURIComponent(certificate.number)}`);
+    assert.equal(byNumber.status, 200, `Service ${no} verify by number: ${JSON.stringify(byNumber.body)}`);
+    assert.equal(byNumber.body.status, "ISSUED");
+    assert.equal(byNumber.body.serviceNo, no);
+    steps.publicVerification = "PASS";
+    const revoked = await req(
+      "POST",
+      `/certificates/${certificate.id}/revoke`,
+      { reason: `Synthetic revocation for service ${no}` },
+      s.approver,
+    );
+    assert.equal(revoked.status, 200, `Service ${no} revoke: ${JSON.stringify(revoked.body)}`);
+    assert.equal((await publicGet(`/verify/${token}`)).body.status, "REVOKED");
+    steps.revocation = "PASS";
+    // ---- B. rejection
+    const b = await create(no);
+    await transition(b.id, "submit", "citizen");
+    const rejectReason = `Synthetic rejection for service ${no}`;
+    assert.equal((await transition(b.id, "reject", "approver", rejectReason)).state, "REJECTED");
+    const rejected = await req("GET", `/applications/${b.id}`, undefined, s.citizen);
+    assert.equal(rejected.body.application.state, "REJECTED");
+    assert.ok(rejected.body.events.some((e: any) => e.reason === rejectReason), `Service ${no}: citizen sees the rejection reason`);
+    assert.equal(rejected.body.certificate, null, `Service ${no}: no certificate after rejection`);
+    steps.rejection = "PASS";
+    evidence.push({ serviceNo: no, correctionApplicationId: a.id, rejectedApplicationId: b.id, certificateId: certificate.id, ...steps });
+  }
+  // ---- C. owner reconciliation: the owner's view equals the database.
+  const stats = await req("GET", `/owner/statistics?tenantId=${office.id}`, undefined, s.owner);
+  assert.equal(stats.status, 200, JSON.stringify(stats.body));
+  const row = stats.body.offices.find((o: any) => o.slug === office.slug || o.id === office.id) ?? stats.body.offices[0];
+  const truth = await transaction(office.id, async (c) => ({
+    applications: (await c.query("SELECT count(*)::int n FROM applications")).rows[0].n,
+    certificates: (await c.query("SELECT count(*)::int n FROM certificates")).rows[0].n,
+    revoked: (await c.query("SELECT count(*)::int n FROM certificates WHERE status='REVOKED'")).rows[0].n,
+    rejected: (await c.query("SELECT count(*)::int n FROM applications WHERE state='REJECTED'")).rows[0].n,
+  }));
+  assert.equal(row.applications, truth.applications, "owner statistics: applications reconcile");
+  assert.equal(row.certificates, truth.certificates, "owner statistics: certificates reconcile");
+  assert.ok(truth.revoked >= 47 && truth.rejected >= 47);
+  fs.writeFileSync(
+    "execution/all-services-workflow-qa.json",
+    JSON.stringify(
+      {
+        mode: "SYNTHETIC_DEMO",
+        level: "API (cross-role: citizen, Chairman, platform owner)",
+        services: evidence,
+        servicesPassed: evidence.length,
+        publicRateLimitWaits: rateLimitWaits,
+        ownerReconciliation: { owner: { applications: row.applications, certificates: row.certificates }, database: truth },
+      },
+      null,
+      2,
+    ),
+  );
+  assert.equal(evidence.length, 47);
+});
