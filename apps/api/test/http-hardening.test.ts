@@ -79,8 +79,49 @@ test("Deployment: production rejects missing secrets, unsafe origins and broad p
     PUBLIC_ORIGIN: "https://demo.example.test",
     DATABASE_URL: "postgresql://astra_app@db/astra",
     DEMO_WEBHOOK_SECRET: "x".repeat(32),
+    // S-009: the four crypto keys are required in production (fail fast).
+    IDENTIFIER_SECRET: "test-identifier-secret-at-least-32-chars",
+    CITIZEN_DATA_KEY: "11".repeat(32),
+    MFA_ENCRYPTION_KEY: "22".repeat(32),
+    MERCHANT_SECRET_KEY: "33".repeat(32),
   };
   assert.doesNotThrow(() => enforceRuntimeConfig(config));
+  // A-021: production boot fails without the webhook secret — the
+  // auto-generated .runtime/webhook-secret file is a dev/test convenience
+  // only and must never satisfy a production boot.
+  assert.throws(() =>
+    enforceRuntimeConfig({ ...config, DEMO_WEBHOOK_SECRET: undefined }),
+  );
+  // S-009: production boot fails without each crypto key (and without a
+  // well-formed one — the loaders reject short/ill-formed values, so the
+  // validator must too). Non-production stays permissive: dev/test
+  // auto-generate these keys into .runtime/*.
+  for (const key of [
+    "IDENTIFIER_SECRET",
+    "CITIZEN_DATA_KEY",
+    "MFA_ENCRYPTION_KEY",
+    "MERCHANT_SECRET_KEY",
+  ] as const)
+    assert.throws(
+      () => enforceRuntimeConfig({ ...config, [key]: undefined }),
+      key,
+    );
+  assert.throws(() =>
+    enforceRuntimeConfig({ ...config, IDENTIFIER_SECRET: "too-short" }),
+  );
+  for (const key of [
+    "CITIZEN_DATA_KEY",
+    "MFA_ENCRYPTION_KEY",
+    "MERCHANT_SECRET_KEY",
+  ] as const)
+    assert.throws(
+      () => enforceRuntimeConfig({ ...config, [key]: "not-64-hex" }),
+      key,
+    );
+  assert.doesNotThrow(() =>
+    enforceRuntimeConfig({ NODE_ENV: "development" }),
+  );
+  assert.doesNotThrow(() => enforceRuntimeConfig({ NODE_ENV: "test" }));
   for (const PUBLIC_ORIGIN of [
     "http://demo.example.test",
     "https://demo.example.test/",
@@ -160,6 +201,34 @@ test("Security: HSTS carries a one-year max-age with includeSubDomains in produc
     await new Promise<void>((r) => server.close(() => r()));
     if (previous === undefined) delete process.env.NODE_ENV;
     else process.env.NODE_ENV = previous;
+  }
+});
+
+test("Security (S-013): CSP splits style handling — hashed inline <style> only, attributes stay unsafe-inline", async () => {
+  const app = express();
+  app.use(httpHardening);
+  app.get("/", (_req, res) => res.json({ ok: true }));
+  const server = app.listen(0, "127.0.0.1");
+  await new Promise<void>((r) => server.once("listening", r));
+  try {
+    const csp = (
+      await fetch(`http://127.0.0.1:${(server.address() as any).port}/`)
+    ).headers.get("content-security-policy")!;
+    // No bare style-src 'unsafe-inline': an injected <style> element is
+    // blocked. Only the known F-015 first-paint guard (apps/web/index.html
+    // `body{margin:0}`) is allowed, by hash.
+    assert.doesNotMatch(csp, /(^|; )style-src /);
+    assert.match(
+      csp,
+      /style-src-elem 'self' 'sha256-IAdwN3biDCQ3brrgp1m8kBEsPQYyqfREKOEfeoREopc='/,
+    );
+    // React inline styles are style attributes; they still need
+    // 'unsafe-inline' (documented residual, see docs/HTTP_HEADERS.md).
+    assert.match(csp, /style-src-attr 'unsafe-inline'/);
+    assert.match(csp, /script-src 'self'/);
+    assert.match(csp, /frame-ancestors 'none'/);
+  } finally {
+    await new Promise<void>((r) => server.close(() => r()));
   }
 });
 
