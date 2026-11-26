@@ -2,7 +2,7 @@ import express from "express";
 import { z } from "zod";
 import { randomUUID } from "node:crypto";
 import type { Auth } from "./app.js";
-import { pool, transaction, audit } from "./db.js";
+import { pool, transaction, audit, asUser, setActingUser } from "./db.js";
 import { camelRow, citizenRow, fail } from "./models.js";
 import { digest } from "./security.js";
 import { renderHtmlPdf } from "./pdf.js";
@@ -133,7 +133,8 @@ const citizenSelect=`SELECT division_code,district_code,upazila_code,union_code,
 const approvalAuthorizationsFor=async(db:Pick<typeof pool,"query">,tenantId:string,userId:string)=> (await db.query("SELECT service_no,authority_note FROM approval_authorizations WHERE tenant_id=$1 AND user_id=$2 AND active ORDER BY service_no",[tenantId,userId])).rows.map(camelRow);
 protectedToolsRouter.get("/profile",wrap(async(req,res)=>{
   const a=identity(req);
-  const r=await pool.query("SELECT id,email,display_name,name_bn,phone,address FROM platform_users WHERE id=$1",[a.userId]);
+  // A-013 (migration 083): the profile reads the caller's own account row.
+  const r=await asUser(a.userId,(db)=>db.query("SELECT id,email,display_name,name_bn,phone,address FROM platform_users WHERE id=$1",[a.userId]));
   const citizen = a.tenantId ? await transaction(a.tenantId,async(db)=>(await db.query(citizenSelect,[a.tenantId,a.userId])).rows[0]) : undefined;
   const approvalAuthorizations = a.tenantId && a.role==="approver" ? await transaction(a.tenantId,async(db)=>approvalAuthorizationsFor(db,a.tenantId!,a.userId)) : [];
   res.json({...camelRow(r.rows[0]),role:a.role,approvalAuthorizations,...citizenCoreFields(citizen),geography:geographyRow(citizen),presentAddress:citizen?presentAddressRow(citizen):null});
@@ -188,7 +189,8 @@ protectedToolsRouter.patch("/profile",wrap(async(req,res)=>{
     const approvalAuthorizations = a.tenantId && a.role==="approver" ? await approvalAuthorizationsFor(db,a.tenantId,a.userId) : [];
     return {...camelRow(r.rows[0]),approvalAuthorizations,...citizenCoreFields(citizen),geography:geographyRow(citizen),presentAddress:citizen?presentAddressRow(citizen):null};
   };
-  res.json(a.tenantId?await transaction(a.tenantId,save):await save(pool));
+  // A-013 (migration 083): the profile save writes the caller's own account row.
+  res.json(a.tenantId?await transaction(a.tenantId,async(db)=>{await setActingUser(db,a.userId);return save(db);}):await asUser(a.userId,save));
 }));
 
 const holding=z.object({number:text(80),addressBn:text(1000,2),addressEn:text(1000,2),ownerBn:text(150,2),ownerEn:text(150,2),annualValueMinor:z.number().int().min(0).max(1_000_000_000)}).strict();

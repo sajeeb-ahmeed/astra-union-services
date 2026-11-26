@@ -286,7 +286,9 @@ test("SEC-RACE: login waiting on password rotation cannot create a session from 
       target.id,
     ]);
     pending = request("POST", "/auth/login", { email: target.email, password });
-    await blockedAccountQuery("WHERE email=$1 FOR UPDATE");
+    // A-013 (migration 083): login finds the account by email through the
+    // lookup function, then locks its own row by id.
+    await blockedAccountQuery("SELECT * FROM platform_users WHERE id=$1 FOR UPDATE");
     await held.query("UPDATE platform_users SET password_hash=$2 WHERE id=$1", [
       target.id,
       hashPassword("Rot-Security-Pa1!"),

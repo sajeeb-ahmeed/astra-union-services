@@ -1,5 +1,5 @@
 import pg from 'pg';
-import {createHash} from 'node:crypto';
+import {createHash,randomUUID} from 'node:crypto';
 import {serviceCatalog,allServiceSchemaVersions,getCatalogPreviewSchema,stableSchemaJson} from '@astra/shared-schemas';
 import {hashPassword,isCommonPassword} from '../apps/api/src/security.js';
 const connectionString=process.env.DATABASE_ADMIN_URL,email=process.env.OWNER_EMAIL,password=process.env.OWNER_PASSWORD;
@@ -30,8 +30,14 @@ try{
     }
   }
   await client.query("INSERT INTO subscription_plans(id,name,price_minor,currency,grant_credits,duration_days,rollover) VALUES('standard-monthly','Standard Monthly',0,'BDT',20,30,true) ON CONFLICT DO NOTHING");
+  // A-013 (migration 083): on the single-role (cPanel) database this script is the
+  // table owner and FORCE RLS applies, so the operator lookup and the new owner
+  // account are declared explicitly (transaction-local).
+  await client.query("SELECT set_config('astra.identity_lookup','on',true)");
+  const ownerId=randomUUID();
+  await client.query("SELECT set_config('astra.new_user_id',$1,true)",[ownerId]);
   const existing=(await client.query('SELECT platform_role FROM platform_users WHERE email=$1',[email.toLowerCase()])).rows[0];
   if(existing&&existing.platform_role!=='owner')throw Error('This email already belongs to another role. No privilege escalation performed.');
-  await client.query("INSERT INTO platform_users(email,display_name,password_hash,platform_role) VALUES($1,'Platform owner',$2,'owner') ON CONFLICT DO NOTHING",[email.toLowerCase(),hashPassword(password)]);
+  await client.query("INSERT INTO platform_users(id,email,display_name,password_hash,platform_role) VALUES($3,$1,'Platform owner',$2,'owner') ON CONFLICT DO NOTHING",[email.toLowerCase(),hashPassword(password),ownerId]);
   await client.query('COMMIT');console.log('Published catalog and standard plan initialized; owner account available. Existing passwords preserved. No sample tenant/citizen accounts created.');
 }catch(e){await client.query('ROLLBACK');throw e;}finally{client.release();await db.end();}

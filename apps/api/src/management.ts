@@ -1,7 +1,7 @@
 import express from "express";
 import { z } from "zod";
 import { randomUUID } from "node:crypto";
-import { pool, transaction, audit, setActingUser } from "./db.js";
+import { pool, transaction, audit, setActingUser, declareNewUser } from "./db.js";
 import {
   hashPassword,
   checkPassword,
@@ -367,6 +367,8 @@ publicManagementRouter.post(
         ).rows[0];
         if (!candidate)
           fail(422, "RECOVERY_INVALID", "Recovery link is invalid or expired.");
+        // A-013 (migrations 082/083): the recovery acts as the recovered account.
+        await setActingUser(db, candidate.user_id);
         await lockAccount(db, candidate.user_id);
         const r = (
           await db.query(
@@ -386,12 +388,12 @@ publicManagementRouter.post(
           ).rowCount
         )
           fail(422, "RECOVERY_INVALID", "Recovery link is invalid or expired.");
+        // A-013: the recovery writes act as the recovered user (migrations 082/083).
+        await setActingUser(db, r.user_id);
         await db.query(
           "UPDATE platform_users SET password_hash=$2 WHERE id=$1",
           [r.user_id, hashPassword(d.newPassword)],
         );
-        // A-013: ending the recovered user's sessions acts as that user (migration 082).
-        await setActingUser(db, r.user_id);
         await db.query(
           "UPDATE sessions SET expires_at=now() WHERE user_id=$1",
           [r.user_id],
@@ -927,7 +929,7 @@ publicManagementRouter.post(
       // (the generic DUPLICATE message named neither the field nor a way out).
       if (
         d.email &&
-        (await db.query("SELECT 1 FROM platform_users WHERE lower(email)=$1", [d.email])).rowCount
+        (await db.query("SELECT auth_email_taken($1) AS taken", [d.email])).rows[0].taken
       )
         emailTaken();
       const shortMobileDigest = short && mobile ? identifierDigest("mobile", mobile) : null;
@@ -936,10 +938,13 @@ publicManagementRouter.post(
         (await db.query("SELECT 1 FROM account_identifiers WHERE kind='mobile' AND digest=$1", [shortMobileDigest])).rowCount
       )
         mobileTaken();
+      // A-013 (migration 083): declare the new account's id, then act as it.
+      const newUserId = randomUUID();
+      await declareNewUser(db, newUserId);
       const user = (
         await db.query(
-          "INSERT INTO platform_users(email,display_name,password_hash) VALUES($1,$2,$3) RETURNING id",
-          [accountEmail, d.displayName, hashPassword(d.password)],
+          "INSERT INTO platform_users(id,email,display_name,password_hash) VALUES($4,$1,$2,$3) RETURNING id",
+          [accountEmail, d.displayName, hashPassword(d.password), newUserId],
         )
       ).rows[0];
       await db.query(
@@ -1357,10 +1362,12 @@ managementRouter.post(
         ? await accountTypeFor(db, d.accountType, a.tenantId!)
         : null;
       const membershipRole = type ? type.role : d.role!;
+      const newUserId = randomUUID();
+      await declareNewUser(db, newUserId);
       const u = (
         await db.query(
-          "INSERT INTO platform_users(email,display_name,password_hash) VALUES($1,$2,$3) RETURNING id,email,display_name",
-          [d.email, d.displayName, hashPassword(d.password)],
+          "INSERT INTO platform_users(id,email,display_name,password_hash) VALUES($4,$1,$2,$3) RETURNING id,email,display_name",
+          [d.email, d.displayName, hashPassword(d.password), newUserId],
         )
       ).rows[0];
       await db.query(
@@ -1662,10 +1669,12 @@ managementRouter.post(
           ],
         )
       ).rows[0];
+      const newUserId = randomUUID();
+      await declareNewUser(db, newUserId);
       const u = (
         await db.query(
-          "INSERT INTO platform_users(email,display_name,password_hash) VALUES($1,$2,$3) RETURNING id",
-          [d.adminEmail, d.adminName, hashPassword(d.adminPassword)],
+          "INSERT INTO platform_users(id,email,display_name,password_hash) VALUES($4,$1,$2,$3) RETURNING id",
+          [d.adminEmail, d.adminName, hashPassword(d.adminPassword), newUserId],
         )
       ).rows[0];
       await db.query(
