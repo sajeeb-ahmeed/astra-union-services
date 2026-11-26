@@ -1,7 +1,7 @@
 import express from "express";
 import { z } from "zod";
 import { randomUUID } from "node:crypto";
-import { pool, transaction, audit } from "./db.js";
+import { pool, transaction, audit, setActingUser } from "./db.js";
 import {
   hashPassword,
   checkPassword,
@@ -390,6 +390,8 @@ publicManagementRouter.post(
           "UPDATE platform_users SET password_hash=$2 WHERE id=$1",
           [r.user_id, hashPassword(d.newPassword)],
         );
+        // A-013: ending the recovered user's sessions acts as that user (migration 082).
+        await setActingUser(db, r.user_id);
         await db.query(
           "UPDATE sessions SET expires_at=now() WHERE user_id=$1",
           [r.user_id],

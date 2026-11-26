@@ -1,5 +1,5 @@
 import type { Auth } from "./app.js";
-import { pool, audit, type DB } from "./db.js";
+import { pool, audit, setActingUser, type DB } from "./db.js";
 import { fail } from "./models.js";
 import { createRateLimiter } from "./http-hardening.js";
 import {
@@ -27,6 +27,8 @@ export async function accountTransaction<T>(
   const db = await pool.connect();
   try {
     await db.query("BEGIN");
+    // A-013: sessions rows are visible only to their own user (migration 082).
+    await setActingUser(db, actor.userId);
     const user = await lockAccount(db, actor.userId);
     // Middleware may have run before another request revoked this session.
     const current = await db.query(

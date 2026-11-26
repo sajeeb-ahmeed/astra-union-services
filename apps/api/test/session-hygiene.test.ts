@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import pg from "pg";
 import { app } from "../src/app.js";
-import { pool, adminConnectionString } from "../src/db.js";
+import { pool, adminConnectionString, asUser } from "../src/db.js";
 import { digest, hashPassword } from "../src/security.js";
 import {
   SESSION_IDLE_TIMEOUT_MS,
@@ -147,7 +147,10 @@ test("S-005: touch slides expiry but never past created_at + 8 h", async () => {
     "UPDATE sessions SET created_at=now()-interval '7 hours 50 minutes', last_seen_at=now()-interval '10 minutes', expires_at=now()+interval '10 minutes' WHERE token_hash=$1",
     [hash],
   );
-  const touched = await touchSession(pool, hash, new Date());
+  // A-013 (migration 082): without an acting user the runtime role cannot see
+  // the session at all; the app always touches it as the session's own user.
+  assert.equal(await touchSession(pool, hash, new Date()), 0, "RLS: no acting user, no row");
+  const touched = await asUser(target.id, (c) => touchSession(c, hash, new Date()));
   assert.equal(touched, 1);
   const row = (
     await db.query(
@@ -164,8 +167,8 @@ test("S-005: touch slides expiry but never past created_at + 8 h", async () => {
     "UPDATE sessions SET expires_at=now()-interval '1 minute' WHERE token_hash=$1",
     [hash],
   );
-  assert.equal(await touchSession(pool, hash, new Date()), 0);
-  assert.equal(await expireSession(pool, hash), 0);
+  assert.equal(await asUser(target.id, (c) => touchSession(c, hash, new Date())), 0);
+  assert.equal(await asUser(target.id, (c) => expireSession(c, hash)), 0);
 });
 
 test("S-005: per-session revoke kills exactly one session; current and foreign ids refused", async () => {

@@ -11,7 +11,7 @@ import {
   applicationProfileGaps,
   completenessLabels,
 } from "@astra/shared-schemas";
-import { pool, transaction, audit, type DB } from "./db.js";
+import { pool, transaction, audit, asUser, type DB } from "./db.js";
 import {
   digest,
   randomToken,
@@ -961,10 +961,9 @@ app.use(
       }
       const tokenHash = digest(token);
       const result = (
-        await pool.query(
-          "SELECT s.*,u.email,u.display_name,u.active,u.platform_role,u.email_verified_at,m.role,m.active membership_active,t.status tenant_status FROM sessions s JOIN platform_users u ON u.id=s.user_id LEFT JOIN staff_memberships m ON m.user_id=s.user_id AND m.tenant_id=s.tenant_id LEFT JOIN tenants t ON t.id=s.tenant_id WHERE s.token_hash=$1 AND s.expires_at>now()",
-          [tokenHash],
-        )
+        // A-013: no user is known yet, so the token is resolved by the narrow
+        // definer function (migration 082) instead of reading sessions directly.
+        await pool.query("SELECT * FROM auth_resolve_session($1)", [tokenHash])
       ).rows[0];
       if (
         !result ||
@@ -982,14 +981,14 @@ app.use(
       // expiry forward, never past created_at + 8 h. The touch is
       // throttled to one rewrite per minute per session.
       if (isSessionIdle(result)) {
-        await expireSession(pool, tokenHash);
+        await asUser(result.user_id, (db) => expireSession(db, tokenHash));
         fail(401, "SESSION_IDLE", "This session expired due to inactivity. Sign in again.");
       }
       if (
         Date.now() - new Date(result.last_seen_at).getTime() >
         SESSION_TOUCH_STALE_MS
       )
-        await touchSession(pool, tokenHash);
+        await asUser(result.user_id, (db) => touchSession(db, tokenHash));
       req.auth = {
         userId: result.user_id,
         email: result.email,
@@ -1076,9 +1075,11 @@ app.post(
   "/api/v1/auth/logout",
   wrap(async (req, res) => {
     const a = actor(req);
-    await pool.query(
-      "UPDATE sessions SET expires_at=now() WHERE user_id=$1 AND csrf_token=$2",
-      [a.userId, a.csrfToken],
+    await asUser(a.userId, (db) =>
+      db.query(
+        "UPDATE sessions SET expires_at=now() WHERE user_id=$1 AND csrf_token=$2",
+        [a.userId, a.csrfToken],
+      ),
     );
     res.setHeader("Set-Cookie", clearSessionCookie());
     res.json({ ok: true });
