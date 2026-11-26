@@ -764,3 +764,8 @@
 .public-site .public-section {
   padding-block: 24px 48px;
 }
+
+/* F-015: office directory placeholder cards (same box as a real card). */
+.office-card.is-placeholder {
+  visibility: hidden;
+}

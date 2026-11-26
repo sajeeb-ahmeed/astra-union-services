@@ -936,26 +936,6 @@ app.post(
   }),
 );
 app.use("/api/v1", publicMfaRouter);
-// QAFIX-09 (B3): /auth/me for a request carrying NO session cookie
-// is answered anonymously (200, user: null) instead of 401. Public
-// pages probe it on every load to attempt session restore, and a
-// logged-out visitor is not an error — the 401 was console noise
-// on every public page view. BUNDLE06-R5 D3 keeps the probe
-// itself (a browser can hold a valid cookie with no client-side
-// trace, so restore must ask), but it need not fail. A request
-// WITH a cookie falls through to the auth middleware and the
-// handler below: an invalid or inactive session still 401s,
-// which the client's session-drop logic depends on.
-app.get("/api/v1/auth/me", (req, res, next) => {
-  // S-005: the cookie name is __Host-astra_session in production.
-  const cookieName = sessionCookieName();
-  const hasSessionCookie = (req.headers.cookie ?? "")
-    .split(";")
-    .map((x) => x.trim())
-    .some((x) => x.startsWith(`${cookieName}=`) && x.length > cookieName.length + 1);
-  if (hasSessionCookie) return next();
-  res.json({ user: null, tenant: null, csrfToken: null, anonymous: true });
-});
 app.use(
   "/api/v1",
   (req: Req, res: express.Response, next: express.NextFunction) => {
@@ -967,7 +947,18 @@ app.use(
         .map((x) => x.trim())
         .find((x) => x.startsWith(`${cookieName}=`))
         ?.slice(cookieName.length + 1);
-      if (!token) fail(401, "LOGIN_REQUIRED", "Sign in required.");
+      if (!token) {
+        // A-009 / QAFIX-09 (B3): the session-restore probe. A GET of
+        // /auth/me with NO session cookie is answered anonymously by the
+        // single /auth/me handler (200, user: null) instead of 401: public
+        // pages probe it on every load, and a logged-out visitor is not an
+        // error. Only this exact read is let through; a request WITH a
+        // cookie is checked below as usual, so an invalid or inactive
+        // session still 401s (the client's session-drop logic needs that).
+        if (req.method === "GET" && req.path.replace(/\/+$/, "").toLowerCase() === "/auth/me")
+          return;
+        fail(401, "LOGIN_REQUIRED", "Sign in required.");
+      }
       const tokenHash = digest(token);
       const result = (
         await pool.query(
@@ -1049,6 +1040,13 @@ app.use("/api/v1", attachmentsRouter);
 app.get(
   "/api/v1/auth/me",
   wrap(async (req, res) => {
+    // A-009: the one /auth/me handler. No session (the middleware let only
+    // the cookie-less probe through) -> the anonymous answer; otherwise the
+    // signed-in caller's record.
+    if (!req.auth) {
+      res.json({ user: null, tenant: null, csrfToken: null, anonymous: true });
+      return;
+    }
     const a = actor(req);
     res.json({
       user: {

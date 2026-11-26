@@ -75,10 +75,11 @@ const esc = (value) =>
 /* The SPA bundle tags, reused verbatim from the built shell so prerendered
  * pages boot the exact same app. */
 const shell = fs.readFileSync(path.join(dist, "index.html"), "utf8");
-const bundleTags = [
-  ...shell.matchAll(/<script type="module"[^>]*><\/script>/g),
-  ...shell.matchAll(/<link rel="stylesheet"[^>]*>/g),
-].map((m) => m[0]);
+const scriptTags = [...shell.matchAll(/<script type="module"[^>]*><\/script>/g)].map((m) => m[0]);
+// F-015: stylesheets belong in <head> (render-blocking). At the end of <body>
+// they arrived after #root had already painted the unstyled fallback.
+const styleTags = [...shell.matchAll(/<link rel="stylesheet"[^>]*>/g)].map((m) => m[0]);
+const bundleTags = [...scriptTags, ...styleTags];
 if (!bundleTags.length) {
   console.error("prerender: no bundle tags found in the built shell.");
   process.exit(1);
@@ -177,7 +178,8 @@ function head({ title, description, canonicalPath, jsonLd = [], robots = "index,
     <link rel="icon" type="image/png" sizes="192x192" href="/favicon-192.png" />
     <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
     <link rel="preload" href="/fonts/noto-sans-bengali-bengali-400-normal.woff2" as="font" type="font/woff2" crossorigin />
-    ${jsonLd.map(jsonLdScript).join("\n    ")}`;
+    ${jsonLd.map(jsonLdScript).join("\n    ")}
+    ${styleTags.join("\n    ")}`;
 }
 function page({ title, description, canonicalPath, jsonLd, body }) {
   return `<!doctype html>
@@ -186,8 +188,8 @@ function page({ title, description, canonicalPath, jsonLd, body }) {
     ${head({ title, description, canonicalPath, jsonLd })}
   </head>
   <body>
-    <div id="root">${body}</div>
-    ${bundleTags.join("\n    ")}
+    <div id="root"><div class="seo-fallback">${body}</div></div>
+    ${scriptTags.join("\n    ")}
   </body>
 </html>
 `;

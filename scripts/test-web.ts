@@ -82,7 +82,12 @@ try{
   console.log(`Test isolation (T-003): removed ${removed} test-created order polic(ies).`);
   const files=fs.readdirSync('apps/web/test').filter(n=>n.endsWith('.test.ts')).sort().map(n=>'apps/web/test/'+n);
   const attachmentFiles=files.filter(n=>n.endsWith('/attachment-browser.test.ts'));
-  const restFiles=files.filter(n=>!n.endsWith('/attachment-browser.test.ts'));
+  // ALL47-BROWSER (opt-in, E2E_ALL47=1) runs LAST: it publishes zero-fee order
+  // policies for the money services (1, 41, 42) and creates applications that
+  // reference them, so the T-003 reset cannot remove them afterwards; any file
+  // after it that assumes "no policy" (submit-failure-browser) would get 409.
+  const lastFiles=files.filter(n=>n.endsWith('/all-services-browser.test.ts'));
+  const restFiles=[...files.filter(n=>!n.endsWith('/attachment-browser.test.ts')&&!lastFiles.includes(n)),...lastFiles];
   // Attachment component tests first, against the dev server on 5174;
   // the rest of the suite against the production build on 5173.
   // The runner's exit code is the worst of the two runs.
