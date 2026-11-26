@@ -122,19 +122,127 @@ test("authenticated but malformed manifest or changed dump hash cannot restore",
 });
 
 test("recovery rejects corrupt financial, PDF and schema invariants", () => {
+  // Stage 5: settlement evidence is the submit-time model (migration 044,
+  // W-003) — fee_method + exactly-once evidence per method — not the
+  // retired 'ISSUANCE' ledger kind. The good state is a CREDIT-settled
+  // certificate with exactly one APPLICATION_FEE row.
   const state = {
     orphanTenantReferences: 0,
     tenants: [{ balance: 7, ledger_sum: 7 }],
-    certificates: [{ pdf_header: true, bytes: 2000, issuance_debits: 1 }],
+    certificates: [
+      {
+        pdf_header: true,
+        bytes: 2000,
+        fee_method: "CREDIT",
+        fee_settled: true,
+        fee_debits: 1,
+        allowance_rows: 0,
+      },
+    ],
     constraints: [{ validated: true }],
     indexes: [{ valid: true, ready: true }],
   };
   assert.doesNotThrow(() => validateState(state));
+  // An ALLOWANCE-settled certificate with exactly one consumption row,
+  // and a FREE one with neither, are also valid.
+  assert.doesNotThrow(() =>
+    validateState({
+      ...state,
+      certificates: [
+        {
+          pdf_header: true,
+          bytes: 2000,
+          fee_method: "ALLOWANCE",
+          fee_settled: true,
+          fee_debits: 0,
+          allowance_rows: 1,
+        },
+        {
+          pdf_header: true,
+          bytes: 2000,
+          fee_method: "FREE",
+          fee_settled: true,
+          fee_debits: 0,
+          allowance_rows: 0,
+        },
+      ],
+    }),
+  );
   for (const changed of [
     { orphanTenantReferences: 1 },
     { tenants: [{ balance: 9, ledger_sum: 7 }] },
-    { certificates: [{ pdf_header: true, bytes: 2000, issuance_debits: 2 }] },
-    { certificates: [{ pdf_header: false, bytes: 2000, issuance_debits: 1 }] },
+    {
+      certificates: [
+        {
+          pdf_header: true,
+          bytes: 2000,
+          fee_method: "CREDIT",
+          fee_settled: true,
+          fee_debits: 2,
+          allowance_rows: 0,
+        },
+      ],
+    },
+    {
+      certificates: [
+        {
+          pdf_header: true,
+          bytes: 2000,
+          fee_method: "CREDIT",
+          fee_settled: true,
+          fee_debits: 1,
+          allowance_rows: 1,
+        },
+      ],
+    },
+    {
+      certificates: [
+        {
+          pdf_header: true,
+          bytes: 2000,
+          fee_method: "ALLOWANCE",
+          fee_settled: true,
+          fee_debits: 0,
+          allowance_rows: 0,
+        },
+      ],
+    },
+    {
+      certificates: [
+        {
+          pdf_header: true,
+          bytes: 2000,
+          fee_method: "CREDIT",
+          fee_settled: false,
+          fee_debits: 1,
+          allowance_rows: 0,
+        },
+      ],
+    },
+    {
+      certificates: [
+        {
+          pdf_header: true,
+          bytes: 2000,
+          fee_method: "CREDIT",
+          fee_settled: true,
+          fee_debits: 0,
+          allowance_rows: 0,
+        },
+      ],
+    },
+    {
+      certificates: [
+        {
+          pdf_header: false,
+          bytes: 2000,
+          fee_method: "CREDIT",
+          fee_settled: true,
+          fee_debits: 1,
+          allowance_rows: 0,
+        },
+      ],
+    },
     { constraints: [{ validated: false }] },
     { indexes: [{ valid: true, ready: false }] },
   ])

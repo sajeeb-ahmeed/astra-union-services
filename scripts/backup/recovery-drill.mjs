@@ -104,7 +104,7 @@ async function drill() {
     `PASS: ${restored.state.tenants.length} tenant wallet balances equal append-only ledger sums; total credits=${totalBalance}.`,
   );
   record(
-    `PASS: ${restored.state.certificates.length} actual certificate PDFs retain SHA-256 hashes, %PDF- headers and one issuance debit each.`,
+    `PASS: ${restored.state.certificates.length} actual certificate PDFs retain SHA-256 hashes, %PDF- headers and exactly-once submit-time settlement each (CREDIT → one APPLICATION_FEE row, ALLOWANCE → one consumption row, FREE → neither).`,
   );
 
   const appUrl = new URL(configuration.app);

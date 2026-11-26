@@ -208,7 +208,13 @@ export async function captureState(client) {
   ).rows;
   const certificates = (
     await client.query(
-      `SELECT c.id,c.tenant_id,c.status,octet_length(c.pdf)::integer AS bytes,encode(digest(c.pdf,'sha256'),'hex') AS pdf_sha256,substring(c.pdf from 1 for 5)=decode('255044462d','hex') AS pdf_header,(SELECT count(*)::integer FROM credit_ledger l WHERE l.tenant_id=c.tenant_id AND l.certificate_id=c.id AND l.kind='ISSUANCE') AS issuance_debits FROM certificates c ORDER BY c.id`,
+      // Stage 5: the fee is charged at SUBMIT (migration 044, W-003), not at
+      // issuance — the retired 'ISSUANCE' credit_ledger kind is written by
+      // no code path any more. Settlement evidence therefore lives on the
+      // application: fee_method + fee_settled_at, with exactly one
+      // APPLICATION_FEE row (CREDIT), one allowance-consumption row
+      // (ALLOWANCE), or neither (FREE). See validateState below.
+      `SELECT c.id,c.tenant_id,c.status,octet_length(c.pdf)::integer AS bytes,encode(digest(c.pdf,'sha256'),'hex') AS pdf_sha256,substring(c.pdf from 1 for 5)=decode('255044462d','hex') AS pdf_header,a.fee_method,(a.fee_settled_at IS NOT NULL) AS fee_settled,(SELECT count(*)::integer FROM credit_ledger l WHERE l.tenant_id=c.tenant_id AND l.application_id=c.application_id AND l.kind='APPLICATION_FEE') AS fee_debits,(SELECT count(*)::integer FROM subscription_allowance_consumptions s WHERE s.tenant_id=c.tenant_id AND s.application_id=c.application_id) AS allowance_rows FROM certificates c JOIN applications a ON a.id=c.application_id ORDER BY c.id`,
     )
   ).rows;
   const constraints = (
@@ -304,16 +310,31 @@ export function validateState(state) {
     throw new Error("Recovery consistency check: orphan tenant references.");
   if (state.tenants.some((tenant) => tenant.balance !== tenant.ledger_sum))
     throw new Error("Recovery consistency check: wallet/ledger mismatch.");
+  // Stage 5: exactly-once SUBMIT-time settlement (migration 044, W-003).
+  // A certificate must come from a settled application, and the settlement
+  // evidence must match the recorded method exactly once: CREDIT → one
+  // APPLICATION_FEE ledger row; ALLOWANCE → one allowance-consumption row;
+  // FREE → neither. Anything else (unsettled, double-charged, or
+  // method/evidence mismatch) fails the restore. The old
+  // 'one ISSUANCE debit per certificate' check described the retired
+  // issuance-charge model and can never pass on a current-model database.
   if (
     state.certificates.some(
       (certificate) =>
         !certificate.pdf_header ||
         certificate.bytes < 1000 ||
-        certificate.issuance_debits !== 1,
+        !certificate.fee_settled ||
+        (certificate.fee_method === "CREDIT" &&
+          !(certificate.fee_debits === 1 && certificate.allowance_rows === 0)) ||
+        (certificate.fee_method === "ALLOWANCE" &&
+          !(certificate.allowance_rows === 1 && certificate.fee_debits === 0)) ||
+        (certificate.fee_method === "FREE" &&
+          !(certificate.fee_debits === 0 && certificate.allowance_rows === 0)) ||
+        !["CREDIT", "ALLOWANCE", "FREE"].includes(certificate.fee_method),
     )
   )
     throw new Error(
-      "Recovery consistency check: PDF bytes/header or exactly-once debit mismatch.",
+      "Recovery consistency check: PDF bytes/header or exactly-once submit-time settlement mismatch.",
     );
   if (state.constraints.some((constraint) => !constraint.validated))
     throw new Error("Recovery consistency check: unvalidated constraints.");
