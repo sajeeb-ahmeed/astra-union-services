@@ -135,3 +135,58 @@ test("Portal: sandbox invoice PDF is real, tenant-private and separate from stat
   const r=await req('GET',`/invoices/${invoice.id}/pdf`,undefined,'finance');assert.equal(r.status,200);assert.equal(r.body.subarray(0,4).toString(),'%PDF');fs.writeFileSync('execution/sandbox-invoice-demo.pdf',r.body);
   for(const role of ['citizen','owner'])assert.equal((await req('GET',`/invoices/${invoice.id}/pdf`,undefined,role)).status,403);
 });
+
+test("Portal (S-015): retention purge is owner-only, dry-run safe, and deletes only eligible rows",async()=>{
+  const tag=randomUUID().slice(0,8);
+  // Pre-clean: earlier runs of this file may have left eligible rows behind
+  // (this test failed before its real purge ran). The seeded DB holds no
+  // support_requests/subscriptions older than the retention windows, and
+  // other tests only insert fresh rows, so purging here removes test
+  // leftovers only.
+  await req("POST","/owner/public-data/purge",{},"owner");
+  const oldResolved=(await admin.query("INSERT INTO support_requests(name,email,subject,message,status,created_at,resolved_at) VALUES('Old resolved',$1,'Old','Old resolved request.','RESOLVED',now()-interval '100 days',now()-interval '100 days') RETURNING id",[`old-resolved-${tag}@example.test`])).rows[0].id;
+  const recentResolved=(await admin.query("INSERT INTO support_requests(name,email,subject,message,status,created_at,resolved_at) VALUES('Recent resolved',$1,'Recent','Recent resolved request.','RESOLVED',now()-interval '10 days',now()-interval '10 days') RETURNING id",[`recent-resolved-${tag}@example.test`])).rows[0].id;
+  const staleOpen=(await admin.query("INSERT INTO support_requests(name,email,subject,message,status,created_at) VALUES('Stale open',$1,'Stale','Stale open request.','OPEN',now()-interval '3 years') RETURNING id",[`stale-open-${tag}@example.test`])).rows[0].id;
+  const freshOpen=(await admin.query("INSERT INTO support_requests(name,email,subject,message,status,created_at) VALUES('Fresh open',$1,'Fresh','Fresh open request.','OPEN',now()-interval '1 day') RETURNING id",[`fresh-open-${tag}@example.test`])).rows[0].id;
+  await admin.query("INSERT INTO subscriptions_interest(email,consent_at) VALUES($1,now()-interval '13 months')",[`old-sub-${tag}@example.test`]);
+  await admin.query("INSERT INTO subscriptions_interest(email,consent_at) VALUES($1,now()-interval '1 day')",[`fresh-sub-${tag}@example.test`]);
+  assert.equal((await req("POST","/owner/public-data/purge",{},"staff")).status,403);
+  const dry=await req("POST","/owner/public-data/purge",{dryRun:true},"owner");
+  assert.equal(dry.status,200,JSON.stringify(dry.body));
+  assert.equal(dry.body.dryRun,true);
+  assert.deepEqual(dry.body.eligible,{supportRequests:2,subscriptions:1});
+  assert.deepEqual(dry.body.purged,{supportRequests:0,subscriptions:0});
+  assert.equal((await admin.query("SELECT count(*)::int n FROM support_requests WHERE id=ANY($1::uuid[])",[[oldResolved,staleOpen]])).rows[0].n,2);
+  const purged=await req("POST","/owner/public-data/purge",{},"owner");
+  assert.equal(purged.status,200,JSON.stringify(purged.body));
+  assert.deepEqual(purged.body.purged,{supportRequests:2,subscriptions:1});
+  assert.deepEqual(purged.body.policy,{resolvedSupportRequestsDays:90,staleSupportRequestsYears:2,subscriptionsInterestMonths:12});
+  const gone=(await admin.query("SELECT count(*)::int n FROM support_requests WHERE id=ANY($1::uuid[])",[[oldResolved,staleOpen]])).rows[0].n;
+  assert.equal(gone,0);
+  const kept=(await admin.query("SELECT count(*)::int n FROM support_requests WHERE id=ANY($1::uuid[])",[[recentResolved,freshOpen]])).rows[0].n;
+  assert.equal(kept,2);
+  assert.equal((await admin.query("SELECT count(*)::int n FROM subscriptions_interest WHERE email=$1",[`old-sub-${tag}@example.test`])).rows[0].n,0);
+  assert.equal((await admin.query("SELECT count(*)::int n FROM subscriptions_interest WHERE email=$1",[`fresh-sub-${tag}@example.test`])).rows[0].n,1);
+  const audit=(await admin.query("SELECT metadata FROM platform_security_events WHERE action='PUBLIC_DATA_PURGED' ORDER BY created_at DESC LIMIT 1")).rows[0];
+  assert.ok(audit);
+  assert.equal(audit.metadata.supportRequests,2);
+  assert.equal(audit.metadata.subscriptions,1);
+  // Cleanup: the kept fixtures would otherwise linger as synthetic rows.
+  await admin.query("DELETE FROM support_requests WHERE id=ANY($1::uuid[])",[[recentResolved,freshOpen]]);
+  await admin.query("DELETE FROM subscriptions_interest WHERE email=$1",[`fresh-sub-${tag}@example.test`]);
+});
+
+test("Portal (S-015): public writes are capped at 10/hour per IP",{timeout:60000},async()=>{
+  // One feedback and two subscribes were already posted earlier in this
+  // file from the same IP, so the remaining budget is 9 and 8.
+  for(let i=0;i<9;i++){
+    const r=await req("POST","/public/feedback",{name:"Budget probe",subject:`Probe ${i}`,message:"Budget probe message for the hourly cap."});
+    assert.equal(r.status,201,JSON.stringify(r.body));
+  }
+  assert.equal((await req("POST","/public/feedback",{name:"Budget probe",subject:"Over",message:"Budget probe message for the hourly cap."})).status,429);
+  for(let i=0;i<8;i++){
+    const r=await req("POST","/public/subscribe",{email:`budget-${i}@example.test`});
+    assert.equal(r.status,202,JSON.stringify(r.body));
+  }
+  assert.equal((await req("POST","/public/subscribe",{email:"budget-over@example.test"})).status,429);
+});
