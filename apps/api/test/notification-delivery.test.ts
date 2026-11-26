@@ -1,6 +1,6 @@
 import test, { before, after } from "node:test";
 import assert from "node:assert/strict";
-import { randomUUID } from "node:crypto";
+import { randomUUID, randomBytes } from "node:crypto";
 import pg from "pg";
 import { getDemoPayload } from "@astra/shared-schemas";
 import { app } from "../src/app.js";
@@ -25,7 +25,7 @@ import { logSmsProvider, setSmsProvider } from "../src/sms.js";
  */
 const SERVICE = 45;
 const run = randomUUID().slice(0, 8);
-const password = "W010-Notify-123!";
+const password = randomBytes(12).toString("base64url");
 const admin = new pg.Pool({ connectionString: adminConnectionString });
 type Session = { cookie: string; csrf: string; user: any };
 let server: ReturnType<typeof app.listen>, base: string;

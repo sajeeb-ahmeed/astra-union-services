@@ -22,6 +22,7 @@ import {
 
 const db = new pg.Pool({ connectionString: adminConnectionString });
 const password = randomBytes(12).toString("base64url");
+const recoveredPassword = randomBytes(12).toString("base64url");
 const run = randomUUID().slice(0, 8);
 let server: ReturnType<typeof app.listen>, base: string;
 let officeAdmin: Session;
@@ -126,15 +127,15 @@ test("S-007: the grant returns no token — it is emailed, and recovery works en
   const token = tokenFrom(mailSent);
   const recovered = await req("POST", "/auth/recover", {
     token,
-    newPassword: "Rec-Delivery-P1!",
+    newPassword: recoveredPassword,
   });
   assert.equal(recovered.status, 200, JSON.stringify(recovered.body));
   assert.equal(
-    (await req("POST", "/auth/recover", { token, newPassword: "Rec-Delivery-P1!" })).status,
+    (await req("POST", "/auth/recover", { token, newPassword: recoveredPassword })).status,
     422,
     "the out-of-band token is one-use",
   );
-  await login(target.email, "Rec-Delivery-P1!");
+  await login(target.email, recoveredPassword);
 });
 
 test("S-007: with no mail provider the grant returns only a masked hint", async () => {

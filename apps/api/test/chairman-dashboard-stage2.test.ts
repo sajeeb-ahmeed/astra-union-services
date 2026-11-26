@@ -1,6 +1,6 @@
 import test, { before, after } from "node:test";
 import assert from "node:assert/strict";
-import { randomUUID } from "node:crypto";
+import { randomUUID, randomBytes } from "node:crypto";
 import pg from "pg";
 import { getDemoPayload } from "@astra/shared-schemas";
 import { app } from "../src/app.js";
@@ -20,7 +20,7 @@ import { closePdfBrowser } from "../src/pdf.js";
  * - CH-009: GET /citizens paginates and reports the real total.
  */
 const run = randomUUID().slice(0, 8);
-const password = "CH-Dash-123!";
+const password = randomBytes(12).toString("base64url");
 const admin = new pg.Pool({ connectionString: adminConnectionString });
 const PNG_1X1 =
   "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
