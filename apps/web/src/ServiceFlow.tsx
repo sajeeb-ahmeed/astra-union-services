@@ -452,28 +452,40 @@ export function ServiceFlow({
   // defaults. Staff intake (selfCitizen false) never autofills another
   // person's NID. Services with a top-level nid_number field: 15/27/33/37.
   const nidAutofillDone = useRef<string>("");
+  const autofillCitizenId = citizen?.id;
+  const autofillNidHint = citizen?.nidHint;
   useEffect(() => {
-    if (!formReady || !citizen?.id || !citizen.nidHint) return;
+    if (!formReady || !autofillCitizenId || !autofillNidHint) return;
     const asksNid = formSchema.sections.some((section) =>
       section.fields.some((field) => field.id === "nid_number" && field.type === "text"),
     );
     if (!asksNid) return;
-    const key = `${citizen.id}:${formSchema.serviceNo}`;
+    const key = `${autofillCitizenId}:${formSchema.serviceNo}`;
     if (nidAutofillDone.current === key) return;
     nidAutofillDone.current = key;
     let active = true;
-    api(`/citizens/${citizen.id}/identity`)
+    let settled = false;
+    api(`/citizens/${autofillCitizenId}/identity`)
       .then((numbers) => {
+        settled = true;
         if (!active || typeof numbers?.nid !== "string" || !numbers.nid) return;
         setPayload((current) =>
           "nid_number" in current ? current : { nid_number: numbers.nid, ...current },
         );
       })
-      .catch(() => {});
+      .catch(() => {
+        settled = true;
+      });
     return () => {
       active = false;
+      // Integration fix: a request cancelled before it answered (e.g. the
+      // mount-time citizen refresh re-ran this effect) must not leave the key
+      // marked done, or the re-run exits early and the field stays empty.
+      if (!settled && nidAutofillDone.current === key) nidAutofillDone.current = "";
     };
-  }, [formReady, citizen, formSchema]);
+    // Primitive deps: a refreshed citizen object with the same id/hint does not
+    // re-run (and re-audit) the reveal.
+  }, [formReady, autofillCitizenId, autofillNidHint, formSchema]);
   useEffect(() => {
     let active = true;
     const timer = setTimeout(() => {
