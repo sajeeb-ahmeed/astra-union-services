@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { createHash, randomBytes, randomUUID } from "node:crypto";
 import pg from "pg";
 import { app } from "../src/app.js";
+import { demoPayloads } from "@astra/shared-schemas";
 import { pool, adminConnectionString } from "../src/db.js";
 import { hashPassword } from "../src/security.js";
 
@@ -211,13 +212,13 @@ test("vault: dual-read surfaces a Phase 3c identity document, and removal never 
   // Clear the vault first so only the legacy link remains.
   await req("PUT", `/citizens/${citizenId}/documents/birth_reg`, { attachmentId: null }, s.staff);
   const legacy = await upload(citizenId, s.self);
-  const linked = await req(
-    "PUT",
-    `/citizens/${citizenId}/identity-document`,
-    { document: { attachmentId: legacy, kind: "birth_reg" } },
-    s.self,
+  // A legacy-only link as it exists in data written before migration 064: only the
+  // Phase 3c columns are set (the legacy endpoint now also writes the vault — see
+  // the "legacy endpoint keeps the vault in sync" test below).
+  await db.query(
+    "UPDATE citizens SET identity_document_id=$2,identity_document_kind='birth_reg' WHERE id=$1",
+    [citizenId, legacy],
   );
-  assert.equal(linked.status, 200, JSON.stringify(linked.body));
 
   const listed = await documents(citizenId, s.self);
   assert.equal(listed.length, 1);
@@ -238,4 +239,46 @@ test("vault: dual-read surfaces a Phase 3c identity document, and removal never 
     await db.query("SELECT identity_document_id,identity_document_kind FROM citizens WHERE id=$1", [citizenId])
   ).rows[0];
   assert.deepEqual(row, { identity_document_id: null, identity_document_kind: null });
+});
+
+test("vault: the Phase 3c identity-document endpoint keeps the vault in sync (replace and remove)", async () => {
+  await req("PUT", `/citizens/${citizenId}/documents/nid`, { attachmentId: null }, s.staff);
+  const first = await upload(citizenId, s.self);
+  await req("PUT", `/citizens/${citizenId}/documents/nid`, { attachmentId: first }, s.self);
+  // Staff replace the NID through the older register control.
+  const second = await upload(citizenId, s.staff);
+  const replaced = await req(
+    "PUT",
+    `/citizens/${citizenId}/identity-document`,
+    { document: { attachmentId: second, kind: "nid" } },
+    s.staff,
+  );
+  assert.equal(replaced.status, 200, JSON.stringify(replaced.body));
+  const afterReplace = (await documents(citizenId, s.self)).filter((d: any) => d.kind === "nid");
+  assert.equal(afterReplace.length, 1);
+  assert.equal(afterReplace[0].attachmentId, second, "vault shows the replacement, not the stale document");
+  // Removing through the older control empties the vault slot too.
+  const removed = await req("PUT", `/citizens/${citizenId}/identity-document`, { document: null }, s.staff);
+  assert.equal(removed.status, 200, JSON.stringify(removed.body));
+  assert.deepEqual((await documents(citizenId, s.self)).filter((d: any) => d.kind === "nid"), []);
+});
+
+test("S-010: plain staff read an application's nid_number masked; the reviewer reads it in full", async () => {
+  const nid = "1990123456789";
+  await db.query("INSERT INTO tenant_service_configuration(tenant_id,service_no) VALUES($1,15) ON CONFLICT DO NOTHING", [tenantId]);
+  const created = await req(
+    "POST",
+    "/applications",
+    { citizenId, serviceNo: 15, payload: { ...demoPayloads[15], nid_number: nid } },
+    s.staff,
+  );
+  assert.equal(created.status, 201, JSON.stringify(created.body));
+  const asStaff = await req("GET", `/applications/${created.body.id}`, undefined, s.staff);
+  assert.equal(asStaff.status, 200, JSON.stringify(asStaff.body));
+  assert.notEqual(asStaff.body.payload.nid_number, nid, "staff never receive the full NID");
+  assert.ok(!JSON.stringify(asStaff.body).includes(nid), "no full NID anywhere in the staff response");
+  const asReviewer = await req("GET", `/applications/${created.body.id}`, undefined, s.reviewer);
+  assert.equal(asReviewer.status, 200, JSON.stringify(asReviewer.body));
+  assert.equal(asReviewer.body.payload.nid_number, nid, "reviewer keeps the full number for issuance checks");
+  assert.equal(asReviewer.body.versions.at(-1).payload.nid_number, nid);
 });

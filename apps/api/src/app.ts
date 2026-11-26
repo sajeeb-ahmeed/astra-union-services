@@ -1293,7 +1293,7 @@ app.put(
       .strict()
       .parse(req.body).document;
     const item = await transaction(tenant(req), async (db) => {
-      await reachableCitizen(db, a, id, "id");
+      const before = await reachableCitizen(db, a, id, "id,identity_document_kind");
       if (input) {
         const owned = (
           await db.query("SELECT 1 FROM attachments WHERE tenant_id=$1 AND citizen_id=$2 AND id=$3", [
@@ -1310,6 +1310,23 @@ app.put(
           [a.tenantId, id, input?.attachmentId ?? null, input?.kind ?? null],
         )
       ).rows[0];
+      // Integration fix: keep the documents vault (migration 064) in step with this
+      // older Phase 3c slot. The vault's dual-read prefers a citizen_documents row
+      // over these columns, so without this a replace/remove made here kept the old
+      // document in the citizen's vault and the form picker.
+      if (input)
+        await db.query(
+          `INSERT INTO citizen_documents(tenant_id,citizen_id,kind,attachment_id,updated_at)
+           VALUES($1,$2,$3,$4,now())
+           ON CONFLICT (tenant_id,citizen_id,kind)
+           DO UPDATE SET attachment_id=EXCLUDED.attachment_id, updated_at=now()`,
+          [a.tenantId, id, input.kind, input.attachmentId],
+        );
+      else if (before.identity_document_kind)
+        await db.query(
+          "DELETE FROM citizen_documents WHERE tenant_id=$1 AND citizen_id=$2 AND kind=$3",
+          [a.tenantId, id, before.identity_document_kind],
+        );
       await audit(
         db,
         a.tenantId!,
@@ -2182,12 +2199,26 @@ app.get(
         )
       ).rows[0];
       const applicationRow = { ...camelRow(r), ...camelRow(deadlineRow) };
+      // S-010 (integration fix): the NID autofill (PR #75) copies the full NID into
+      // the form answer as nid_number. Plain office staff may not read full identity
+      // numbers (GET /citizens/:id/identity refuses them), so their copy of the
+      // payload carries the masked form; reviewer/approver/admin and the citizen
+      // keep the full value. The stored payload and its hash are unchanged.
+      const maskForStaff = (payload: any) =>
+        a.role === "staff" &&
+        payload &&
+        typeof payload === "object" &&
+        typeof payload.nid_number === "string"
+          ? { ...payload, nid_number: maskIdentityNumber(payload.nid_number) }
+          : payload;
       const versions = (
         await db.query(
           "SELECT version,payload,payload_hash,created_at FROM application_payload_versions WHERE application_id=$1 ORDER BY version",
           [r.id],
         )
-      ).rows.map(camelRow);
+      ).rows
+        .map(camelRow)
+        .map((v: any) => ({ ...v, payload: maskForStaff(v.payload) }));
       return {
         application: { ...applicationRow, ...charterDeadline(applicationRow) },
         order: await getApplicationOrder(db, r.id),
