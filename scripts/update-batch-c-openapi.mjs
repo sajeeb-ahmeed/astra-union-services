@@ -28,6 +28,106 @@ const SPEC = "apps/api/openapi.json";
 const ROUTES = [
   {
     "method": "get",
+    "path": "/api/v1/citizens/{id}/documents",
+    "summary": "List a citizen's stored identity documents (documents vault)",
+    "description": "The documents vault for one citizen: the linked document per kind (nid, birth_reg) with its attachment and scan state, plus the legacy Phase 3c identity-document link (dual-read). Office staff (staff, admin, reviewer, approver) of the citizen's office, or the citizen themself (reachableCitizen: a citizen can read only their own record). Runs in the tenant transaction (forced RLS).",
+    "tag": "Citizens",
+    "visibility": "authenticated",
+    "source": "app.ts:1387",
+    "roles": [
+      "staff",
+      "admin",
+      "reviewer",
+      "approver",
+      "citizen"
+    ],
+    "officeActor": false,
+    "usesTenant": true,
+    "usesActor": false,
+    "usesAuth": false,
+    "limiters": [],
+    "inlineLimit": null,
+    "statuses": [],
+    "errorCodes": [
+      "404:NOT_FOUND"
+    ],
+    "queryParams": [],
+    "bodyKeys": null,
+    "queryKeys": null,
+    "hasBodyParse": false
+  },
+  {
+    "method": "put",
+    "path": "/api/v1/citizens/{id}/documents/{kind}",
+    "summary": "Link or clear a citizen's stored identity document (documents vault)",
+    "description": "Sets the vault slot for one document kind (nid or birth_reg) to an attachment already uploaded for this citizen in this office, or clears it with attachmentId null. Keeps the legacy identity-document columns in sync for the same kind. Writes a CITIZEN_DOCUMENT_LINKED or CITIZEN_DOCUMENT_REMOVED audit event. Office staff (staff, admin) or the citizen themself.",
+    "tag": "Citizens",
+    "visibility": "authenticated",
+    "source": "app.ts:1404",
+    "roles": [
+      "staff",
+      "admin",
+      "citizen"
+    ],
+    "officeActor": false,
+    "usesTenant": true,
+    "usesActor": false,
+    "usesAuth": false,
+    "limiters": [],
+    "inlineLimit": null,
+    "statuses": [],
+    "errorCodes": [
+      "404:NOT_FOUND",
+      "404:ATTACHMENT_NOT_FOUND"
+    ],
+    "queryParams": [],
+    "bodyKeys": [
+      {
+        "name": "attachmentId",
+        "optional": false,
+        "nullable": true,
+        "type": "ref:uuid",
+        "raw": "uuid.nullable()"
+      }
+    ],
+    "queryKeys": null,
+    "hasBodyParse": true
+  },
+  {
+    "method": "delete",
+    "path": "/api/v1/office/certificate-assets/{kind}",
+    "summary": "Remove an office certificate asset (seal or signature)",
+    "description": "Removes the current seal or signature by writing a tombstone version (the history is kept) and an audit event. A reason of 8-500 characters is mandatory (422 REASON_REQUIRED when missing, as for a replace). Serialised with uploads by the same advisory lock. A later upload is a replace of the tombstone. Office admin or chairman (approver) of the caller's own office (officeActor).",
+    "tag": "Certificates",
+    "visibility": "authenticated",
+    "source": "certificate-assets.ts:321",
+    "roles": [],
+    "officeActor": true,
+    "usesTenant": false,
+    "usesActor": false,
+    "usesAuth": false,
+    "limiters": [],
+    "inlineLimit": null,
+    "statuses": [],
+    "errorCodes": [
+      "404:NOT_FOUND",
+      "422:REASON_REQUIRED"
+    ],
+    "queryParams": [],
+    "bodyKeys": [
+      {
+        "name": "reason",
+        "optional": true,
+        "nullable": false,
+        "type": "string",
+        "raw": "z.string().trim().min(8).max(500).optional()"
+      }
+    ],
+    "queryKeys": null,
+    "hasBodyParse": true
+  },
+  {
+    "method": "get",
     "path": "/api/v1/admin/release",
     "summary": "Read detailed release metadata",
     "description": "Admin-only detailed release metadata for operators: the public release subset (version, packaged commit, build time, package id, process start, applied migration version) plus the full applied-migration list and the packaged web-asset manifest, so an operator can prove which bundle is running and whether the database matches it. No secrets, credentials, or environment values are ever included.",

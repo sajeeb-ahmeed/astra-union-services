@@ -29,12 +29,12 @@ For example, service #45's source contains a common checkout form with no servic
 <!-- SCHEMA-VERSIONS:BEGIN -->
 > Generated from the schema catalogue — do not hand-edit. Regenerate with `npx tsx scripts/generate-schema-version-table.ts`.
 
-The catalogue holds **47 operational schemas** (one latest version per service) and **220 retained versions** in total. An application is pinned to the version current at creation; older versions stay valid for pinned applications only.
+The catalogue holds **47 operational schemas** (one latest version per service) and **234 retained versions** in total. An application is pinned to the version current at creation; older versions stay valid for pinned applications only.
 
 | Service | Latest version | Versions retained |
 | --- | --- | --- |
 | 1 | v4 | 1, 2, 3, 4 |
-| 2 | v5 | 1, 2, 3, 4, 5 |
+| 2 | v6 | 1, 2, 3, 4, 5, 6 |
 | 3 | v5 | 1, 2, 3, 4, 5 |
 | 4 | v6 | 1, 2, 3, 4, 5, 6 |
 | 5 | v5 | 1, 2, 3, 4, 5 |
@@ -46,11 +46,11 @@ The catalogue holds **47 operational schemas** (one latest version per service) 
 | 11 | v5 | 1, 2, 3, 4, 5 |
 | 12 | v4 | 1, 2, 3, 4 |
 | 13 | v4 | 1, 2, 3, 4 |
-| 14 | v4 | 1, 2, 3, 4 |
-| 15 | v3 | 1, 2, 3 |
+| 14 | v5 | 1, 2, 3, 4, 5 |
+| 15 | v4 | 1, 2, 3, 4 |
 | 16 | v5 | 1, 2, 3, 4, 5 |
 | 17 | v4 | 1, 2, 3, 4 |
-| 18 | v5 | 1, 2, 3, 4, 5 |
+| 18 | v6 | 1, 2, 3, 4, 5, 6 |
 | 19 | v5 | 1, 2, 3, 4, 5 |
 | 20 | v5 | 1, 2, 3, 4, 5 |
 | 21 | v5 | 1, 2, 3, 4, 5 |
@@ -59,25 +59,25 @@ The catalogue holds **47 operational schemas** (one latest version per service) 
 | 24 | v5 | 1, 2, 3, 4, 5 |
 | 25 | v5 | 1, 2, 3, 4, 5 |
 | 26 | v5 | 1, 2, 3, 4, 5 |
-| 27 | v4 | 1, 2, 3, 4 |
+| 27 | v5 | 1, 2, 3, 4, 5 |
 | 28 | v4 | 1, 2, 3, 4 |
-| 29 | v5 | 1, 2, 3, 4, 5 |
+| 29 | v6 | 1, 2, 3, 4, 5, 6 |
 | 30 | v5 | 1, 2, 3, 4, 5 |
-| 31 | v5 | 1, 2, 3, 4, 5 |
+| 31 | v6 | 1, 2, 3, 4, 5, 6 |
 | 32 | v5 | 1, 2, 3, 4, 5 |
 | 33 | v4 | 1, 2, 3, 4 |
-| 34 | v4 | 1, 2, 3, 4 |
+| 34 | v5 | 1, 2, 3, 4, 5 |
 | 35 | v4 | 1, 2, 3, 4 |
 | 36 | v6 | 1, 2, 3, 4, 5, 6 |
-| 37 | v5 | 1, 2, 3, 4, 5 |
-| 38 | v5 | 1, 2, 3, 4, 5 |
+| 37 | v6 | 1, 2, 3, 4, 5, 6 |
+| 38 | v6 | 1, 2, 3, 4, 5, 6 |
 | 39 | v5 | 1, 2, 3, 4, 5 |
-| 40 | v5 | 1, 2, 3, 4, 5 |
+| 40 | v6 | 1, 2, 3, 4, 5, 6 |
 | 41 | v6 | 1, 2, 3, 4, 5, 6 |
-| 42 | v6 | 1, 2, 3, 4, 5, 6 |
-| 43 | v5 | 1, 2, 3, 4, 5 |
+| 42 | v7 | 1, 2, 3, 4, 5, 6, 7 |
+| 43 | v6 | 1, 2, 3, 4, 5, 6 |
 | 44 | v5 | 1, 2, 3, 4, 5 |
-| 45 | v3 | 1, 2, 3 |
+| 45 | v4 | 1, 2, 3, 4 |
 | 46 | v5 | 1, 2, 3, 4, 5 |
 | 47 | v4 | 1, 2, 3, 4 |
 <!-- SCHEMA-VERSIONS:END -->

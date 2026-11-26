@@ -16610,6 +16610,81 @@
         "x-error-codes": [
           "422:REASON_REQUIRED"
         ]
+      },
+      "delete": {
+        "summary": "Remove an office certificate asset (seal or signature)",
+        "description": "Removes the current seal or signature by writing a tombstone version (the history is kept) and an audit event. A reason of 8-500 characters is mandatory (422 REASON_REQUIRED when missing, as for a replace). Serialised with uploads by the same advisory lock. A later upload is a replace of the tombstone. Office admin or chairman (approver) of the caller's own office (officeActor).",
+        "tags": [
+          "Certificates"
+        ],
+        "x-visibility": "authenticated",
+        "x-source": "apps/api/src/certificate-assets.ts:321",
+        "security": [
+          {
+            "session": [],
+            "csrf": []
+          }
+        ],
+        "x-auth-scope": "any authenticated office staff member",
+        "parameters": [
+          {
+            "name": "kind",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Path identifier (see apps/api/src/certificate-assets.ts:321)."
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "reason": {
+                    "type": "string",
+                    "description": "z.string().trim().min(8).max(500).optional()"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success; see apps/api/src/certificate-assets.ts:321 for the response contract.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Session missing or inactive."
+          },
+          "403": {
+            "description": "Role, CSRF or Origin denied."
+          },
+          "404": {
+            "description": "Record unavailable in this scope."
+          },
+          "409": {
+            "description": "Duplicate or workflow conflict."
+          },
+          "422": {
+            "description": "Validated request failed."
+          }
+        },
+        "x-error-codes": [
+          "404:NOT_FOUND",
+          "422:REASON_REQUIRED"
+        ]
       }
     },
     "/api/v1/owner/coupons/{code}": {
@@ -17726,6 +17801,164 @@
           }
         }
       }
+    },
+    "/api/v1/citizens/{id}/documents": {
+      "get": {
+        "summary": "List a citizen's stored identity documents (documents vault)",
+        "description": "The documents vault for one citizen: the linked document per kind (nid, birth_reg) with its attachment and scan state, plus the legacy Phase 3c identity-document link (dual-read). Office staff (staff, admin, reviewer, approver) of the citizen's office, or the citizen themself (reachableCitizen: a citizen can read only their own record). Runs in the tenant transaction (forced RLS).",
+        "tags": [
+          "Citizens"
+        ],
+        "x-visibility": "authenticated",
+        "x-source": "apps/api/src/app.ts:1387",
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "x-roles": [
+          "staff",
+          "admin",
+          "reviewer",
+          "approver",
+          "citizen"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Path identifier (see apps/api/src/app.ts:1387)."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success; see apps/api/src/app.ts:1387 for the response contract.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Session missing or inactive."
+          },
+          "403": {
+            "description": "Role, CSRF or Origin denied."
+          },
+          "404": {
+            "description": "Record unavailable in this scope."
+          },
+          "409": {
+            "description": "Duplicate or workflow conflict."
+          },
+          "422": {
+            "description": "Validated request failed."
+          }
+        },
+        "x-error-codes": [
+          "404:NOT_FOUND"
+        ]
+      }
+    },
+    "/api/v1/citizens/{id}/documents/{kind}": {
+      "put": {
+        "summary": "Link or clear a citizen's stored identity document (documents vault)",
+        "description": "Sets the vault slot for one document kind (nid or birth_reg) to an attachment already uploaded for this citizen in this office, or clears it with attachmentId null. Keeps the legacy identity-document columns in sync for the same kind. Writes a CITIZEN_DOCUMENT_LINKED or CITIZEN_DOCUMENT_REMOVED audit event. Office staff (staff, admin) or the citizen themself.",
+        "tags": [
+          "Citizens"
+        ],
+        "x-visibility": "authenticated",
+        "x-source": "apps/api/src/app.ts:1404",
+        "security": [
+          {
+            "session": [],
+            "csrf": []
+          }
+        ],
+        "x-roles": [
+          "staff",
+          "admin",
+          "citizen"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Path identifier (see apps/api/src/app.ts:1404)."
+          },
+          {
+            "name": "kind",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Path identifier (see apps/api/src/app.ts:1404)."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "attachmentId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "description": "uuid.nullable()"
+                  }
+                },
+                "required": [
+                  "attachmentId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success; see apps/api/src/app.ts:1404 for the response contract.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Session missing or inactive."
+          },
+          "403": {
+            "description": "Role, CSRF or Origin denied."
+          },
+          "404": {
+            "description": "Record unavailable in this scope."
+          },
+          "409": {
+            "description": "Duplicate or workflow conflict."
+          },
+          "422": {
+            "description": "Validated request failed."
+          }
+        },
+        "x-error-codes": [
+          "404:NOT_FOUND",
+          "404:ATTACHMENT_NOT_FOUND"
+        ]
+      }
     }
   },
   "tags": [
@@ -17816,8 +18049,8 @@
     "All other authenticated mutations": "session + CSRF required; no additional global limiter (per-route limiters are listed on the operation)"
   },
   "x-coverage": {
-    "documentedOperations": 221,
-    "documentedPaths": 197,
+    "documentedOperations": 224,
+    "documentedPaths": 199,
     "generatedBy": "scripts/update-batch-c-openapi.mjs (Batch C / A-001)",
     "note": "Counts are spec-side only; live coverage is enforced by scripts/check-openapi-coverage.mjs against the running Express route table."
   }
