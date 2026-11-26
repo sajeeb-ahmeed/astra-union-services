@@ -1,6 +1,6 @@
 # A-013: Authorization for the identity tables (design, not yet implemented)
 
-Status: **steps 1–2 implemented** (`sessions`, migration 082: `asUser` / `setActingUser` in `db.ts`, `auth_resolve_session`, negative tests in `apps/api/test/sessions-rls.test.ts`). Steps 3–5 (`platform_users`, `staff_memberships`, `tenants`) are not started. The hosted single-role check (last risk below) has not been run against the cPanel database yet.
+Status: **steps 1–3 implemented.** `sessions` (migration 082) and `platform_users` (migration 083), with `asUser` / `setActingUser` / `declareNewUser` in `db.ts`, the definer lookups `auth_resolve_session`, `auth_identifier_email`, `auth_user_id_by_email`, `auth_email_taken` and `owner_account_requests`, and negative tests in `apps/api/test/sessions-rls.test.ts` and `users-rls.test.ts`. Steps 4–5 (`staff_memberships`, `tenants`) are not started. The hosted single-role check (last risk below) has not been run against the cPanel database yet. Run it before deploying 082/083.
 
 ## Problem
 RLS (row-level security) covers the workflow, finance and attachment tables, but not the four identity tables: `sessions`, `platform_users`, `staff_memberships` and `tenants`.
