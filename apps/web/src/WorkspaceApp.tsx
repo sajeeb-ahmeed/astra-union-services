@@ -1310,20 +1310,59 @@ export function WorkspaceApp({
   const application = detail?.application || detail,
     detailPayload = detail?.payload || application?.payload || {};
   /** WS-D2 (item 16): the correction dialog's field selector — the
-      top-level fields of this application's own schema version. */
+      top-level fields of this application's own schema version.
+      The web bundle carries only the CURRENT operational schemas (Phase 4
+      B-003), so an application pinned to an older version loads that
+      version lazily from @astra/shared-schemas/legacy, as PinnedSchema
+      does; until it arrives the picker offers no fields rather than the
+      current form's (field sets can differ between versions, e.g. B5). */
+  const pickerServiceNo: number | undefined =
+    application?.serviceNo || application?.service_no;
+  const pickerVersion: number | undefined =
+    application?.schemaVersion ?? application?.schema_version;
+  const [pickerLegacy, setPickerLegacy] = useState<{
+    key: string;
+    schema: FormSchema;
+  } | null>(null);
+  const pickerKey = `${pickerServiceNo}:${pickerVersion}`;
+  const pickerNeedsLegacy = (() => {
+    if (!pickerServiceNo || pickerVersion == null) return false;
+    try {
+      return getServiceSchema(pickerServiceNo).version !== pickerVersion;
+    } catch {
+      return false;
+    }
+  })();
+  useEffect(() => {
+    if (!pickerNeedsLegacy || !pickerServiceNo || pickerVersion == null) return;
+    let live = true;
+    import("@astra/shared-schemas/legacy")
+      .then((m) => {
+        if (live)
+          setPickerLegacy({
+            key: pickerKey,
+            schema: m.getLegacyServiceSchema(pickerServiceNo, pickerVersion),
+          });
+      })
+      .catch(() => {
+        /* picker stays empty; the dialog still accepts a free-text note */
+      });
+    return () => {
+      live = false;
+    };
+  }, [pickerKey, pickerNeedsLegacy, pickerServiceNo, pickerVersion]);
   const correctionFieldOptions: {
     id: string;
     label: { bn: string; en: string };
   }[] = (() => {
-    if (!detail || !application) return [];
+    if (!detail || !application || !pickerServiceNo) return [];
     try {
-      // Merge note: the web bundle carries only the CURRENT operational
-      // schemas (Phase 4 B-003 — historical versions load lazily inside
-      // PinnedSchema), so the correction picker lists the current form's
-      // fields; field ids are stable across a service's versions.
-      const schema = getServiceSchema(
-        application.serviceNo || application.service_no,
-      );
+      const schema = pickerNeedsLegacy
+        ? pickerLegacy?.key === pickerKey
+          ? pickerLegacy.schema
+          : null
+        : getServiceSchema(pickerServiceNo);
+      if (!schema) return [];
       return (schema.sections ?? []).flatMap((section: any) =>
         (section.fields ?? []).map((field: any) => ({
           id: field.id,
