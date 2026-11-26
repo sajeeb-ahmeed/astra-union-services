@@ -203,7 +203,8 @@ Before packaging a release, run the performance smoke locally
 loopback, checks both desktop and mobile viewports for overflow/page
 errors, and measures the public directory at concurrency 10. It is a
 pre-packaging check, not part of the post-deploy gate: it needs a local
-database and the build's `execution/asset-sizes.json`, which do not travel
+database and the build's `apps/web/dist/asset-sizes.json` (the committed
+`execution/asset-sizes.json` is the stable reference), which do not travel
 in the bundle.
 
 Then check:
