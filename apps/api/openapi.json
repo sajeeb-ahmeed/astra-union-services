@@ -5581,6 +5581,127 @@
         "x-visibility": "authenticated"
       }
     },
+    "/api/v1/owner/public-data/purge": {
+      "post": {
+        "summary": "Purge retention-eligible public feedback and subscriptions (owner only)",
+        "description": "S-015: manual, owner-only retention purge — never automatic. Deletes support_requests RESOLVED more than 90 days ago or created more than 2 years ago, and subscriptions_interest with consent older than 12 months (see docs/PUBLIC_DATA_RETENTION.md). dryRun:true reports the eligible counts without deleting. A real purge writes a PUBLIC_DATA_PURGED row to the durable platform audit stream (S-014).",
+        "security": [
+          {
+            "session": [],
+            "csrf": []
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "dryRun": {
+                    "type": "boolean"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Purge report",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "dryRun",
+                    "eligible",
+                    "purged",
+                    "policy"
+                  ],
+                  "properties": {
+                    "dryRun": {
+                      "type": "boolean"
+                    },
+                    "eligible": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "supportRequests",
+                        "subscriptions"
+                      ],
+                      "properties": {
+                        "supportRequests": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "subscriptions": {
+                          "type": "integer",
+                          "minimum": 0
+                        }
+                      }
+                    },
+                    "purged": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "supportRequests",
+                        "subscriptions"
+                      ],
+                      "properties": {
+                        "supportRequests": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "subscriptions": {
+                          "type": "integer",
+                          "minimum": 0
+                        }
+                      }
+                    },
+                    "policy": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "resolvedSupportRequestsDays",
+                        "staleSupportRequestsYears",
+                        "subscriptionsInterestMonths"
+                      ],
+                      "properties": {
+                        "resolvedSupportRequestsDays": {
+                          "type": "integer",
+                          "const": 90
+                        },
+                        "staleSupportRequestsYears": {
+                          "type": "integer",
+                          "const": 2
+                        },
+                        "subscriptionsInterestMonths": {
+                          "type": "integer",
+                          "const": 12
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, expired or revoked session."
+          },
+          "403": {
+            "description": "CSRF, origin or account access denied."
+          },
+          "422": {
+            "description": "Invalid request."
+          }
+        },
+        "x-visibility": "authenticated"
+      }
+    },
     "/api/v1/owner/feedback/{id}": {
       "patch": {
         "summary": "Owner resolves or reopens support request",
@@ -7982,10 +8103,81 @@
         "x-visibility": "authenticated"
       }
     },
+    "/api/v1/auth/sessions/list": {
+      "get": {
+        "summary": "List the caller's own active sessions with per-session ids",
+        "description": "S-005: returns each active session's public id, whether it is the current session, and its expiry / last-seen / created timestamps, newest first. The csrf_token is never returned; the public id is the only identifier a client needs to revoke one session. The aggregate summary stays on GET /api/v1/auth/sessions.",
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Own-account active sessions",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "sessions"
+                  ],
+                  "properties": {
+                    "sessions": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": [
+                          "id",
+                          "current",
+                          "expiresAt",
+                          "lastSeenAt",
+                          "createdAt"
+                        ],
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "format": "uuid"
+                          },
+                          "current": {
+                            "type": "boolean"
+                          },
+                          "expiresAt": {
+                            "type": "string",
+                            "format": "date-time"
+                          },
+                          "lastSeenAt": {
+                            "type": "string",
+                            "format": "date-time"
+                          },
+                          "createdAt": {
+                            "type": "string",
+                            "format": "date-time"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, expired or revoked session."
+          },
+          "403": {
+            "description": "CSRF, origin or account access denied."
+          }
+        },
+        "x-visibility": "authenticated"
+      }
+    },
     "/api/v1/auth/sessions/revoke-others": {
       "post": {
         "summary": "Password-confirmed sign out of all other own-account sessions",
-        "description": "Serializes with password change, recovery and login on the account row. Rechecks the current session and password inside the transaction; retains this session. Tenant actions append an immutable audit event; platform-owner actions emit sanitized operational logs, not a persistent global security audit.",
+        "description": "Serializes with password change, recovery and login on the account row. Rechecks the current session and password inside the transaction; retains this session. Tenant actions append an immutable audit event; platform-owner actions also write the durable platform security audit stream (S-014).",
         "security": [
           {
             "session": [],
@@ -8045,6 +8237,91 @@
           },
           "403": {
             "description": "CSRF, origin or account access denied."
+          },
+          "422": {
+            "description": "Invalid request or current password mismatch."
+          },
+          "429": {
+            "description": "Security mutation rate limit reached."
+          }
+        },
+        "x-visibility": "authenticated"
+      }
+    },
+    "/api/v1/auth/sessions/revoke": {
+      "post": {
+        "summary": "Password-confirmed sign out of exactly one own-account session",
+        "description": "S-005: revokes the session identified by its public id from GET /api/v1/auth/sessions/list. Requires the current password (same reauthentication as revoke-others) and the account-action limiter. The caller's own current session is refused with 409 SESSION_CURRENT (sign out ends it); an unknown or already-expired id is 404 SESSION_NOT_FOUND. Writes a SESSION_REVOKED row to the immutable account audit stream (and the tenant audit for office accounts; owner actions also write the durable platform stream, S-014).",
+        "security": [
+          {
+            "session": [],
+            "csrf": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "sessionId",
+                  "currentPassword"
+                ],
+                "properties": {
+                  "sessionId": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "currentPassword": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200,
+                    "writeOnly": true
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "One session revoked",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "revoked",
+                    "remainingSessions"
+                  ],
+                  "properties": {
+                    "revoked": {
+                      "type": "integer",
+                      "const": 1
+                    },
+                    "remainingSessions": {
+                      "type": "integer",
+                      "minimum": 1
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, expired or revoked session."
+          },
+          "403": {
+            "description": "CSRF, origin or account access denied."
+          },
+          "404": {
+            "description": "Session not found."
+          },
+          "409": {
+            "description": "The current session cannot be revoked here."
           },
           "422": {
             "description": "Invalid request or current password mismatch."
@@ -17539,8 +17816,8 @@
     "All other authenticated mutations": "session + CSRF required; no additional global limiter (per-route limiters are listed on the operation)"
   },
   "x-coverage": {
-    "documentedOperations": 218,
-    "documentedPaths": 194,
+    "documentedOperations": 221,
+    "documentedPaths": 197,
     "generatedBy": "scripts/update-batch-c-openapi.mjs (Batch C / A-001)",
     "note": "Counts are spec-side only; live coverage is enforced by scripts/check-openapi-coverage.mjs against the running Express route table."
   }

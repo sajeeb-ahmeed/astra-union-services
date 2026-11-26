@@ -158,7 +158,17 @@ export function httpHardening(req: Request, res: Response, next: NextFunction) {
   res.setHeader("Cross-Origin-Resource-Policy", "same-origin");
   res.setHeader(
     "Content-Security-Policy",
-    "default-src 'self'; base-uri 'self'; frame-ancestors 'none'; object-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; form-action 'self'",
+    // S-013: style-src is split so an injected <style> element is blocked
+    // while React inline styles (style attributes) keep working. The only
+    // inline <style> block in the served app is the F-015 first-paint guard
+    // in apps/web/index.html (`body{margin:0}`), allowed here by its SHA-256
+    // hash — recompute the hash if that block ever changes. style-src-attr
+    // stays 'unsafe-inline' because hashes/nonces cannot cover style
+    // attributes (only 'unsafe-hashes' per attribute could, which is
+    // infeasible for a React app); that residual is documented in
+    // docs/HTTP_HEADERS.md. No inline <script> exists anywhere, so
+    // script-src stays 'self'.
+    "default-src 'self'; base-uri 'self'; frame-ancestors 'none'; object-src 'none'; script-src 'self'; style-src-elem 'self' 'sha256-IAdwN3biDCQ3brrgp1m8kBEsPQYyqfREKOEfeoREopc='; style-src-attr 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; form-action 'self'",
   );
   res.setHeader("Cache-Control", "no-store");
   // S-008: HSTS policy — one year, subdomains included. The header is only
@@ -234,5 +244,33 @@ export function enforceRuntimeConfig(env: NodeJS.ProcessEnv = process.env) {
   if (!env.DEMO_WEBHOOK_SECRET || env.DEMO_WEBHOOK_SECRET.length < 32)
     throw Error(
       "Production requires a unique DEMO_WEBHOOK_SECRET of at least 32 characters.",
+    );
+  // S-009: the four crypto keys previously failed soft in production — the
+  // server started and the features reported 503/unavailable
+  // (identifiers.ts loadSecret, citizen-data.ts loadKey, mfa-crypto.ts
+  // mfaAvailable, sslcommerz.ts merchantKey). A production boot with a key
+  // missing is a misconfiguration, not a degraded mode: fail fast here,
+  // with the same shape each loader accepts, so the failure is loud at
+  // deploy time instead of silent at first use. Non-production behaviour
+  // is untouched (dev/test auto-generate keys into .runtime/*).
+  // ATTACHMENT_SCANNER_SECRET is deliberately NOT required here: the
+  // internal scanner API already fails closed (401) without a valid 64-hex
+  // secret (attachments.ts), so its absence cannot silently weaken
+  // anything; see docs/KEY_MANAGEMENT.md.
+  if (!env.IDENTIFIER_SECRET || env.IDENTIFIER_SECRET.length < 32)
+    throw Error(
+      "Production requires IDENTIFIER_SECRET of at least 32 characters.",
+    );
+  if (!/^[a-f0-9]{64}$/i.test(env.CITIZEN_DATA_KEY ?? ""))
+    throw Error(
+      "Production requires CITIZEN_DATA_KEY as 64 hexadecimal characters.",
+    );
+  if (!/^[a-f0-9]{64}$/i.test(env.MFA_ENCRYPTION_KEY ?? ""))
+    throw Error(
+      "Production requires MFA_ENCRYPTION_KEY as 64 hexadecimal characters.",
+    );
+  if (!/^[a-f0-9]{64}$/i.test(env.MERCHANT_SECRET_KEY ?? ""))
+    throw Error(
+      "Production requires MERCHANT_SECRET_KEY as 64 hexadecimal characters.",
     );
 }
