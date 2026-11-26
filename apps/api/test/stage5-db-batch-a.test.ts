@@ -92,6 +92,15 @@ before(async () => {
     `INSERT INTO tenants(slug,name_bn,name_en) SELECT slug, 'Load ' || slug, 'Load ' || slug FROM unnest($1::text[]) AS slug`,
     [loadSlugs],
   );
+  // The app creates a wallet row at tenant creation (management.ts:1637);
+  // the recovery drill's wallet/ledger invariant (balance === ledger sum)
+  // assumes one row per tenant. Create them here so these fixture tenants
+  // are faithful to that invariant (balance 0, ledger sum 0) instead of
+  // leaving NULL balances that fail the drill's strict comparison.
+  await admin.query(
+    `INSERT INTO tenant_wallets(tenant_id) SELECT id FROM tenants WHERE slug = ANY($1::text[]) ON CONFLICT DO NOTHING`,
+    [loadSlugs],
+  );
   const tenantRows = (
     await admin.query(
       "SELECT id, slug FROM tenants WHERE slug = ANY($1::text[]) ORDER BY slug",
