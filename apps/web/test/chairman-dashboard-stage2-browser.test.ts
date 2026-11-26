@@ -90,7 +90,14 @@ test(
       const countsUrl = (url: URL) => url.pathname === "/api/v1/applications/counts";
       await page.route(countsUrl, async (route) => {
         await new Promise((r) => setTimeout(r, 2000));
-        await route.continue();
+        // Stage 5: a counts request already in flight from the dashboard
+        // can be aborted by the navigation below; continuing it then
+        // throws "Route is already handled". That request is stale — the
+        // pending page fires its own counts request, which this handler
+        // delays as intended — so swallow only that abort, never a real
+        // handler error. (Batch-C full run failed once here, 135/136;
+        // the isolated re-run passed 1/1.)
+        await route.continue().catch(() => undefined);
       });
       await goToWorkspacePage(page, "pending");
       await page.locator(".ax-skeleton").first().waitFor({ timeout: 15000 });
@@ -113,7 +120,8 @@ test(
       const listUrl = (url: URL) => url.pathname === "/api/v1/applications";
       await page.route(listUrl, async (route) => {
         await new Promise((r) => setTimeout(r, 2000));
-        await route.continue();
+        // Same navigation-abort guard as the counts handler above.
+        await route.continue().catch(() => undefined);
       });
       await page.locator("#state-filter").selectOption("SUBMITTED");
       await page.locator(".ax-skeleton").first().waitFor({ timeout: 15000 });
