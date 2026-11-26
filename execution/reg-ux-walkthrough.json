@@ -2,5 +2,5 @@
   "flow": "one-screen signup (automated)",
   "screens": 1,
   "requiredTypedFields": 3,
-  "secondsToAccount": 2.8
+  "secondsToAccount": 2
 }
