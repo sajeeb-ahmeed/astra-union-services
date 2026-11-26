@@ -282,3 +282,42 @@ test("S-010: plain staff read an application's nid_number masked; the reviewer r
   assert.equal(asReviewer.body.payload.nid_number, nid, "reviewer keeps the full number for issuance checks");
   assert.equal(asReviewer.body.versions.at(-1).payload.nid_number, nid);
 });
+
+test("vault: staff of another office can neither read nor change a citizen's vault (tenant isolation)", async () => {
+  const otherTenant = (
+    await db.query(
+      "WITH created AS (INSERT INTO tenants(slug,name_bn,name_en) VALUES($1,'অন্য অফিস','Other vault office') RETURNING id) INSERT INTO tenant_wallets(tenant_id) SELECT id FROM created RETURNING tenant_id AS id",
+      [`vault-other-${run}`],
+    )
+  ).rows[0].id;
+  const email = `other-staff-${run}@vault.synthetic.test`;
+  const userId = (
+    await db.query(
+      "INSERT INTO platform_users(email,display_name,password_hash) VALUES($1,'Synthetic other-office staff',$2) RETURNING id",
+      [email, hashPassword(password)],
+    )
+  ).rows[0].id;
+  await db.query("INSERT INTO staff_memberships(user_id,tenant_id,role) VALUES($1,$2,'staff')", [userId, otherTenant]);
+  const outsider = await signIn(email);
+  const own = await upload(citizenId, s.self);
+  await req("PUT", `/citizens/${citizenId}/documents/nid`, { attachmentId: own }, s.self);
+  const read = await req("GET", `/citizens/${citizenId}/documents`, undefined, outsider);
+  assert.equal(read.status, 404, "another office's staff cannot see the citizen or the vault");
+  const write = await req("PUT", `/citizens/${citizenId}/documents/nid`, { attachmentId: null }, outsider);
+  assert.equal(write.status, 404, "another office's staff cannot clear the vault slot");
+  const still = (await documents(citizenId, s.self)).filter((d: any) => d.kind === "nid");
+  assert.equal(still[0]?.attachmentId, own, "the vault slot is unchanged");
+  // RLS itself (not only the app predicate): as the restricted runtime role
+  // scoped to the other office, citizen_documents rows of this office are invisible.
+  const app = new pg.Client({ connectionString: process.env.DATABASE_URL });
+  await app.connect();
+  try {
+    await app.query("BEGIN");
+    await app.query("SELECT set_config('astra.tenant_id',$1,true)", [otherTenant]);
+    const leaked = (await app.query("SELECT count(*)::int n FROM citizen_documents WHERE citizen_id=$1", [citizenId])).rows[0].n;
+    assert.equal(leaked, 0, "RLS hides another office's vault rows from astra_app");
+    await app.query("ROLLBACK");
+  } finally {
+    await app.end();
+  }
+});
