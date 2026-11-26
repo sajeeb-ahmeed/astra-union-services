@@ -31,6 +31,15 @@ import { publicManagementRouter, managementRouter } from "./management.js";
 import { publicToolsRouter, protectedToolsRouter } from "./portal-tools.js";
 import { createHttpsRedirect, httpHardening } from "./http-hardening.js";
 import {
+  SESSION_TOUCH_STALE_MS,
+  clearSessionCookie,
+  expireSession,
+  isSessionIdle,
+  sessionCookieName,
+  touchSession,
+} from "./session-hygiene.js";
+import { logPlatformSecurityEvent } from "./security-audit.js";
+import {
   createSharedRateLimiter,
   createFailureBudget,
   sharedRateLimitsEnabled,
@@ -868,20 +877,55 @@ app.post(
     }
     // Same limit for every identifier kind, keyed by the identifier itself (not only by address).
     const identifierKey = `${kind}:${normalized ?? "invalid"}`;
+    // S-014: resolve the account for the audit row when it exists (null
+    // for unknown identifiers — the failure is still logged, without the
+    // identifier value, which is never logged).
+    const auditActorId = email
+      ? (
+          await pool.query("SELECT id FROM platform_users WHERE email=$1", [email])
+        ).rows[0]?.id ?? null
+      : null;
     // Failed attempts only: ten failures for one identifier pause it for five minutes, whatever its kind.
-    if (await loginIdBudget.blocked(identifierKey))
+    if (await loginIdBudget.blocked(identifierKey)) {
+      // S-014: lockout, durable. Best-effort: a failed audit insert must
+      // not mask the 429.
+      await logPlatformSecurityEvent(pool, {
+        actorId: auditActorId,
+        action: "LOGIN_LOCKED_OUT",
+        identifierKind: kind,
+        ip: req.ip ?? null,
+        metadata: { windowMinutes: 5 },
+      }).catch((error) =>
+        console.error(
+          JSON.stringify({ event: "PLATFORM_AUDIT_FAILED", action: "LOGIN_LOCKED_OUT", error: error instanceof Error ? error.message : String(error) }),
+        ),
+      );
       fail(
         429,
         "RATE_LIMIT",
         "Too many sign-in attempts. Try again in five minutes.",
       );
+    }
     let result: Awaited<ReturnType<typeof passwordLogin>>;
     try {
       // An unknown or malformed identifier takes the same path as a wrong password.
       result = await passwordLogin(email || "unknown@invalid.invalid", data.password);
     } catch (error) {
-      if (error instanceof ApiError && error.code === "INVALID_LOGIN")
+      if (error instanceof ApiError && error.code === "INVALID_LOGIN") {
         await loginIdBudget.recordFailure(identifierKey);
+        // S-014: failed login, durable. Best-effort, as above.
+        await logPlatformSecurityEvent(pool, {
+          actorId: auditActorId,
+          action: "LOGIN_FAILED",
+          identifierKind: kind,
+          ip: req.ip ?? null,
+          metadata: { reason: "INVALID_LOGIN" },
+        }).catch((error) =>
+          console.error(
+            JSON.stringify({ event: "PLATFORM_AUDIT_FAILED", action: "LOGIN_FAILED", error: error instanceof Error ? error.message : String(error) }),
+          ),
+        );
+      }
       throw error;
     }
     await loginIdBudget.clear(identifierKey);
@@ -901,10 +945,12 @@ app.use("/api/v1", publicMfaRouter);
 // handler below: an invalid or inactive session still 401s,
 // which the client's session-drop logic depends on.
 app.get("/api/v1/auth/me", (req, res, next) => {
+  // S-005: the cookie name is __Host-astra_session in production.
+  const cookieName = sessionCookieName();
   const hasSessionCookie = (req.headers.cookie ?? "")
     .split(";")
     .map((x) => x.trim())
-    .some((x) => x.startsWith("astra_session=") && x.length > 14);
+    .some((x) => x.startsWith(`${cookieName}=`) && x.length > cookieName.length + 1);
   if (hasSessionCookie) return next();
   res.json({ user: null, tenant: null, csrfToken: null, anonymous: true });
 });
@@ -912,16 +958,19 @@ app.use(
   "/api/v1",
   (req: Req, res: express.Response, next: express.NextFunction) => {
     (async () => {
+      // S-005: the cookie name is __Host-astra_session in production.
+      const cookieName = sessionCookieName();
       const token = req.headers.cookie
         ?.split(";")
         .map((x) => x.trim())
-        .find((x) => x.startsWith("astra_session="))
-        ?.slice(14);
+        .find((x) => x.startsWith(`${cookieName}=`))
+        ?.slice(cookieName.length + 1);
       if (!token) fail(401, "LOGIN_REQUIRED", "Sign in required.");
+      const tokenHash = digest(token);
       const result = (
         await pool.query(
           "SELECT s.*,u.email,u.display_name,u.active,u.platform_role,u.email_verified_at,m.role,m.active membership_active,t.status tenant_status FROM sessions s JOIN platform_users u ON u.id=s.user_id LEFT JOIN staff_memberships m ON m.user_id=s.user_id AND m.tenant_id=s.tenant_id LEFT JOIN tenants t ON t.id=s.tenant_id WHERE s.token_hash=$1 AND s.expires_at>now()",
-          [digest(token)],
+          [tokenHash],
         )
       ).rows[0];
       if (
@@ -935,6 +984,19 @@ app.use(
           "SESSION_INACTIVE",
           "This session or tenant membership is inactive.",
         );
+      // S-005: idle timeout (45 min) + touch. An idle session is refused
+      // and expired so it cannot be revived; an active one slides its
+      // expiry forward, never past created_at + 8 h. The touch is
+      // throttled to one rewrite per minute per session.
+      if (isSessionIdle(result)) {
+        await expireSession(pool, tokenHash);
+        fail(401, "SESSION_IDLE", "This session expired due to inactivity. Sign in again.");
+      }
+      if (
+        Date.now() - new Date(result.last_seen_at).getTime() >
+        SESSION_TOUCH_STALE_MS
+      )
+        await touchSession(pool, tokenHash);
       req.auth = {
         userId: result.user_id,
         email: result.email,
@@ -1018,10 +1080,7 @@ app.post(
       "UPDATE sessions SET expires_at=now() WHERE user_id=$1 AND csrf_token=$2",
       [a.userId, a.csrfToken],
     );
-    res.setHeader(
-      "Set-Cookie",
-      "astra_session=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0",
-    );
+    res.setHeader("Set-Cookie", clearSessionCookie());
     res.json({ ok: true });
   }),
 );

@@ -26,6 +26,7 @@ import {
   newTotpSecret,
 } from "./mfa-crypto.js";
 import { createRateLimiter } from "./http-hardening.js";
+import { buildSessionCookie } from "./session-hygiene.js";
 
 type Request = express.Request & { auth?: Auth };
 const wrap =
@@ -206,10 +207,10 @@ export function sendLogin(
   res: express.Response,
   session: Awaited<ReturnType<typeof createSession>>,
 ) {
-  res.setHeader(
-    "Set-Cookie",
-    `astra_session=${session.token}; HttpOnly; SameSite=Strict; Path=/; Max-Age=28800${process.env.NODE_ENV === "production" ? "; Secure" : ""}`,
-  );
+  // S-005: __Host-astra_session in production (Secure + Path=/ + no
+  // Domain); plain astra_session elsewhere so local test/dev sign-in
+  // keeps working.
+  res.setHeader("Set-Cookie", buildSessionCookie(session.token));
   res.json(session.body);
 }
 // CH-008: platform-wide switch for mandating two-step verification on
