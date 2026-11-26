@@ -34,6 +34,8 @@ apps/web/public/favicon-192.png
 apps/web/public/favicon-32.png
 apps/web/public/favicon-512.png
 apps/web/public/fonts/noto-sans-bengali-bengali-400-normal.woff2
+apps/web/public/fonts/noto-sans-bengali-bengali-600-normal.woff2
+apps/web/public/fonts/noto-sans-bengali-bengali-700-normal.woff2
 apps/web/src/assets/brand/emblem.png
 apps/web/src/assets/brand/emblem.webp
 apps/web/src/assets/brand/logo-lockup.png
