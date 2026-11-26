@@ -75,7 +75,8 @@ const sessions: Record<string, Session> = {};
 let server: ReturnType<typeof app.listen>,
   base: string,
   citizenId: string,
-  otherCitizen: string;
+  otherCitizen: string,
+  service1PolicyVersion: number;
 async function request(
   method: string,
   path: string,
@@ -167,9 +168,21 @@ async function newApplication(file: any) {
       serviceNo: 1,
       payload: {
         ...demoPayloads[1],
+        // W-002: the attached order's language must match the payload's.
+        delivery_language: "en",
         supporting_documents: [
           { description: "Synthetic document", file: handle(file) },
         ],
+      },
+      // W-002: the AMOUNTS gate needs an order snapshot for service 1.
+      order: {
+        policyVersion: service1PolicyVersion,
+        preferences: {
+          addressBasis: "registered_profile",
+          certificateLanguage: "en",
+          deliveryMode: "office_collection",
+          urgency: "normal",
+        },
       },
     },
     sessions.staff,
@@ -313,6 +326,43 @@ before(async () => {
     "INSERT INTO credit_ledger(tenant_id,delta,kind,idempotency_key,actor_id,reason,balance_after) VALUES($1,20,'PLAN_GRANT',$2,$3,'Synthetic attachment test grant',0)",
     [tenantId, `attachment-${run}`, sessions.owner!.id],
   );
+  // W-002: issuance gates run in every mode — this synthetic office needs
+  // an explicitly identified synthetic signature fixture before anything
+  // can issue. A 1x1 PNG — clearly not a real chairman signature.
+  const signature = await request(
+    "PUT",
+    "/office/certificate-assets/signature",
+    {
+      mimeType: "image/png",
+      base64:
+        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==",
+      reason:
+        "Synthetic signature fixture for demo-mode issuance regression (W-002); not a real chairman signature",
+    },
+    sessions.approver,
+  );
+  assert.ok([200, 201].includes(signature.status), JSON.stringify(signature.body));
+  // W-002: the AMOUNTS gate needs an order snapshot for service 1 (the
+  // holding-tax receipt). Publish an explicitly synthetic zero-fee policy;
+  // newApplication attaches the order (and pins the payload language to
+  // English so it matches the order).
+  const service1Policy = await request(
+    "POST",
+    "/admin/services/1/order-policies",
+    {
+      expectedVersion: 0,
+      reason: "Synthetic zero-fee policy for demo-mode issuance regression (W-002); not a government tariff",
+      statutoryFeeMinor: 0,
+      processingFeeMinor: 0,
+      emergencySurchargeMinor: 0,
+      deliveryFeesMinor: { office_collection: 0, digital_copy: 0 },
+      deliveryModes: ["office_collection", "digital_copy"],
+      urgencies: ["normal"],
+    },
+    sessions.admin,
+  );
+  assert.equal(service1Policy.status, 201, JSON.stringify(service1Policy.body));
+  service1PolicyVersion = service1Policy.body.policy.version;
 });
 after(async () => {
   if (priorSecret === undefined) delete process.env.ATTACHMENT_SCANNER_SECRET;

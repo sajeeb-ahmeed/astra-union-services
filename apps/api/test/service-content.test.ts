@@ -170,3 +170,34 @@ test("Phase 6: office-info rejects out-of-range service numbers and unknown rout
   assert.equal(one.body.service.serviceNo, 1);
   assert.ok(Array.isArray(one.body.offices));
 });
+
+test("F-011: /services/summaries aggregates the published policies in one request", async () => {
+  const published = await req(
+    "POST",
+    "/admin/services/44/order-policies",
+    { ...policy, expectedVersion: 0, statutoryFeeMinor: 2000, processingFeeMinor: 100, charterDays: 5 },
+    s.admin,
+  );
+  assert.equal(published.status, 201, JSON.stringify(published.body));
+  const summaries = await req("GET", "/services/summaries");
+  assert.equal(summaries.status, 200, JSON.stringify(summaries.body));
+  assert.ok(Array.isArray(summaries.body.items));
+  // The office just published service 44 at 2100 minor over 5 days; the
+  // aggregate must carry exactly those bounds for this office.
+  const row44 = summaries.body.items.find((x: any) => x.serviceNo === 44);
+  assert.ok(row44, "service 44 is present once a policy is published");
+  assert.ok(row44.feeMinMinor <= 2100 && 2100 <= row44.feeMaxMinor);
+  assert.ok(row44.daysMin <= 5 && 5 <= row44.daysMax);
+  assert.ok(row44.offices >= 1);
+  // Service 45 was published earlier in this file at 1575 minor / 7 days.
+  const row45 = summaries.body.items.find((x: any) => x.serviceNo === 45);
+  assert.ok(row45, "service 45 is present");
+  assert.ok(row45.feeMinMinor <= 1575 && 1575 <= row45.feeMaxMinor);
+  assert.ok(row45.daysMin <= 7 && 7 <= row45.daysMax);
+  // No row may invent values: every row comes from a published policy.
+  for (const row of summaries.body.items) {
+    assert.ok(Number.isInteger(row.feeMinMinor) && Number.isInteger(row.feeMaxMinor));
+    assert.ok(row.feeMinMinor <= row.feeMaxMinor);
+    assert.ok(row.offices >= 1);
+  }
+});

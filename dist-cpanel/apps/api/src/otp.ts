@@ -25,6 +25,16 @@ import { sendSmsViaHttp, smsHttpConfigured } from "./sms-http.js";
  * the local development mailbox the black-box browser suite reads to complete the
  * signup flow; that file is never written when NODE_ENV=production, and API-level
  * flows inject a capturing provider instead (setOtpProvider).
+ *
+ * S-001 (Phase 4 Stage 1): a mobile number is a trusted sign-in identifier only
+ * after a code sent to that handset is proven. Short signup without a code
+ * creates the account with the mobile PENDING (account_identifiers.verified_at
+ * NULL, self_declared true) — mobile sign-in stays blocked until the holder
+ * completes POST /auth/otp/verify-mobile with a fresh code. Registration
+ * itself never depends on the SMS provider: when the provider is unavailable
+ * /auth/otp/signup answers 503 OTP_UNAVAILABLE, the account is still created,
+ * and the mobile simply stays pending — an outage can never mark a mobile
+ * verified, and no code path here ever writes verified_at without a proven code.
  */
 export interface OtpProvider {
   send(input: { mobile: string; code: string; purpose: "signup_mobile" }): Promise<void>;
@@ -130,32 +140,7 @@ otpRouter.post(
         .object({ challengeToken: z.string().regex(/^[a-f0-9]{64}$/), code: z.string().regex(/^\d{6}$/) })
         .strict()
         .parse(req.body);
-      const db = await pool.connect();
-      let outcome: { ok: true } | { ok: false; remaining: number; expired: boolean };
-      try {
-        await db.query("BEGIN");
-        const challenge = (
-          await db.query(
-            "SELECT *, expires_at <= clock_timestamp() AS expired FROM otp_challenges WHERE token_hash=$1 FOR UPDATE",
-            [digest(input.challengeToken)],
-          )
-        ).rows[0];
-        if (!challenge || challenge.expired || challenge.consumed_at || challenge.attempts >= 5) {
-          outcome = { ok: false, remaining: 0, expired: true };
-        } else if (challenge.code_hash === codeHash(input.challengeToken, input.code)) {
-          await db.query("UPDATE otp_challenges SET verified_at=coalesce(verified_at,clock_timestamp()) WHERE token_hash=$1", [challenge.token_hash]);
-          outcome = { ok: true };
-        } else {
-          await db.query("UPDATE otp_challenges SET attempts=attempts+1 WHERE token_hash=$1", [challenge.token_hash]);
-          outcome = { ok: false, remaining: 4 - challenge.attempts, expired: false };
-        }
-        await db.query("COMMIT");
-      } catch (error) {
-        await db.query("ROLLBACK");
-        throw error;
-      } finally {
-        db.release();
-      }
+      const outcome = await checkOtpCode(input.challengeToken, input.code);
       if (outcome.ok) {
         res.json({ verified: true });
         return;
@@ -174,6 +159,127 @@ otpRouter.post(
     }
   },
 );
+
+/**
+ * S-001: verify a mobile number on an EXISTING account. The caller proves the
+ * handset with a fresh code (sent via POST /auth/otp/signup — the code is
+ * checked here, so this is a single code entry, not a second one), and the
+ * pending identifier for that exact number becomes a trusted sign-in
+ * identifier. Unauthenticated by necessity: an email-less account whose only
+ * sign-in was its pending mobile has no session to verify with — the code
+ * delivered to the handset IS the proof, and only the holder of the number
+ * can reach the success branch. A code verifies at most one identifier; a
+ * number with no pending identifier answers 404; an already-verified number
+ * answers success idempotently.
+ */
+otpRouter.post(
+  "/auth/otp/verify-mobile",
+  otpLimiter,
+  async (req, res, next) => {
+    try {
+      const input = z
+        .object({
+          challengeToken: z.string().regex(/^[a-f0-9]{64}$/),
+          code: z.string().regex(/^\d{6}$/),
+          mobile: mobileInput,
+        })
+        .strict()
+        .parse(req.body);
+      const mobile = normalizeIdentifier("mobile", input.mobile);
+      if (!mobile)
+        fail(422, "IDENTIFIER_INVALID", "Enter an 11-digit Bangladeshi mobile number starting with 01.");
+      const outcome = await checkOtpCode(input.challengeToken, input.code, mobile);
+      if (!outcome.ok) {
+        if (outcome.expired)
+          fail(410, "OTP_EXPIRED", "This code has expired or was used. Ask for a new code.");
+        fail(
+          422,
+          "OTP_INVALID",
+          outcome.remaining > 0
+            ? `The code is not correct. ${outcome.remaining} tries left.`
+            : "The code is not correct. Ask for a new code.",
+        );
+      }
+      const updated = (
+        await pool.query(
+          `UPDATE account_identifiers SET verified_at=clock_timestamp(), self_declared=false
+            WHERE kind='mobile' AND digest=$1 AND verified_at IS NULL`,
+          [identifierDigest("mobile", mobile)],
+        )
+      ).rowCount;
+      if (!updated) {
+        const exists = (
+          await pool.query(
+            "SELECT 1 FROM account_identifiers WHERE kind='mobile' AND digest=$1",
+            [identifierDigest("mobile", mobile)],
+          )
+        ).rowCount;
+        if (!exists)
+          fail(
+            404,
+            "IDENTIFIER_NOT_FOUND",
+            "No account uses this mobile number. Register with this number first, then verify it.",
+          );
+      }
+      // The code is spent: one code verifies one identifier.
+      await pool.query(
+        "UPDATE otp_challenges SET consumed_at=clock_timestamp() WHERE token_hash=$1 AND consumed_at IS NULL",
+        [digest(input.challengeToken)],
+      );
+      res.json({ verified: true });
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
+/**
+ * Check one code against its challenge: expiry, five-attempt budget and the
+ * code hash, inside a single transaction. A correct code marks the challenge
+ * verified (verified_at); consumption is the caller's job — registration
+ * consumes it with the account (consumeSignupOtp), verify-mobile consumes it
+ * with the identifier — so one code makes one account / verifies one number.
+ * When `mobile` is given, the challenge must belong to that exact number.
+ */
+async function checkOtpCode(
+  challengeToken: string,
+  code: string,
+  mobile?: string,
+): Promise<{ ok: true } | { ok: false; remaining: number; expired: boolean }> {
+  const db = await pool.connect();
+  try {
+    await db.query("BEGIN");
+    const challenge = (
+      await db.query(
+        "SELECT *, expires_at <= clock_timestamp() AS expired FROM otp_challenges WHERE token_hash=$1 FOR UPDATE",
+        [digest(challengeToken)],
+      )
+    ).rows[0];
+    let outcome: { ok: true } | { ok: false; remaining: number; expired: boolean };
+    if (
+      !challenge ||
+      challenge.expired ||
+      challenge.consumed_at ||
+      challenge.attempts >= 5 ||
+      (mobile && challenge.identifier_digest !== identifierDigest("mobile", mobile))
+    ) {
+      outcome = { ok: false, remaining: 0, expired: true };
+    } else if (challenge.code_hash === codeHash(challengeToken, code)) {
+      await db.query("UPDATE otp_challenges SET verified_at=coalesce(verified_at,clock_timestamp()) WHERE token_hash=$1", [challenge.token_hash]);
+      outcome = { ok: true };
+    } else {
+      await db.query("UPDATE otp_challenges SET attempts=attempts+1 WHERE token_hash=$1", [challenge.token_hash]);
+      outcome = { ok: false, remaining: 4 - challenge.attempts, expired: false };
+    }
+    await db.query("COMMIT");
+    return outcome;
+  } catch (error) {
+    await db.query("ROLLBACK");
+    throw error;
+  } finally {
+    db.release();
+  }
+}
 
 /**
  * Inside the registration transaction: the challenge must be verified for this exact number, recently,

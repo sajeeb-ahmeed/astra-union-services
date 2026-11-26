@@ -5,7 +5,7 @@ import path from "node:path";
 import { randomBytes } from "node:crypto";
 import { chromium, type Browser, type APIRequestContext, type Page } from "playwright";
 import { goToWorkspacePage } from "./fixtures/workspace-nav.js";
-import catalog from "../src/public-service-catalog.json" with { type: "json" };
+import catalog from "../src/service-catalog.js";
 
 const origin = "http://127.0.0.1:5173";
 async function browserInstance(): Promise<Browser> {

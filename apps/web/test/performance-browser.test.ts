@@ -5,7 +5,7 @@ import path from "node:path";
 import http from "node:http";
 import { chromium, type Browser, type Page } from "playwright";
 import reference from "../../../packages/shared-schemas/src/reference-catalog.json" with { type: "json" };
-import publicCatalog from "../src/public-service-catalog.json" with { type: "json" };
+import publicCatalog from "../src/service-catalog.js";
 import { workspacePage, goToWorkspacePage } from "./fixtures/workspace-nav.js";
 
 const dist = path.resolve("apps/web/dist");

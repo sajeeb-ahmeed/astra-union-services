@@ -228,6 +228,60 @@ test("order browser: explicit office fees, citizen-first quote acceptance, bilin
   } finally { await Promise.all([adminContext.close(), citizenContext.close(), staffContext.close()]); }
 });
 
+test("order browser (W-024): a bilingual form language reaches the fees step with Review fees enabled — no re-select needed", { timeout: 120000 }, async () => {
+  const staffContext = await browser.newContext({ viewport: { width: 1440, height: 1024 } });
+  await staffContext.addInitScript(() => { if (!localStorage.getItem("astra.language")) localStorage.setItem("astra.language", "en"); });
+  const adminContext = await browser.newContext();
+  await adminContext.addInitScript(() => { if (!localStorage.getItem("astra.language")) localStorage.setItem("astra.language", "en"); });
+  const admin = await adminContext.newPage(), staff = await staffContext.newPage();
+  const errors: string[] = [];
+  for (const page of [admin, staff]) page.on("pageerror", (error) => errors.push(error.message));
+  try {
+    // A fee policy must be present for service 2, or the fees step is
+    // auto-skipped and the panel never renders. The tenant is unique to
+    // this run, so version 0 is the expected version.
+    await login(admin, adminEmail);
+    const published = await request(admin, "/admin/services/2/order-policies", "POST", policyInput);
+    assert.equal(published.status, 201, JSON.stringify(published.data));
+    assert.equal(published.data.policy.version, 1);
+
+    await login(staff, staffEmail);
+    await nav(staff, "Service catalog");
+    await staff.locator("button.svc-card", { hasText: "Family certificate" }).click();
+    await staff.locator(".ax-citizen input").first().check();
+    await staff.getByRole("button", { name: "Next: application form", exact: true }).click();
+    // demoPayloads[2] carries delivery_language "bilingual" — the value
+    // that used to strand the citizen at the fees step.
+    await fillApplicationForm(staff, demoPayloads[2]);
+    await staff.getByRole("button", { name: "Next: fees and delivery", exact: true }).click();
+    await staff.locator("#order-language").waitFor();
+    // The trap is gone: the select now represents "bilingual" instead of
+    // displaying "bn" while the React prop stayed "bilingual".
+    assert.equal(await staff.locator("#order-language").inputValue(), "bilingual");
+    const review = staff.getByRole("button", { name: "Review fees", exact: true });
+    assert.equal(await review.isEnabled(), true, "Review fees must be enabled for a bilingual order without re-selecting a language");
+    const quotePromise = staff.waitForResponse((response) => response.url().endsWith("/services/2/order-quote") && response.request().method() === "POST");
+    await review.click();
+    const quoteResponse = await quotePromise;
+    assert.equal(quoteResponse.status(), 200, await quoteResponse.text());
+    assert.equal((await quoteResponse.json()).preferences.certificateLanguage, "bilingual");
+    await staff.getByRole("region", { name: "Application fee breakdown" }).waitFor();
+    await staff.getByRole("checkbox", { name: "I have reviewed the certificate options and fee breakdown.", exact: true }).check();
+    const next = staff.getByRole("button", { name: "Next: review and submit", exact: true });
+    await next.and(staff.locator(":enabled")).waitFor();
+    await next.click();
+    const createdPromise = staff.waitForResponse((response) => response.url().endsWith("/applications") && response.request().method() === "POST");
+    await staff.getByRole("button", { name: "Save as draft only", exact: true }).click();
+    const created = await createdPromise;
+    assert.equal(created.status(), 201, await created.text());
+    assert.deepEqual(created.request().postDataJSON().order, {
+      policyVersion: 1,
+      preferences: { addressBasis: "registered_profile", certificateLanguage: "bilingual", deliveryMode: "office_collection", urgency: "normal" },
+    });
+    assert.deepEqual(errors, []);
+  } finally { await Promise.all([adminContext.close(), staffContext.close()]); }
+});
+
 test("order browser: delayed policy load cannot populate another service's blank fee editor", { timeout: 60000 }, async () => {
   const context = await browser.newContext(), page = await context.newPage();
   await context.addInitScript(() => { if (!localStorage.getItem("astra.language")) localStorage.setItem("astra.language", "en"); });

@@ -78,10 +78,15 @@ export class ApiError extends Error {
     public code: string,
     message: string,
     public issues?: any,
+    /** REG-UX §4: the form field the error belongs to, so the UI shows it there. */
+    public field?: string,
   ) {
     super(message);
   }
 }
 export function fail(status: number, code: string, message: string): never {
   throw new ApiError(status, code, message);
+}
+export function fieldFail(status: number, code: string, message: string, field: string): never {
+  throw new ApiError(status, code, message, undefined, field);
 }

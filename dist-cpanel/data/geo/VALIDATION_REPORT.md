@@ -140,5 +140,5 @@ No blocking validation errors detected.
 - `divisions.json`: `7cd85edac040eac2d66a692be3c709ee74d35f43eaa1701a62a679e7275c79b8`
 - `districts.json`: `8ee180d77ea24161cd9b0fa1ad669f3d554772f2424ad535882fe43097fe3622`
 - `upazilas.json`: `d88126d4862bcab11915903b58f2d78a644c2d61cb8835fbcb5550165ffeaebd`
-- `unions.json`: `80664b1a45b865d03013b760bd3aabd653e5c71cc33d24e8214192a5a7ae49a5`
+- `unions.json`: `799dcdeb68329262d13f1c0e4f3995ad276726d0123ff7cf9b42029e8e7bfa50` (QAFIX-01: uni-2774 corrected বেলাব → বেলাবো)
 - `wards.json`: `b83239fa631618404ecdd4a7c34df6507c5a68f1ce91d154ee2ea19138456c8a`

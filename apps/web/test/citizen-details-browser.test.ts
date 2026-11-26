@@ -4,6 +4,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { chromium, type Browser, type Page } from "playwright";
 import { workspacePage, goToWorkspacePage } from "./fixtures/workspace-nav.js";
+import { signOut } from "./fixtures/session.js";
 const origin = "http://127.0.0.1:5173";
 async function browserInstance(): Promise<Browser> {
   const local = path.join(process.env.LOCALAPPDATA || "", "ms-playwright");
@@ -93,10 +94,12 @@ test(
       await panel.waitFor();
       assert.equal(await panel.getByTestId("nid-value").innerText(), `••••${nid.slice(-3)}`);
       assert.equal(await panel.locator('[id$="-fatherNameEn"]').inputValue(), "Synthetic Father");
-      const reveal = page.waitForResponse((r) => r.url().endsWith(`/citizens/${created.id}/identity`));
-      await panel.getByRole("button", { name: "Show full numbers", exact: true }).click();
-      assert.equal((await reveal).status(), 200);
-      await panel.getByTestId("nid-value").getByText(nid, { exact: true }).waitFor();
+      // S-010: plain staff may see only the hint — the reveal button is
+      // hidden for them; full numbers go to the Chairman and reviewers only.
+      assert.equal(await panel.getByRole("button", { name: "Show full numbers", exact: true }).count(), 0);
+      await panel
+        .getByText("Full identity numbers are available to the Chairman and reviewers only.")
+        .waitFor();
 
       await panel.locator('[id$="-blood"]').selectOption("B+");
       await panel.getByRole("button", { name: "Save details", exact: true }).click();
@@ -106,6 +109,19 @@ test(
       assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), true);
       fs.mkdirSync("execution/evidence/phase3", { recursive: true });
       await panel.screenshot({ path: "execution/evidence/phase3/citizen-details-staff.png" });
+
+      // The Chairman CAN reveal: the same citizen, the same panel, the
+      // full number after the authorized identity call.
+      await signOut(page);
+      await signIn(page, "approver@alpha.local.test");
+      await goToWorkspacePage(page, "Citizens");
+      await page.getByRole("button", { name: `Details: ${name}`, exact: true }).click();
+      const approverPanel = page.locator(".citizen-details-editor");
+      await approverPanel.waitFor();
+      const reveal = page.waitForResponse((r) => r.url().endsWith(`/citizens/${created.id}/identity`));
+      await approverPanel.getByRole("button", { name: "Show full numbers", exact: true }).click();
+      assert.equal((await reveal).status(), 200);
+      await approverPanel.getByTestId("nid-value").getByText(nid, { exact: true }).waitFor();
       assert.deepEqual(errors, []);
     } finally {
       await browser.close();

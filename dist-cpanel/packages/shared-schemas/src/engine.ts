@@ -428,6 +428,26 @@ export function validateForm(
               "Use a valid ISO calendar date (YYYY-MM-DD).",
             ),
           );
+        else if (rules.notFuture) {
+          // QAFIX-06 (service 28): an appearance cannot be recorded
+          // before it happens. "Today" is the Asia/Dhaka calendar
+          // date — the same rule apps/api/src/dhaka.ts applies.
+          const todayDhaka = new Intl.DateTimeFormat("en-CA", {
+            timeZone: "Asia/Dhaka",
+            year: "numeric",
+            month: "2-digit",
+            day: "2-digit",
+          }).format(new Date());
+          if (value > todayDhaka)
+            issue(
+              path,
+              "date",
+              text(
+                "তারিখ আজ বা পূর্বের হতে হবে।",
+                "The date must be today or earlier.",
+              ),
+            );
+        }
       }
     }
   };

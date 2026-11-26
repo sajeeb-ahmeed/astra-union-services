@@ -39,3 +39,27 @@ test('Deployment: same-origin SPA uses compressed immutable assets; private API 
     fs.unlinkSync(path.join(directory,'index.html'));fs.rmdirSync(path.join(directory,'assets'));fs.rmdirSync(directory);
   }
 });
+
+// F-019: with a prerendered slug table present, an unknown
+// /services/<slug> is an honest 404 (the shell still carries the
+// friendly not-found view); a known slug stays 200.
+test('F-019: unknown service slug is 404 when the prerender slug table exists',async()=>{
+  const directory=fs.mkdtempSync(path.join(os.tmpdir(),'astra-assets-'));
+  fs.mkdirSync(path.join(directory,'assets'));
+  fs.writeFileSync(path.join(directory,'index.html'),'<!doctype html><title>Astra</title><div id="root"></div>');
+  fs.writeFileSync(path.join(directory,'seo-slugs.json'),JSON.stringify({'1':'holding-tax','2':'family-certificate'}));
+  const app=express();app.use(httpHardening);mountWeb(app,directory);
+  const server=app.listen(0,'127.0.0.1');await new Promise<void>(r=>server.once('listening',r));
+  try{
+    const url=`http://127.0.0.1:${(server.address() as any).port}`;
+    assert.equal((await fetch(url+'/services/holding-tax')).status,200);
+    assert.equal((await fetch(url+'/services/family-certificate')).status,200);
+    const bad=await fetch(url+'/services/no-such-service');
+    assert.equal(bad.status,404);
+    assert.match(await bad.text(),/Astra/);
+  }finally{
+    await new Promise<void>(r=>server.close(()=>r()));
+    fs.unlinkSync(path.join(directory,'seo-slugs.json'));
+    fs.unlinkSync(path.join(directory,'index.html'));fs.rmdirSync(path.join(directory,'assets'));fs.rmdirSync(directory);
+  }
+});

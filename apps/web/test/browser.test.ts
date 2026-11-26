@@ -7,6 +7,7 @@ import { workspacePage, goToWorkspacePage } from "./fixtures/workspace-nav.js";
 import { chromium, type Browser, type Page } from "playwright";
 import { signOut } from "./fixtures/session.js";
 import { fillApplicationForm } from "./fixtures/fill-form.js";
+import { ensureSyntheticSignature } from "./fixtures/issuance-fixtures.js";
 import { demoPayloads } from "@astra/shared-schemas";
 const origin = "http://127.0.0.1:5173";
 let ownedStack: ChildProcess | undefined;
@@ -116,7 +117,15 @@ async function completeFees(page: Page) {
     return;
   } catch {}
   if (await language.count()) {
-    if (!(await language.inputValue())) await language.selectOption("bn");
+    // W-024 (fixed in Stage 2): the demo payloads carry delivery_language
+    // "bilingual" (a legitimate form value), and the order panel now
+    // represents it — the select has a "bilingual" option and Review fees
+    // enables without re-selecting. Before the fix the panel only enabled
+    // Review for bn/en and its select displayed "bn" while the React prop
+    // stayed "bilingual", so the test had to re-select Bangla explicitly.
+    // No re-select here any more: the flow below drives the bilingual
+    // order the form produced, and the order-browser suite has a dedicated
+    // W-024 regression test for the panel state itself.
   }
   const review = page.getByRole("button", { name: "Review fees" });
   if (await review.count()) await review.click();
@@ -274,6 +283,17 @@ test(
         0,
       );
       await login(approver, "approver");
+      // W-002: issuance needs a chairman signature for the office — the
+      // seed gives alpha only a SEAL, so upload the explicitly identified
+      // synthetic signature before the Chairman approves.
+      const approverSession = await (
+        await approver.request.get(`${origin}/api/v1/auth/me`)
+      ).json();
+      await ensureSyntheticSignature(
+        approver.request,
+        origin,
+        approverSession.csrfToken,
+      );
       await openById(approver, application.reference);
       await approver
         .getByLabel("Decision or revocation reason", { exact: true })
@@ -659,9 +679,12 @@ test(
       // Duplicate identity keys are rejected. Server-generated references use the
       // CERTNO-01 16-digit format, which callers cannot supply (the schema accepts only REF-…),
       // so the duplicate check uses an explicit reference, as API clients do.
+      // T-003: the reference must be unique per run — a fixed value
+      // survives in the shared DB from an earlier run and the first
+      // create then fails with 409 DUPLICATE instead of 201.
       const explicit = {
         ...response.request().postDataJSON(),
-        syntheticReference: "REF-DUP-BROWSER-001",
+        syntheticReference: `REF-DUP-BROWSER-${Date.now()}`,
       };
       const first = await context.request.post(`${origin}/api/v1/citizens`, {
         data: explicit,

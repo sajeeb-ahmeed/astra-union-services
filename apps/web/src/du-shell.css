@@ -501,3 +501,17 @@
     font-size: 15.5px;
   }
 }
+
+/* F-008: the issuance-mode banner — DEMO only (the component renders
+   nothing in OFFICIAL mode or while the mode is unknown). Amber is the
+   warning treatment: --du-warn-bg/--du-warn-ink resolve through the
+   token file, so no surface invents its own amber. */
+.du-demo-banner {
+  background: var(--du-warn-bg, #fff6df);
+  color: var(--du-warn-ink, #6d4d00);
+  text-align: center;
+  font-size: var(--du-text-sm, 14px);
+  font-weight: 600;
+  padding: 8px 16px;
+  border-bottom: 1px solid #d2bb85;
+}

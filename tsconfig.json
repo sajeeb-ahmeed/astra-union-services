@@ -13,7 +13,9 @@
     "types": ["node"],
     "baseUrl": ".",
     "paths": {
-      "@astra/shared-schemas": ["packages/shared-schemas/src/index.ts"]
+      "@astra/shared-schemas": ["packages/shared-schemas/src/index.ts"],
+      "@astra/shared-schemas/web": ["packages/shared-schemas/src/web.ts"],
+      "@astra/shared-schemas/legacy": ["packages/shared-schemas/src/legacy.ts"]
     }
   },
   "include": [

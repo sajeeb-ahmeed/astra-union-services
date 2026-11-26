@@ -12,7 +12,13 @@ import {
 import { ApiError, camelRow, fail, fieldFail } from "./models.js";
 import { applySubscriptionAction } from "./subscriptions.js";
 import { consumeSignupOtp } from "./otp.js";
-import { emailAvailable, placeholderEmail } from "./mailer.js";
+import {
+  emailAvailable,
+  emailHint,
+  isPlaceholderEmail,
+  placeholderEmail,
+  sendEmail,
+} from "./mailer.js";
 import { decodeUpload } from "./attachments.js";
 import {
   issueEmailVerificationToken,
@@ -39,7 +45,12 @@ import {
   accountScope,
   invalidateMfaChallenges,
   securityAudit,
+  logPlatformSecurityEvent,
 } from "./security-audit.js";
+import {
+  listSessions,
+  revokeSession,
+} from "./session-hygiene.js";
 import {
   geographyInput,
   geographyRow,
@@ -62,6 +73,29 @@ function role(req: Req, allowed: string[]) {
   if (!req.auth || !allowed.includes(req.auth.role))
     fail(403, "ROLE_DENIED", "This role is not permitted.");
   return req.auth!;
+}
+
+/**
+ * S-014: owner actions also go to the durable platform audit stream
+ * (platform_security_events). Best-effort after commit: the action already
+ * succeeded, so a failed audit insert must not turn it into a 500 — it is
+ * reported loudly on stdout instead (the pre-S-014 record) so the gap is
+ * visible rather than silent.
+ */
+async function logOwnerPlatformEvent(
+  event: Parameters<typeof logPlatformSecurityEvent>[1],
+) {
+  try {
+    await logPlatformSecurityEvent(pool, event);
+  } catch (error) {
+    console.error(
+      JSON.stringify({
+        event: "PLATFORM_AUDIT_FAILED",
+        action: event.action,
+        error: error instanceof Error ? error.message : String(error),
+      }),
+    );
+  }
 }
 const pageInput = z.object({
   page: z.coerce.number().int().min(1).max(100000).default(1),
@@ -133,6 +167,14 @@ const shortSignupInput = z
         base64: z.string().min(1).max(3_000_000),
       })
       .strict()
+      .optional(),
+    // S-001: an OTP-verified code for this mobile, when the citizen verified
+    // the number before submitting. Without it the account is still created
+    // — registration never depends on the SMS provider — but the mobile is
+    // stored PENDING (verified_at NULL) and cannot sign in until verified.
+    otpToken: z
+      .string()
+      .regex(/^[a-f0-9]{64}$/)
       .optional(),
   })
   .strict();
@@ -211,12 +253,26 @@ managementRouter.post(
       .strict()
       .parse(req.body ?? {});
     const token = randomToken();
-    const result = await transaction(a.tenantId!, async (db) => {
+    // S-007: the plaintext token is NEVER returned in JSON and NEVER put
+    // in a URL query param. It is delivered out-of-band only, to the
+    // account holder's own email, in a fragment link (`/recover#token=…`
+    // — the fragment never reaches the server, a proxy, or a log). Where
+    // no mail provider is configured, or the account has no real email,
+    // the response carries only a masked hint: the token is then
+    // undeliverable until a channel exists (owner decision — configure
+    // EMAIL_PROVIDER=smtp), and a new grant can be created once one does.
+    const created = await transaction(a.tenantId!, async (db) => {
       // Same ordering as login and password changes: account, then recovery token.
       // An office admin cannot inspect another office's account via this check.
       await recoveryEligible(db, a.tenantId!, id, false);
       await lockAccount(db, id);
       await recoveryEligible(db, a.tenantId!, id);
+      const target = (
+        await db.query(
+          "SELECT email, display_name FROM platform_users WHERE id=$1",
+          [id],
+        )
+      ).rows[0];
       await db.query(
         "UPDATE password_recovery_tokens SET consumed_at=now() WHERE user_id=$1 AND consumed_at IS NULL",
         [id],
@@ -227,16 +283,61 @@ managementRouter.post(
           [digest(token), a.tenantId, id, a.userId],
         )
       ).rows[0];
+      const deliverable =
+        emailAvailable() && !isPlaceholderEmail(target?.email);
       await audit(db, a.tenantId!, a.userId, "PASSWORD_RECOVERY_CREATED", id, {
-        delivery: "MANUAL_TRUSTED_CHANNEL",
+        delivery: deliverable ? "EMAIL" : "UNAVAILABLE",
+        ...(deliverable ? { recipientHint: emailHint(target.email) } : {}),
       });
       return {
-        token,
-        recoveryUrl: `${process.env.PUBLIC_ORIGIN ?? "http://127.0.0.1:5173"}/recover?token=${token}`,
         expiresAt: row.expires_at,
+        email: deliverable ? target.email : null,
+        displayName: target?.display_name ?? null,
       };
     });
-    res.status(201).json(result);
+    // Sent only after the transaction commits (same pattern as the signup
+    // verification email): a failed send must not roll back the grant,
+    // and the grant must exist before the link goes out. The audit above
+    // records the intended channel; the response reports the actual
+    // delivery outcome.
+    let delivery: "EMAIL" | "EMAIL_FAILED" | "UNAVAILABLE" = "UNAVAILABLE";
+    let recipientHint: string | undefined;
+    if (created.email) {
+      recipientHint = emailHint(created.email);
+      const origin = process.env.PUBLIC_ORIGIN ?? "http://127.0.0.1:5173";
+      const sent = await sendEmail({
+        to: created.email,
+        subject: "DigitalUnion — password recovery",
+        text: [
+          `A password recovery link was created for your DigitalUnion office account${created.displayName ? ` (${created.displayName})` : ""} by your office administrator.`,
+          "Use this link within 15 minutes to choose a new password. It works once.",
+          `${origin}/recover#token=${token}`,
+          "If you did not ask for this, tell your office administrator.",
+        ].join("\n\n"),
+      });
+      delivery = sent ? "EMAIL" : "EMAIL_FAILED";
+    }
+    res.setHeader("Cache-Control", "no-store");
+    res.status(201).json({
+      created: true,
+      userId: id,
+      expiresAt: created.expiresAt,
+      delivery,
+      ...(recipientHint ? { recipientHint } : {}),
+      ...(delivery === "UNAVAILABLE"
+        ? {
+            tokenHint: `…${token.slice(-4)}`,
+            message:
+              "No email delivery is configured for this account, so the recovery link could not be sent. Configure EMAIL_PROVIDER=smtp (or add a real email address for the account) and generate a new link.",
+          }
+        : {}),
+      ...(delivery === "EMAIL_FAILED"
+        ? {
+            message:
+              "Email delivery failed. Generate a new recovery link.",
+          }
+        : {}),
+    });
   }),
 );
 publicManagementRouter.post(
@@ -608,6 +709,28 @@ publicManagementRouter.get(
     res.json({ service: camelRow(service), offices });
   }),
 );
+// F-011: one aggregate fee/time summary per service across all ACTIVE
+// offices — the single request the catalog cards need. Previously the
+// client built this from /offices?pageSize=100 plus one detail request
+// per office (11+ requests per page load, refired on every navigation);
+// the aggregation now runs server-side in one query over the same
+// published-policy rows the office detail endpoint reads, so the numbers
+// cannot drift from the per-office view. Only offices with a published
+// policy for the service contribute; services with none are absent
+// (the cards then show the honest "not yet published" line).
+// The aggregate spans tenants, so it reads through the SECURITY DEFINER
+// function public_service_summaries() (migration 077, formerly Phase 4 071) — the app role is
+// restricted by the tenant_scope RLS policy and a plain query here
+// would see nothing.
+publicManagementRouter.get(
+  "/services/summaries",
+  wrap(async (req, res) => {
+    const rows = (
+      await pool.query("SELECT * FROM public_service_summaries()")
+    ).rows.map(camelRow);
+    res.json({ items: rows });
+  }),
+);
 publicManagementRouter.get(
   "/notices",
   wrap(async (req, res) => {
@@ -620,14 +743,23 @@ publicManagementRouter.get(
       .string()
       .max(100)
       .parse(req.query.q ?? "")}%`;
+    // R13-GAPS (integration fix): in OFFICIAL mode a demo-flagged office's
+    // notices are not public either (its page and list entry are already
+    // hidden). Notices with no office stay visible.
+    const hiddenSlugs: string[] =
+      process.env.ISSUANCE_MODE === "official"
+        ? (
+            await pool.query("SELECT slug FROM tenants WHERE demo=true")
+          ).rows.map((r: { slug: string }) => r.slug)
+        : [];
     const [rows, count] = await Promise.all([
       pool.query(
-        "SELECT * FROM public_notices() WHERE ($1='' OR office_slug=$1) AND (title_bn ILIKE $4 OR title_en ILIKE $4 OR body_bn ILIKE $4 OR body_en ILIKE $4) ORDER BY created_at DESC,id LIMIT $2 OFFSET $3",
-        [office, p.pageSize, (p.page - 1) * p.pageSize, search],
+        "SELECT * FROM public_notices() WHERE ($1='' OR office_slug=$1) AND (office_slug IS NULL OR office_slug <> ALL($5::text[])) AND (title_bn ILIKE $4 OR title_en ILIKE $4 OR body_bn ILIKE $4 OR body_en ILIKE $4) ORDER BY created_at DESC,id LIMIT $2 OFFSET $3",
+        [office, p.pageSize, (p.page - 1) * p.pageSize, search, hiddenSlugs],
       ),
       pool.query(
-        "SELECT count(*)::int total FROM public_notices() WHERE ($1='' OR office_slug=$1) AND (title_bn ILIKE $2 OR title_en ILIKE $2 OR body_bn ILIKE $2 OR body_en ILIKE $2)",
-        [office, search],
+        "SELECT count(*)::int total FROM public_notices() WHERE ($1='' OR office_slug=$1) AND (office_slug IS NULL OR office_slug <> ALL($3::text[])) AND (title_bn ILIKE $2 OR title_en ILIKE $2 OR body_bn ILIKE $2 OR body_en ILIKE $2)",
+        [office, search, hiddenSlugs],
       ),
     ]);
     res.json({
@@ -699,6 +831,7 @@ publicManagementRouter.post(
           addressBn: null,
           addressEn: null,
           mobile: short.mobile,
+          otpToken: short.otpToken,
           photo: short.photo,
         }
       : full();
@@ -727,6 +860,8 @@ publicManagementRouter.post(
     // Phase X: when email delivery is configured, a verification token is created inside the
     // registration transaction and the message is sent only after it commits.
     const verification: { current: { token: string; email: string } | null } = { current: null };
+    // S-001: whether the mobile bound by this registration was OTP-verified.
+    const mobileVerification: { current: boolean } = { current: false };
     try {
       await transaction(d.tenantId, async (db) => {
       const office = (
@@ -736,6 +871,11 @@ publicManagementRouter.post(
         )
       ).rows[0];
       if (!office) fail(404, "NOT_FOUND", "Active office not found.");
+      // R13-GAPS (integration fix): in OFFICIAL mode a demo-flagged office is a
+      // test office that citizens must not sign up at. The public list already
+      // hides it; a direct POST with its tenantId is refused the same way.
+      if (process.env.ISSUANCE_MODE === "official" && office.demo)
+        fail(404, "NOT_FOUND", "Active office not found.");
       // REG-UX §2.2/§3.5: the short form makes no area claim — the citizen's area is
       // the chosen office's own (division…union; the ward is a deferred profile item).
       // Jurisdiction holds by construction and UNION_NOT_LISTED cannot arise.
@@ -829,27 +969,43 @@ publicManagementRouter.post(
         ],
       );
       if (short) {
-        // The short form's mobile is the citizen's contact number and, as on the
-        // reference platforms, the sign-in identifier — marked self-declared because
-        // no one-time code confirmed it (no SMS delivery is live; REG-UX §10).
+        // S-001: the short form's mobile is the citizen's contact number and
+        // the sign-in identifier — but it becomes TRUSTED only when a
+        // one-time code proved it. With an otpToken the code is consumed
+        // here and the identifier is verified at once; without one the
+        // account is still created (registration never waits on SMS) and
+        // the mobile stays PENDING (verified_at NULL, self_declared true)
+        // until the holder proves it via POST /auth/otp/verify-mobile.
+        // A provider outage can therefore never mark a mobile verified.
         await db.query(
           "UPDATE citizens SET contact_mobile=$3, photo=$4, photo_mime=$5, photo_updated_at=CASE WHEN $4::bytea IS NULL THEN NULL ELSE now() END WHERE tenant_id=$1 AND id=$2",
           [d.tenantId, citizenId, mobile, photoBytes, photoBytes ? d.photo!.mimeType : null],
         );
-        if (shortMobileDigest)
-          await db.query(
-            "INSERT INTO account_identifiers(user_id,kind,digest,hint,self_declared) VALUES($1,'mobile',$2,$3,true)",
-            [user.id, shortMobileDigest, identifierHint("mobile", mobile!)],
-          );
+        if (shortMobileDigest) {
+          if (d.otpToken) {
+            await consumeSignupOtp(db, d.otpToken, mobile!);
+            await db.query(
+              "INSERT INTO account_identifiers(user_id,kind,digest,hint,self_declared,verified_at) VALUES($1,'mobile',$2,$3,false,clock_timestamp())",
+              [user.id, shortMobileDigest, identifierHint("mobile", mobile!)],
+            );
+            mobileVerification.current = true;
+          } else {
+            await db.query(
+              "INSERT INTO account_identifiers(user_id,kind,digest,hint,self_declared) VALUES($1,'mobile',$2,$3,true)",
+              [user.id, shortMobileDigest, identifierHint("mobile", mobile!)],
+            );
+          }
+        }
       } else if (mobile) {
         const digestValue = identifierDigest("mobile", mobile);
         if ((await db.query("SELECT 1 FROM account_identifiers WHERE kind='mobile' AND digest=$1", [digestValue])).rowCount)
           mobileTaken();
         await consumeSignupOtp(db, d.otpToken!, mobile);
         await db.query(
-          "INSERT INTO account_identifiers(user_id,kind,digest,hint) VALUES($1,'mobile',$2,$3)",
+          "INSERT INTO account_identifiers(user_id,kind,digest,hint,verified_at) VALUES($1,'mobile',$2,$3,clock_timestamp())",
           [user.id, digestValue, identifierHint("mobile", mobile)],
         );
+        mobileVerification.current = true;
       }
       if (emailAvailable() && d.email) {
         const issued = await issueEmailVerificationToken(db, d.tenantId, user.id, d.email);
@@ -888,6 +1044,15 @@ publicManagementRouter.post(
         : "failed";
     res.status(201).json({
       registered: true,
+      // S-001: the caller must know whether mobile sign-in works yet. A
+      // pending mobile cannot sign in until the holder proves it with a
+      // code (POST /auth/otp/verify-mobile); email sign-in is unaffected.
+      mobileVerified: mobile ? mobileVerification.current : null,
+      mobileVerification: mobile
+        ? mobileVerification.current
+          ? "verified"
+          : "pending"
+        : null,
       // BUNDLE06-R5 D1: demo wording is internal vocabulary — in OFFICIAL
       // mode citizens must never see "SYNTHETIC_DEMO" in an API response.
       // The citizens.verification_state column keeps its stored value; only
@@ -937,6 +1102,14 @@ managementRouter.post(
       return expired.rowCount ?? 0;
     });
     logOwnerAccountAction(a, "PASSWORD_CHANGED", revoked);
+    // S-014: the durable owner audit stream, alongside the stdout line.
+    if (!a.tenantId)
+      await logOwnerPlatformEvent({
+        actorId: a.userId,
+        actorRole: a.role,
+        action: "OWNER_PASSWORD_CHANGED",
+        metadata: { revokedSessions: revoked },
+      });
     res.json({ changed: true });
   }),
 );
@@ -992,7 +1165,100 @@ managementRouter.post(
       return result.rowCount ?? 0;
     });
     logOwnerAccountAction(a, "OTHER_SESSIONS_REVOKED", revoked);
+    // S-014: the durable owner audit stream, alongside the stdout line.
+    if (!a.tenantId)
+      await logOwnerPlatformEvent({
+        actorId: a.userId,
+        actorRole: a.role,
+        action: "OWNER_SESSIONS_REVOKED",
+        metadata: { revokedSessions: revoked },
+      });
     res.json({ revoked, remainingSessions: 1 });
+  }),
+);
+/** S-005: list the caller's own active sessions with their public ids, so
+ * one session can be revoked without touching the others. GET
+ * /auth/sessions keeps its pinned summary shape (see
+ * account-security.test.ts); the list lives here instead of growing it.
+ * The csrf_token is never returned — the public id is the only identifier
+ * a client needs. */
+managementRouter.get(
+  "/auth/sessions/list",
+  wrap(async (req, res) => {
+    const a = req.auth!;
+    const sessions = await accountTransaction(a, async (db, user) =>
+      listSessions(db, a.userId, a.csrfToken, user.platform_role),
+    );
+    res.json({ sessions });
+  }),
+);
+/** S-005: revoke exactly one of the caller's own sessions, identified by
+ * its public id from GET /auth/sessions/list. Requires the current
+ * password (same reauthentication as revoke-others). The caller's own
+ * current session is refused with SESSION_CURRENT (409) — sign-out ends
+ * it; a session that is not the caller's, or already expired, is
+ * SESSION_NOT_FOUND (404). */
+managementRouter.post(
+  "/auth/sessions/revoke",
+  accountActionLimiter,
+  wrap(async (req, res) => {
+    const a = req.auth!;
+    const d = z
+      .object({
+        sessionId: uuid,
+        currentPassword: z.string().min(1).max(200),
+      })
+      .strict()
+      .parse(req.body);
+    const result = await accountTransaction(a, async (db, user) => {
+      if (!checkPassword(d.currentPassword, user.password_hash))
+        fail(422, "PASSWORD_MISMATCH", "Current password is incorrect.");
+      const revoked = await revokeSession(
+        db,
+        a.userId,
+        d.sessionId,
+        a.csrfToken,
+      );
+      if (revoked.reason === "NOT_FOUND")
+        fail(404, "SESSION_NOT_FOUND", "Session not found.");
+      if (revoked.reason === "CURRENT")
+        fail(
+          409,
+          "SESSION_CURRENT",
+          "The current session cannot be revoked here. Sign out to end it.",
+        );
+      await invalidateMfaChallenges(db, a.userId);
+      await securityAudit(db, a.userId, "SESSION_REVOKED", {
+        revokedSessions: 1,
+        sessionId: d.sessionId,
+      });
+      if (a.tenantId) {
+        await db.query("SELECT set_config('astra.tenant_id',$1,true)", [
+          a.tenantId,
+        ]);
+        await audit(db, a.tenantId, a.userId, "SESSION_REVOKED", a.userId, {
+          revokedSessions: 1,
+          sessionId: d.sessionId,
+        });
+      }
+      const remaining = (
+        await db.query(
+          "SELECT count(*)::int n FROM sessions WHERE user_id=$1 AND expires_at>clock_timestamp()",
+          [a.userId],
+        )
+      ).rows[0].n;
+      return { revoked: 1, remainingSessions: remaining };
+    });
+    logOwnerAccountAction(a, "SESSION_REVOKED", result.revoked);
+    // S-014: the durable owner audit stream, alongside the stdout line.
+    if (!a.tenantId)
+      await logOwnerPlatformEvent({
+        actorId: a.userId,
+        actorRole: a.role,
+        action: "OWNER_SESSION_REVOKED",
+        metadata: { sessionId: d.sessionId, revokedSessions: 1 },
+      });
+    res.json(result);
   }),
 );
 /** Phase 2a: office posts this office may assign, with the role each one grants. */
@@ -1039,14 +1305,30 @@ managementRouter.get(
   "/admin/users",
   wrap(async (req, res) => {
     const a = role(req, ["admin"]);
-    const rows = await transaction(a.tenantId!, async (db) =>
-      (
+    const rows = await transaction(a.tenantId!, async (db) => {
+      const users = (
         await db.query(
           "SELECT u.id,u.email,u.display_name,m.role,m.active,m.account_type,t.name_bn account_type_bn,t.name_en account_type_en FROM staff_memberships m JOIN platform_users u ON u.id=m.user_id LEFT JOIN account_types t ON t.code=m.account_type WHERE m.tenant_id=$1 ORDER BY u.display_name",
           [a.tenantId],
         )
-      ).rows.map(camelRow),
-    );
+      ).rows;
+      // CH-008: MFA posture per user, so the office admin can see which
+      // approvers still need to enroll before APPROVER_MFA_REQUIRED is
+      // switched on. account_mfa is account-scoped by forced RLS, so each
+      // user's row is only visible after scoping to that user — the same
+      // pattern recoveryEligible uses for a single target account.
+      for (const u of users) {
+        await accountScope(db, u.id);
+        u.mfa_enabled =
+          (
+            await db.query(
+              "SELECT 1 FROM account_mfa WHERE user_id=$1 AND enabled_at IS NOT NULL",
+              [u.id],
+            )
+          ).rowCount! > 0;
+      }
+      return users.map(camelRow);
+    });
     res.json({ items: rows });
   }),
 );
@@ -1408,6 +1690,15 @@ managementRouter.post(
       await audit(db, id, a.userId, "TENANT_CREATED", id, { demo: false });
       return officeRow(t);
     });
+    // S-014: the durable owner audit stream. The tenant-scoped audit row
+    // above lives inside the new tenant; the platform row is the record
+    // that survives even if the tenant is later removed.
+    await logOwnerPlatformEvent({
+      actorId: a.userId,
+      actorRole: a.role,
+      action: "TENANT_CREATED",
+      metadata: { tenantId: id, slug: d.slug },
+    });
     res.status(201).json(item);
   }),
 );
@@ -1430,6 +1721,13 @@ managementRouter.patch(
       if (!t) fail(404, "NOT_FOUND", "Tenant not found.");
       await audit(db, id, a.userId, "TENANT_STATUS_UPDATED", id, d);
       return camelRow(t);
+    });
+    // S-014: the durable owner audit stream, alongside the tenant audit row.
+    await logOwnerPlatformEvent({
+      actorId: a.userId,
+      actorRole: a.role,
+      action: "TENANT_STATUS_UPDATED",
+      metadata: { tenantId: id, status: d.status },
     });
     res.json(item);
   }),

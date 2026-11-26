@@ -14,6 +14,23 @@ import {
   buildConditionalGroupVersion,
   buildCertRefineVersion,
   buildFamilyCertRefine,
+  buildQaFixVersion,
+  buildQaFix2Version,
+  qaFix2Services,
+  buildQaFix3Version,
+  qaFix3Services,
+  buildQaFix4Version,
+  qaFix4Services,
+  buildQaFix5Version,
+  qaFix5Services,
+  buildQaFix6Version,
+  qaFix6Services,
+  buildQaFix7Version,
+  qaFix7Services,
+  buildQaFix8Version,
+  qaFix8Services,
+  buildQaFix9Version,
+  qaFix9Services,
   certRefineServices,
   conditionalGroupServices,
   geographySelectorServices,
@@ -22,6 +39,7 @@ export {
   geographySelectorServices,
   conditionalGroupServices,
   legacyLocationFieldIds,
+  groupControllerIds,
 } from "./expanded-schemas.js";
 
 const label = (bn: string, en: string): LocalizedText => ({ bn, en });
@@ -401,18 +419,171 @@ const latest = (schema: FormSchema) =>
   certRefineSchemas.find((item) => item.serviceNo === schema.serviceNo) ??
   preRefineLatest(schema);
 
-export const operationalSchemas: readonly FormSchema[] = deepFreeze(
+/** Versions superseded by the QAFIX-01 release; retained for applications pinned to them. */
+export const qaFixSupersededSchemas: readonly FormSchema[] = deepFreeze(
   [permanentResidentV1, familyV2, tradeLicenseV2, ...expandedOperationalSchemas].map(
     latest,
   ),
 );
+export const qaFixSchemas: readonly FormSchema[] = deepFreeze(
+  qaFixSupersededSchemas.map(buildQaFixVersion),
+);
+const latestWithQaFix = (schema: FormSchema) =>
+  qaFixSchemas.find((item) => item.serviceNo === schema.serviceNo) ??
+  latest(schema);
+
+/** Versions superseded by the QAFIX-02 template-repair release; retained for applications pinned to them. */
+export const qaFix2SupersededSchemas: readonly FormSchema[] = deepFreeze(
+  qaFixSchemas.filter((schema) => qaFix2Services.includes(schema.serviceNo)),
+);
+export const qaFix2Schemas: readonly FormSchema[] = deepFreeze(
+  qaFix2SupersededSchemas.map(buildQaFix2Version),
+);
+const latestWithQaFix2 = (schema: FormSchema) =>
+  qaFix2Schemas.find((item) => item.serviceNo === schema.serviceNo) ??
+  latestWithQaFix(schema);
+
+/** Versions superseded by the QAFIX-03 repair release; retained for applications pinned to them. */
+export const qaFix3SupersededSchemas: readonly FormSchema[] = deepFreeze(
+  [permanentResidentV1, familyV2, tradeLicenseV2, ...expandedOperationalSchemas]
+    .map(latestWithQaFix2)
+    .filter((schema) => qaFix3Services.includes(schema.serviceNo)),
+);
+export const qaFix3Schemas: readonly FormSchema[] = deepFreeze(
+  qaFix3SupersededSchemas.map(buildQaFix3Version),
+);
+const latestWithQaFix3 = (schema: FormSchema) =>
+  qaFix3Schemas.find((item) => item.serviceNo === schema.serviceNo) ??
+  latestWithQaFix2(schema);
+
+/** Versions superseded by the QAFIX-04 repair release; retained for applications pinned to them. */
+export const qaFix4SupersededSchemas: readonly FormSchema[] = deepFreeze(
+  [permanentResidentV1, familyV2, tradeLicenseV2, ...expandedOperationalSchemas]
+    .map(latestWithQaFix3)
+    .filter((schema) => qaFix4Services.includes(schema.serviceNo)),
+);
+export const qaFix4Schemas: readonly FormSchema[] = deepFreeze(
+  qaFix4SupersededSchemas.map(buildQaFix4Version),
+);
+const latestWithQaFix4 = (schema: FormSchema) =>
+  qaFix4Schemas.find((item) => item.serviceNo === schema.serviceNo) ??
+  latestWithQaFix3(schema);
+
+/** Versions superseded by the QAFIX-05 repair release; retained for applications pinned to them. */
+export const qaFix5SupersededSchemas: readonly FormSchema[] = deepFreeze(
+  [permanentResidentV1, familyV2, tradeLicenseV2, ...expandedOperationalSchemas]
+    .map(latestWithQaFix4)
+    .filter((schema) => qaFix5Services.includes(schema.serviceNo)),
+);
+export const qaFix5Schemas: readonly FormSchema[] = deepFreeze(
+  qaFix5SupersededSchemas.map(buildQaFix5Version),
+);
+const latestWithQaFix5 = (schema: FormSchema) =>
+  qaFix5Schemas.find((item) => item.serviceNo === schema.serviceNo) ??
+  latestWithQaFix4(schema);
+
+/** Versions superseded by the QAFIX-06 repair release; retained for applications pinned to them. */
+export const qaFix6SupersededSchemas: readonly FormSchema[] = deepFreeze(
+  [permanentResidentV1, familyV2, tradeLicenseV2, ...expandedOperationalSchemas]
+    .map(latestWithQaFix5)
+    .filter((schema) => qaFix6Services.includes(schema.serviceNo)),
+);
+export const qaFix6Schemas: readonly FormSchema[] = deepFreeze(
+  qaFix6SupersededSchemas.map(buildQaFix6Version),
+);
+const latestWithQaFix6 = (schema: FormSchema) =>
+  qaFix6Schemas.find((item) => item.serviceNo === schema.serviceNo) ??
+  latestWithQaFix5(schema);
+
+/** Versions superseded by the QAFIX-07 repair release; retained for applications pinned to them. */
+export const qaFix7SupersededSchemas: readonly FormSchema[] = deepFreeze(
+  [permanentResidentV1, familyV2, tradeLicenseV2, ...expandedOperationalSchemas]
+    .map(latestWithQaFix6)
+    .filter((schema) => qaFix7Services.includes(schema.serviceNo)),
+);
+export const qaFix7Schemas: readonly FormSchema[] = deepFreeze(
+  qaFix7SupersededSchemas.map(buildQaFix7Version),
+);
+const latestWithQaFix7 = (schema: FormSchema) =>
+  qaFix7Schemas.find((item) => item.serviceNo === schema.serviceNo) ??
+  latestWithQaFix6(schema);
+
+/** Versions superseded by the QAFIX-08 repair release; retained for applications pinned to them. */
+export const qaFix8SupersededSchemas: readonly FormSchema[] = deepFreeze(
+  [permanentResidentV1, familyV2, tradeLicenseV2, ...expandedOperationalSchemas]
+    .map(latestWithQaFix7)
+    .filter((schema) => qaFix8Services.includes(schema.serviceNo)),
+);
+export const qaFix8Schemas: readonly FormSchema[] = deepFreeze(
+  qaFix8SupersededSchemas.map(buildQaFix8Version),
+);
+const latestWithQaFix8 = (schema: FormSchema) =>
+  qaFix8Schemas.find((item) => item.serviceNo === schema.serviceNo) ??
+  latestWithQaFix7(schema);
+
+/** Versions superseded by the QAFIX-09 repair release; retained for applications pinned to them. */
+export const qaFix9SupersededSchemas: readonly FormSchema[] = deepFreeze(
+  [permanentResidentV1, familyV2, tradeLicenseV2, ...expandedOperationalSchemas]
+    .map(latestWithQaFix8)
+    .filter((schema) => qaFix9Services.includes(schema.serviceNo)),
+);
+export const qaFix9Schemas: readonly FormSchema[] = deepFreeze(
+  qaFix9SupersededSchemas.map(buildQaFix9Version),
+);
+const latestWithQaFix9 = (schema: FormSchema) =>
+  qaFix9Schemas.find((item) => item.serviceNo === schema.serviceNo) ??
+  latestWithQaFix8(schema);
+
+export const operationalSchemas: readonly FormSchema[] = deepFreeze(
+  [permanentResidentV1, familyV2, tradeLicenseV2, ...expandedOperationalSchemas].map(
+    latestWithQaFix9,
+  ),
+);
+
+/**
+ * QAFIX-02 (§3.4, §4 item 3): one-line distinguishing descriptions shown
+ * where the citizen starts a service. Services 3 and 4 are near-duplicates
+ * (the same deceased + heirs data), and citizens picked the wrong one
+ * because nothing said how they differ: 3 certifies WHO the legal heirs
+ * are; 4 establishes succession TO the deceased's property and assets.
+ * QAFIX-03 (§3.12) adds services 11 and 12 under the same rule: 11
+ * certifies the nationality a person declares; 12 certifies Bangladeshi
+ * citizenship and permanent residence.
+ * The catalogue has no description surface, so the service's start screen
+ * renders these (ServiceFlow); the remaining services adopt the same map
+ * as their §4 item 3 detail pages are written. No DEMO wording, no new
+ * claims — each line only restates what the certificate itself certifies.
+ */
+export const serviceDescriptions: Readonly<Record<number, LocalizedText>> =
+  deepFreeze({
+    3: {
+      bn: "মৃত ব্যক্তির আইনি ওয়ারিশদের নাম ও পরিচয় নিশ্চিত করে — ব্যাংক, ভূমি রেকর্ড ও অন্যান্য অফিসে ওয়ারিশানা প্রমাণ হিসেবে ব্যবহৃত হয়।",
+      en: "Names and certifies the legal heirs of a deceased person — used as proof of heirship for banks, land records and other offices.",
+    },
+    4: {
+      bn: "মৃত ব্যক্তির সম্পত্তি ও সম্পদের আইনি উত্তরাধিকার প্রতিষ্ঠা করে এবং যারা উত্তরাধিকার পাবেন তাদের নাম উল্লেখ করে।",
+      en: "Establishes legal succession to a deceased person's property and assets, naming the successors who inherit them.",
+    },
+    // QAFIX-03 (§3.12, §4 item 3): services 11 and 12 are near-duplicates
+    // and nothing said how they differ — 11 certifies the nationality a
+    // person DECLARES (and its basis); 12 certifies the legal fact of
+    // Bangladeshi citizenship and permanent residence in this area.
+    11: {
+      bn: "ব্যক্তির ঘোষিত জাতীয়তা প্রত্যয়ন করে — তিনি কোন জাতীয়তার দাবি করেন এবং কোন ভিত্তিতে তা করেন।",
+      en: "Certifies the person's declared nationality — the national identity they claim and the basis on which they claim it.",
+    },
+    12: {
+      bn: "ব্যক্তি বাংলাদেশের নাগরিক এবং অত্র এলাকার স্থায়ী বাসিন্দা — এ মর্মে প্রত্যয়ন করে।",
+      en: "Certifies that the person is a citizen of Bangladesh and a permanent resident of this area.",
+    },
+  });
 
 /** Initial example payloads for local form testing. */
 export const demoPayloads: Readonly<
   Record<number, Readonly<Record<string, unknown>>>
 > = deepFreeze({
   ...Object.fromEntries(
-    expandedOperationalSchemas.map(latest).map((schema) => [
+    expandedOperationalSchemas.map(latestWithQaFix9).map((schema) => [
       schema.serviceNo,
       createSyntheticPayload(schema),
     ]),
@@ -421,8 +592,11 @@ export const demoPayloads: Readonly<
     permanent_address_bn: "স্থানীয় গ্রাম, স্থানীয় ইউনিয়ন",
     permanent_address_en: "Sample Village, Local Union",
     residence_since: "2020-01-01",
-    purpose_bn: "বাসিন্দা সনদ",
-    purpose_en: "Resident certificate application",
+    // QAFIX-09: the v3 form asks which saved address the
+    // certificate carries; the fixture names the permanent one.
+    address_source: "permanent",
+    purpose: "বাসিন্দা সনদ",
+    purpose_language: "bn",
     delivery_language: "bilingual",
     confirmation: true,
   },
@@ -438,6 +612,10 @@ export const demoPayloads: Readonly<
         is_minor: false,
       },
     ],
+    address_source: "permanent",
+    purpose: "পারিবারিক সনদ",
+    purpose_language: "bn",
+    delivery_language: "bilingual",
     confirmation: true,
   },
   42: {
@@ -452,6 +630,10 @@ export const demoPayloads: Readonly<
     mobile: "01000000000",
     has_previous_license: false,
     confirmation: true,
+    address_source: "permanent",
+    purpose: "ট্রেড লাইসেন্স",
+    purpose_language: "bn",
+    delivery_language: "bilingual",
   },
 });
 

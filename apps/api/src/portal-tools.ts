@@ -8,6 +8,47 @@ import { digest } from "./security.js";
 import { renderHtmlPdf } from "./pdf.js";
 import { geographyInput, geographyRow, geographyValues, validateGeography, validateOfficeJurisdiction, presentAddressInput, presentAddressRow, presentAddressValues, presentAddressColumns } from "./geography.js";
 import { parseReferenceInput } from "./references.js";
+import {
+  createFailureBudget,
+  createSharedRateLimiter,
+  sharedRateLimitsEnabled,
+} from "./shared-rate-limit.js";
+import { logPlatformSecurityEvent } from "./security-audit.js";
+
+// S-006: the same per-number failure budget as /verify/by-number in
+// app.ts (10 failed lookups of one number in 15 minutes lock that number
+// out; a success clears it). UUID lookups skip the budget — a UUID is
+// not enumerable, so there is nothing to bound there.
+const lookupBudget = createFailureBudget({
+  pool,
+  limit: 10,
+  windowMs: 15 * 60_000,
+  keyPrefix: "lookup:",
+  shared: sharedRateLimitsEnabled(),
+});
+
+// S-015: unauthenticated public writes get a stricter per-IP hourly budget
+// on top of httpHardening's 60/min mutation limiter: 10 feedbacks and 10
+// subscribes per IP per hour, shared across processes through
+// rate_limit_buckets when shared limits are enabled (same store as S-004).
+// CAPTCHA is deliberately NOT added here — no provider exists in this
+// stack and S-006 is an open owner decision (see
+// docs/PUBLIC_DATA_RETENTION.md). The budget is the abuse control that is
+// safe to ship without one.
+const feedbackBudget = createSharedRateLimiter({
+  pool,
+  limit: 10,
+  windowMs: 60 * 60_000,
+  keyPrefix: "public-write:feedback:",
+  shared: sharedRateLimitsEnabled(),
+});
+const subscribeBudget = createSharedRateLimiter({
+  pool,
+  limit: 10,
+  windowMs: 60 * 60_000,
+  keyPrefix: "public-write:subscribe:",
+  shared: sharedRateLimitsEnabled(),
+});
 
 type Req = express.Request & { auth?: Auth };
 const wrap = (fn: (req: Req, res: express.Response) => Promise<unknown>) => (req: Req, res: express.Response, next: express.NextFunction) => { Promise.resolve(fn(req, res)).catch(next); };
@@ -36,16 +77,24 @@ publicToolsRouter.get("/track/:id",wrap(async(req,res)=>{
   }
   const reference=parseReferenceInput(req.params.id);
   if(!reference)fail(404,"NOT_FOUND","Application status not found.");
+  // S-006: see the note on lookupBudget above. Malformed input is refused
+  // without recording (it cannot match a real record).
+  if(await lookupBudget.blocked(reference))
+    fail(429,"TRACK_RATE_LIMIT","Too many failed lookups for this number. Try again later.");
   const r=(await pool.query("SELECT * FROM public_track_by_reference($1)",[reference])).rows[0];
-  if(!r)fail(404,"NOT_FOUND","Application status not found.");
+  if(!r){
+    await lookupBudget.recordFailure(reference);
+    fail(404,"NOT_FOUND","Application status not found.");
+  }
+  await lookupBudget.clear(reference);
   res.json(camelRow(r));
 }));
-publicToolsRouter.post("/public/feedback", wrap(async (req,res) => {
+publicToolsRouter.post("/public/feedback", feedbackBudget.middleware(), wrap(async (req,res) => {
   const d = z.object({name:text(120,2),email:z.string().email().max(150).optional(),subject:text(180,3),message:text(4000,10)}).strict().parse(req.body);
   const r = await pool.query("INSERT INTO support_requests(name,email,subject,message) VALUES($1,$2,$3,$4) RETURNING id,status,created_at",[d.name,d.email??null,d.subject,d.message]);
   res.status(201).json({...camelRow(r.rows[0]),delivery:"SAVED_IN_PLATFORM"});
 }));
-publicToolsRouter.post("/public/subscribe", wrap(async (req,res) => {
+publicToolsRouter.post("/public/subscribe", subscribeBudget.middleware(), wrap(async (req,res) => {
   const d = z.object({email:z.string().email().max(150)}).strict().parse(req.body);
   await pool.query("INSERT INTO subscriptions_interest(email) VALUES($1) ON CONFLICT DO NOTHING",[d.email.toLowerCase()]);
   res.status(202).json({status:"REQUESTED",message:"Your interest is saved."});
@@ -252,5 +301,56 @@ protectedToolsRouter.patch("/owner/feedback/:id",wrap(async(req,res)=>{
   const d=z.object({status:z.enum(["OPEN","RESOLVED"])}).strict().parse(req.body);
   const r=await pool.query("UPDATE support_requests SET status=$1,resolved_by=$2,resolved_at=CASE WHEN $1='RESOLVED' THEN now() ELSE NULL END WHERE id=$3 RETURNING id,status",[d.status,a.userId,id.parse(req.params.id)]);
   if(!r.rowCount)fail(404,"NOT_FOUND","Support request not found.");res.json(camelRow(r.rows[0]));
+}));
+
+/**
+ * S-015: retention purge for the unauthenticated public writes. The policy
+ * (docs/PUBLIC_DATA_RETENTION.md) is explicit and the purge is manual and
+ * owner-only — never an automatic silent delete (automatic deletion is an
+ * OWNER DECISION, recorded in that doc). Eligible rows:
+ * - support_requests RESOLVED more than 90 days ago, or (even if still
+ *   OPEN) created more than 2 years ago as stale/unactioned;
+ * - subscriptions_interest with consent older than 12 months.
+ * dryRun:true reports the counts without deleting. A real purge writes a
+ * PUBLIC_DATA_PURGED row to the durable platform audit stream (S-014).
+ */
+export const publicDataRetention = {
+  resolvedSupportRequestsDays: 90,
+  staleSupportRequestsYears: 2,
+  subscriptionsInterestMonths: 12,
+};
+protectedToolsRouter.post("/owner/public-data/purge",wrap(async(req,res)=>{
+  const a=identity(req);if(a.role!=="owner")fail(403,"ROLE_DENIED","Platform owner access required.");
+  const d=z.object({dryRun:z.boolean().optional().default(false)}).strict().parse(req.body);
+  const counts=async()=>{
+    const support=(await pool.query(
+      "SELECT count(*)::int n FROM support_requests WHERE (status='RESOLVED' AND resolved_at < now() - interval '90 days') OR created_at < now() - interval '2 years'",
+    )).rows[0].n;
+    const subscriptions=(await pool.query(
+      "SELECT count(*)::int n FROM subscriptions_interest WHERE consent_at < now() - interval '12 months'",
+    )).rows[0].n;
+    return {supportRequests:support,subscriptions};
+  };
+  const eligible=await counts();
+  let purged={supportRequests:0,subscriptions:0};
+  if(!d.dryRun){
+    purged={
+      supportRequests:(await pool.query(
+        "DELETE FROM support_requests WHERE (status='RESOLVED' AND resolved_at < now() - interval '90 days') OR created_at < now() - interval '2 years'",
+      )).rowCount ?? 0,
+      subscriptions:(await pool.query(
+        "DELETE FROM subscriptions_interest WHERE consent_at < now() - interval '12 months'",
+      )).rowCount ?? 0,
+    };
+    await logPlatformSecurityEvent(pool,{
+      actorId:a.userId,actorRole:a.role,action:"PUBLIC_DATA_PURGED",
+      metadata:{...purged,eligible},
+    });
+  }
+  res.json({dryRun:d.dryRun,eligible,purged,policy:{
+    resolvedSupportRequestsDays:publicDataRetention.resolvedSupportRequestsDays,
+    staleSupportRequestsYears:publicDataRetention.staleSupportRequestsYears,
+    subscriptionsInterestMonths:publicDataRetention.subscriptionsInterestMonths,
+  }});
 }));
 

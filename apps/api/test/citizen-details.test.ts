@@ -76,6 +76,10 @@ before(async () => {
     ["staff", "staff", tenantId],
     ["reviewer", "reviewer", tenantId],
     ["outsider", "staff", otherTenantId],
+    // S-010 interaction: plain staff is 403 ROLE_DENIED on the identity
+    // endpoint before any isolation check runs, so the cross-tenant
+    // identity assertion needs a caller who passes the role gate.
+    ["outsideradmin", "admin", otherTenantId],
   ] as const) {
     const u = await user(name);
     await db.query("INSERT INTO staff_memberships(user_id,tenant_id,role) VALUES($1,$2,$3)", [u.id, tenant, role]);
@@ -158,7 +162,16 @@ test("Phase 3a: staff register a citizen with details; lists show only hints and
 
   // A reviewer may read but not change details; another office cannot see the record at all.
   assert.equal((await req("PATCH", `/citizens/${c.id}/details`, { bloodGroup: "A+" }, s.reviewer)).status, 403);
-  assert.equal((await req("GET", `/citizens/${c.id}/identity`, undefined, s.outsider)).status, 404);
+  assert.equal(
+    (await req("GET", `/citizens/${c.id}/identity`, undefined, s.outsider)).status,
+    403,
+    "plain staff is denied full identity numbers anywhere (S-010)",
+  );
+  assert.equal(
+    (await req("GET", `/citizens/${c.id}/identity`, undefined, s.outsideradmin)).status,
+    404,
+    "another office's admin passes the role gate but must still not see the record (S-012)",
+  );
   assert.equal((await req("PATCH", `/citizens/${c.id}/details`, { bloodGroup: "A+" }, s.outsider)).status, 404);
 
   // The same NID cannot belong to two citizens of one office.

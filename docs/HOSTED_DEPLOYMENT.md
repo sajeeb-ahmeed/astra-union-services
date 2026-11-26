@@ -2,6 +2,28 @@
 
 **Current hosting (since 12 November 2026):** web service unchanged on Render Free (Singapore); database moved from Render Free PostgreSQL to **Neon Free** (Singapore, PostgreSQL 17.11). The release-0.9 notes below stay as history; later runtime changes (PAR-05, PAR-06) are listed in [PROCESS_PARITY.md](PROCESS_PARITY.md). Payment collection remains disabled; certificates remain DEMO / NOT OFFICIAL.
 
+## Current release — cPanel bundle (regenerated 25 Nov 2026, NOT YET DEPLOYED)
+
+> **Live parity UNVERIFIED.** Nothing in this section proves what is running on the live
+> site — the bundle below has been built and verified locally only. It becomes the deployed
+> release when an operator uploads it and the step-6 readiness checks in
+> [DEPLOY-CPANEL.md](DEPLOY-CPANEL.md) pass against the live origin; until then the last
+> deployed release is whatever the previous bundle was (see the 24 Nov 2026 r9 note in
+> DEPLOY-CPANEL.md §5).
+
+| Item | Record |
+| --- | --- |
+| Bundle | `dist-cpanel/` (tracked in this repo), 5,928 files, 153.1 MiB |
+| Package id | `digitalunion-63e03f36e2f3-20261125-154736` |
+| Commit | `63e03f36e2f38f9ab7f57a4ce522f9b24a440d26` (`63e03f3`, branch `fix/phase4-stage1-release-blockers`) |
+| Built | 2026-11-25T15:47:36Z from a clean HEAD, after `npm run build` + `npm run build:api` |
+| Bundle manifest | `dist-cpanel/release.json` (package id, commit, branch, build time, 204 web assets with sha256 — re-verified 204/204 after packaging) |
+| Migrations in bundle | 001–060, incl. `060_release_read_schema_migrations.sql` (renumbered `066_` by the R-001 integration) (runtime SELECT grant on `schema_migrations`; must be applied on the live DB with `db:migrate-cpanel` before health reports `migrationVersion`) |
+| Release traceability | The bundled server reports the package on `GET /api/v1/health` (`release.commit` / `release.packageId`) and the full detail on `GET /api/v1/admin/release` (admin only) |
+| Local verification of this bundle | Bundled `app.js` booted against the seeded test DB and its health reported the packaged commit/package id and migration `060_release_read_schema_migrations.sql` (renumbered `066_` by the R-001 integration); `verify-deployment-readiness.ts --live` against it with `--expect-commit`/`--expect-package` passed 7/7; a wrong `--expect-commit` failed 1/7 (exit 1) as designed |
+| Previous bundle | Committed 22 Nov 2026 (`75e40fa` assets; bundle06 r7 commits `de0ac14`/`df4f6c9`) — superseded by this one; do not deploy the old bundle |
+
+
 ## Database move to Neon — 12 November 2026
 
 Performed by the owner (Md) with Claude: Claude moved and verified the data; the owner changed Render's `DATABASE_URL` and deployed. The Render Free database was due to expire the same day.

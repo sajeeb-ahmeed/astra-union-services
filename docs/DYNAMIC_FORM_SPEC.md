@@ -1,6 +1,8 @@
 # Dynamic service forms — release 0.2 contract
 
-> **Historical document.** This describes release 0.2 and is kept for the record. Current behaviour is described in [System architecture](SYSTEM_ARCHITECTURE.md), the phase plans (`PHASE2_PLAN.md`–`PHASE6_PLAN.md`) and [Parity status](PARITY_STATUS.md).
+> **Historical document.** This describes release 0.2 and is kept for the record. Current behaviour is described in [System architecture](SYSTEM_ARCHITECTURE.md), the phase plans (`PHASE2_PLAN.md`–`PHASE6_PLAN.md`) and [Parity status](PARITY_STATUS.md). The version claims in the "Immutable versions" section below are superseded by the generated table in that section (W-019, Phase 4 Stage 3) — the live catalogue is the contract, this document is not.
+>
+> **Billing-model note (Batch C / W-003, 25 Nov 2026 — the 0.2 text below is NOT rewritten).** The statements in this document about "one credit deduction for every service", an issuance debit, and "47 issuance debits" describe the **pre-044 issuance-charge model** (release 0.2 era). Since migration 044 (18 Nov 2026) the platform fee settles **once, at the application's first successful submit** (`settleApplicationFee`, `apps/api/src/billing.ts`), and issuance charges nothing — no credit debit, no point deduction, and the `SUBSCRIPTION_INACTIVE` / `INSUFFICIENT_CREDITS` / `POINTS_INSUFFICIENT` issuance gates are gone. Pre-044 `credit_ledger` rows keep kind `ISSUANCE`; post-044 platform-fee rows are kind `APPLICATION_FEE`, linked to the application, with `fee_method` (`CREDIT` | `ALLOWANCE` | `FREE`) recorded on the application. See [Billing and ledger](BILLING_AND_LEDGER.md).
 
 All 47 services have executable, independently authored demonstration schemas. The frontend and backend share the same validation contract, and the PostgreSQL workflow has executed creation, submission, review, authorized approval, PDF issuance, public verification and one credit deduction for every service. These local results do not establish the original website's successful submission paths or official issuing authority.
 
@@ -22,9 +24,65 @@ For example, service #45's source contains a common checkout form with no servic
 
 ## Immutable versions and application pinning
 
-`FormSchema` carries the service number, integer version, bilingual title, stage, sections and evidence provenance. `getServiceSchema(serviceNo)` returns the latest published operational schema; an explicit second argument selects an exact historical version. Service #45 remains **v1**; the other 46 services use **v2**. Unknown services or versions fail instead of silently selecting another profile.
+`FormSchema` carries the service number, integer version, bilingual title, stage, sections and evidence provenance. `getServiceSchema(serviceNo)` returns the latest published operational schema; an explicit second argument selects an exact historical version. Unknown services or versions fail instead of silently selecting another profile.
 
-`allServiceSchemaVersions` contains **93 immutable operational versions**. The database also stores 47 read-only reference previews, giving **140 schema definitions** in a clean bootstrap. Preview version **0** cannot be submitted as an operational application. Published v1 contracts remain preserved, including the earlier expanded-service v1 snapshots in `expanded-v1-schemas.json`. `schema-release.json` records each canonical hash and the release sentinel.
+<!-- SCHEMA-VERSIONS:BEGIN -->
+> Generated from the schema catalogue — do not hand-edit. Regenerate with `npx tsx scripts/generate-schema-version-table.ts`.
+
+The catalogue holds **47 operational schemas** (one latest version per service) and **234 retained versions** in total. An application is pinned to the version current at creation; older versions stay valid for pinned applications only.
+
+| Service | Latest version | Versions retained |
+| --- | --- | --- |
+| 1 | v4 | 1, 2, 3, 4 |
+| 2 | v6 | 1, 2, 3, 4, 5, 6 |
+| 3 | v5 | 1, 2, 3, 4, 5 |
+| 4 | v6 | 1, 2, 3, 4, 5, 6 |
+| 5 | v5 | 1, 2, 3, 4, 5 |
+| 6 | v4 | 1, 2, 3, 4 |
+| 7 | v5 | 1, 2, 3, 4, 5 |
+| 8 | v4 | 1, 2, 3, 4 |
+| 9 | v4 | 1, 2, 3, 4 |
+| 10 | v5 | 1, 2, 3, 4, 5 |
+| 11 | v5 | 1, 2, 3, 4, 5 |
+| 12 | v4 | 1, 2, 3, 4 |
+| 13 | v4 | 1, 2, 3, 4 |
+| 14 | v5 | 1, 2, 3, 4, 5 |
+| 15 | v4 | 1, 2, 3, 4 |
+| 16 | v5 | 1, 2, 3, 4, 5 |
+| 17 | v4 | 1, 2, 3, 4 |
+| 18 | v6 | 1, 2, 3, 4, 5, 6 |
+| 19 | v5 | 1, 2, 3, 4, 5 |
+| 20 | v5 | 1, 2, 3, 4, 5 |
+| 21 | v5 | 1, 2, 3, 4, 5 |
+| 22 | v4 | 1, 2, 3, 4 |
+| 23 | v5 | 1, 2, 3, 4, 5 |
+| 24 | v5 | 1, 2, 3, 4, 5 |
+| 25 | v5 | 1, 2, 3, 4, 5 |
+| 26 | v5 | 1, 2, 3, 4, 5 |
+| 27 | v5 | 1, 2, 3, 4, 5 |
+| 28 | v4 | 1, 2, 3, 4 |
+| 29 | v6 | 1, 2, 3, 4, 5, 6 |
+| 30 | v5 | 1, 2, 3, 4, 5 |
+| 31 | v6 | 1, 2, 3, 4, 5, 6 |
+| 32 | v5 | 1, 2, 3, 4, 5 |
+| 33 | v4 | 1, 2, 3, 4 |
+| 34 | v5 | 1, 2, 3, 4, 5 |
+| 35 | v4 | 1, 2, 3, 4 |
+| 36 | v6 | 1, 2, 3, 4, 5, 6 |
+| 37 | v6 | 1, 2, 3, 4, 5, 6 |
+| 38 | v6 | 1, 2, 3, 4, 5, 6 |
+| 39 | v5 | 1, 2, 3, 4, 5 |
+| 40 | v6 | 1, 2, 3, 4, 5, 6 |
+| 41 | v6 | 1, 2, 3, 4, 5, 6 |
+| 42 | v7 | 1, 2, 3, 4, 5, 6, 7 |
+| 43 | v6 | 1, 2, 3, 4, 5, 6 |
+| 44 | v5 | 1, 2, 3, 4, 5 |
+| 45 | v4 | 1, 2, 3, 4 |
+| 46 | v5 | 1, 2, 3, 4, 5 |
+| 47 | v4 | 1, 2, 3, 4 |
+<!-- SCHEMA-VERSIONS:END -->
+
+The database also stores 47 read-only reference previews. Preview version **0** cannot be submitted as an operational application. Published v1 contracts remain preserved, including the earlier expanded-service v1 snapshots in `expanded-v1-schemas.json`. `schema-release.json` records each canonical hash and the release sentinel.
 
 Applications pin their service number, schema version, canonical SHA-256 hash and schema snapshot. Payload revisions validate against that pinned version. Editing an existing application does not change its rules, and publishing a later schema cannot rewrite old applications or issued certificate bytes. Registries and fixtures are recursively frozen. Tenant administrators can enable services and configure credit costs; this release does not expose an arbitrary schema or certificate-template editor.
 

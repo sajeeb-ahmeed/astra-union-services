@@ -5,6 +5,7 @@ import path from "node:path";
 import { chromium, type Browser, type Page } from "playwright";
 import { demoPayloads } from "@astra/shared-schemas";
 import { fillApplicationForm } from "./fixtures/fill-form.js";
+import { ensureSyntheticSignature } from "./fixtures/issuance-fixtures.js";
 
 /**
  * PORTAL-C: the office journey as the office does it.
@@ -70,6 +71,16 @@ test(
         headers: { "X-CSRF-Token": (await staffLogin.json()).csrfToken },
       });
       assert.equal(created.status(), 201, await created.text());
+      // W-002: issuance needs a chairman signature for the office — the
+      // seed gives alpha only a SEAL, so upload the explicitly identified
+      // synthetic signature (as the approver) before the Chairman approves.
+      // The setup context is closed right after, so swapping its session
+      // from staff to approver here is harmless.
+      const approverLogin = await setup.request.post(`${origin}/api/v1/auth/login`, {
+        data: { email: "approver@alpha.local.test", password: "Demo-Phase1!" },
+      });
+      assert.equal(approverLogin.status(), 200);
+      await ensureSyntheticSignature(setup.request, origin, (await approverLogin.json()).csrfToken);
       await setup.close();
 
       // 1. Staff at a desktop.

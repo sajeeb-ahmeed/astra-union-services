@@ -12,13 +12,13 @@
   padding: 16px;
   text-align: left;
   background: #fff;
-  color: #1f7d5e;
+  color: var(--du-green-700, #1f7d5e);
   border: 1px solid #d4e2db;
   white-space: normal;
 }
 .public-site .public-quick-task:hover {
   background: #edf5f0;
-  border-color: #1f7d5e;
+  border-color: var(--du-green-700, #1f7d5e);
 }
 .public-quick-task strong {
   font-size: 16px;

@@ -81,6 +81,30 @@ export function createRateLimiter(options: {
   };
 }
 
+/**
+ * Production HTTP -> HTTPS redirect. The reverse proxy (Render, LiteSpeed/cPanel)
+ * terminates TLS and reports the client's scheme in X-Forwarded-Proto. When that
+ * header says "http", the request is redirected to PUBLIC_ORIGIN, never to the
+ * client-supplied Host. With no header the request passes through unchanged, so
+ * a proxy that does not send it cannot cause a redirect loop. GET/HEAD use 301;
+ * other methods use 308 so the method and body are not silently changed.
+ */
+export function createHttpsRedirect(env: NodeJS.ProcessEnv = process.env) {
+  let origin: string | null = null;
+  if (env.NODE_ENV === "production") {
+    try {
+      const parsed = new URL(env.PUBLIC_ORIGIN ?? "");
+      if (parsed.protocol === "https:") origin = parsed.origin;
+    } catch { /* enforceRuntimeConfig reports the invalid origin */ }
+  }
+  return (req: Request, res: Response, next: NextFunction) => {
+    if (!origin) { next(); return; }
+    const proto = req.header("X-Forwarded-Proto")?.split(",")[0]?.trim().toLowerCase();
+    if (proto !== "http") { next(); return; }
+    res.redirect(["GET", "HEAD"].includes(req.method) ? 301 : 308, `${origin}${req.originalUrl}`);
+  };
+}
+
 const publicLimiter = createRateLimiter({ limit: 120, windowMs: 60_000 });
 const mutationLimiter = createRateLimiter({ limit: 60, windowMs: 60_000 });
 export function httpHardening(req: Request, res: Response, next: NextFunction) {

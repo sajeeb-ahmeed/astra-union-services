@@ -12,6 +12,14 @@ for (const name of fs.readdirSync(root)) {
   fs.writeFileSync(path.join(root, name + '.br'), br);
   assets.push({ name, rawBytes: bytes.length, gzipBytes: gzip.length, brotliBytes: br.length });
 }
-fs.mkdirSync('execution', { recursive: true });
-fs.writeFileSync('execution/asset-sizes.json', JSON.stringify({ measuredAt: new Date().toISOString(), assets }, null, 2));
+// B-001: the manifest goes next to the built bundle (apps/web/dist/ is
+// gitignored), not into tracked execution/ — a per-build timestamp/hash
+// file must never rewrite a committed file. The committed
+// execution/asset-sizes.json stays as the stable reference; the live
+// per-build manifest is read from dist/ (scripts/performance-smoke.ts
+// falls back to execution/ when no fresh build exists).
+fs.writeFileSync(
+  path.join(root, "..", "asset-sizes.json"),
+  JSON.stringify({ measuredAt: new Date().toISOString(), assets }, null, 2),
+);
 console.log(JSON.stringify(assets));

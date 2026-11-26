@@ -12,6 +12,7 @@ import { app } from "../src/app.js";
 import { pool, adminConnectionString } from "../src/db.js";
 import { closePdfBrowser } from "../src/pdf.js";
 import { isPlaceholderEmail, sendEmail } from "../src/mailer.js";
+import { logOtpProvider, setOtpProvider } from "../src/otp.js";
 
 process.env.NODE_ENV = "test";
 const admin = new pg.Pool({ connectionString: adminConnectionString });
@@ -47,8 +48,20 @@ async function loginWith(body: Record<string, string>) {
   assert.equal(r.status, 200, JSON.stringify(json));
   return { cookie: r.headers.get("set-cookie")!.split(";")[0], csrf: json.csrfToken } as Session;
 }
-const loginMobile = (mobile: string) =>
-  loginWith({ identifierType: "mobile", identifier: mobile, password: PASSWORD });
+const loginMobile = async (mobile: string) => {
+  // S-001: a short signup leaves the mobile pending; prove the number with
+  // a code first, then mobile sign-in works.
+  await verifyMobile(mobile);
+  return loginWith({ identifierType: "mobile", identifier: mobile, password: PASSWORD });
+};
+const sent: { mobile: string; code: string }[] = [];
+async function verifyMobile(mobile: string) {
+  const sentCode = await req("POST", "/auth/otp/signup", { mobile });
+  assert.equal(sentCode.status, 202, JSON.stringify(sentCode.body));
+  const code = [...sent].reverse().find((s) => s.mobile === mobile)!.code;
+  const ok = await req("POST", "/auth/otp/verify-mobile", { challengeToken: sentCode.body.challengeToken, code, mobile });
+  assert.equal(ok.status, 200, JSON.stringify(ok.body));
+}
 async function ownCitizen(session: Session) {
   const list = await req("GET", "/citizens", undefined, session);
   assert.equal(list.status, 200, JSON.stringify(list.body));
@@ -58,7 +71,7 @@ async function ownCitizen(session: Session) {
 async function citizenRowFor(mobile: string) {
   return (
     await admin.query(
-      `SELECT c.*, u.email AS user_email, i.self_declared
+      `SELECT c.*, u.email AS user_email, i.self_declared, i.verified_at
          FROM citizens c JOIN platform_users u ON u.id=c.user_id
          LEFT JOIN account_identifiers i ON i.user_id=u.id AND i.kind='mobile'
         WHERE c.contact_mobile=$1`,
@@ -68,6 +81,7 @@ async function citizenRowFor(mobile: string) {
 }
 
 before(async () => {
+  setOtpProvider({ async send({ mobile, code }) { sent.push({ mobile, code }); } });
   server = app.listen(0, "127.0.0.1");
   await new Promise<void>((resolve) => server.once("listening", resolve));
   base = `http://127.0.0.1:${(server.address() as any).port}`;
@@ -107,6 +121,7 @@ before(async () => {
   ).rows[0].id;
 });
 after(async () => {
+  setOtpProvider(logOtpProvider);
   await closePdfBrowser();
   await new Promise<void>((resolve) => server.close(() => resolve()));
   await pool.end();
@@ -118,6 +133,10 @@ test("REG-UX 1: a Bangla name, mobile and password create an account; deferred i
   const r = await req("POST", "/auth/signup", { tenantId: officeId, name: "রহিমা খাতুন", mobile, password: PASSWORD });
   assert.equal(r.status, 201, JSON.stringify(r.body));
   assert.equal(r.body.registered, true);
+  // S-001: without a code the mobile is pending — the account exists, but
+  // mobile sign-in stays blocked until the number is verified.
+  assert.equal(r.body.mobileVerification, "pending");
+  assert.equal(r.body.mobileVerified, false);
   const row = await citizenRowFor(mobile);
   assert.ok(row, "the citizen row exists with the contact mobile");
   assert.equal(row.full_name_bn, "রহিমা খাতুন");
@@ -127,6 +146,7 @@ test("REG-UX 1: a Bangla name, mobile and password create an account; deferred i
   assert.equal(row.address_en, null);
   assert.equal(row.division_code, null, "an office without geography derives none");
   assert.equal(row.self_declared, true, "the mobile is the sign-in identifier, marked self-declared");
+  assert.equal(row.verified_at, null, "S-001: unverified until a code proves the number");
   assert.ok(isPlaceholderEmail(row.user_email), "an email-less account holds an internal .invalid address");
   assert.equal(await sendEmail({ to: row.user_email, subject: "x", text: "x" } as any), false, "never mailed");
   const session = await loginMobile(mobile);

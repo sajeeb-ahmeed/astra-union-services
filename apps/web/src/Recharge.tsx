@@ -2,154 +2,40 @@ import React, { useEffect, useState } from "react";
 import { api } from "./api.js";
 import { choose, useLanguage } from "./i18n.js";
 import { EmptyState } from "./OwnerUi.js";
-import { parseTakaToMinor } from "./OrderPolicySettings.js";
 import { points } from "./PointsWallet.js";
 
 const label = (bn: string, en: string) => choose({ bn, en });
-const accepted = ["image/jpeg", "image/png", "application/pdf"];
 const statusLabel = (status: string) =>
   ({
     PENDING: label("যাচাইয়ের অপেক্ষায়", "Waiting for confirmation"),
     CONFIRMED: label("নিশ্চিত, পয়েন্ট যোগ হয়েছে", "Confirmed, points added"),
     REJECTED: label("বাতিল", "Rejected"),
   })[status] ?? status;
-async function toBase64(file: File) {
-  const bytes = new Uint8Array(await file.arrayBuffer());
-  let binary = "";
-  for (let offset = 0; offset < bytes.length; offset += 16_384)
-    binary += String.fromCharCode(...bytes.subarray(offset, offset + 16_384));
-  return btoa(binary);
-}
 
-/** Phase 5b: an office asks to recharge points after a bank deposit, attaching the deposit slip. */
+/** Phase 5b (W-016): points recharge is PAUSED — the request form is gone
+ * and only the request history remains. New deposits are refused by the API
+ * (410 POINTS_RECHARGE_DISABLED) because points have no spend path. */
 export function RechargeRequests() {
   useLanguage();
-  const [banks, setBanks] = useState<any[]>([]);
   const [requests, setRequests] = useState<any[]>([]);
-  const [bankCode, setBankCode] = useState("");
-  const [amount, setAmount] = useState("");
-  const [reference, setReference] = useState("");
-  const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
-  const [file, setFile] = useState<File | null>(null);
-  const [busy, setBusy] = useState(false);
-  const [message, setMessage] = useState("");
-  const [error, setError] = useState("");
   const [allowed, setAllowed] = useState(true);
   const load = async () => {
-    const [b, r] = await Promise.all([api("/recharge-banks"), api("/recharges")]);
-    setBanks(b.items);
+    const r = await api("/recharges");
     setRequests(r.items);
-    setBankCode((current) => current || b.items[0]?.code || "");
   };
   useEffect(() => {
     load().catch(() => setAllowed(false));
   }, []);
   if (!allowed) return null;
-  const bank = banks.find((b) => b.code === bankCode);
   return (
     <div className="recharge">
       <h3>{label("ব্যাংক জমা দিয়ে রিচার্জ", "Recharge by bank deposit")}</h3>
-      {banks.length === 0 ? (
-        <p>{label("এখনও কোনো জমার হিসাব যোগ করা হয়নি।", "No deposit account has been added yet.")}</p>
-      ) : (
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            setBusy(true);
-            setError("");
-            setMessage("");
-            (async () => {
-              let amountMinor: number;
-              try {
-                amountMinor = parseTakaToMinor(amount);
-              } catch {
-                throw Error(label("জমার পরিমাণ টাকায় লিখুন।", "Enter the deposit amount in taka."));
-              }
-              if (!file) throw Error(label("জমার রসিদ যুক্ত করুন।", "Attach the deposit slip."));
-              if (!accepted.includes(file.type) || file.size > 2 * 1024 * 1024)
-                throw Error(label("পিডিএফ, পিএনজি বা জেপিইজি, সর্বোচ্চ ২ মেগাবাইট।", "Use a PDF, PNG or JPEG up to 2 MB."));
-              await api("/recharges", "POST", {
-                amountMinor,
-                bankCode,
-                depositReference: reference.trim(),
-                depositDate: date,
-                proof: { mimeType: file.type, base64: await toBase64(file) },
-              });
-              setAmount("");
-              setReference("");
-              setFile(null);
-              await load();
-              setMessage(
-                label(
-                  "অনুরোধ পাঠানো হয়েছে। রসিদ নিরাপত্তা পরীক্ষা ও যাচাইয়ের পর পয়েন্ট যোগ হবে।",
-                  "Request sent. Points are added after the slip's security check and confirmation.",
-                ),
-              );
-            })()
-              .catch((err) => setError((err as Error).message))
-              .finally(() => setBusy(false));
-          }}
-        >
-          <div className="form-grid">
-            <div className="field">
-              <label htmlFor="recharge-bank">{label("জমার হিসাব", "Deposit account")}</label>
-              <select id="recharge-bank" value={bankCode} onChange={(e) => setBankCode(e.target.value)}>
-                {banks.map((b) => (
-                  <option key={b.code} value={b.code}>
-                    {choose({ bn: b.nameBn, en: b.nameEn })}
-                  </option>
-                ))}
-              </select>
-              {bank && (
-                <p className="hint">
-                  {bank.accountName} · <code>{bank.accountNumber}</code>
-                  {bank.branch ? ` · ${bank.branch}` : ""}
-                </p>
-              )}
-            </div>
-            <div className="field">
-              <label htmlFor="recharge-amount">{label("জমার পরিমাণ (টাকা)", "Amount deposited (BDT)")}</label>
-              <input id="recharge-amount" inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} required />
-            </div>
-            <div className="field">
-              <label htmlFor="recharge-reference">{label("জমার রেফারেন্স নম্বর", "Deposit reference")}</label>
-              <input
-                id="recharge-reference"
-                value={reference}
-                onChange={(e) => setReference(e.target.value)}
-                required
-                minLength={3}
-                maxLength={80}
-              />
-            </div>
-            <div className="field">
-              <label htmlFor="recharge-date">{label("জমার তারিখ", "Deposit date")}</label>
-              <input id="recharge-date" type="date" value={date} onChange={(e) => setDate(e.target.value)} required />
-            </div>
-            <div className="field">
-              <label htmlFor="recharge-slip">{label("জমার রসিদ", "Deposit slip")}</label>
-              <input
-                id="recharge-slip"
-                type="file"
-                accept={accepted.join(",")}
-                onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-                required
-              />
-            </div>
-          </div>
-          <button disabled={busy}>{label("রিচার্জের অনুরোধ পাঠান", "Send recharge request")}</button>
-        </form>
-      )}
-      {message && (
-        <p className="notice" role="status">
-          {message}
-        </p>
-      )}
-      {error && (
-        <p className="error" role="alert">
-          {error}
-        </p>
-      )}
+      <p className="notice message error" role="status">
+        {label(
+          "পয়েন্ট রিচার্জ আপাতত বন্ধ আছে — পয়েন্ট খরচের কোনো পথ এখন নেই, তাই নতুন জমা নেওয়া হচ্ছে না। আগের অনুরোধগুলোর অবস্থা নিচে দেখা যাবে।",
+          "Points recharge is paused — points currently have no spend path, so no new deposits are accepted. Earlier requests are listed below.",
+        )}
+      </p>
       {requests.length > 0 && (
         <div className="table-wrap">
           <table className="recharge-requests">
@@ -178,6 +64,7 @@ export function RechargeRequests() {
     </div>
   );
 }
+
 
 /** Phase 5b: the owner's recharge queue — view the clean slip, then confirm or reject. */
 export function OwnerRecharges() {
@@ -210,6 +97,15 @@ export function OwnerRecharges() {
   return (
     <section className="panel owner-recharges">
       <h3>{label("রিচার্জের অনুরোধ", "Recharge requests")}</h3>
+      {/* W-016: new requests are paused (no points spend path). The queue
+          below holds only pre-pause requests — decide them here; their
+          deposits were already made. */}
+      <p className="notice message error" role="status">
+        {label(
+          "নতুন রিচার্জ অনুরোধ বন্ধ আছে — পয়েন্ট খরচের পথ না থাকায় অফিস আর নতুন জমা পাঠাতে পারে না। বিরতির আগের অনুরোধগুলো এখানেই নিষ্পত্তি করুন।",
+          "New recharge requests are paused — with no points spend path, offices cannot send new deposits. Decide the pre-pause requests still waiting here.",
+        )}
+      </p>
       {message && <p role="status">{message}</p>}
       {items.length === 0 ? (
         <EmptyState

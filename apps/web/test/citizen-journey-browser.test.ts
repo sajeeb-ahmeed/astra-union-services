@@ -6,6 +6,8 @@ import { chromium, type Browser, type Page } from "playwright";
 import { demoPayloads } from "@astra/shared-schemas";
 import { fillApplicationForm } from "./fixtures/fill-form.js";
 import { goToWorkspacePage } from "./fixtures/workspace-nav.js";
+import { readOtpCode } from "./fixtures/otp-outbox.js";
+import { ensureSyntheticSignature } from "./fixtures/issuance-fixtures.js";
 
 /**
  * PORTAL-B: the whole citizen journey on a phone, end to end, as one person
@@ -73,12 +75,22 @@ test(
       const page = await context.newPage();
       page.on("pageerror", (e) => errors.push(e.message));
 
-      // 1. Register: three typed fields, then straight into the workspace.
+      // 1. Register: three typed fields, then the S-001 mobile verification
+      // (code sent to the handset), then straight into the workspace.
       await page.goto(`${origin}/register?office=alpha`);
       await page.locator("#signup-name").fill("Journey Citizen");
       await page.locator("#signup-mobile").fill(mobile);
       await page.locator("#signup-password").fill(password);
       await page.getByRole("button", { name: "Create account", exact: true }).click();
+      await page.locator("#signup-verify-title").waitFor();
+      const sentAt = Date.now();
+      await page.getByRole("button", { name: "Send code", exact: true }).click();
+      await page
+        .locator("#signup-verify-code")
+        .fill(await readOtpCode(mobile.slice(-8), sentAt));
+      await page
+        .getByRole("button", { name: "Verify and sign in", exact: true })
+        .click();
       await page.getByRole("button", { name: "Sign out", exact: true }).waitFor();
       assert.equal(new URL(page.url()).pathname, "/");
 
@@ -151,6 +163,10 @@ test(
       });
       assert.equal(signedIn.status(), 200);
       const csrf = (await signedIn.json()).csrfToken;
+      // W-002: issuance needs a chairman signature for the office — the
+      // seed gives alpha only a SEAL, so upload the explicitly identified
+      // synthetic signature before the Chairman approves.
+      await ensureSyntheticSignature(office.request, origin, csrf);
       const listed = await (await office.request.get(`${origin}/api/v1/applications?q=${reference}`)).json();
       const application = listed.items.find((item: any) => String(item.reference ?? "").replace(/\D/g, "") === reference);
       assert.ok(application, `the approver finds ${reference}`);

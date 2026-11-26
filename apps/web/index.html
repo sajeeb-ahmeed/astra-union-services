@@ -53,6 +53,12 @@
       crossorigin
     />
     <title>DigitalUnion — স্মার্ট ইউনিয়ন, স্মার্ট বাংলাদেশ</title>
+    <!-- F-015: body{margin:0} also lives in the bundled CSS, but the
+         bundle loads after first paint — until then the browser's
+         default 8px body margin applies and everything shifts up
+         8px when the CSS lands (a 0.105 CLS shift on every page
+         load). This inline rule makes the margin 0 from first paint. -->
+    <style>body{margin:0}</style>
   </head>
   <body>
     <div id="root"></div>

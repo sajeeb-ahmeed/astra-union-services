@@ -169,7 +169,7 @@
 .status-badge.tone-ok {
   background: #e7f4ec;
   border-color: #9cc7a8;
-  color: #1f7d5e;
+  color: var(--du-green-700, #1f7d5e);
 }
 .status-badge.tone-warn {
   background: #fdf3d7;

@@ -5,6 +5,13 @@ import {
   getServiceSchema,
 } from "@astra/shared-schemas";
 import { renderCertificateHtmlV7 } from "./certificate-template-v7.js";
+import {
+  DEMO_BANNER_BN,
+  DEMO_BANNER_EN,
+  DEMO_NOTICE_BN,
+  DEMO_NOTICE_EN,
+  isDemoIssuance,
+} from "./demo-notice.js";
 /** New issues use the current template version. Existing stored PDFs and metadata are never rewritten. */
 // Template 6 (Phase W): one signature block — the Chairman approves and issues; there is
 // no secretary verification step. (Template 5 had separate Secretary/Chairman blocks.)
@@ -178,6 +185,10 @@ function renderCertificateHtmlV6(
   input: PdfInput,
   qrDataUrl: string,
 ): string {
+  // W-001: a demo document says so on its face, in both languages — the
+  // 17 Nov 2026 owner purge that stripped ALL demo wording from the
+  // templates is reversed for demo mode only. Official mode stays clean.
+  const demo = isDemoIssuance();
   // The template renders clean product text in every mode.
   const selected = input.payload.delivery_language;
   const language: CertificateLanguage =
@@ -305,12 +316,18 @@ function renderCertificateHtmlV6(
       : language === "en"
         ? `Verify status · Template ${TEMPLATE_V6} · Issued ${today}`
         : `অবস্থা যাচাই / Verify status · Template ${TEMPLATE_V6} · Issued ${today}`;
-  const watermark = "";
-  const banner = "";
+  const watermark = demo ? '<div class="watermark">DEMO</div>' : "";
+  const banner = demo
+    ? `<div class="demo-banner">${escape(DEMO_BANNER_BN)}<br>${escape(DEMO_BANNER_EN)}</div>`
+    : "";
+  const demoNote = demo
+    ? `<p class="demo-note">${escape(DEMO_NOTICE_BN)} ${escape(DEMO_NOTICE_EN)}</p>`
+    : "";
   return `<!doctype html><html lang="${language === "en" ? "en" : "bn"}"><head><meta charset="UTF-8"><style>
 @page{size:A4;margin:17mm 19mm}*{box-sizing:border-box}body{font-family:'Nirmala UI','Noto Sans Bengali',sans-serif;color:#132d39;line-height:${lineHeight};font-size:${fontSize};margin:0}.office{text-align:center;display:flex;justify-content:center;gap:20px;margin:15px 0 8px}.office-language{flex:1}h1{font-size:21px;line-height:1.4;margin:0 0 7px}h2{font-size:18px;line-height:1.5;margin:0}h3{font-size:15px;margin:0 0 9px}.number{font-family:monospace;font-size:12px;text-align:center}.content{display:grid;grid-template-columns:${language === "bilingual" ? "1fr 1fr" : "1fr"};gap:24px;margin:17px 0;border-top:2px solid #16786d;padding-top:14px}.language-section{min-width:0}dl{margin:0}.field{margin:0 0 12px;break-inside:avoid}dt{font-weight:bold;font-size:12px;color:#3d5863}dd{margin:3px 0 0;overflow-wrap:anywhere;white-space:pre-wrap}.declaration{font-size:11px;line-height:1.5;margin:13px 0 0}.signatures{display:flex;justify-content:center;gap:40px;margin:22px 0 14px;break-inside:avoid}.signature{flex:0 1 320px;text-align:center;font-size:11px;display:flex;flex-direction:column;gap:2px}.sign-line{border-top:1px solid #4b5563;margin:34px 12px 6px}.verification{display:flex;align-items:center;gap:14px;border-top:1px solid #bdcbd1;padding-top:11px;break-inside:avoid}.qr{width:116px;height:116px;flex:none}.footer{font-size:10px;line-height:1.5;color:#4b5563;overflow-wrap:anywhere}.url{font-family:monospace;font-size:8px;display:block;margin-top:6px}.watermark{position:fixed;left:27%;top:42%;transform:rotate(-30deg);font:bold 72px sans-serif;color:rgba(179,38,30,.08);z-index:-1}
+.demo-banner{border:2px solid #b3261e;color:#b3261e;padding:6px;text-align:center;font:bold 13px sans-serif;margin-bottom:4mm}.demo-note{font-size:10px;text-align:center;color:#444;margin-top:3mm}
 h4{font-size:12px;line-height:1.4;margin:7px 0 4px;break-after:avoid}h5{font-size:11px;margin:5px 0 3px;break-after:avoid}.declaration{break-inside:avoid}.generic{font-size:12.5px;line-height:1.45}.generic .field{margin-bottom:5px}.generic dt{font-size:10.5px}.generic dd{margin-top:1px}.generic .member>strong{font-size:11px}.generic .member{margin:4px 0 7px}.generic .content{margin:12px 0;padding-top:10px;gap:20px}.generic .declaration{font-size:10px;margin:7px 0 0;line-height:1.45}.generic .office{margin:12px 0 7px}.generic .qr{width:100px;height:100px}.generic .verification{padding-top:8px}.generic .form-section{margin:0}.generic h3{font-size:13px;margin-bottom:6px}
-</style></head><body class="${isResident ? "resident" : "generic"}">${watermark}${banner}<header class="office">${heading}</header><div class="number">${escape(input.number)}</div><main class="content" data-delivery-language="${language}">${details}</main>${signatures}<section class="verification"><img class="qr" alt="${language === "bn" ? "অবস্থা যাচাইয়ের QR" : "Public verification QR"}" src="${escape(qrDataUrl)}"><div class="footer">${footer}<span class="url">${escape(input.verificationUrl)}</span></div></section></body></html>`;
+</style></head><body class="${isResident ? "resident" : "generic"}">${watermark}${banner}<header class="office">${heading}</header><div class="number">${escape(input.number)}</div><main class="content" data-delivery-language="${language}">${details}</main>${signatures}<section class="verification"><img class="qr" alt="${language === "bn" ? "অবস্থা যাচাইয়ের QR" : "Public verification QR"}" src="${escape(qrDataUrl)}"><div class="footer">${footer}<span class="url">${escape(input.verificationUrl)}</span></div></section>${demoNote}</body></html>`;
 }
 
 /**

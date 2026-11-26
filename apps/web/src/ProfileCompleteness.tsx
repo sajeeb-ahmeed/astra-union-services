@@ -2,7 +2,7 @@ import React from "react";
 import {
   completenessLabels,
   type ProfileCompleteness as Completeness,
-} from "@astra/shared-schemas";
+} from "@astra/shared-schemas/web";
 import { t, useLanguage } from "./i18n.js";
 
 /**

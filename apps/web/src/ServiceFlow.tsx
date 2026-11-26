@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
+import { randomUUID } from "./uuid.js";
 import {
   getServiceSchema,
   groupControllerIds,
@@ -8,12 +9,13 @@ import {
   type FieldDefinition,
   type FormSchema,
   type ValidationIssue,
-} from "@astra/shared-schemas";
+} from "@astra/shared-schemas/web";
 import { api, errorCode, items } from "./api.js";
 import { choose, recordName, useLanguage } from "./i18n.js";
 import { DynamicForm } from "./DynamicForm.js";
 import {
   ApplicationOrder,
+  money,
   prefetchOrderOptions,
   type IntakeOrderState,
 } from "./ApplicationOrder.js";
@@ -326,8 +328,36 @@ export function ServiceFlow({
   const [issues, setIssues] = useState<readonly ValidationIssue[]>([]);
   const [order, setOrder] = useState<IntakeOrderState | null>(null);
   const [busy, setBusy] = useState(false);
+  // W-004: one idempotency key per flow mount. Every create from this
+  // attempt (draft or submit, including a retry after a network failure)
+  // carries the same key, so the server returns the original application
+  // instead of a duplicate draft. A new flow mount mints a new key, so
+  // a legitimate repeat application is still possible.
+  const [requestKey] = useState(() => randomUUID());
   const [error, setError] = useState("");
-  const [result, setResult] = useState<{ id: string; reference?: string; state: string; note?: string } | null>(null);
+  const [result, setResult] = useState<{ id: string; reference?: string; state: string; note?: string; partial?: boolean } | null>(null);
+  // W-013: whether this office has an order policy for the service. A
+  // partial (half-filled) draft can only be saved before the delivery step
+  // when no policy exists — with a policy, the draft needs the order
+  // snapshot, which is only chosen at the delivery step. Resolved from the
+  // same prefetched options the delivery step uses.
+  const [orderPolicyConfigured, setOrderPolicyConfigured] = useState<boolean | null>(null);
+  // W-006: the fee outcome of this submit, fetched when the review step is
+  // reached so the citizen / responsible office sees it BEFORE committing.
+  // The preview is advisory (balances move); the submit stays authoritative.
+  const [feePreview, setFeePreview] = useState<any>(null);
+  useEffect(() => {
+    if (step !== 3) return;
+    let active = true;
+    api(`/fee-preview?serviceNo=${serviceNo}`)
+      .then((r) => {
+        if (active) setFeePreview(r);
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, [step, serviceNo]);
   // FULL-UIUX-01 (FE S8): when the office has no fee policy, the fee step
   // has nothing to ask — it is skipped in both directions.
   const [feeSkipped, setFeeSkipped] = useState(false);
@@ -356,7 +386,21 @@ export function ServiceFlow({
   // 8–10 s on services 36/41). The server stays authoritative: the quote
   // and the application creation re-read the policy server-side.
   useEffect(() => {
-    if (step === 1 && citizen) prefetchOrderOptions(serviceNo);
+    if (step === 1 && citizen) {
+      prefetchOrderOptions(serviceNo);
+      // W-013: learn whether a policy exists so the form step knows if an
+      // incomplete draft can be saved here (no policy) or only after the
+      // delivery step (policy configured).
+      let active = true;
+      prefetchOrderOptions(serviceNo)
+        .then((options) => {
+          if (active) setOrderPolicyConfigured(Boolean(options?.configured));
+        })
+        .catch(() => {});
+      return () => {
+        active = false;
+      };
+    }
   }, [step, citizen, serviceNo]);
   // QAFIX-01 (§1 bug 5): the record handed in at mount is the workspace's
   // snapshot from sign-in time. A citizen who completed their profile a
@@ -408,28 +452,40 @@ export function ServiceFlow({
   // defaults. Staff intake (selfCitizen false) never autofills another
   // person's NID. Services with a top-level nid_number field: 15/27/33/37.
   const nidAutofillDone = useRef<string>("");
+  const autofillCitizenId = citizen?.id;
+  const autofillNidHint = citizen?.nidHint;
   useEffect(() => {
-    if (!formReady || !citizen?.id || !citizen.nidHint) return;
+    if (!formReady || !autofillCitizenId || !autofillNidHint) return;
     const asksNid = formSchema.sections.some((section) =>
       section.fields.some((field) => field.id === "nid_number" && field.type === "text"),
     );
     if (!asksNid) return;
-    const key = `${citizen.id}:${formSchema.serviceNo}`;
+    const key = `${autofillCitizenId}:${formSchema.serviceNo}`;
     if (nidAutofillDone.current === key) return;
     nidAutofillDone.current = key;
     let active = true;
-    api(`/citizens/${citizen.id}/identity`)
+    let settled = false;
+    api(`/citizens/${autofillCitizenId}/identity`)
       .then((numbers) => {
+        settled = true;
         if (!active || typeof numbers?.nid !== "string" || !numbers.nid) return;
         setPayload((current) =>
           "nid_number" in current ? current : { nid_number: numbers.nid, ...current },
         );
       })
-      .catch(() => {});
+      .catch(() => {
+        settled = true;
+      });
     return () => {
       active = false;
+      // Integration fix: a request cancelled before it answered (e.g. the
+      // mount-time citizen refresh re-ran this effect) must not leave the key
+      // marked done, or the re-run exits early and the field stays empty.
+      if (!settled && nidAutofillDone.current === key) nidAutofillDone.current = "";
     };
-  }, [formReady, citizen, formSchema]);
+    // Primitive deps: a refreshed citizen object with the same id/hint does not
+    // re-run (and re-audit) the reveal.
+  }, [formReady, autofillCitizenId, autofillNidHint, formSchema]);
   useEffect(() => {
     let active = true;
     const timer = setTimeout(() => {
@@ -472,6 +528,7 @@ export function ServiceFlow({
         citizenId: citizen.id,
         serviceNo,
         payload,
+        requestKey,
         ...(order?.order ? { order: order.order } : {}),
       });
       const createdApplication = created.application || created;
@@ -509,6 +566,43 @@ export function ServiceFlow({
       // REG-UX Phase 1: the server's application gate found deferred profile items
       // missing — return to the form step, where the inline completion card shows.
       if (errorCode(createError) === "PROFILE_INCOMPLETE") setStep(1);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  // W-013: save the half-filled form as a partial draft — no client-side
+  // validation, no order input (only offered when no order policy exists, so
+  // the server never has to refuse it for a missing order snapshot). The
+  // server marks it partial; submit re-validates fully.
+  // W-013 follow-up (Stage 4): when the delivery options are already
+  // chosen (step 2), the order snapshot travels with the draft too — the
+  // server accepts partial+order (it skips only form validation), so a
+  // policy-configured service can now save mid-flow instead of waiting
+  // for the review step.
+  async function savePartialDraft() {
+    setBusy(true);
+    setError("");
+    try {
+      const created = await api("/applications", "POST", {
+        citizenId: citizen.id,
+        serviceNo,
+        payload,
+        requestKey,
+        partial: true,
+        ...(order?.order ? { order: order.order } : {}),
+      });
+      const createdApplication = created.application || created;
+      onChanged();
+      setResult({
+        id: createdApplication.id as string,
+        reference: (createdApplication.reference as string) || undefined,
+        state: "DRAFT",
+        partial: true,
+      });
+      go(4);
+    } catch (saveError) {
+      setError((saveError as Error).message);
     } finally {
       setBusy(false);
     }
@@ -683,6 +777,20 @@ export function ServiceFlow({
                   {choose({ bn: "← নাগরিক", en: "← Citizen" })}
                 </button>
               )}
+              {/* W-013: save the half-filled form. Only when this office has no
+                  order policy for the service — with a policy the draft needs
+                  the delivery options, which are chosen at the next step, and
+                  a draft can be saved at the review step instead. */}
+              {orderPolicyConfigured === false && (
+                <button
+                  type="button"
+                  className="secondary"
+                  disabled={busy}
+                  onClick={() => void savePartialDraft()}
+                >
+                  {choose({ bn: "অসম্পূর্ণ খসড়া সংরক্ষণ", en: "Save incomplete draft" })}
+                </button>
+              )}
               <button
                 type="button"
                 onClick={() => {
@@ -701,6 +809,14 @@ export function ServiceFlow({
                 {choose({ bn: "পরবর্তী: ফি ও সরবরাহ", en: "Next: fees and delivery" })}
               </button>
             </div>
+            {orderPolicyConfigured === true && (
+              <p className="hint">
+                {choose({
+                  bn: "এই সেবায় ডেলিভারি অপশন বেছে নেওয়ার পর পরের ধাপেই খসড়া সংরক্ষণ করা যাবে।",
+                  en: "For this service, a draft can be saved once the delivery options are chosen, at the next step.",
+                })}
+              </p>
+            )}
           </>
         )}
 
@@ -721,6 +837,18 @@ export function ServiceFlow({
             <div className="ax-flow-actions">
               <button type="button" className="secondary" onClick={() => go(1)}>
                 {choose({ bn: "← আবেদনের তথ্য", en: "← Application form" })}
+              </button>
+              {/* W-013 follow-up (Stage 4): with a policy-configured
+                  service the draft can be saved here, once the delivery
+                  options are chosen — enabled on the same condition as
+                  "Next", so the order snapshot is always present. */}
+              <button
+                type="button"
+                className="secondary"
+                disabled={busy || order?.context !== context || !order.ready}
+                onClick={() => void savePartialDraft()}
+              >
+                {choose({ bn: "অসম্পূর্ণ খসড়া সংরক্ষণ", en: "Save incomplete draft" })}
               </button>
               <button
                 type="button"
@@ -753,7 +881,10 @@ export function ServiceFlow({
                     {payload.delivery_language === "en"
                       ? "English"
                       : payload.delivery_language === "bilingual"
-                        ? choose({ bn: "দ্বিভাষিক", en: "Bilingual" })
+                        ? choose({
+                            bn: "দ্বিভাষিক (বাংলা ও ইংরেজি)",
+                            en: "Bilingual (Bangla and English)",
+                          })
                         : "বাংলা"}
                   </dd>
                 </>
@@ -765,6 +896,73 @@ export function ServiceFlow({
                   : choose({ bn: "এই অফিসে ফি নীতি নির্ধারিত নেই", en: "No fee policy is configured for this office" })}
               </dd>
             </dl>
+            {/* W-006: the financial outcome of this submit, before the citizen commits. */}
+            <div className="ax-flow-fee-preview" data-testid="fee-preview">
+              <h4>{choose({ bn: "ফি — জমা দেওয়ার আগে", en: "Fees — before you submit" })}</h4>
+              {!feePreview ? (
+                <p className="ax-flow-muted">
+                  {choose({ bn: "ফির হিসাব লোড হচ্ছে…", en: "Loading the fee summary…" })}
+                </p>
+              ) : (
+                <>
+                  {orderConfigured && order?.quoteTotalMinor != null ? (
+                    <p>
+                      {choose({
+                        bn: `সেবার ফি: ${money(order.quoteTotalMinor)} ৳ — সনদ ইস্যুর আগে এই ফি পরিশোধ করতে হবে।`,
+                        en: `Service fee: ৳${money(order.quoteTotalMinor)} — payable before the certificate is issued.`,
+                      })}
+                    </p>
+                  ) : null}
+                  {feePreview.method === "ALLOWANCE" ? (
+                    <p>
+                      {choose({
+                        bn: `প্ল্যাটফর্ম ফি: সাবস্ক্রিপশন সুবিধা থেকে কাটা হবে — ০ ক্রেডিট। এই মাসে ব্যবহৃত ${feePreview.allowance.used} / সীমা ${feePreview.allowance.limit ?? "সীমাহীন"}।`,
+                        en: `Platform fee: covered by the subscription allowance — 0 credits. Used this month ${feePreview.allowance.used} of ${feePreview.allowance.limit ?? "unlimited"}.`,
+                      })}
+                    </p>
+                  ) : feePreview.method === "FREE" ? (
+                    <p>
+                      {choose({
+                        bn: "প্ল্যাটফর্ম ফি: এই সেবার জন্য কোনো ফি নেই।",
+                        en: "Platform fee: no fee for this service.",
+                      })}
+                    </p>
+                  ) : (
+                    <p>
+                      {choose({
+                        bn: `প্ল্যাটফর্ম ফি: অফিসের ওয়ালেট থেকে ${feePreview.credits} ক্রেডিট কাটা হবে। ওয়ালেট ব্যালেন্স: ${feePreview.walletBalance} ক্রেডিট।`,
+                        en: `Platform fee: ${feePreview.credits} credit${feePreview.credits === 1 ? "" : "s"} will be taken from the office wallet. Wallet balance: ${feePreview.walletBalance} credits.`,
+                      })}
+                      {feePreview.allowance && feePreview.allowance.remaining === 0
+                        ? choose({
+                            bn: " সাবস্ক্রিপশন সুবিধা এই মাসে শেষ — তাই ওয়ালেট থেকে কাটা হবে।",
+                            en: " The subscription allowance is used up this month, so the wallet pays instead.",
+                          })
+                        : ""}
+                    </p>
+                  )}
+                  {feePreview.isDefaultPrice ? (
+                    <p className="ax-flow-muted">
+                      {choose({
+                        bn: "ডিফল্ট মূল্য — অফিস এখনো এই সেবার মূল্য প্রকাশ করেনি।",
+                        en: "Default price — the office has not published a price for this service.",
+                      })}
+                    </p>
+                  ) : null}
+                  {feePreview.willBlockSubmit ? (
+                    <p className="ax-flow-error" role="alert">
+                      {feePreview.blockReason}
+                    </p>
+                  ) : null}
+                  <p className="ax-flow-muted">
+                    {choose({
+                      bn: "জমা দেওয়ার মুহূর্তের হিসাবই চূড়ান্ত হবে।",
+                      en: "The amounts at the moment of submit are final.",
+                    })}
+                  </p>
+                </>
+              )}
+            </div>
             <PayloadDetails schema={formSchema} payload={payload} />
             <p className="ax-flow-muted">
               {choose({
@@ -809,7 +1007,9 @@ export function ServiceFlow({
             <p>
               {result.state === "SUBMITTED"
                 ? choose({ bn: "আবেদন জমা হয়েছে এবং অফিসের পর্যালোচনায় আছে।", en: "The application is submitted and waiting for office review." })
-                : choose({ bn: "আবেদন খসড়া হিসেবে সংরক্ষিত হয়েছে; এখনো জমা হয়নি।", en: "The application is saved as a draft; it is not submitted yet." })}
+                : result.partial
+                  ? choose({ bn: "অসম্পূর্ণ খসড়া সংরক্ষিত হয়েছে — আবেদনের তালিকা থেকে খুলে ফরমটি শেষ করুন।", en: "Incomplete draft saved — open it from your applications to finish the form." })
+                  : choose({ bn: "আবেদন খসড়া হিসেবে সংরক্ষিত হয়েছে; এখনো জমা হয়নি।", en: "The application is saved as a draft; it is not submitted yet." })}
             </p>
             {result.note && <p className="ax-flow-error">{result.note}</p>}
             <p>

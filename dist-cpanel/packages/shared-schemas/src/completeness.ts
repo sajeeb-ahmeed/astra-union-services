@@ -45,3 +45,20 @@ export function citizenProfileCompleteness(
   const percent = Math.floor(((checks.length - missing.length) / checks.length) * 100);
   return { percent, complete: missing.length === 0, missing };
 }
+
+/**
+ * REG-UX Phase 1 (design note §2.3): the items the one-screen signup defers — the
+ * second-script name, date of birth, permanent address and the citizen's own ward.
+ * A new application needs these (every certificate prints them); the NID/birth
+ * number and mobile are NOT part of this gate (they stay with the issuance gate for
+ * offices that turn require_complete_profile on). Returns the missing items only.
+ */
+export const APPLICATION_PROFILE_ITEMS: CompletenessItem[] = ["name", "dateOfBirth", "address", "geography"];
+export function applicationProfileGaps(
+  citizen: any,
+  options: { geographyRequired?: boolean } = {},
+): CompletenessItem[] {
+  return citizenProfileCompleteness(citizen, options).missing.filter((item) =>
+    APPLICATION_PROFILE_ITEMS.includes(item),
+  );
+}

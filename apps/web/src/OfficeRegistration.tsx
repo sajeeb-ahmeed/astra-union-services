@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { api, items } from "./api.js";
 import { choose, useLanguage } from "./i18n.js";
+import { applyPageHead } from "./seo/head.js";
 import { MobileOtpField, type VerifiedMobile } from "./MobileOtpField.js";
 import { TitleBand } from "./ui/kit.js";
 import "./office-registration.css";
@@ -10,7 +11,23 @@ import "./office-registration.css";
  * until then the account cannot sign in.
  */
 export function OfficeRegistration() {
-  useLanguage();
+  const [language] = useLanguage();
+  // F-006: this page owns its head — without this call it inherited the
+  // previous page's document.title (PublicShell only sets the branding
+  // default when no page has applied a head).
+  useEffect(() => {
+    applyPageHead({
+      title:
+        language === "bn"
+          ? "অফিস অ্যাকাউন্ট খুলুন | DigitalUnion"
+          : "Open an office account | DigitalUnion",
+      description:
+        language === "bn"
+          ? "আপনার ইউনিয়ন পরিষদের জন্য একটি অফিস অ্যাকাউন্টের অনুরোধ করুন। প্ল্যাটফর্ম মালিক যাচাই করার পর অ্যাকাউন্ট সক্রিয় হয়।"
+          : "Request an office account for your Union Parishad. The account is activated once the platform owner verifies it.",
+      canonicalPath: "/register-office",
+    });
+  }, [language]);
   const [offices, setOffices] = useState<any[] | null>(null);
   const [tenantId, setTenantId] = useState("");
   const [types, setTypes] = useState<any[]>([]);

@@ -8,7 +8,7 @@
  * Field errors from the API are shown at the field (the F2 pattern).
  */
 import React, { useState } from "react";
-import { applicationProfileGaps, type CompletenessItem } from "@astra/shared-schemas";
+import { applicationProfileGaps, type CompletenessItem } from "@astra/shared-schemas/web";
 import { api, fieldErrors } from "./api.js";
 import { choose } from "./i18n.js";
 import { GeographyFields, geographyPayload, readGeography } from "./GeographyFields.js";

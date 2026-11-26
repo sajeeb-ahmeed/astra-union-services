@@ -7,6 +7,7 @@ import "./account-mfa.css";
 type MfaStatus = {
   enabled: boolean;
   available: boolean;
+  approverMfaRequired?: boolean;
   pendingExpiresAt: string | null;
   recoveryCodesRemaining: number;
 };
@@ -56,6 +57,7 @@ export function securityEventLabel(action: string): string {
       bn: "নতুন recovery code তৈরি",
       en: "Recovery codes replaced",
     },
+    SIGNED_IN: { bn: "লগইন করা হয়েছে", en: "Signed in" },
     PASSWORD_CHANGED: { bn: "পাসওয়ার্ড পরিবর্তন", en: "Password changed" },
     PASSWORD_RECOVERED: {
       bn: "পাসওয়ার্ড পুনরুদ্ধার",
@@ -218,7 +220,18 @@ export function AccountMfa({
           </span>
         )}
       </div>
-      {isApprover && status && !status.enabled && (
+      {/* Phase 4 S-001/MFA: when the server enforces approver MFA the
+          warning is a hard error (sign-in will be refused); otherwise the
+          upstream advisory for approver accounts still shows. */}
+      {status?.approverMfaRequired && !status.enabled && (
+        <p className="notice error" role="alert">
+          {choose({
+            bn: "অনুমোদনকারীদের জন্য দুই ধাপের নিরাপত্তা বাধ্যতামূলক — এটি চালু না করলে পরেরবার লগইন করা যাবে না।",
+            en: "Two-step security is required for approvers — sign-in will be refused until you enroll.",
+          })}
+        </p>
+      )}
+      {isApprover && status && !status.enabled && !status.approverMfaRequired && (
         <p className="notice" role="alert">
           {choose({
             bn: "এই অ্যাকাউন্ট দিয়ে সনদ অনুমোদন করা হয়। দুই ধাপের নিরাপত্তা চালু না থাকলে অনুমোদনকারীর অ্যাকাউন্ট ঝুঁকিতে থাকে — নিচে authenticator সেটআপ করুন।",

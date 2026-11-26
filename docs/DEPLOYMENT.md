@@ -1,5 +1,7 @@
 # Deployment and reproducibility
 
+> **Current track (Batch C / A-002, 25 Nov 2026).** The live site is **https://digitalunion.com.bd/**, deployed from the cPanel bundle — see the [cPanel runbook](DEPLOY-CPANEL.md) and the [hosted deployment record](HOSTED_DEPLOYMENT.md). Release traceability: every bundle carries `release.json` (package id, commit, build time, web-asset manifest); the running server reports the public subset on `GET /api/v1/health` (`release` object) and the full detail on `GET /api/v1/admin/release` (admin only). Post-deployment sign-off requires `scripts/verify-deployment-readiness.ts` (`--db` on the server, `--live` from outside) — it verifies applied migrations and published service versions, the check that would have caught the 24 Nov 2026 `SCHEMA_UNAVAILABLE` recurrence. The Render-based 0.9 content below is **historical** and is kept for the record; it does not describe the current deployment.
+
 Updated for **0.9 live deployment · 24 October 2026**. Runtime `9aadc93b29cbc76a669db4ffa1c37a2f4f220528` is live at [Astra](https://astra-union-services.onrender.com/). Windows/Node 24/PostgreSQL 17.11 remains the local path. [Release 0.9](RELEASE_0_9.md) and [consolidated evidence](../execution/attachment-live-release.json) record 293 passing CI tests, real ClamAV checks, Docker build and hosted acceptance. Certificates remain DEMO / NOT OFFICIAL; payment gateways remain disabled.
 
 ## 0.9 quarantine and PC scanner rollout

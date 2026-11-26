@@ -19,7 +19,7 @@ try{
   }
   const timings:number[]=[];
   for(let batch=0;batch<10;batch++)await Promise.all(Array.from({length:10},async()=>{const start=performance.now();const response=await fetch(origin+'/api/v1/offices?pageSize=12');if(!response.ok)throw Error('Public directory request failed');await response.arrayBuffer();timings.push(performance.now()-start);}));
-  timings.sort((a,b)=>a-b);const report={date:new Date().toISOString(),environment:'Local Windows/Chromium; built frontend; loopback. Not production load or field Core Web Vitals.',pages:results,directoryRequests:100,concurrency:10,directoryMedianMs:Math.round(timings[50]!),directoryP95Ms:Math.round(timings[94]!),assets:JSON.parse(fs.readFileSync('execution/asset-sizes.json','utf8')).assets};
+  timings.sort((a,b)=>a-b);const report={date:new Date().toISOString(),environment:'Local Windows/Chromium; built frontend; loopback. Not production load or field Core Web Vitals.',pages:results,directoryRequests:100,concurrency:10,directoryMedianMs:Math.round(timings[50]!),directoryP95Ms:Math.round(timings[94]!),assets:JSON.parse(fs.readFileSync(fs.existsSync('apps/web/dist/asset-sizes.json')?'apps/web/dist/asset-sizes.json':'execution/asset-sizes.json','utf8')).assets};
   fs.writeFileSync('execution/performance-smoke.json',JSON.stringify(report,null,2));console.log(JSON.stringify(report,null,2));
   if(results.some(r=>r.horizontalOverflow||r.errors.length))throw Error('Built frontend has a visible/error regression.');
 }finally{await browser.close();await new Promise<void>(r=>server.close(()=>r()));await pool.end();}

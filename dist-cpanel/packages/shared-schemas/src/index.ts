@@ -14,6 +14,15 @@ import {
   geographySupersededSchemas,
   conditionalSupersededSchemas,
   certRefineSupersededSchemas,
+  qaFixSupersededSchemas,
+  qaFix2SupersededSchemas,
+  qaFix3SupersededSchemas,
+  qaFix4SupersededSchemas,
+  qaFix5SupersededSchemas,
+  qaFix6SupersededSchemas,
+  qaFix7SupersededSchemas,
+  qaFix8SupersededSchemas,
+  qaFix9SupersededSchemas,
 } from "./schemas.js";
 
 export * from "./types.js";
@@ -48,6 +57,15 @@ export const allServiceSchemaVersions: readonly FormSchema[] = deepFreeze([
   ...geographySupersededSchemas,
   ...conditionalSupersededSchemas,
   ...certRefineSupersededSchemas,
+  ...qaFixSupersededSchemas,
+  ...qaFix2SupersededSchemas,
+  ...qaFix3SupersededSchemas,
+  ...qaFix4SupersededSchemas,
+  ...qaFix5SupersededSchemas,
+  ...qaFix6SupersededSchemas,
+  ...qaFix7SupersededSchemas,
+  ...qaFix8SupersededSchemas,
+  ...qaFix9SupersededSchemas,
   ...operationalSchemas,
 ]);
 

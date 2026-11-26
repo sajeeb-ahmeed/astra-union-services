@@ -17,7 +17,18 @@ import {
   renderCertificateHtml,
   DEMO_TEMPLATE_VERSION,
 } from "../src/pdf.js";
+import {
+  DEMO_BANNER_BN,
+  DEMO_BANNER_EN,
+  DEMO_NOTICE_EN,
+} from "../src/demo-notice.js";
 import { payloadGeographyNames } from "../src/geography.js";
+import { digest } from "../src/security.js";
+import {
+  logMailProvider,
+  setMailProvider,
+  type MailMessage,
+} from "../src/mailer.js";
 // B2: these tests exercise the sandbox settlement route, which is off unless explicitly enabled.
 process.env.DEMO_SETTLE_ENABLED = "true";
 const db = new pg.Pool({ connectionString: adminConnectionString });
@@ -29,6 +40,21 @@ let server: ReturnType<typeof app.listen>,
   other: any,
   citizen: any,
   outsider: any;
+const policyVersions: Record<number, number> = {};
+// W-002: the AMOUNTS gate needs an order snapshot for the money services
+// (1, 41, 42) in every mode; the current forms carry no fee fields, so the
+// only route is an explicitly synthetic zero-fee order policy + order.
+function moneyOrder(no: number) {
+  return {
+    policyVersion: policyVersions[no],
+    preferences: {
+      addressBasis: "registered_profile",
+      certificateLanguage: "en",
+      deliveryMode: "office_collection",
+      urgency: "normal",
+    },
+  };
+}
 type Session = { cookie: string; csrf: string; user: any };
 const s: Record<string, Session> = {};
 const issued = new Map<number, any>();
@@ -155,6 +181,22 @@ before(async () => {
     );
     assert.equal(r.status, 200, JSON.stringify(r.body));
   }
+  // W-002: issuance gates run in every mode — this synthetic office needs
+  // an explicitly identified synthetic signature fixture before anything
+  // can issue. A 1x1 PNG — clearly not a real chairman signature.
+  const signature = await req(
+    "PUT",
+    "/office/certificate-assets/signature",
+    {
+      mimeType: "image/png",
+      base64:
+        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==",
+      reason:
+        "Synthetic signature fixture for demo-mode issuance regression (W-002); not a real chairman signature",
+    },
+    s.approver,
+  );
+  assert.ok([200, 201].includes(signature.status), JSON.stringify(signature.body));
   citizen = await signup("citizen", office);
   outsider = await signup("outsider", other);
   const order = await req(
@@ -181,6 +223,28 @@ before(async () => {
     s.owner,
   );
   assert.equal(adjust.status, 201);
+  // W-002: the AMOUNTS gate needs an order snapshot for the money services
+  // (1, 41, 42). Publish explicitly synthetic zero-fee policies for them;
+  // the current forms carry no fee fields, so an order is the only route.
+  for (const serviceNo of [1, 41, 42]) {
+    const published = await req(
+      "POST",
+      `/admin/services/${serviceNo}/order-policies`,
+      {
+        expectedVersion: 0,
+        reason: "Synthetic zero-fee policy for demo-mode issuance regression (W-002); not a government tariff",
+        statutoryFeeMinor: 0,
+        processingFeeMinor: 0,
+        emergencySurchargeMinor: 0,
+        deliveryFeesMinor: { office_collection: 0, digital_copy: 0 },
+        deliveryModes: ["office_collection", "digital_copy"],
+        urgencies: ["normal"],
+      },
+      s.admin,
+    );
+    assert.equal(published.status, 201, JSON.stringify(published.body));
+    policyVersions[serviceNo] = published.body.policy.version;
+  }
 });
 after(async () => {
   await closePdfBrowser();
@@ -387,12 +451,25 @@ test("ALL47-01: every service validates, persists, submits and is issued by the 
       ).rows[0].n,
   );
   for (const service of serviceCatalog) {
-    const no = service.service_no,
-      payload = getDemoPayload(no);
+    const no = service.service_no;
+    let payload: Record<string, unknown> = getDemoPayload(no);
+    let order: Record<string, unknown> | undefined;
+    // W-002: the AMOUNTS gate runs in demo mode too. The money services
+    // (1, 41, 42) need an order snapshot — the current forms carry no fee
+    // fields, so an order is the only route. The order's language must
+    // match the payload's, so the payload is pinned to English here.
+    if ([1, 41, 42].includes(no)) {
+      payload = { ...payload, delivery_language: "en" };
+      order = moneyOrder(no);
+    } else if (no === 10) {
+      // W-002: the LANGUAGE gate needs both sides of the pair; the demo
+      // payload carries only the Bangla occupation, so mirror it in English.
+      payload = { ...payload, last_occupation_en: "Sample information" };
+    }
     const created = await req(
       "POST",
       "/applications",
-      { citizenId: citizen.id, serviceNo: no, payload },
+      { citizenId: citizen.id, serviceNo: no, payload, ...(order ? { order } : {}) },
       s.citizen,
     );
     assert.equal(
@@ -567,16 +644,22 @@ test("GEO-FORM: v3 location selectors reject cross-parent codes server-side and 
     assert.equal(unknown.status, 422);
     assert.equal(unknown.body.error.issues[0].code, "geography_mismatch");
     // The genuine hierarchy is accepted for the same service.
+    // W-002: a policy is published for 41/42, so the valid create needs
+    // the order (the invalid creates above fail payload validation first,
+    // before the order check, and are unaffected).
+    const validPayload: Record<string, unknown> = {
+      ...payload,
+      org_location: { ...unknownUnion.org_location, unionCode: "uni-0001" },
+    };
+    if ([41, 42].includes(no)) validPayload.delivery_language = "en";
     const valid = await req(
       "POST",
       "/applications",
       {
         citizenId: citizen.id,
         serviceNo: no,
-        payload: {
-          ...payload,
-          org_location: { ...unknownUnion.org_location, unionCode: "uni-0001" },
-        },
+        payload: validPayload,
+        ...([41, 42].includes(no) ? { order: moneyOrder(no) } : {}),
       },
       s.citizen,
     );
@@ -764,9 +847,10 @@ test("CER-RENEW: trade renewal preserves lineage, applicant and authority; concu
     ).status,
     403,
   );
+  // W-002: a policy is published for 42, so the renewal needs its order.
   const concurrent = await Promise.all([
-    req("POST", `/applications/${source.applicationId}/renew`, {}, s.citizen),
-    req("POST", `/applications/${source.applicationId}/renew`, {}, s.citizen),
+    req("POST", `/applications/${source.applicationId}/renew`, { order: moneyOrder(42) }, s.citizen),
+    req("POST", `/applications/${source.applicationId}/renew`, { order: moneyOrder(42) }, s.citizen),
   ]);
   assert.deepEqual(concurrent.map((r) => r.status).sort(), [201, 409]);
   const child = concurrent.find((r) => r.status === 201)!.body;
@@ -822,10 +906,11 @@ test("CER-RENEW: trade renewal preserves lineage, applicant and authority; concu
     s.citizen,
   );
   fs.writeFileSync("execution/trade-renewal-demo.pdf", pdf.body);
+  // W-002: a policy is published for 42, so the renewal needs its order.
   const next = await req(
     "POST",
     `/applications/${child.id}/renew`,
-    {},
+    { order: moneyOrder(42) },
     s.citizen,
   );
   assert.equal(next.status, 201);
@@ -835,18 +920,20 @@ test("CER-RENEW: trade renewal preserves lineage, applicant and authority; concu
     "citizen",
     "Synthetic abandoned renewal",
   );
+  // W-002: a policy is published for 42, so the renewal needs its order.
   assert.equal(
-    (await req("POST", `/applications/${child.id}/renew`, {}, s.citizen))
+    (await req("POST", `/applications/${child.id}/renew`, { order: moneyOrder(42) }, s.citizen))
       .status,
     201,
   );
 });
 test("CER-REVOKE: source revocation blocks an already approved renewal and preserves wallet", async () => {
   const source = issued.get(1),
+    // W-002: a policy is published for 1, so the renewal needs its order.
     r = await req(
       "POST",
       `/applications/${source.applicationId}/renew`,
-      {},
+      { order: moneyOrder(1) },
       s.citizen,
     );
   assert.equal(r.status, 201);
@@ -925,7 +1012,10 @@ test("PDF-ALL: service templates retain approved family rows, trade data and HTM
       "data:image/png;base64,DEMO",
       6,
     );
-    assert.ok(!html.includes("DEMO / NOT OFFICIAL"));
+    // W-001: a demo document marks itself demo, in both languages.
+    assert.ok(html.includes(DEMO_BANNER_BN), "Bengali demo banner");
+    assert.ok(html.includes(DEMO_BANNER_EN), "English demo banner");
+    assert.ok(html.includes(DEMO_NOTICE_EN), "English not-official line");
     assert.ok(html.includes("Approved details"));
     if (no === 2) assert.ok(html.includes('class="member"'));
     if (no === 42) {
@@ -1011,6 +1101,11 @@ test("AUTH-RECOVERY: tenant-admin manual recovery is one-use, expires, blocks pr
     ).status,
     404,
   );
+  // S-007: the grant no longer returns the token — it is delivered
+  // out-of-band to the account holder's email. Capture the mail to
+  // exercise the tokens, then restore the log provider.
+  const mailSent: MailMessage[] = [];
+  setMailProvider({ async send(m) { mailSent.push(m); } });
   const grant = await req(
     "POST",
     `/admin/users/${s.staff!.user.id}/recovery`,
@@ -1018,14 +1113,18 @@ test("AUTH-RECOVERY: tenant-admin manual recovery is one-use, expires, blocks pr
     s.admin,
   );
   assert.equal(grant.status, 201, JSON.stringify(grant.body));
-  assert.match(grant.body.token, /^[a-f0-9]{64}$/);
+  assert.equal(grant.body.token, undefined, "S-007: no plaintext token in the response");
+  assert.equal(grant.body.recoveryUrl, undefined);
+  assert.equal(grant.body.delivery, "EMAIL");
+  const grantToken = mailSent[0].text.match(/#token=([a-f0-9]{64})/)?.[1] as string;
+  assert.ok(grantToken, "the out-of-band email carries the fragment link");
   const results = await Promise.all([
     req("POST", "/auth/recover", {
-      token: grant.body.token,
+      token: grantToken,
       newPassword: "Rec-Synthetic-Pa1!",
     }),
     req("POST", "/auth/recover", {
-      token: grant.body.token,
+      token: grantToken,
       newPassword: "Rec-Synthetic-Pa1!",
     }),
   ]);
@@ -1042,6 +1141,9 @@ test("AUTH-RECOVERY: tenant-admin manual recovery is one-use, expires, blocks pr
     {},
     s.admin,
   );
+  const expiredToken = mailSent[1].text.match(/#token=([a-f0-9]{64})/)?.[1] as string;
+  assert.ok(expiredToken, "the second grant also arrives out-of-band");
+  setMailProvider(logMailProvider);
   await db.query(
     "UPDATE password_recovery_tokens SET expires_at=now()-interval '1 minute' WHERE user_id=$1 AND consumed_at IS NULL",
     [s.staff!.user.id],
@@ -1049,7 +1151,7 @@ test("AUTH-RECOVERY: tenant-admin manual recovery is one-use, expires, blocks pr
   assert.equal(
     (
       await req("POST", "/auth/recover", {
-        token: expired.body.token,
+        token: expiredToken,
         newPassword: password,
       })
     ).status,
@@ -1059,7 +1161,10 @@ test("AUTH-RECOVERY: tenant-admin manual recovery is one-use, expires, blocks pr
     "SELECT token_hash FROM password_recovery_tokens WHERE user_id=$1",
     [s.staff!.user.id],
   );
-  assert.ok(snapshots.rows.every((r) => r.token_hash !== grant.body.token));
+  // S-007: tokens are stored hashed, never plaintext — the stored hash
+  // is the digest of the emailed token, and never the token itself.
+  assert.ok(snapshots.rows.some((r) => r.token_hash === digest(grantToken)));
+  assert.ok(snapshots.rows.every((r) => r.token_hash !== grantToken));
   await db.query(
     "INSERT INTO staff_memberships(user_id,tenant_id,role) VALUES($1,$2,'staff')",
     [s.staff!.user.id, other.id],
@@ -1186,17 +1291,53 @@ async function issuedV2ApplicationWith(no: number, overrides: Record<string, str
     no === 42
       ? {}
       : { purpose_bn: "নবায়নের উদ্দেশ্য", purpose_en: "Renewal purpose" };
-  const payload = { ...rest, ...purposePair, ...v2LocationText[no], ...overrides };
+  // W-002: the money services (41/42) need an order snapshot for the
+  // AMOUNTS gate, so the v2 application is inserted in POLICY mode with
+  // an explicitly synthetic zero-fee snapshot (the snapshot-required
+  // trigger is deferred, so the app row and the snapshot land in one
+  // transaction). The v2 forms carry no fee fields — a fee component in
+  // the payload would be rejected as unknown at renewal validation — so
+  // the order is the only route. Service 41's v2 payload pins its
+  // language to English to match the snapshot; 42's v2 payload carries
+  // no language field at all.
+  const langPair: Record<string, unknown> = no === 41 ? { delivery_language: "en" } : {};
+  const payload = { ...rest, ...purposePair, ...langPair, ...v2LocationText[no], ...overrides };
+  // W-013: the submit gate now fully validates the stored payload against
+  // its PINNED version. This fixture builds the "v2 application" from the
+  // CURRENT demo payload, which carries fields v2 never had (service 36's
+  // noc_subject arrived in v6) — submit rightly rejects those as
+  // unknown_field. A real v2 application created through the API could never
+  // contain them (create-time validation), so keep only v2's own fields;
+  // the renewal path migrates the rest (location text, purpose pair) onto
+  // the latest schema itself.
+  const v2FieldIds = new Set(
+    v2.sections.flatMap((section: any) => section.fields.map((field: any) => field.id)),
+  );
+  for (const key of Object.keys(payload))
+    if (!v2FieldIds.has(key)) delete (payload as Record<string, unknown>)[key];
   const hash = (
     await db.query("SELECT schema_hash FROM service_versions WHERE service_no=$1 AND version=2", [no])
   ).rows[0].schema_hash;
   const id = await transaction(source.tenant_id, async (tx) => {
     const app = (
       await tx.query(
-        "INSERT INTO applications(tenant_id,citizen_id,service_no,schema_version,schema_hash,created_by) VALUES($1,$2,$3,2,$4,$5) RETURNING id",
-        [source.tenant_id, source.citizen_id, no, hash, source.created_by],
+        "INSERT INTO applications(tenant_id,citizen_id,service_no,schema_version,schema_hash,created_by,order_mode) VALUES($1,$2,$3,2,$4,$5,$6) RETURNING id",
+        [
+          source.tenant_id,
+          source.citizen_id,
+          no,
+          hash,
+          source.created_by,
+          [41, 42].includes(no) ? "POLICY" : "LEGACY",
+        ],
       )
     ).rows[0];
+    if ([41, 42].includes(no)) {
+      await tx.query(
+        "INSERT INTO application_order_snapshots(tenant_id,application_id,service_no,policy_version,address_basis,certificate_language,delivery_mode,urgency,statutory_fee_minor,processing_fee_minor,emergency_surcharge_minor,delivery_fee_minor,total_minor,currency,coupon_code,discount_minor) VALUES($1,$2,$3,$4,'registered_profile','en','office_collection','normal',0,0,0,0,0,'BDT',NULL,0)",
+        [source.tenant_id, app.id, no, policyVersions[no]],
+      );
+    }
     await tx.query(
       "INSERT INTO application_payload_versions(tenant_id,application_id,version,payload,payload_hash,actor_id) VALUES($1,$2,1,$3,$4,$5)",
       [source.tenant_id, app.id, JSON.stringify(payload), createHash("sha256").update(stableJson(payload)).digest("hex"), source.created_by],
@@ -1217,8 +1358,24 @@ async function issuedV2Application(no: number, overrides: Record<string, string>
 }
 for (const no of [36, 41])
   test(`B5: a v2-pinned service ${no} application renews unchanged onto v3 when its location text matches`, async () => {
-    const { id } = await issuedV2Application(no);
-    const renewal = await req("POST", `/applications/${id}/renew`, {}, s.citizen);
+    const { id, payload } = await issuedV2Application(no);
+    // W-002: a policy is published for 41, so its renewal needs the order;
+    // 36 has no policy, so an order would be rejected — keep it order-free.
+    // W-013: service 36's v6 added a required noc_subject with no v2
+    // source — a genuine v2 payload cannot validate against v6 without it,
+    // so the citizen supplies it in the renewal form (the renewal renders
+    // from the latest schema; the renew endpoint accepts a payload for
+    // exactly this). Service 41's v2 payload already validates against its
+    // latest, so it renews on the carried payload unchanged.
+    const renewal = await req(
+      "POST",
+      `/applications/${id}/renew`,
+      {
+        ...([41, 42].includes(no) ? { order: moneyOrder(no) } : {}),
+        ...(no === 36 ? { payload: { ...payload, noc_subject: "land" } } : {}),
+      },
+      s.citizen,
+    );
     assert.equal(renewal.status, 201, `Renew v2 ${no}: ${JSON.stringify(renewal.body)}`);
     assert.equal(renewal.body.locationUpgrade, "RESOLVED");
     assert.equal(renewal.body.schemaVersion, getServiceSchema(no).version);
@@ -1246,7 +1403,8 @@ test("B5: a v2-pinned service 42 application renews on its pinned version — th
   // designed pinned fallback (as with unmatched location text):
   // it renews on v2 with the payload unchanged, and still issues.
   const { id, payload } = await issuedV2Application(42);
-  const renewal = await req("POST", `/applications/${id}/renew`, {}, s.citizen);
+  // W-002: a policy is published for 42, so the renewal needs its order.
+  const renewal = await req("POST", `/applications/${id}/renew`, { order: moneyOrder(42) }, s.citizen);
   assert.equal(renewal.status, 201, `Renew v2 42: ${JSON.stringify(renewal.body)}`);
   assert.equal(renewal.body.schemaVersion, 2);
   const child = (await req("GET", `/applications/${renewal.body.id}`, undefined, s.citizen)).body;
@@ -1260,7 +1418,8 @@ test("B5: a v2-pinned service 42 application renews on its pinned version — th
 });
 test("B5: unmatched location text keeps the renewal on its pinned version with the payload unchanged", async () => {
   const { id, payload } = await issuedV2Application(41, { union_id: "Nonexistent Union" });
-  const renewal = await req("POST", `/applications/${id}/renew`, {}, s.citizen);
+  // W-002: a policy is published for 41, so the renewal needs its order.
+  const renewal = await req("POST", `/applications/${id}/renew`, { order: moneyOrder(41) }, s.citizen);
   assert.equal(renewal.status, 201, JSON.stringify(renewal.body));
   assert.equal(renewal.body.locationUpgrade, "UNRESOLVED");
   assert.equal(renewal.body.schemaVersion, 2);
@@ -1392,4 +1551,137 @@ test("Phase 2a: account types fix the membership role, suit the office type and 
   const retype = await req("PATCH", "/admin/office", { officeType: "MUNICIPALITY" }, s.admin);
   assert.equal(retype.status, 409, JSON.stringify(retype.body));
   assert.equal(retype.body.error.code, "ACCOUNT_TYPES_CONFLICT");
+});
+
+// ALL47-02 (47-service workflow coverage): ALL47-01 covers the happy path
+// (create -> approve/issue -> PDF -> public verify -> fee reconciliation).
+// This covers the rest of the cross-role workflow for EVERY service, at API
+// level, as the citizen / Chairman / platform owner would drive it:
+//   A. submit -> visible in the Chairman's pending queue -> correction with a
+//      reason -> the citizen sees the reason -> corrected payload saved ->
+//      resubmit -> approve (= issue) -> public verify by QR token AND by the
+//      printed number -> revoke with a reason -> public verify says REVOKED.
+//   B. a second application: submit -> reject with a reason -> the citizen
+//      sees REJECTED and the reason; no certificate exists.
+//   C. owner reconciliation: the owner's per-office statistics equal the
+//      office's own database counts.
+// Synthetic data only, DEMO issuance mode (no official certificates).
+test("ALL47-02: every service runs correction -> resubmit -> issue -> verify (token + number) -> revoke, and reject; owner statistics reconcile", async () => {
+  const evidence: any[] = [];
+  // ~190 anonymous lookups exceed the real public limiter (120/min/IP); the
+  // test honours it — on 429 it waits Retry-After and retries — never bypasses it.
+  let rateLimitWaits = 0;
+  const publicGet = async (path: string) => {
+    for (;;) {
+      const r = await req("GET", path);
+      if (r.status !== 429) return r;
+      rateLimitWaits++;
+      const wait = Number((r as any).headers?.get?.("retry-after")) || 30;
+      await new Promise((done) => setTimeout(done, Math.min(wait, 65) * 1000));
+    }
+  };
+  const servicePayload = (no: number) => {
+    let payload: Record<string, unknown> = getDemoPayload(no);
+    let order: Record<string, unknown> | undefined;
+    // Same W-002 gate handling as ALL47-01.
+    if ([1, 41, 42].includes(no)) {
+      payload = { ...payload, delivery_language: "en" };
+      order = moneyOrder(no);
+    } else if (no === 10) payload = { ...payload, last_occupation_en: "Sample information" };
+    return { payload, order };
+  };
+  const create = async (no: number) => {
+    const { payload, order } = servicePayload(no);
+    const created = await req(
+      "POST",
+      "/applications",
+      { citizenId: citizen.id, serviceNo: no, payload, ...(order ? { order } : {}) },
+      s.citizen,
+    );
+    assert.equal(created.status, 201, `Service ${no} create: ${JSON.stringify(created.body)}`);
+    return { id: created.body.id as string, payload };
+  };
+  for (const service of serviceCatalog) {
+    const no = service.service_no;
+    const steps: Record<string, string> = {};
+    // ---- A. correction / resubmission / issue / verify / revoke
+    const a = await create(no);
+    assert.equal((await transition(a.id, "submit", "citizen")).state, "SUBMITTED");
+    const queue = await req("GET", `/applications?state=SUBMITTED&q=${a.id}`, undefined, s.approver);
+    assert.equal(queue.status, 200);
+    assert.ok(queue.body.items.some((x: any) => x.id === a.id), `Service ${no}: in the Chairman's pending queue`);
+    steps.chairmanVisibility = "PASS";
+    const reason = `Synthetic correction for service ${no}`;
+    assert.equal((await transition(a.id, "request_correction", "approver", reason)).state, "CORRECTION_REQUIRED");
+    const seen = await req("GET", `/applications/${a.id}`, undefined, s.citizen);
+    assert.equal(seen.body.application.state, "CORRECTION_REQUIRED");
+    assert.ok(seen.body.events.some((e: any) => e.reason === reason), `Service ${no}: citizen sees the correction reason`);
+    steps.correction = "PASS";
+    const edited = await req("PATCH", `/applications/${a.id}`, { payload: a.payload }, s.citizen);
+    assert.equal(edited.status, 200, `Service ${no} corrected payload: ${JSON.stringify(edited.body)}`);
+    assert.equal((await transition(a.id, "resubmit", "citizen")).state, "RESUBMITTED");
+    steps.resubmission = "PASS";
+    const approved = await transition(a.id, "approve", "approver");
+    assert.equal(approved.state, "ISSUED", `Service ${no}: approve issues`);
+    const certificate = approved.certificate;
+    assert.ok(certificate?.id && certificate.number, `Service ${no}: certificate with a number`);
+    steps.approvalAndCertificate = "PASS";
+    const token = certificate.verificationUrl.split("/").at(-1);
+    const byToken = await publicGet(`/verify/${token}`);
+    assert.equal(byToken.body.status, "ISSUED");
+    const byNumber = await publicGet(`/verify/by-number/${encodeURIComponent(certificate.number)}`);
+    assert.equal(byNumber.status, 200, `Service ${no} verify by number: ${JSON.stringify(byNumber.body)}`);
+    assert.equal(byNumber.body.status, "ISSUED");
+    assert.equal(byNumber.body.serviceNo, no);
+    steps.publicVerification = "PASS";
+    const revoked = await req(
+      "POST",
+      `/certificates/${certificate.id}/revoke`,
+      { reason: `Synthetic revocation for service ${no}` },
+      s.approver,
+    );
+    assert.equal(revoked.status, 200, `Service ${no} revoke: ${JSON.stringify(revoked.body)}`);
+    assert.equal((await publicGet(`/verify/${token}`)).body.status, "REVOKED");
+    steps.revocation = "PASS";
+    // ---- B. rejection
+    const b = await create(no);
+    await transition(b.id, "submit", "citizen");
+    const rejectReason = `Synthetic rejection for service ${no}`;
+    assert.equal((await transition(b.id, "reject", "approver", rejectReason)).state, "REJECTED");
+    const rejected = await req("GET", `/applications/${b.id}`, undefined, s.citizen);
+    assert.equal(rejected.body.application.state, "REJECTED");
+    assert.ok(rejected.body.events.some((e: any) => e.reason === rejectReason), `Service ${no}: citizen sees the rejection reason`);
+    assert.equal(rejected.body.certificate, null, `Service ${no}: no certificate after rejection`);
+    steps.rejection = "PASS";
+    evidence.push({ serviceNo: no, correctionApplicationId: a.id, rejectedApplicationId: b.id, certificateId: certificate.id, ...steps });
+  }
+  // ---- C. owner reconciliation: the owner's view equals the database.
+  const stats = await req("GET", `/owner/statistics?tenantId=${office.id}`, undefined, s.owner);
+  assert.equal(stats.status, 200, JSON.stringify(stats.body));
+  const row = stats.body.offices.find((o: any) => o.slug === office.slug || o.id === office.id) ?? stats.body.offices[0];
+  const truth = await transaction(office.id, async (c) => ({
+    applications: (await c.query("SELECT count(*)::int n FROM applications")).rows[0].n,
+    certificates: (await c.query("SELECT count(*)::int n FROM certificates")).rows[0].n,
+    revoked: (await c.query("SELECT count(*)::int n FROM certificates WHERE status='REVOKED'")).rows[0].n,
+    rejected: (await c.query("SELECT count(*)::int n FROM applications WHERE state='REJECTED'")).rows[0].n,
+  }));
+  assert.equal(row.applications, truth.applications, "owner statistics: applications reconcile");
+  assert.equal(row.certificates, truth.certificates, "owner statistics: certificates reconcile");
+  assert.ok(truth.revoked >= 47 && truth.rejected >= 47);
+  fs.writeFileSync(
+    "execution/all-services-workflow-qa.json",
+    JSON.stringify(
+      {
+        mode: "SYNTHETIC_DEMO",
+        level: "API (cross-role: citizen, Chairman, platform owner)",
+        services: evidence,
+        servicesPassed: evidence.length,
+        publicRateLimitWaits: rateLimitWaits,
+        ownerReconciliation: { owner: { applications: row.applications, certificates: row.certificates }, database: truth },
+      },
+      null,
+      2,
+    ),
+  );
+  assert.equal(evidence.length, 47);
 });

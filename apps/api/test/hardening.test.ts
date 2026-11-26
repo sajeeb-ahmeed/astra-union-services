@@ -8,7 +8,7 @@ import { app } from "../src/app.js";
 import { pool, adminConnectionString } from "../src/db.js";
 import { closePdfBrowser } from "../src/pdf.js";
 import { logOtpProvider } from "../src/otp.js";
-import { logMailProvider, emailHint } from "../src/mailer.js";
+import { logMailProvider, emailHint, setMailProvider, type MailMessage } from "../src/mailer.js";
 import { logSmsProvider } from "../src/sms.js";
 import { identifierHint } from "../src/identifiers.js";
 import { isCommonPassword } from "../src/security.js";
@@ -23,7 +23,13 @@ import { isCommonPassword } from "../src/security.js";
  */
 
 type Session = { cookie: string; csrf: string; user: any };
-const run = randomUUID().slice(0, 8);
+// Stage 6: the citizens search also matches a digits-only form of the query
+// against synthetic_reference, so a random hex suffix containing digits can
+// false-positive the digits branch in the F8 test (a digits substring of the
+// run suffix matching the X citizen's reference). Keep the suffix digits-free
+// (hex letters a-f only); uniqueness is unaffected and no other test in this
+// file depends on digits in the suffix.
+const run = randomUUID().replace(/[^a-f]/g, "").padEnd(8, "a").slice(0, 8);
 const admin = new pg.Pool({ connectionString: adminConnectionString });
 let server: ReturnType<typeof app.listen>, base: string;
 let owner: Session;
@@ -266,10 +272,19 @@ test("Audit 01 F5: recovery consume rejects a blocklisted new password and the t
     officeAdmin,
   );
   assert.equal(target.status, 201, JSON.stringify(target.body));
+  // S-007: the grant no longer returns the token — it is delivered
+  // out-of-band to the account holder's email. Capture the mail to
+  // exercise the token, then restore the log provider.
+  const mailSent: MailMessage[] = [];
+  setMailProvider({ async send(m) { mailSent.push(m); } });
   const grant = await req("POST", `/admin/users/${target.body.id}/recovery`, {}, officeAdmin);
+  setMailProvider(logMailProvider);
   assert.equal(grant.status, 201, JSON.stringify(grant.body));
-  const token = grant.body.token as string;
-  assert.ok(token, "the recovery grant returns the token");
+  assert.equal(grant.body.token, undefined, "S-007: no plaintext token in the response");
+  assert.equal(grant.body.recoveryUrl, undefined);
+  assert.equal(grant.body.delivery, "EMAIL");
+  const token = mailSent[0].text.match(/#token=([a-f0-9]{64})/)?.[1] as string;
+  assert.ok(token, "the out-of-band email carries the fragment link");
   const rejected = await req("POST", "/auth/recover", { token, newPassword: BLOCKED });
   assert.equal(rejected.status, 422, JSON.stringify(rejected.body));
   const recovered = await req("POST", "/auth/recover", { token, newPassword: "Hard-Recovered-P1!" });

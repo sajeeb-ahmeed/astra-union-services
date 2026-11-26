@@ -104,6 +104,22 @@ jobs:
       - uses: actions/checkout@v4
       - name: Build the deployable Docker image
         run: docker build --tag astra:ci .
+  lint:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+      # B-005: ESLint flat config, warnings-only first pass — the script
+      # exits 0 on the current tree (1056 baseline warnings); ratchet to
+      # errors later. Prettier is configured (.prettierrc) and run on
+      # demand via `npm run format`; it is not gated here because the
+      # tree is not prettier-formatted (563 files at the baseline).
+      - run: npm ci --no-audit --no-fund
+      - run: npm run lint
   verify:
     runs-on: ubuntu-24.04
     timeout-minutes: 20
@@ -135,7 +151,30 @@ jobs:
       - run: npm run db:bootstrap-role
       - run: npm run db:migrate
       - run: npm run db:seed
-      - run: npm run build
+      # A-001: the OpenAPI spec must cover every implemented route and contain
+      # no stale operations; the check enumerates the live Express route table
+      # (needs the seeded test database environment of this job).
+      - run: npm run test:openapi
+      # B-001/B-004: the production build must leave the working tree clean
+      # and emit no import-attributes warnings; fail the job if either
+      # regresses. The log is kept for the warning grep (the build's own
+      # exit code still fails the step first via pipefail).
+      - name: Build and assert a clean tree with no import-attributes warnings
+        run: |
+          npm run build 2>&1 | tee /tmp/astra-build.log
+          if grep -q "tried to import.*with no attributes" /tmp/astra-build.log; then
+            echo "::error::production build emitted an import-attributes warning (B-004)"
+            exit 1
+          fi
+          if [ -n "$(git status --porcelain)" ]; then
+            echo "::error::production build dirtied the working tree (B-001)"
+            git status --porcelain
+            exit 1
+          fi
+      # T-002: the browser fixture stands in for the scanner worker over
+      # the internal scanner API. The secret is random per run, lives only
+      # in this isolated job, and is never persisted or deployed.
+      - run: echo "ATTACHMENT_SCANNER_SECRET=$(openssl rand -hex 32)" >> "$GITHUB_ENV"
       - run: npm test
       # Audit gate covers production dependencies. The picomatch advisory
       # GHSA-fc5q-39xc-vjpf affects only dev build tooling (vite chain) and has

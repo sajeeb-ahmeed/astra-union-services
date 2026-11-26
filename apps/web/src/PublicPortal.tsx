@@ -2,13 +2,15 @@ import { ShortSignupForm, type ShortSignupResult } from "./ShortSignup.js";
 import { t, tx, choose, useLanguage } from "./i18n.js";
 import { SiteFooter, SiteHeader } from "./PublicShell.js";
 import { GlobalNoticeBanner } from "./GlobalNotices.js";
-import { ApplicationStatus, EmptyState, ServiceCard, serviceCardMetaRich } from "./ui/kit.js";
+import { ApplicationStatus, EmptyState, ServiceCard, SkeletonRows, serviceCardMetaRich } from "./ui/kit.js";
 import {
   loadServiceOfficeSummaries,
   type ServiceOfficeSummary,
 } from "./service-office-summary.js";
 import { formatDateTime, localDigits } from "./ui/fmt.js";
 import { categoryLabel } from "./service-categories.js";
+import { navigate } from "./navigate.js";
+import { useSupportContact } from "./support-contact.js";
 import { serviceNoFromSlug, servicePath } from "./service-slugs.js";
 import {
   OFFICES_HUB_SEO,
@@ -20,20 +22,24 @@ import {
   officeTitle,
   relatedServices,
   serviceDescription,
+  serviceFormFacts,
   serviceSeo,
   serviceTitle,
+  stepsFor,
+  type ServiceFormFacts,
 } from "./seo/service-seo.js";
 import { applyPageHead } from "./seo/head.js";
 import { BrandLockup } from "./BrandLockup.js";
-import { getServiceSchema } from "@astra/shared-schemas";
-import React, { Suspense, lazy, useEffect, useRef, useState } from "react";
+import { getServiceSchema } from "@astra/shared-schemas/web";
+import { lazyWithRetry } from "./AsyncPanel.js";
+import React, { Suspense, useEffect, useRef, useState } from "react";
 // Phase 4c: the witness generator loads only on /witness, keeping the public start-up bundle small.
-const UserGuide = lazy(() => import("./UserGuide.js").then((m) => ({ default: m.UserGuide })));
-const WitnessGenerator = lazy(() => import("./WitnessGenerator.js").then((m) => ({ default: m.WitnessGenerator })));
+const UserGuide = lazyWithRetry(() => import("./UserGuide.js"), (m) => m.UserGuide);
+const WitnessGenerator = lazyWithRetry(() => import("./WitnessGenerator.js"), (m) => m.WitnessGenerator);
 import "./public-usability.css";
 import "./public-portal.css";
 // Public pages need names only; canonical metadata parity is checked by the web tests.
-import serviceCatalog from "./public-service-catalog.json" with { type: "json" };
+import serviceCatalog from "./service-catalog.js";
 import { api, items } from "./api.js";
 import { ServicePriceList, taka } from "./ServicePriceList.js";
 import { DesignatedOfficers, OfficeInclusionForm } from "./OfficeInclusion.js";
@@ -42,6 +48,7 @@ import {
   geographyPayload,
   emptyGeography,
   readGeography,
+  type GeographyValue,
 } from "./GeographyFields.js";
 import { LanguageSwitcher } from "./i18n.js";
 
@@ -61,20 +68,30 @@ const publicPages: Record<string, [string, string]> = {
   login: ["লগইন", "Sign in"],
   register: ["নিবন্ধন", "Register"],
   policies: ["নীতি", "Policies"],
+  privacy: ["গোপনীয়তা নীতি", "Privacy policy"],
+  terms: ["ব্যবহারের শর্তাবলী", "Terms of use"],
   recover: ["অ্যাকাউন্ট পুনরুদ্ধার", "Account recovery"],
 };
 const value = (o: any, camel: string, snake: string) =>
   o?.[camel] ?? o?.[snake] ?? "";
 function RecoveryForm() {
+  // S-007: the recovery link carries the token in the URL fragment
+  // (/recover#token=…), never in a query param — a fragment never
+  // reaches the server, a proxy, or a log. It is read once, moved into
+  // the form state, and stripped from the address bar; the token is
+  // then sent only in the POST body.
+  // F-014: the owner-configured support contact (empty until set) — the
+  // one place a locked-out citizen is told how to reach a human.
+  const contact = useSupportContact();
   const [token, setToken] = useState(
-      new URLSearchParams(location.search).get("token") || "",
+      new URLSearchParams(location.hash.replace(/^#/, "")).get("token") || "",
     ),
     [message, setMessage] = useState(""),
     [busy, setBusy] = useState(false),
     [done, setDone] = useState(false);
   const [mfaRecoveryBlocked, setMfaRecoveryBlocked] = useState(false);
   useEffect(() => {
-    if (location.search) history.replaceState({}, "", "/recover");
+    if (location.hash) history.replaceState({}, "", "/recover");
   }, []);
   return (
     <section className="panel narrow">
@@ -84,6 +101,26 @@ function RecoveryForm() {
           "Contact your office administrator using your existing trusted contact channel to recover your account. After checking the request, they can provide a one-use recovery link valid for 15 minutes. ",
         )}
       </p>
+      {/* F-014: the platform support contact, when the owner has published
+          one — the locked-out citizen's way to reach a human. With no
+          contact configured this block stays hidden and the paragraph
+          above stands alone; nothing is invented here. */}
+      {(contact.phone || contact.email) && (
+        <p className="recovery-contact">
+          {t("Platform support: ")}
+          {contact.phone && (
+            <a href={`tel:${contact.phone.replace(/\s+/g, "")}`}>{contact.phone}</a>
+          )}
+          {contact.phone && contact.email && tx(" · ")}
+          {contact.email && <a href={`mailto:${contact.email}`}>{contact.email}</a>}
+          {contact.hours.bn && (
+            <>
+              {tx(" · ")}
+              <small>{choose(contact.hours)}</small>
+            </>
+          )}
+        </p>
+      )}
       {tx(
         done ? (
           <p role="status" className="notice">
@@ -588,14 +625,18 @@ export function PublicPortal({
   // UIUX-FIX-01: there is exactly one public homepage — the PublicHome
   // composition at "/". The portal no longer renders its own home view;
   // any legacy "home" state redirects there.
+  // L-006: client-side — navigate() pushStates and the App re-renders to
+  // PublicHome; the old location.replace() was a full page load.
   useEffect(() => {
-    if (page === "home") location.replace("/");
+    if (page === "home") navigate("/");
   }, [page]);
   function nav(next: string) {
     onNavigate?.();
     // Phase 1: "/" is the new public home, outside this legacy component.
+    // L-006: client-side — the App re-renders to PublicHome on the
+    // "astra:navigate" event; the old location.assign() was a full load.
     if (next === "home") {
-      location.assign("/");
+      navigate("/");
       return;
     }
     setPage(next);
@@ -609,7 +650,9 @@ export function PublicPortal({
     const pop = () => {
       onNavigate?.();
       if (location.pathname === "/") {
-        location.reload();
+        // L-006: no reload — the App listens for "popstate" itself and
+        // re-renders to PublicHome; the old location.reload() re-showed
+        // the splash on every back-navigation to the homepage.
         return;
       }
       const next = location.pathname.split("/")[1] || "home";
@@ -703,12 +746,15 @@ export function PublicPortal({
       });
     }
   }, [page, serviceNo, office, language, slugMiss]);
-  async function loadOffices(p = 1) {
+  async function loadOffices(
+    p = 1,
+    overrides?: { q?: string; type?: string; geography?: GeographyValue },
+  ) {
     setWorking(true);
     setError("");
     const query = new URLSearchParams({
-      ...filters,
-      ...geographyPayload(directoryGeography),
+      ...(overrides ? { q: overrides.q ?? "", type: overrides.type ?? "" } : filters),
+      ...geographyPayload(overrides?.geography ?? directoryGeography),
       page: String(p),
       pageSize: String(officePageSize),
     });
@@ -896,9 +942,11 @@ export function PublicPortal({
         </h2>
         {tx(
           !info || info.state === "loading" ? (
-            <p role="status">
-              {choose({ bn: "তথ্য লোড হচ্ছে…", en: "Loading office information…" })}
-            </p>
+            /* F-015: the office list used to arrive as a one-line status
+               that then expanded to the full list — a single ~0.7 CLS
+               shift whenever the data landed after first paint. Skeleton
+               rows reserve roughly the loaded height instead. */
+            <SkeletonRows rows={3} />
           ) : info.state === "error" ? (
             <p role="alert" className="notice error">
               {choose({
@@ -928,6 +976,19 @@ export function PublicPortal({
                     bn: "এখনও ফি, সময় ও কাগজপত্র প্রকাশ করেনি",
                     en: "Has not yet published its fee, time and documents",
                   })}
+                  {/* F-003: the "ask your office" path — the fee, time and
+                      documents are the office's to publish, so the row
+                      points at the office instead of inventing them. */}
+                  {tx(" · ")}
+                  <a
+                    href={officePath(o.slug)}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      openOffice(o.slug);
+                    }}
+                  >
+                    {choose({ bn: "অফিসকে জিজ্ঞাসা করুন", en: "Ask this office" })}
+                  </a>
                 </p>
               ) : (
               <article className="service-office-entry" key={o.slug}>
@@ -1207,46 +1268,18 @@ export function PublicPortal({
      FAQ → সম্পর্কিত সেবা → sticky apply CTA. Exactly one H1. */
   const serviceDetailView = () => {
     if (!selected) return null;
-    // BUNDLE06-R5 C1: citizen-friendly "what you will need" — one plain
-    // checklist of the information the form asks for. Schema internals
-    // stay out: section titles are form machinery, upload fields are
-    // covered by the documents note below, and the declaration checkbox
-    // is a confirmation the citizen ticks in the form, not information
-    // they bring.
-    let infoNeeded: { bn: string; en: string }[] = [];
+    // BUNDLE06-R5 C1 / F-004: citizen-friendly "what you will need" — one
+    // plain checklist of the information the form asks for, derived from
+    // the service's own schema via serviceFormFacts (the same facts feed
+    // the service-specific FAQ item and apply step, so the three agree).
+    let formFacts: ServiceFormFacts = { fields: [], attachmentsAsked: false };
     try {
-      const schema: any = getServiceSchema(selected.service_no);
-      const seenLabels = new Set<string>();
-      for (const section of schema?.sections ?? []) {
-        for (const field of section.fields ?? []) {
-          if (
-            field.type === "attachment" ||
-            field.type === "repeatable" ||
-            field.type === "checkbox" ||
-            !field.label
-          )
-            continue;
-          const key = field.label.en ?? field.label.bn ?? "";
-          if (!key || seenLabels.has(key)) continue;
-          seenLabels.add(key);
-          infoNeeded.push(field.label);
-        }
-      }
+      formFacts = serviceFormFacts(getServiceSchema(selected.service_no));
     } catch {
-      infoNeeded = [];
+      formFacts = { fields: [], attachmentsAsked: false };
     }
-    const attachmentsAsked = (() => {
-      try {
-        const schema: any = getServiceSchema(selected.service_no);
-        return (schema?.sections ?? []).some((section: any) =>
-          (section.fields ?? []).some(
-            (f: any) => f.type === "attachment" || f.type === "repeatable",
-          ),
-        );
-      } catch {
-        return false;
-      }
-    })();
+    const infoNeeded = formFacts.fields;
+    const attachmentsAsked = formFacts.attachmentsAsked;
     // WS-C (§4 item 3): the schema names the required document for 12
     // services in the supporting-documents guidance (minRows 1 set); the
     // detail page never showed it — only the generic "attach a scan"
@@ -1275,7 +1308,7 @@ export function PublicPortal({
     })();
     // SEO P3/D4: the visible FAQ comes from the SEO registry, so the page
     // and the FAQPage JSON-LD in the prerendered copy are the same data.
-    const faqItems = selectedSeo ? faqFor(selectedSeo) : null;
+    const faqItems = selectedSeo ? faqFor(selectedSeo, formFacts) : null;
     // SEO D6: related services are the registry's editorial clusters;
     // the category siblings remain the fallback.
     const clusterSiblings = selectedSeo
@@ -1353,6 +1386,27 @@ export function PublicPortal({
             })}
           </p>
         )}
+        {/* F-002: who can apply. The eligibility texts are owner-supplied
+            only (see service-seo.ts) — until a service has them, the page
+            says so honestly instead of inventing requirements. */}
+        <section className="service-eligibility" aria-label={choose({ bn: "কারা আবেদন করতে পারবেন", en: "Who can apply" })}>
+          <h2>{choose({ bn: "কারা আবেদন করতে পারবেন", en: "Who can apply" })}</h2>
+          {selectedSeo?.eligibilityBn ? (
+            <p>
+              {choose({
+                bn: selectedSeo.eligibilityBn,
+                en: selectedSeo.eligibilityEn ?? selectedSeo.eligibilityBn,
+              })}
+            </p>
+          ) : (
+            <p className="service-not-published">
+              {choose({
+                bn: "এই সেবার জন্য কারা আবেদন করতে পারবেন তা এখনও প্রকাশ করা হয়নি।",
+                en: "Who can apply for this service has not been published yet.",
+              })}
+            </p>
+          )}
+        </section>
         <section className="service-facts" aria-label={choose({ bn: "এক নজরে", en: "At a glance" })}>
           <h2>{choose({ bn: "এক নজরে", en: "At a glance" })}</h2>
           <dl>
@@ -1414,10 +1468,13 @@ export function PublicPortal({
         <section className="service-steps">
           <h2>{choose({ bn: "কীভাবে আবেদন করবেন", en: "How to apply" })}</h2>
           <ol>
-            <li>{choose({ bn: "আপনার অংশগ্রহণকারী অফিস বেছে অ্যাকাউন্ট খুলুন।", en: "Choose your participating office and create your account." })}</li>
-            <li>{choose({ bn: "সেবার ফরম পূরণ করুন এবং চাওয়া নথি যুক্ত করুন।", en: "Complete the service form and attach the requested documents." })}</li>
-            <li>{choose({ bn: "অফিসের যাচাইয়ের জন্য জমা দিন; সংশোধনের অনুরোধ এলে তা অনুসরণ করুন।", en: "Submit for office review; follow any correction request." })}</li>
-            <li>{choose({ bn: "অনুমোদিত হলে সনদ ইস্যু হবে। অ্যাকাউন্টে অবস্থা দেখুন এবং QR লিংক দিয়ে যাচাই করুন।", en: "Once approved, the certificate is issued. View status in your account and verify its QR link." })}</li>
+            {/* F-004: step 2 names this service's form and what it asks
+                for (from the schema), so the steps are no longer the same
+                four generic lines on all 47 pages. */}
+            {selectedSeo &&
+              stepsFor(selectedSeo, formFacts).map((step, i) => (
+                <li key={i}>{choose(step)}</li>
+              ))}
           </ol>
         </section>
         <section className="service-faq">
@@ -1736,6 +1793,39 @@ export function PublicPortal({
                         )),
                       )}
                     </div>
+                    {/* F-018: zero matching offices used to render a count
+                        of 0 and an empty grid — the same EmptyState pattern
+                        the services search already uses, with a one-click
+                        filter reset. */}
+                    {tx(
+                      !working && directory.total === 0 && (
+                        <EmptyState
+                          title={choose({
+                            bn: "এই ফিল্টারে কোনো অফিস পাওয়া যায়নি।",
+                            en: "No offices match these filters.",
+                          })}
+                          hint={choose({
+                            bn: "নাম বা এলাকা বদলে আবার খুঁজুন, অথবা সব ফিল্টার মুছে সব অফিস দেখুন।",
+                            en: "Try a different name or area, or clear the filters to see all offices.",
+                          })}
+                          action={
+                            <button
+                              type="button"
+                              className="secondary"
+                              onClick={() => {
+                                setFilters({ q: "", type: "" });
+                                setDirectoryGeography(readGeography(null));
+                                setOffice(null);
+                                setOfficeSlug(null);
+                                void loadOffices(1, { q: "", type: "", geography: readGeography(null) });
+                              }}
+                            >
+                              {choose({ bn: "সব অফিস দেখুন", en: "Show all offices" })}
+                            </button>
+                          }
+                        />
+                      ),
+                    )}
                     <div className="pagination">
                       <button
                         className="secondary"
@@ -2114,7 +2204,12 @@ export function PublicPortal({
                           // A shared link may carry the number as ?searchText=.
                           const fromSearch = input.match(/[?&]searchText=([^&#\s]+)/)?.[1];
                           if (fromSearch) {
-                            location.assign(
+                            // L-006: client-side — the App re-renders on
+                            // the new pathname and CertificateVerification
+                            // fetches for the new value (it refetches on
+                            // prop change); the old location.assign() was a
+                            // full load and another splash.
+                            navigate(
                               `/verify?searchText=${encodeURIComponent(decodeURIComponent(fromSearch))}`,
                             );
                             return;
@@ -2126,7 +2221,7 @@ export function PublicPortal({
                             .replace(/[০-৯]/g, (d) => String("০১২৩৪৫৬৭৮৯".indexOf(d)))
                             .replace(/[\s-]/g, "");
                           if (/^(\d{14}|\d{16})$/.test(digits)) {
-                            location.assign(`/verify?searchText=${digits}`);
+                            navigate(`/verify?searchText=${digits}`);
                             return;
                           }
                           let parsed = input;
@@ -2141,7 +2236,7 @@ export function PublicPortal({
                             fail();
                             return;
                           }
-                          location.assign(
+                          navigate(
                             `/verify/${encodeURIComponent(parsed)}`,
                           );
                         }}
@@ -2224,15 +2319,43 @@ export function PublicPortal({
                         placeholder={t("Application, password, payment…")}
                       />
                       {/* Phase 6b: Astra's own answers about how Astra works (apps/web/src/faq.json). */}
-                      {faq
-                        .map((item) => ({ id: item.id, q: choose(item.q), a: choose(item.a) }))
-                        .filter(({ q, a }) => `${q} ${a}`.toLowerCase().includes(faqSearch.toLowerCase()))
-                        .map(({ id, q, a }) => (
+                      {/* F-017: a search with no matches used to render a
+                          bare heading — the same EmptyState pattern the
+                          services search already uses. */}
+                      {(() => {
+                        const matches = faq
+                          .map((item) => ({ id: item.id, q: choose(item.q), a: choose(item.a) }))
+                          .filter(({ q, a }) => `${q} ${a}`.toLowerCase().includes(faqSearch.toLowerCase()));
+                        if (matches.length === 0 && faqSearch.trim() !== "") {
+                          return (
+                            <EmptyState
+                              title={choose({
+                                bn: "এই খোঁজে কোনো উত্তর পাওয়া যায়নি।",
+                                en: "No answers match that search.",
+                              })}
+                              hint={choose({
+                                bn: "অন্য শব্দ দিয়ে খুঁজুন, অথবা নিচের ফর্মে আপনার প্রশ্নটি লিখুন।",
+                                en: "Try different words, or ask your question in the form below.",
+                              })}
+                              action={
+                                <button
+                                  type="button"
+                                  className="secondary"
+                                  onClick={() => setFaqSearch("")}
+                                >
+                                  {choose({ bn: "সব প্রশ্ন দেখুন", en: "Show all questions" })}
+                                </button>
+                              }
+                            />
+                          );
+                        }
+                        return matches.map(({ id, q, a }) => (
                           <details key={id} id={`faq-${id}`}>
                             <summary>{q}</summary>
                             <p>{a}</p>
                           </details>
-                        ))}
+                        ));
+                      })()}
                     </section>
                     <section className="panel prose">
                       <h2>{t("মতামত ও সহায়তা / Feedback")}</h2>
@@ -2301,32 +2424,115 @@ export function PublicPortal({
                   </>
                 ),
               )}
+              {/* F-012: /policies is now a hub — the combined page had no
+                  effective date and no retention/deletion/rights detail.
+                  The full texts live on /privacy and /terms (each dated
+                  with the version's publication date); nothing here
+                  invents fees, times, documents or contact details. */}
               {tx(
                 page === "policies" && (
                   <section className="panel prose">
                     <h1>{choose({ bn: "ব্যবহারের নীতি", en: "Policies" })}</h1>
-                    <h2>{choose({ bn: "সম্পর্কে", en: "About this service" })}</h2>
                     <p>
                       {choose({
-                        bn: "DigitalUnion ইউনিয়ন পরিষদের নাগরিক সেবা প্রদানের সফটওয়্যার। এখানে ইস্যু করা সনদ সংশ্লিষ্ট ইউনিয়ন পরিষদের দাপ্তরিক নথি; প্রতিটি সনদের QR কোড বা নম্বর দিয়ে সত্যতা যাচাই করা যায়।",
-                        en: "DigitalUnion is the software Union Parishads use to deliver citizen services. Certificates issued here are the issuing Union Parishad's official documents; every certificate can be checked by its QR code or number.",
+                        bn: "এই পৃষ্ঠা থেকে DigitalUnion ব্যবহারের শর্তাবলী ও গোপনীয়তা নীতি পড়ুন।",
+                        en: "Read the terms of use and the privacy policy for DigitalUnion from this page.",
                       })}
                     </p>
-                    <h2>{t("Data and privacy")}</h2>
+                    <ul>
+                      <li>
+                        <a href="/privacy">{choose({ bn: "গোপনীয়তা নীতি", en: "Privacy policy" })}</a>
+                        {" — "}
+                        {choose({
+                          bn: "আপনার তথ্য কী সংগ্রহ করা হয়, কে দেখতে পারে, কতদিন রাখা হয়।",
+                          en: "What information of yours is collected, who can see it, and how long it is kept.",
+                        })}
+                      </li>
+                      <li>
+                        <a href="/terms">{choose({ bn: "ব্যবহারের শর্তাবলী", en: "Terms of use" })}</a>
+                        {" — "}
+                        {choose({
+                          bn: "সেবাটি কী, ফি ও রসিদ কীভাবে কাজ করে, আপনার অ্যাকাউন্টের দায়িত্ব।",
+                          en: "What the service is, how fees and receipts work, and your account responsibilities.",
+                        })}
+                      </li>
+                    </ul>
+                  </section>
+                ),
+              )}
+              {tx(
+                page === "privacy" && (
+                  <section className="panel prose">
+                    <h1>{choose({ bn: "গোপনীয়তা নীতি", en: "Privacy policy" })}</h1>
+                    <p className="muted">
+                      {choose({
+                        bn: "সর্বশেষ হালনাগাদ: ২৬ নভেম্বর ২০২৬",
+                        en: "Last updated: 26 November 2026",
+                      })}
+                    </p>
+                    <h2>{choose({ bn: "কী তথ্য সংগ্রহ করা হয়", en: "What information is collected" })}</h2>
+                    <p>
+                      {choose({
+                        bn: "আপনি ফরমে যা লেখেন — সেবার জন্য চাওয়া তথ্য, আপনার মোবাইল নম্বর ও ইমেইল ঠিকানা — এবং আপনি যে নথি সংযুক্ত করেন, সেগুলোই সংগ্রহ করা হয়। আবেদনের অবস্থা পরিবর্তন ও সংশোধনের ইতিহাসও সংরক্ষিত থাকে।",
+                        en: "What you enter in the form — the information the service asks for, your mobile number and email address — and the documents you attach are what is collected. The history of status changes and corrections to your application is also kept.",
+                      })}
+                    </p>
+                    <h2>{choose({ bn: "কেন সংগ্রহ করা হয়", en: "Why it is collected" })}</h2>
+                    <p>
+                      {choose({
+                        bn: "আবেদনটি যাচাই ও নিষ্পত্তি, সনদ ইস্যু ও যাচাই, এবং সংশ্লিষ্ট ইউনিয়ন পরিষদের দাপ্তরিক নথি হিসেবে রাখার জন্য।",
+                        en: "To verify and decide your application, to issue and verify the certificate, and to keep the issuing Union Parishad's official record.",
+                      })}
+                    </p>
+                    <h2>{choose({ bn: "কে দেখতে পারে", en: "Who can see it" })}</h2>
                     <p>
                       {choose({
                         bn: "আবেদনের তথ্য, ব্যক্তিগত ফাইল ও ওয়ার্কফ্লো ইতিহাস নিরাপদে সংরক্ষিত থাকে। অফিসের ভূমিকা অনুযায়ী প্রবেশাধিকার নিয়ন্ত্রিত হয়। পাবলিক QR যাচাইয়ে নাম, পরিচয় নম্বর বা আবেদনের বিষয়বস্তু দেখানো হয় না।",
                         en: "Application data, private files and workflow history are stored securely. Access is controlled by office roles. Public QR verification never shows names, identity numbers or application contents.",
                       })}
                     </p>
-                    <h2>{t("Commercial and official use")}</h2>
+                    <h2>{choose({ bn: "সংরক্ষণ ও মুছে ফেলা", en: "Retention and deletion" })}</h2>
+                    <p>
+                      {choose({
+                        bn: "আবেদনের নথি সনদ ইস্যুকারী ইউনিয়ন পরিষদের দাপ্তরিক নথি হিসেবে রাখা হয়। এই সাইটে নিজে থেকে তথ্য মুছে ফেলার ব্যবস্থা নেই; সংশোধন বা মুছে ফেলার অনুরোধের জন্য সনদ ইস্যুকারী ইউনিয়ন পরিষদ অফিসের সঙ্গে যোগাযোগ করুন।",
+                        en: "Application records are kept as the issuing Union Parishad's official records. There is no self-service deletion on this site; to ask for a correction or deletion, contact the Union Parishad office that issued the certificate.",
+                      })}
+                    </p>
+                  </section>
+                ),
+              )}
+              {tx(
+                page === "terms" && (
+                  <section className="panel prose">
+                    <h1>{choose({ bn: "ব্যবহারের শর্তাবলী", en: "Terms of use" })}</h1>
+                    <p className="muted">
+                      {choose({
+                        bn: "সর্বশেষ হালনাগাদ: ২৬ নভেম্বর ২০২৬",
+                        en: "Last updated: 26 November 2026",
+                      })}
+                    </p>
+                    <h2>{choose({ bn: "সম্পর্কে", en: "About this service" })}</h2>
+                    <p>
+                      {choose({
+                        bn: "DigitalUnion ইউনিয়ন পরিষদের নাগরিক সেবা প্রদানের সফটওয়্যার। এখানে ইস্যু করা সনদ সংশ্লিষ্ট ইউনিয়ন পরিষদের দাপ্তরিক নথি; প্রতিটি সনদের QR কোড বা নম্বর দিয়ে সত্যতা যাচাই করা যায়। প্রদর্শনী সংস্করণে ইস্যু করা সনদে নমুনা লেখা থাকে এবং তা দাপ্তরিক কাজে বৈধ নয়।",
+                        en: "DigitalUnion is the software Union Parishads use to deliver citizen services. Certificates issued here are the issuing Union Parishad's official documents; every certificate can be checked by its QR code or number. Certificates issued in a demonstration deployment are marked as demo and are not valid for official use.",
+                      })}
+                    </p>
+                    <h2>{choose({ bn: "ফি ও রসিদ", en: "Fees and receipts" })}</h2>
                     <p>
                       {choose({
                         bn: "প্রতিটি সেবার ফি সংশ্লিষ্ট অফিসের প্রকাশিত ফি নীতি অনুযায়ী নির্ধারিত হয়। পরিশোধ যাচাইয়ের পরই রসিদ তৈরি হয়; শুধু পেমেন্ট পৃষ্ঠা থেকে ফিরে আসা পরিশোধের প্রমাণ নয়।",
                         en: "Each service's fee follows the office's published fee policy. A receipt is created only after the payment is verified; returning from a payment page alone is not proof of payment.",
                       })}
                     </p>
-                    <h2>{t("Security and access")}</h2>
+                    <h2>{choose({ bn: "তথ্যের সঠিকতা", en: "Accuracy of information" })}</h2>
+                    <p>
+                      {choose({
+                        bn: "আপনি যে তথ্য জমা দেন তার সঠিকতার দায়িত্ব আপনার। ভুল বা অসম্পূর্ণ তথ্য থাকলে অফিস সংশোধনের অনুরোধ পাঠাতে পারে; সংশোধন না হলে আবেদন বাতিল হতে পারে।",
+                        en: "You are responsible for the accuracy of the information you submit. If it is wrong or incomplete, the office may ask for a correction; an application that is not corrected may be rejected.",
+                      })}
+                    </p>
+                    <h2>{choose({ bn: "আপনার অ্যাকাউন্টের নিরাপত্তা", en: "Security of your account" })}</h2>
                     <p>
                       {t(
                         "Keep account credentials private, use a unique password and sign out on shared devices. You may change your password from Account settings; doing so expires your other sessions. ",

@@ -1,4 +1,4 @@
-import type { getServiceSchema } from "@astra/shared-schemas";
+import type { getServiceSchema } from "@astra/shared-schemas/web";
 
 /**
  * When an office order policy is configured, the certificate language is chosen in the order step,

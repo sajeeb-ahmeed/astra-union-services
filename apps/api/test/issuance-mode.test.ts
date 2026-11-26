@@ -5,12 +5,21 @@ import {
   renderCertificateHtml,
   type PdfInput,
 } from "../src/certificate-template.js";
+import {
+  DEMO_BANNER_BN,
+  DEMO_BANNER_EN,
+  DEMO_NOTICE_BN,
+  DEMO_NOTICE_EN,
+} from "../src/demo-notice.js";
 
 // ISSUANCE_MODE gate (default "demo"): health reports OFFICIAL only when
-// the variable is exactly "official". Certificate templates carry NO demo
-// branding and NO disclaimer/honesty lines in ANY mode (owner purge,
-// 17 Nov 2026) — the mode now only gates emblem/seal artwork and the
-// certificate-number prefix plumbing. Env is restored after every test.
+// the variable is exactly "official". W-001 (Phase 4 Stage 1): demo
+// certificates DO carry demo wording — a banner + "not an official
+// certificate" line in Bengali and English, plus a DEMO watermark — while
+// official certificates carry none of it. (The old assertion below that
+// demo mode carries NO demo wording encoded the W-001 bug itself and was
+// reversed with the fix; the 17 Nov 2026 owner purge it cited is superseded
+// for demo mode. Official mode stays clean.) Env is restored after every test.
 let server: ReturnType<typeof app.listen>;
 let base: string;
 
@@ -66,17 +75,19 @@ test("issuance mode: health reports DEMO_ONLY by default and OFFICIAL when gated
   assert.equal(again.mode, "DEMO_ONLY");
 });
 
-test("issuance mode: template 6 certificate carries no DEMO branding or disclaimer lines in any mode", () => {
+test("issuance mode: template 6 demo certificate carries the demo banner, watermark and not-official lines (W-001)", () => {
   delete process.env.ISSUANCE_MODE;
   const html = renderCertificateHtml(residentInput, qr, 6);
-  assert.ok(!html.includes('<div class="watermark">DEMO</div>'));
-  assert.ok(!html.includes("DEMO / NOT OFFICIAL"));
-  assert.ok(!html.includes("Approved demo details"));
-  assert.ok(!html.includes("Verify demo status"));
-  assert.ok(!html.includes("demonstration application"));
-  assert.ok(!html.includes("not proof of legal identity or official authorization"));
-  assert.ok(!html.includes("No government seal, signature or identity number"));
-  assert.ok(!html.includes("NOT AN OFFICIAL GOVERNMENT DOCUMENT"));
+  // W-001: the old assertion here (no demo wording in demo mode) encoded
+  // the bug — a demo PDF with no unofficial marking could be mistaken for
+  // an official certificate. Demo mode now marks the document in Bengali
+  // AND English, banner + watermark + honesty line.
+  assert.ok(html.includes('class="demo-banner"'), "demo banner box present");
+  assert.ok(html.includes(DEMO_BANNER_BN), "Bengali demo banner");
+  assert.ok(html.includes(DEMO_BANNER_EN), "English demo banner");
+  assert.ok(html.includes(DEMO_NOTICE_BN), "Bengali not-official line");
+  assert.ok(html.includes(DEMO_NOTICE_EN), "English not-official line");
+  assert.ok(html.includes('<div class="watermark">DEMO</div>'), "DEMO watermark");
   assert.ok(html.includes("Approved details"));
   assert.ok(html.includes("Verify status"));
   assert.ok(html.includes("The details above come from the approved application."));
@@ -91,6 +102,12 @@ test("issuance mode: template 6 official certificate is equally free of DEMO bra
     assert.ok(!html.includes("demo details"));
     assert.ok(!html.includes("demonstration application"));
     assert.ok(!html.includes("NOT AN OFFICIAL GOVERNMENT DOCUMENT"));
+    assert.ok(!html.includes(DEMO_BANNER_BN));
+    assert.ok(!html.includes(DEMO_BANNER_EN));
+    assert.ok(!html.includes(DEMO_NOTICE_BN));
+    assert.ok(!html.includes(DEMO_NOTICE_EN));
+    assert.ok(!html.includes('class="demo-banner"'));
+    assert.ok(!html.includes('class="watermark"'));
     assert.ok(!html.includes("সরকারি সনদ নয়"));
     assert.ok(!html.includes("not proof of legal identity or official authorization"));
     assert.ok(!html.includes("No government seal, signature or identity number"));

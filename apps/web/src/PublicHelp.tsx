@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import { choose, useLanguage } from "./i18n.js";
-import { SUPPORT_CONTACT } from "./support-contact.js";
+import { useSupportContact } from "./support-contact.js";
 import "./public-help.css";
 
 /**
@@ -10,6 +10,8 @@ import "./public-help.css";
  */
 export function UtilityBar() {
   const [lang] = useLanguage();
+  // F-001: the owner-configured support contact (empty until set).
+  const contact = useSupportContact();
   const today = new Intl.DateTimeFormat(lang === "bn" ? "bn-BD" : "en-GB", {
     weekday: "long",
     day: "numeric",
@@ -21,12 +23,12 @@ export function UtilityBar() {
       <div className="du-container util-bar-row">
         <span className="util-bar-date">{today}</span>
         <span className="util-bar-links">
-          {SUPPORT_CONTACT.phone && (
-            <a href={`tel:${SUPPORT_CONTACT.phone.replace(/\s+/g, "")}`}>
-              {choose({ bn: "হেল্পলাইন", en: "Helpline" })}: {SUPPORT_CONTACT.phone}
+          {contact.phone && (
+            <a href={`tel:${contact.phone.replace(/\s+/g, "")}`}>
+              {choose({ bn: "হেল্পলাইন", en: "Helpline" })}: {contact.phone}
             </a>
           )}
-          {SUPPORT_CONTACT.email && <a href={`mailto:${SUPPORT_CONTACT.email}`}>{SUPPORT_CONTACT.email}</a>}
+          {contact.email && <a href={`mailto:${contact.email}`}>{contact.email}</a>}
           <a href="/help">{choose({ bn: "সহায়তা কেন্দ্র", en: "Help centre" })}</a>
         </span>
       </div>
@@ -42,6 +44,8 @@ export function UtilityBar() {
  */
 export function HelpWidget() {
   useLanguage();
+  // F-001: the owner-configured support contact (empty until set).
+  const contact = useSupportContact();
   const [open, setOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const buttonRef = useRef<HTMLButtonElement>(null);
@@ -92,14 +96,14 @@ export function HelpWidget() {
               </li>
             ))}
           </ul>
-          {(SUPPORT_CONTACT.phone || SUPPORT_CONTACT.email) && (
+          {(contact.phone || contact.email) && (
             <div className="help-panel-contact">
               <span>{choose({ bn: "সরাসরি যোগাযোগ", en: "Talk to us" })}</span>
-              {SUPPORT_CONTACT.phone && (
-                <a href={`tel:${SUPPORT_CONTACT.phone.replace(/\s+/g, "")}`}>{SUPPORT_CONTACT.phone}</a>
+              {contact.phone && (
+                <a href={`tel:${contact.phone.replace(/\s+/g, "")}`}>{contact.phone}</a>
               )}
-              {SUPPORT_CONTACT.email && <a href={`mailto:${SUPPORT_CONTACT.email}`}>{SUPPORT_CONTACT.email}</a>}
-              {SUPPORT_CONTACT.hours.bn && <small>{choose(SUPPORT_CONTACT.hours)}</small>}
+              {contact.email && <a href={`mailto:${contact.email}`}>{contact.email}</a>}
+              {contact.hours.bn && <small>{choose(contact.hours)}</small>}
             </div>
           )}
           <p className="help-panel-office">

@@ -148,7 +148,7 @@ Hosted evidence: [payment checks](../execution/payments-hosted-qa.json), [readba
 | execution/pdf-qa.json / expanded-pdf-qa.json        | Parsed/rendered PDF language/output checks                                |
 | execution/qr-qa.json                                | Actual raster QR decoding and minimal public lookup                       |
 | execution/backup-restore.log                        | Encrypted recovery drill                                                  |
-| execution/asset-sizes.json / performance-smoke.json | Built assets and local performance smoke                                  |
+| apps/web/dist/asset-sizes.json / execution/performance-smoke.json | Built assets and local performance smoke                                  |
 | execution/dependency-audit.json                     | Dependency advisory result at delivery time                               |
 | execution/screenshots                               | Synthetic desktop/mobile and workflow evidence                            |
 

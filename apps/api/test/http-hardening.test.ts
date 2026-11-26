@@ -8,6 +8,7 @@ import {
   httpHardening,
   enforceRuntimeConfig,
   configureProxyTrust,
+  createHttpsRedirect,
 } from "../src/http-hardening.js";
 
 test("SEC-HTTPS: plain HTTP behind the proxy 301s to the HTTPS apex origin, HTTPS passes through", async () => {
@@ -182,8 +183,49 @@ test("Deployment: production rejects missing secrets, unsafe origins and broad p
     PUBLIC_ORIGIN: "https://demo.example.test",
     DATABASE_URL: "postgresql://astra_app@db/astra",
     DEMO_WEBHOOK_SECRET: "x".repeat(32),
+    // S-009: the four crypto keys are required in production (fail fast).
+    IDENTIFIER_SECRET: "test-identifier-secret-at-least-32-chars",
+    CITIZEN_DATA_KEY: "11".repeat(32),
+    MFA_ENCRYPTION_KEY: "22".repeat(32),
+    MERCHANT_SECRET_KEY: "33".repeat(32),
   };
   assert.doesNotThrow(() => enforceRuntimeConfig(config));
+  // A-021: production boot fails without the webhook secret — the
+  // auto-generated .runtime/webhook-secret file is a dev/test convenience
+  // only and must never satisfy a production boot.
+  assert.throws(() =>
+    enforceRuntimeConfig({ ...config, DEMO_WEBHOOK_SECRET: undefined }),
+  );
+  // S-009: production boot fails without each crypto key (and without a
+  // well-formed one — the loaders reject short/ill-formed values, so the
+  // validator must too). Non-production stays permissive: dev/test
+  // auto-generate these keys into .runtime/*.
+  for (const key of [
+    "IDENTIFIER_SECRET",
+    "CITIZEN_DATA_KEY",
+    "MFA_ENCRYPTION_KEY",
+    "MERCHANT_SECRET_KEY",
+  ] as const)
+    assert.throws(
+      () => enforceRuntimeConfig({ ...config, [key]: undefined }),
+      key,
+    );
+  assert.throws(() =>
+    enforceRuntimeConfig({ ...config, IDENTIFIER_SECRET: "too-short" }),
+  );
+  for (const key of [
+    "CITIZEN_DATA_KEY",
+    "MFA_ENCRYPTION_KEY",
+    "MERCHANT_SECRET_KEY",
+  ] as const)
+    assert.throws(
+      () => enforceRuntimeConfig({ ...config, [key]: "not-64-hex" }),
+      key,
+    );
+  assert.doesNotThrow(() =>
+    enforceRuntimeConfig({ NODE_ENV: "development" }),
+  );
+  assert.doesNotThrow(() => enforceRuntimeConfig({ NODE_ENV: "test" }));
   for (const PUBLIC_ORIGIN of [
     "http://demo.example.test",
     "https://demo.example.test/",
@@ -219,6 +261,83 @@ test("Deployment: production rejects missing secrets, unsafe origins and broad p
         TRUST_PROXY: "loopback",
       }),
     );
+});
+
+test("Security: without HTTPS_STRICT=true a missing X-Forwarded-Proto passes through (upstream SEC-HTTPS default)", async () => {
+  // Integration decision: fail-closed S-008 is opt-in (HTTPS_STRICT=true) because the
+  // live LiteSpeed proxy may forward HTTPS requests without the header (see enforceHttps).
+  for (const strictValue of [undefined, "false"]) {
+  const env = {
+    NODE_ENV: "production",
+    PUBLIC_ORIGIN: "https://digitalunion.example",
+    HTTPS_STRICT: strictValue,
+  } as NodeJS.ProcessEnv;
+  const app = express();
+  app.use(createHttpsRedirect(env));
+  app.all(/.*/, (_req, res) => res.json({ ok: true }));
+  const server = app.listen(0, "127.0.0.1");
+  await new Promise<void>((r) => server.once("listening", r));
+  try {
+    const url = `http://127.0.0.1:${(server.address() as any).port}`;
+    assert.equal((await fetch(`${url}/login`, { redirect: "manual" })).status, 200);
+    const get = await fetch(`${url}/login`, {
+      redirect: "manual",
+      headers: { "X-Forwarded-Proto": "http" },
+    });
+    assert.equal(get.status, 301, "explicit http is still redirected even with the opt-out");
+  } finally {
+    await new Promise<void>((r) => server.close(() => r()));
+  }
+  }
+});
+
+test("Security: HSTS carries a one-year max-age with includeSubDomains in production", async () => {
+  const previous = process.env.NODE_ENV;
+  process.env.NODE_ENV = "production";
+  const app = express();
+  app.use(httpHardening);
+  app.get("/", (_req, res) => res.json({ ok: true }));
+  const server = app.listen(0, "127.0.0.1");
+  await new Promise<void>((r) => server.once("listening", r));
+  try {
+    const res = await fetch(`http://127.0.0.1:${(server.address() as any).port}/`);
+    assert.equal(
+      res.headers.get("strict-transport-security"),
+      "max-age=31536000; includeSubDomains",
+    );
+  } finally {
+    await new Promise<void>((r) => server.close(() => r()));
+    if (previous === undefined) delete process.env.NODE_ENV;
+    else process.env.NODE_ENV = previous;
+  }
+});
+
+test("Security (S-013): CSP splits style handling — hashed inline <style> only, attributes stay unsafe-inline", async () => {
+  const app = express();
+  app.use(httpHardening);
+  app.get("/", (_req, res) => res.json({ ok: true }));
+  const server = app.listen(0, "127.0.0.1");
+  await new Promise<void>((r) => server.once("listening", r));
+  try {
+    const csp = (
+      await fetch(`http://127.0.0.1:${(server.address() as any).port}/`)
+    ).headers.get("content-security-policy")!;
+    // No bare style-src 'unsafe-inline': an injected <style> element is
+    // blocked. Only the known F-015 first-paint guard (apps/web/index.html
+    // `body{margin:0}`) is allowed, by hash.
+    assert.doesNotMatch(csp, /(^|; )style-src /);
+    assert.match(
+      csp,
+      /style-src-elem 'self' 'sha256-IAdwN3biDCQ3brrgp1m8kBEsPQYyqfREKOEfeoREopc='/,
+    );
+    // React inline styles are style attributes; they still need
+    // 'unsafe-inline' (documented residual, see docs/HTTP_HEADERS.md).
+    assert.match(csp, /style-src-attr 'unsafe-inline'/);
+    assert.match(csp, /script-src 'self'/);
+    assert.match(csp, /frame-ancestors 'none'/);
+  } finally {
+    await new Promise<void>((r) => server.close(() => r()));
+  }
 });
 
 test("Security: mixed-case route aliases share public authentication and verification rate limits", async () => {
@@ -320,6 +439,64 @@ test("Security: only a trusted immediate proxy separates forwarded clients into 
         );
     } finally {
       await new Promise<void>((resolve) => server.close(() => resolve()));
+    }
+  }
+});
+
+test("Security: production redirects proxied plain-HTTP requests to the configured HTTPS origin", async () => {
+  const env = { NODE_ENV: "production", PUBLIC_ORIGIN: "https://digitalunion.example", HTTPS_STRICT: "true" } as NodeJS.ProcessEnv;
+  const app = express();
+  app.use(createHttpsRedirect(env));
+  app.all(/.*/, (_req, res) => res.json({ ok: true }));
+  const server = app.listen(0, "127.0.0.1");
+  await new Promise<void>((r) => server.once("listening", r));
+  try {
+    const url = `http://127.0.0.1:${(server.address() as any).port}`;
+    const get = await fetch(`${url}/login?next=%2Fapply`, {
+      redirect: "manual",
+      headers: { "X-Forwarded-Proto": "http", Host: "evil.example" },
+    });
+    assert.equal(get.status, 301);
+    assert.equal(get.headers.get("location"), "https://digitalunion.example/login?next=%2Fapply");
+    const post = await fetch(`${url}/api/v1/auth/login`, {
+      method: "POST",
+      redirect: "manual",
+      headers: { "X-Forwarded-Proto": "HTTP, https" },
+    });
+    assert.equal(post.status, 308);
+    assert.equal(post.headers.get("location"), "https://digitalunion.example/api/v1/auth/login");
+    for (const headers of [{ "X-Forwarded-Proto": "https" }] as Record<string, string>[])
+      assert.equal((await fetch(`${url}/login`, { redirect: "manual", headers })).status, 200);
+    // S-008: no scheme reported and no direct TLS — fail closed instead of
+    // silently serving the app over possibly-plain HTTP.
+    const refused = await fetch(`${url}/login`, { redirect: "manual" });
+    assert.equal(refused.status, 421);
+    assert.equal((await refused.json()).error.code, "HTTPS_REQUIRED");
+    assert.equal(refused.headers.get("cache-control"), "no-store");
+    // The unauthenticated health probe is the one exception: it carries no
+    // credentials, and local health checks hit the app directly without the
+    // proxy header.
+    assert.equal((await fetch(`${url}/api/v1/health`, { redirect: "manual" })).status, 200);
+  } finally {
+    await new Promise<void>((r) => server.close(() => r()));
+  }
+  for (const other of [
+    { NODE_ENV: "development", PUBLIC_ORIGIN: "https://digitalunion.example" },
+    { NODE_ENV: "production", PUBLIC_ORIGIN: "http://127.0.0.1:5173" },
+  ] as NodeJS.ProcessEnv[]) {
+    const passthrough = express();
+    passthrough.use(createHttpsRedirect(other));
+    passthrough.get("/", (_req, res) => res.json({ ok: true }));
+    const s = passthrough.listen(0, "127.0.0.1");
+    await new Promise<void>((r) => s.once("listening", r));
+    try {
+      const res = await fetch(`http://127.0.0.1:${(s.address() as any).port}/`, {
+        redirect: "manual",
+        headers: { "X-Forwarded-Proto": "http" },
+      });
+      assert.equal(res.status, 200);
+    } finally {
+      await new Promise<void>((r) => s.close(() => r()));
     }
   }
 });

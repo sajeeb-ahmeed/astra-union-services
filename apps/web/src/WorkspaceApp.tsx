@@ -6,16 +6,19 @@ import {
   useLanguage,
   LanguageSwitcher,
 } from "./i18n.js";
-import React, { lazy, useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { randomUUID } from "./uuid.js";
+import React, { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import {
   operationalServiceNumbers,
   getServiceSchema,
-} from "@astra/shared-schemas";
+  type FormSchema,
+} from "@astra/shared-schemas/web";
 import { api, clearSessionToken, items } from "./api.js";
 import { useBranding } from "./branding.js";
 import { GlobalNoticeBanner } from "./GlobalNotices.js";
+import { DemoModeBanner } from "./DemoModeBanner.js";
 import emblem from "./assets/brand/emblem.webp";
-import { AsyncPanel } from "./AsyncPanel.js";
+import { AsyncPanel, lazyWithRetry } from "./AsyncPanel.js";
 import { DynamicForm } from "./DynamicForm.js";
 import {
   PresentAddressFields,
@@ -42,7 +45,10 @@ import { CitizenDashboard } from "./CitizenDashboard.js";
 import { SidebarNav } from "./ui/SidebarNav.js";
 import {
   ApplicationStatus,
+  APPLICATION_STATES,
+  applicationStatusLabel,
   applicationStatusMeta,
+  normalizeApplicationState,
   ledgerKindMeta,
   ledgerReasonText,
   planNameText,
@@ -73,97 +79,54 @@ import {
   geographyPayload,
   readGeography,
 } from "./GeographyFields.js";
-const AdminWorkspace = lazy(() =>
-  import("./AdminWorkspace.js").then((m) => ({ default: m.AdminWorkspace })),
-);
+const AdminWorkspace = lazyWithRetry(() => import("./AdminWorkspace.js"), (m) => m.AdminWorkspace);
 // UIUX-FIX-01 #15: owner-only and finance-only panels are lazy chunks, so
 // citizens/chairmen never download platform-management or finance code.
-const OwnerOperations = lazy(() =>
-  import("./OwnerOperations.js").then((m) => ({ default: m.OwnerOperations })),
-);
-const OwnerAccountRequests = lazy(() =>
-  import("./OwnerAccountRequests.js").then((m) => ({
-    default: m.OwnerAccountRequests,
-  })),
-);
-const OwnerRecharges = lazy(() =>
-  import("./Recharge.js").then((m) => ({ default: m.OwnerRecharges })),
-);
-const RechargeRequests = lazy(() =>
-  import("./Recharge.js").then((m) => ({ default: m.RechargeRequests })),
-);
-const OwnerInclusionRequests = lazy(() =>
-  import("./OfficeInclusion.js").then((m) => ({
-    default: m.OwnerInclusionRequests,
-  })),
-);
-const OwnerWitnessTypes = lazy(() =>
-  import("./WitnessGenerator.js").then((m) => ({
-    default: m.OwnerWitnessTypes,
-  })),
-);
-const PointsWallet = lazy(() =>
-  import("./PointsWallet.js").then((m) => ({ default: m.PointsWallet })),
-);
-const OwnerPricing = lazy(() =>
-  import("./OwnerPricing.js").then((m) => ({ default: m.OwnerPricing })),
-);
-const OwnerPlans = lazy(() =>
-  import("./OwnerPlans.js").then((m) => ({ default: m.OwnerPlans })),
-);
-const OwnerBranding = lazy(() =>
-  import("./OwnerBranding.js").then((m) => ({ default: m.OwnerBranding })),
-);
-const OwnerAudit = lazy(() =>
-  import("./OwnerAudit.js").then((m) => ({ default: m.OwnerAudit })),
-);
-const OwnerCoupons = lazy(() =>
-  import("./OwnerCoupons.js").then((m) => ({ default: m.OwnerCoupons })),
-);
-const OwnerNotices = lazy(() =>
-  import("./OwnerNotices.js").then((m) => ({ default: m.OwnerNotices })),
-);
-const OwnerDemand = lazy(() =>
-  import("./OwnerDemand.js").then((m) => ({ default: m.OwnerDemand })),
-);
-const OwnerPointsPanel = lazy(() =>
-  import("./PointsWallet.js").then((m) => ({ default: m.OwnerPointsPanel })),
-);
-const OwnerSubscriptionPanel = lazy(() =>
-  import("./OwnerSubscriptions.js").then((m) => ({
-    default: m.OwnerSubscriptionPanel,
-  })),
-);
-const OwnerPendingOrders = lazy(() =>
-  import("./OwnerSubscriptions.js").then((m) => ({
-    default: m.OwnerPendingOrders,
-  })),
-);
-const OfficeRefunds = lazy(() =>
-  import("./Refunds.js").then((m) => ({ default: m.OfficeRefunds })),
-);
-const AccountSecurity = lazy(() =>
-  import("./AdminWorkspace.js").then((m) => ({ default: m.AccountSecurity })),
-);
-const OwnerOnboarding = lazy(() =>
-  import("./AdminWorkspace.js").then((m) => ({ default: m.OwnerOnboarding })),
-);
-const AdditionalWorkspace = lazy(() =>
-  import("./AdditionalWorkspace.js").then((m) => ({
-    default: m.AdditionalWorkspace,
-  })),
-);
-const UserGuide = lazy(() =>
-  import("./UserGuide.js").then((m) => ({ default: m.UserGuide })),
-);
-const ApplicationPayment = lazy(() =>
-  import("./OnlinePayments.js").then((m) => ({
-    default: m.ApplicationPayment,
-  })),
-);
-const PaymentsWorkspace = lazy(() =>
-  import("./OnlinePayments.js").then((m) => ({ default: m.PaymentsWorkspace })),
-);
+const OwnerOperations = lazyWithRetry(() => import("./OwnerOperations.js"), (m) => m.OwnerOperations);
+// W-012: global platform statistics on the owner overview.
+const OwnerStatistics = lazyWithRetry(() => import("./OwnerStatistics.js"), (m) => m.OwnerStatistics);
+// W-020: the platform-health screen.
+const OwnerPlatformHealth = lazyWithRetry(() => import("./OwnerPlatformHealth.js"), (m) => m.OwnerPlatformHealth);
+const OwnerAccountRequests = lazyWithRetry(() => import("./OwnerAccountRequests.js"), (m) => m.OwnerAccountRequests);
+const OwnerRecharges = lazyWithRetry(() => import("./Recharge.js"), (m) => m.OwnerRecharges);
+const RechargeRequests = lazyWithRetry(() => import("./Recharge.js"), (m) => m.RechargeRequests);
+const OwnerInclusionRequests = lazyWithRetry(() => import("./OfficeInclusion.js"), (m) => m.OwnerInclusionRequests);
+const OwnerWitnessTypes = lazyWithRetry(() => import("./WitnessGenerator.js"), (m) => m.OwnerWitnessTypes);
+const PointsWallet = lazyWithRetry(() => import("./PointsWallet.js"), (m) => m.PointsWallet);
+const OwnerPricing = lazyWithRetry(() => import("./OwnerPricing.js"), (m) => m.OwnerPricing);
+const OwnerPlans = lazyWithRetry(() => import("./OwnerPlans.js"), (m) => m.OwnerPlans);
+const OwnerBranding = lazyWithRetry(() => import("./OwnerBranding.js"), (m) => m.OwnerBranding);
+const OwnerSupportContact = lazyWithRetry(() => import("./OwnerSupportContact.js"), (m) => m.OwnerSupportContact);
+const OwnerAudit = lazyWithRetry(() => import("./OwnerAudit.js"), (m) => m.OwnerAudit);
+const OwnerCoupons = lazyWithRetry(() => import("./OwnerCoupons.js"), (m) => m.OwnerCoupons);
+const OwnerNotices = lazyWithRetry(() => import("./OwnerNotices.js"), (m) => m.OwnerNotices);
+const OwnerDemand = lazyWithRetry(() => import("./OwnerDemand.js"), (m) => m.OwnerDemand);
+const OwnerPointsPanel = lazyWithRetry(() => import("./PointsWallet.js"), (m) => m.OwnerPointsPanel);
+const OwnerSubscriptionPanel = lazyWithRetry(() => import("./OwnerSubscriptions.js"), (m) => m.OwnerSubscriptionPanel);
+const OwnerPendingOrders = lazyWithRetry(() => import("./OwnerSubscriptions.js"), (m) => m.OwnerPendingOrders);
+const OfficeRefunds = lazyWithRetry(() => import("./Refunds.js"), (m) => m.OfficeRefunds);
+const NotificationHealthCard = lazyWithRetry(() => import("./NotificationHealth.js"), (m) => m.NotificationHealthCard);
+const AccountSecurity = lazyWithRetry(() => import("./AdminWorkspace.js"), (m) => m.AccountSecurity);
+const OwnerOnboarding = lazyWithRetry(() => import("./AdminWorkspace.js"), (m) => m.OwnerOnboarding);
+const AdditionalWorkspace = lazyWithRetry(() => import("./AdditionalWorkspace.js"), (m) => m.AdditionalWorkspace);
+const UserGuide = lazyWithRetry(() => import("./UserGuide.js"), (m) => m.UserGuide);
+const ApplicationPayment = lazyWithRetry(() => import("./OnlinePayments.js"), (m) => m.ApplicationPayment);
+const PaymentsWorkspace = lazyWithRetry(() => import("./OnlinePayments.js"), (m) => m.PaymentsWorkspace);
+// W-009: one idempotency key per intended wallet adjustment, keyed by
+// tenant. The adjust form lives inside a tenants.map, so it cannot hold
+// per-form state; the key is minted on first submit, reused on retry (a
+// lost response replays instead of applying twice), and rotated only
+// after a successful apply. A rejected attempt consumes no key, so the
+// same key stays valid for a corrected resubmit.
+const walletAdjustKeys = new Map<string, string>();
+function walletAdjustKey(tenantId: string): string {
+  let key = walletAdjustKeys.get(tenantId);
+  if (!key) {
+    key = randomUUID();
+    walletAdjustKeys.set(tenantId, key);
+  }
+  return key;
+}
 const labels: Record<string, string> = {
   home: "Overview",
   services: "Service catalog",
@@ -466,6 +429,8 @@ const OWNER_SECTIONS = [
   "permissions",
   "audit",
   "settings",
+  // W-020: the platform-health screen.
+  "health",
 ];
 type WorkspaceRoute = {
   page?: string;
@@ -493,11 +458,27 @@ function parseWorkspaceHash(): WorkspaceRoute {
       ownerSection: OWNER_SECTIONS.includes(section) ? section : "overview",
     };
   }
+  // CH-004: the hash is untrusted input — a bad link (e.g. ?state=
+  // AWAITING_ISSUANCE, which is not a state in the state machine) must
+  // degrade to the unfiltered list, never crash the section (the old code
+  // stored the raw value, and choose(applicationStatusMeta(filter)) threw
+  // on the null meta, tripping the error boundary until a full reload) and
+  // never 422 the list request. Unknown states become "" (all states);
+  // a non-numeric or out-of-range service (API serviceNo is 1..47) is dropped.
+  const rawService = params.get("service") ?? undefined;
+  const serviceNo = Number(rawService);
   return {
     page: segments[0] || "home",
     detailId: segments[0] === "applications" ? segments[1] : undefined,
-    state: params.get("state") ?? undefined,
-    service: params.get("service") ?? undefined,
+    state: normalizeApplicationState(params.get("state")),
+    service:
+      rawService !== undefined &&
+      /^\d+$/.test(rawService) &&
+      Number.isInteger(serviceNo) &&
+      serviceNo >= 1 &&
+      serviceNo <= 47
+        ? rawService
+        : undefined,
   };
 }
 function roleDefaultPage(role: string): string {
@@ -551,6 +532,73 @@ function OwnerSettledRevenueCard() {
     />
   );
 }
+
+/**
+ * B-003 / F-015: the pinned schema for one application. The current
+ * operational schema ships with the bundle (web entry); an application
+ * pinned to a superseded version loads its schema on demand from the
+ * legacy entry, so the 512 KB historical-schema JSON never enters the
+ * initial bundle. While it loads, the payload section shows a loading
+ * status — never a wrong (current-version) form — and a failed load is
+ * an alert, not a silent empty form.
+ */
+function PinnedSchema({
+  serviceNo,
+  schemaVersion,
+  order,
+  children,
+}: {
+  serviceNo: number;
+  schemaVersion?: number;
+  order: boolean;
+  children: (schema: FormSchema) => React.ReactNode;
+}) {
+  const current = useMemo(() => getServiceSchema(serviceNo), [serviceNo]);
+  const needsLegacy =
+    schemaVersion != null && schemaVersion !== current.version;
+  const [legacy, setLegacy] = useState<FormSchema | null>(null);
+  const [failed, setFailed] = useState(false);
+  useEffect(() => {
+    if (!needsLegacy) return;
+    let live = true;
+    setLegacy(null);
+    setFailed(false);
+    import("@astra/shared-schemas/legacy")
+      .then((m) => {
+        if (live)
+          setLegacy(m.getLegacyServiceSchema(serviceNo, schemaVersion!));
+      })
+      .catch(() => {
+        if (live) setFailed(true);
+      });
+    return () => {
+      live = false;
+    };
+  }, [serviceNo, schemaVersion, needsLegacy]);
+  if (failed) {
+    return (
+      <p role="alert" className="ax-flow-error">
+        {choose({
+          bn: "এই আবেদনের ফরমের পুরনো সংস্করণটি লোড করা যায়নি।",
+          en: "The older form version for this application could not be loaded.",
+        })}
+      </p>
+    );
+  }
+  if (needsLegacy && !legacy) {
+    return (
+      <p role="status" className="ax-flow-muted">
+        {choose({
+          bn: "আবেদনের ফরম লোড হচ্ছে…",
+          en: "Loading the application's form…",
+        })}
+      </p>
+    );
+  }
+  const schema = legacy ?? current;
+  return <>{children(order ? withoutOrderLanguage(schema) : schema)}</>;
+}
+
 export function WorkspaceApp({
   session,
   onSignOut,
@@ -634,14 +682,19 @@ export function WorkspaceApp({
     [appQuery, setAppQuery] = useState(""),
     [appPage, setAppPage] = useState(1),
     [appPageSize, setAppPageSize] = useState(25),
-    // WS-D1: list sort (default newest-first) and the list's own loading
-    // flag — the global `busy` also covers transitions, so the list needs
-    // its own signal to show a skeleton instead of stale rows/counts.
+    // WS-D1: list sort (default newest-first). The list's own loading
+    // flag is appListLoading (CH-005) below.
     [appSort, setAppSort] = useState("newest"),
-    [appLoading, setAppLoading] = useState(false),
     // QAFIX-01 (§4 item 13): null until the first list answer arrives —
     // totals show a loading dash, never a confident 0 that later jumps.
-    [appTotal, setAppTotal] = useState<number | null>(null);
+    [appTotal, setAppTotal] = useState<number | null>(null),
+    // CH-004: the last applications-list failure, if any — the section
+    // renders it with a retry instead of a stale/empty list.
+    [appLoadError, setAppLoadError] = useState(""),
+    // CH-005: true while a list fetch is in flight (filter/page/search
+    // change) — the list renders skeletons instead of the previous
+    // filter's rows, and the total reads "—" until the answer arrives.
+    [appListLoading, setAppListLoading] = useState(false);
   // Phase 6c: date range and renewals-only filters for the applications list.
   const [appFrom, setAppFrom] = useState(""),
     [appTo, setAppTo] = useState(""),
@@ -653,12 +706,24 @@ export function WorkspaceApp({
     [pendingLists, setPendingLists] = useState<
       Record<string, { items: any[]; total: number }>
     >({}),
-    // WS-D1: the pending queue's own loading flag — without it the two
-    // groups render their (genuinely empty) initial lists and flash the
-    // false "nothing is waiting" empty state on every visit (live QA
-    // defect (b)).
+    // WS-D1 / CH-003: the pending queue's own loading flag — the queue
+    // renders skeletons, never the "nothing is waiting" empty state,
+    // until the counts and lists have actually arrived.
     [pendingLoading, setPendingLoading] = useState(false);
   const pendingEpoch = useRef(0);
+  // CH-009: the Citizens directory paginates on its own fetch — the
+  // shared `citizens` list stays the unpaginated register the flow and
+  // the citizen home read from, so a citizen's own record is never
+  // hidden by the directory's page. Page and page size (citizenPage /
+  // citizenPageSize, WS-D3) are declared beside the citizen search below.
+  const [directoryCitizens, setDirectoryCitizens] = useState<any[]>([]),
+    [directoryTotal, setDirectoryTotal] = useState<number | null>(null),
+    [directoryLoading, setDirectoryLoading] = useState(false),
+    // CH-009 follow-up: the directory is its own fetch, so a citizen
+    // registered on this page does not appear in it until something
+    // re-triggers the fetch — bumping this epoch after a registration
+    // refetches page 1 (newest first), where the new citizen lands.
+    [directoryEpoch, setDirectoryEpoch] = useState(0);
   const [applicationReference, setApplicationReference] = useState("");
   /* FULL-UIUX-01 · OWNER-DECISION 2: one global header search — services
      from the loaded catalog, applications and citizens from the existing
@@ -758,9 +823,18 @@ export function WorkspaceApp({
   const [renewalOrder, setRenewalOrder] = useState<IntakeOrderState | null>(
     null,
   );
+  // W-004 (follow-up): one idempotency key per source application, minted
+  // on the first renew click and reused on every retry of that renewal —
+  // a retried renew then returns the original draft instead of a second
+  // one. The key is kept after success too: the certificate can only ever
+  // have one active renewal, so a later click replays the same draft
+  // rather than failing with RENEWAL_EXISTS.
+  const renewalRequestKeys = useRef(new Map<string, string>());
   const [renewalLanguageChoice, setRenewalLanguageChoice] = useState<{
     id: string;
-    language: "bn" | "en";
+    // W-024: the renewal panel inherits the source application's
+    // delivery_language, which may be "bilingual".
+    language: "bn" | "en" | "bilingual";
   } | null>(null);
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -783,6 +857,31 @@ export function WorkspaceApp({
     }, 250);
     return () => clearTimeout(timer);
   }, [citizenSearch]);
+  // CH-009: the directory's own paginated fetch (25 per page). A new
+  // search resets to page 1; the shared `citizens` register is untouched.
+  useEffect(() => {
+    setCitizenPage(1);
+  }, [citizenQuery]);
+  useEffect(() => {
+    if (!session || page !== "citizens") return;
+    let active = true;
+    setDirectoryLoading(true);
+    (async () => {
+      try {
+        const r = await api(
+          `/citizens?${new URLSearchParams({ q: citizenQuery, page: String(citizenPage), pageSize: String(citizenPageSize) })}`,
+        );
+        if (!active) return;
+        setDirectoryCitizens(items(r));
+        setDirectoryTotal(r.total ?? items(r).length);
+      } finally {
+        if (active) setDirectoryLoading(false);
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, [session, page, citizenQuery, citizenPage, citizenPageSize, directoryEpoch]);
   const [citizenForm, setCitizenForm] = useState({
     nameBn: "",
     nameEn: "",
@@ -827,15 +926,12 @@ export function WorkspaceApp({
     const role = session?.user?.role;
     if (!role) return;
     const epoch = ++refreshEpoch.current;
-    // WS-D1: the list is about to be re-read — mark it loading and clear
-    // the total at once, so the old rows/counts are never presented as
-    // the current answer while the new one is in flight (live QA
-    // defect (a)). Roles that never fetch the list keep the old values.
-    const fetchesApplications = !["owner", "finance"].includes(role);
-    if (fetchesApplications) {
-      setAppLoading(true);
-      setAppTotal(null);
-    }
+    // WS-D1 / CH-005: the list is loading from here until the refresh
+    // settles (cleared in the finally below, epoch-guarded so a stale
+    // refresh cannot clear a newer one, and a failed refresh never leaves
+    // the skeleton up forever).
+    const loadsApplications = !["owner", "finance"].includes(role);
+    if (loadsApplications) setAppListLoading(true);
     try {
       const [
         servicesResult,
@@ -846,15 +942,28 @@ export function WorkspaceApp({
         tenantResult,
       ] = await Promise.all([
         api("/services"),
+        // CH-009: the shared register is NOT paginated — the Citizens
+        // directory pages on its own fetch (see the directory effect).
         !["owner", "finance"].includes(role)
-          ? api(
-              `/citizens?${new URLSearchParams({ q: citizenQuery, page: String(citizenPage), pageSize: String(citizenPageSize) })}`,
-            )
+          ? api(`/citizens?q=${encodeURIComponent(citizenQuery)}`)
           : Promise.resolve({ items: [] }),
         !["owner", "finance"].includes(role)
           ? api(
               `/applications?${new URLSearchParams({ ...(filter ? { state: filter } : {}), ...(appService ? { serviceNo: appService } : {}), q: appQuery, page: String(appPage), pageSize: String(appPageSize), sort: appSort, ...(appFrom ? { from: appFrom } : {}), ...(appTo ? { to: appTo } : {}), ...(appRenewals ? { renewal: "true" } : {}) })}`,
             )
+              // CH-004: a failed list fetch must not reject the whole
+              // refresh (which would leave every panel stale) and must not
+              // leave a dead screen — the section below renders the
+              // failure with a retry. The previously loaded rows stay
+              // visible until a fetch succeeds.
+              .then((r) => {
+                setAppLoadError("");
+                return r;
+              })
+              .catch((e) => {
+                setAppLoadError((e as Error).message);
+                return null;
+              })
           : Promise.resolve({ items: [], total: 0 }),
         ["admin", "finance", "approver"].includes(role)
           ? api("/wallet")
@@ -868,23 +977,24 @@ export function WorkspaceApp({
       setCatalog(items(servicesResult));
       setCitizens(items(citizenResult));
       setCitizenTotal(citizenResult.total ?? items(citizenResult).length);
-      setApplications(items(applicationResult));
-      setAppTotal(applicationResult.total ?? items(applicationResult).length);
+      // CH-004: null when the list fetch failed (see above) — keep the
+      // previously loaded rows and total instead of wiping the list.
+      if (applicationResult) {
+        setApplications(items(applicationResult));
+        setAppTotal(applicationResult.total ?? items(applicationResult).length);
+      }
       setWallet(walletResult);
       setBilling(billingResult);
       setTenants(items(tenantResult));
       setPlans(tenantResult.plans ?? []);
     } finally {
-      // Only the latest epoch may clear the flag — a stale epoch's
-      // return must not hide the newer fetch still in flight, and a
-      // failed latest fetch must not leave the skeleton up forever.
-      if (epoch === refreshEpoch.current && fetchesApplications)
-        setAppLoading(false);
+      if (epoch === refreshEpoch.current && loadsApplications)
+        setAppListLoading(false);
     }
   }
   useEffect(() => {
     if (session) run(refresh);
-  }, [session, filter, appService, appQuery, appPage, appPageSize, appSort, citizenQuery, citizenPage, citizenPageSize, appFrom, appTo, appRenewals]);
+  }, [session, filter, appService, appQuery, appPage, appPageSize, appSort, citizenQuery, appFrom, appTo, appRenewals]);
   // WS-D1: if the total shrinks under the current page (a decision moved
   // rows out of this filtered view), step back onto the last real page
   // instead of showing an empty page. Null total means a load is in
@@ -1125,9 +1235,26 @@ export function WorkspaceApp({
     if (route.ownerSection) setOwnerSection(route.ownerSection);
     if (!route.page) return;
     if (route.page === "applications") {
-      setFilter(route.state ?? "");
+      // CH-004: normalize again at the boundary (parseWorkspaceHash
+      // already normalizes; this covers any future caller passing a raw
+      // value) and repair the URL when the hash carried a value that
+      // normalized away, so a refresh or bookmark does not re-carry the
+      // bad filter. replaceState fires no hashchange, so this cannot loop.
+      const state = normalizeApplicationState(route.state);
+      setFilter(state);
       setAppService(route.service ?? "");
       setAppPage(1);
+      if (!route.detailId) {
+        const params = new URLSearchParams({
+          ...(state ? { state } : {}),
+          ...(route.service ? { service: route.service } : {}),
+        });
+        const query = params.toString();
+        const cleanHash = `#/applications${query ? `?${query}` : ""}`;
+        if (window.location.hash !== cleanHash) {
+          history.replaceState({}, "", cleanHash);
+        }
+      }
     }
     setDetail(null);
     setPage(route.page);
@@ -1160,12 +1287,15 @@ export function WorkspaceApp({
   function openTask(next: string, state = "", serviceNo = "") {
     if (next === "applications") {
       clearApplicationFilters();
-      setFilter(state);
+      // CH-004: dashboard tiles and deep links pass state names; normalize
+      // so an unknown value degrades to "all" instead of crashing the list.
+      const normalizedState = normalizeApplicationState(state);
+      setFilter(normalizedState);
       setAppService(serviceNo);
       setDetail(null);
       setPage("applications");
       const params = new URLSearchParams({
-        ...(state ? { state } : {}),
+        ...(normalizedState ? { state: normalizedState } : {}),
         ...(serviceNo ? { service: serviceNo } : {}),
       });
       const query = params.toString();
@@ -1180,17 +1310,59 @@ export function WorkspaceApp({
   const application = detail?.application || detail,
     detailPayload = detail?.payload || application?.payload || {};
   /** WS-D2 (item 16): the correction dialog's field selector — the
-      top-level fields of this application's own schema version. */
+      top-level fields of this application's own schema version.
+      The web bundle carries only the CURRENT operational schemas (Phase 4
+      B-003), so an application pinned to an older version loads that
+      version lazily from @astra/shared-schemas/legacy, as PinnedSchema
+      does; until it arrives the picker offers no fields rather than the
+      current form's (field sets can differ between versions, e.g. B5). */
+  const pickerServiceNo: number | undefined =
+    application?.serviceNo || application?.service_no;
+  const pickerVersion: number | undefined =
+    application?.schemaVersion ?? application?.schema_version;
+  const [pickerLegacy, setPickerLegacy] = useState<{
+    key: string;
+    schema: FormSchema;
+  } | null>(null);
+  const pickerKey = `${pickerServiceNo}:${pickerVersion}`;
+  const pickerNeedsLegacy = (() => {
+    if (!pickerServiceNo || pickerVersion == null) return false;
+    try {
+      return getServiceSchema(pickerServiceNo).version !== pickerVersion;
+    } catch {
+      return false;
+    }
+  })();
+  useEffect(() => {
+    if (!pickerNeedsLegacy || !pickerServiceNo || pickerVersion == null) return;
+    let live = true;
+    import("@astra/shared-schemas/legacy")
+      .then((m) => {
+        if (live)
+          setPickerLegacy({
+            key: pickerKey,
+            schema: m.getLegacyServiceSchema(pickerServiceNo, pickerVersion),
+          });
+      })
+      .catch(() => {
+        /* picker stays empty; the dialog still accepts a free-text note */
+      });
+    return () => {
+      live = false;
+    };
+  }, [pickerKey, pickerNeedsLegacy, pickerServiceNo, pickerVersion]);
   const correctionFieldOptions: {
     id: string;
     label: { bn: string; en: string };
   }[] = (() => {
-    if (!detail || !application) return [];
+    if (!detail || !application || !pickerServiceNo) return [];
     try {
-      const schema = getServiceSchema(
-        application.serviceNo || application.service_no,
-        application.schemaVersion || 1,
-      );
+      const schema = pickerNeedsLegacy
+        ? pickerLegacy?.key === pickerKey
+          ? pickerLegacy.schema
+          : null
+        : getServiceSchema(pickerServiceNo);
+      if (!schema) return [];
       return (schema.sections ?? []).flatMap((section: any) =>
         (section.fields ?? []).map((field: any) => ({
           id: field.id,
@@ -1392,10 +1564,13 @@ export function WorkspaceApp({
   // CHAIRMAN-DASH-01: the Pending applications queue. Counts always come from the
   // API (/applications/counts) — never from counting a fetched page — and the rows
   // come from the same list endpoint the applications page uses, one state at a
-  // time. CORRECTION_REQUIRED is excluded on purpose: after a correction request
-  // the next move is the citizen's, so it is not office-pending work.
+  // time. CORRECTION_REQUIRED is excluded from the two office-pending groups on
+  // purpose: after a correction request the next move is the citizen's, so it is
+  // not office-pending work. It gets its own group below (W-011) so it is visible
+  // instead of disappearing from the queue.
   const pendingReviewStates = ["SUBMITTED", "RESUBMITTED", "UNDER_REVIEW"],
-    pendingIssuanceStates = ["APPROVED"];
+    pendingIssuanceStates = ["APPROVED"],
+    pendingCitizenStates = ["CORRECTION_REQUIRED"];
   async function loadPendingCounts() {
     const counts = await api("/applications/counts");
     setPendingCounts(counts);
@@ -1411,7 +1586,7 @@ export function WorkspaceApp({
       await loadPendingCounts();
       const lists: Record<string, { items: any[]; total: number }> = {};
       await Promise.all(
-        [...pendingReviewStates, ...pendingIssuanceStates].map(async (state) => {
+        [...pendingReviewStates, ...pendingIssuanceStates, ...pendingCitizenStates].map(async (state) => {
           const r = await api(
             // WS-D1: the queue triages oldest-first, so the fetched page
             // must BE the oldest rows — with the list default (newest
@@ -1459,6 +1634,17 @@ export function WorkspaceApp({
     );
     return found ? recordName(found) : "";
   }
+  /** CH-009: the directory's "Identity state" column used to read
+      "Registered" on every row — a constant, not a state. Derive it from
+      what the row actually carries (masked hints only; the full numbers
+      stay behind GET /citizens/:id/identity, which is audited). */
+  function citizenIdentityState(c: any): { bn: string; en: string } {
+    if (c.identityDocument ?? c.identity_document)
+      return { bn: "পরিচয়পত্রের নথি আছে", en: "Identity document on file" };
+    if (c.nidHint ?? c.nid_hint ?? c.birthRegHint ?? c.birth_reg_hint)
+      return { bn: "পরিচয় নম্বর আছে", en: "Identity number on file" };
+    return { bn: "পরিচয়পত্র নেই", en: "No identity on file" };
+  }
   function isNewApplication(a: any): boolean {
     return (
       !!lastSubmittedReference &&
@@ -1491,6 +1677,14 @@ export function WorkspaceApp({
               {choose({ bn: "নতুন", en: "New" })}
             </span>
           )}
+          {/* W-013: a partial draft is visibly incomplete so nobody mistakes
+              it for a ready-to-submit draft. */}
+          {(a.partialPayload ?? a.partial_payload) &&
+            (a.state || a.status) === "DRAFT" && (
+              <span className="ax-new-badge">
+                {choose({ bn: "অসম্পূর্ণ খসড়া", en: "Incomplete draft" })}
+              </span>
+            )}
         </td>
         {!hideCitizen && <td>{citizenNameFor(a) || "—"}</td>}
         <td>
@@ -1501,8 +1695,15 @@ export function WorkspaceApp({
           {/* REFINEMENT-02 P2-9: queue triage — an age chip on staff
               rows. Amber ONLY when the wait exceeds the office's stated
               service time for the service (a.statedDays, when the API
-              supplies it); otherwise the chip stays neutral. */}
+              supplies it); otherwise the chip stays neutral.
+              CH-009: the chip reads "N days waiting" only while the
+              application is actually waiting on the office — on an
+              issued, rejected, cancelled or revoked row it claimed a
+              wait that had already ended. */}
           {!hideCitizen &&
+            ["SUBMITTED", "RESUBMITTED", "UNDER_REVIEW", "APPROVED"].includes(
+              String(a.state || a.status || ""),
+            ) &&
             (() => {
               const state = String(a.state || a.status || "");
               // WS-D1: a waiting chip belongs only to a row that is
@@ -1536,6 +1737,32 @@ export function WorkspaceApp({
                 return null;
               const created = new Date(a.createdAt || a.created_at);
               if (Number.isNaN(created.getTime())) return null;
+              // W-015: when the office has a charter due date for this
+              // application, the chip counts down to it (or flags the
+              // overrun) instead of counting up from creation.
+              const dueAt = a.dueAt ? new Date(a.dueAt) : null;
+              if (dueAt && !Number.isNaN(dueAt.getTime())) {
+                const daysLeft = Math.ceil(
+                  (dueAt.getTime() - Date.now()) / 86_400_000,
+                );
+                return (
+                  <span
+                    className={`age-chip${daysLeft < 0 ? " age-chip-overdue" : daysLeft === 0 ? " age-chip-warn" : ""}`}
+                  >
+                    {daysLeft < 0
+                      ? choose({
+                          bn: `${localDigits(String(-daysLeft), language)} দিন বিলম্বিত`,
+                          en: `Overdue by ${-daysLeft} day${-daysLeft === 1 ? "" : "s"}`,
+                        })
+                      : daysLeft === 0
+                        ? choose({ bn: "আজ নির্ধারিত সময়", en: "Due today" })
+                        : choose({
+                            bn: `${localDigits(String(daysLeft), language)} দিন বাকি`,
+                            en: `Due in ${daysLeft} day${daysLeft === 1 ? "" : "s"}`,
+                          })}
+                  </span>
+                );
+              }
               const days = Math.max(
                 0,
                 Math.floor((Date.now() - created.getTime()) / 86_400_000),
@@ -1967,6 +2194,8 @@ export function WorkspaceApp({
         </div>
       </aside>
       <main id="content" aria-busy={busy || undefined}>
+        {/* F-008: the issuance-mode banner — renders only in DEMO mode. */}
+        <DemoModeBanner />
         <GlobalNoticeBanner />
         <header>
           <div>
@@ -2259,6 +2488,9 @@ export function WorkspaceApp({
             }
             oldestPendingAt={pendingCounts?.oldestPendingAt ?? null}
             creditBalance={wallet?.balance ?? null}
+            // CH-001: the per-state partition behind the summary tiles.
+            stateCounts={pendingCounts?.counts ?? null}
+            onOpenState={(state) => openTask("applications", state)}
             onStartService={(serviceNo) => {
               // WS-D3: an approver cannot start applications — the service
               // cards open the view-only catalog instead of a flow.
@@ -2497,6 +2729,12 @@ export function WorkspaceApp({
                   value={citizenSearch}
                   onChange={(e) => setCitizenSearch(e.target.value)}
                 />
+                {/* CH-009: the directory paginates (25 per page) on its own
+                    fetch — while a page loads, skeletons replace the
+                    rows instead of the previous page's citizens. */}
+                {directoryLoading ? (
+                  <SkeletonRows rows={5} />
+                ) : (
                 <div className="table-wrap responsive-table">
                   <table>
                     <thead>
@@ -2514,7 +2752,7 @@ export function WorkspaceApp({
                         // client-side substring filter over the serialized citizen could
                         // only hide server matches — the phone card list below never
                         // applied it, so the two layouts could disagree.
-                        citizens.map((c) => (
+                        directoryCitizens.map((c) => (
                             <tr key={c.id}>
                               <td>
                                 {c.nameBn || c.name_bn}
@@ -2522,10 +2760,7 @@ export function WorkspaceApp({
                               </td>
                               <td>
                                 <span className="status">
-                                  {choose({
-                                    bn: "নিবন্ধিত",
-                                    en: "Registered",
-                                  })}
+                                  {choose(citizenIdentityState(c))}
                                 </span>
                               </td>
                               <td>
@@ -2559,17 +2794,16 @@ export function WorkspaceApp({
                       )}
                     </tbody>
                   </table>
-                </div>
-                {busy && !citizens.length && <SkeletonRows rows={5} />}
-                {phoneLayout && (
+                </div>)}
+                {phoneLayout && !directoryLoading && (
                   <div className="ax-card-list">
                   {tx(
-                    citizens.map((c) => (
+                    directoryCitizens.map((c) => (
                       <article className="ax-card" key={c.id}>
                         <div className="ax-card-head">
                           <strong>{c.nameBn || c.name_bn}</strong>
                           <span className="status">
-                            {choose({ bn: "নিবন্ধিত", en: "Registered" })}
+                            {choose(citizenIdentityState(c))}
                           </span>
                         </div>
                         <small>{c.nameEn || c.name_en}</small>
@@ -2598,32 +2832,32 @@ export function WorkspaceApp({
                   )}
                 </div>
                 )}
-                {/* WS-D3: real pagination for the register — the same
-                    prev/next + per-page pattern as the applications list,
-                    reading the total from the list endpoint (never the
-                    length of the fetched page). */}
+                {/* WS-D3 / CH-009: the directory shows its real total and
+                    pages (prev/next + per-page), reading the total from its
+                    own paginated fetch (never the length of a page). */}
                 <div className="pagination">
                   <button
                     className="secondary"
-                    disabled={busy || citizenPage <= 1}
+                    disabled={directoryLoading || citizenPage <= 1}
                     onClick={() => setCitizenPage(citizenPage - 1)}
                   >
                     {t("Previous citizens ")}
                   </button>
                   <span>
-                    {tx(citizenTotal ?? "—")}
+                    {tx(directoryLoading ? "—" : (directoryTotal ?? "—"))}
                     {t(" results · Page ")}
                     {tx(citizenPage)}
                     {t(" /")}
                     {tx(" ")}
                     {tx(
-                      Math.max(1, Math.ceil((citizenTotal ?? 0) / citizenPageSize)),
+                      Math.max(1, Math.ceil((directoryTotal ?? 0) / citizenPageSize)),
                     )}
                   </span>
                   <button
                     className="secondary"
                     disabled={
-                      busy || citizenPage * citizenPageSize >= (citizenTotal ?? 0)
+                      directoryLoading ||
+                      citizenPage * citizenPageSize >= (directoryTotal ?? 0)
                     }
                     onClick={() => setCitizenPage(citizenPage + 1)}
                   >
@@ -2654,18 +2888,28 @@ export function WorkspaceApp({
                 </div>
               </section>
               {(() => {
-                const open = citizens.find((c) => c.id === detailsCitizenId);
+                // CH-009: the open record is on the directory's current
+                // page; fall back to the shared register if the page
+                // changed while the panel was open.
+                const open =
+                  directoryCitizens.find((c) => c.id === detailsCitizenId) ??
+                  citizens.find((c) => c.id === detailsCitizenId);
                 return open ? (
                   <CitizenDetailsEditor
                     citizen={open}
                     canEdit={staff || role === "citizen"}
                     geographyRequired={!!session?.tenant?.divisionCode}
+                    // S-010: plain staff cannot reveal full identity numbers.
+                    canRevealFullNumbers={role !== "staff"}
                     onClose={() => setDetailsCitizenId("")}
-                    onSaved={(updated) =>
+                    onSaved={(updated) => {
                       setCitizens((list) =>
                         list.map((c) => (c.id === updated.id ? updated : c)),
-                      )
-                    }
+                      );
+                      setDirectoryCitizens((list) =>
+                        list.map((c) => (c.id === updated.id ? updated : c)),
+                      );
+                    }}
                   />
                 ) : null;
               })()}
@@ -2696,6 +2940,13 @@ export function WorkspaceApp({
                             details: citizenDetailsPayload(citizenDetails),
                           });
                           await refresh();
+                          // CH-009 follow-up: refresh() only refetches the
+                          // shared register — the directory renders its own
+                          // paginated fetch, so the new citizen would never
+                          // appear in it until the page/search changed.
+                          // Back to page 1 (newest first) and refetch.
+                          setCitizenPage(1);
+                          setDirectoryEpoch((epoch) => epoch + 1);
                           setRegStep(0);
                           setCitizenPresentAddress(emptyPresentAddress());
                           setCitizenDetails(emptyCitizenDetails());
@@ -2904,22 +3155,7 @@ export function WorkspaceApp({
                     >
                       <option value="">{choose({ bn: "সব অবস্থা", en: "All states" })}</option>
                       {tx(
-                        [
-                          "DRAFT",
-                          "SUBMITTED",
-                          "UNDER_REVIEW",
-                          "CORRECTION_REQUIRED",
-                          "RESUBMITTED",
-                          "APPROVED",
-                          // WS-D1: ISSUANCE_PENDING is not a state in the
-                          // state machine (migration 001 CHECK) — the old
-                          // option 422'd on every select, exactly like
-                          // the citizen-home probe that had to drop it.
-                          "ISSUED",
-                          "REJECTED",
-                          "CANCELLED",
-                          "REVOKED",
-                        ].map((s) => (
+                        APPLICATION_STATES.map((s) => (
                           <option key={s} value={s}>
                             {choose(applicationStatusMeta(s))}
                           </option>
@@ -2989,7 +3225,7 @@ export function WorkspaceApp({
                   <div className="app-filter-chips">
                     {filter && (
                       <span className="app-chip">
-                        {choose(applicationStatusMeta(filter))}
+                        {choose(applicationStatusLabel(filter))}
                         <button
                           type="button"
                           aria-label={choose({ bn: "অবস্থার ফিল্টার সরান", en: "Remove status filter" })}
@@ -3191,8 +3427,12 @@ export function WorkspaceApp({
                   </form>
                 </details>
                 <div className="application-filter-tools">
+                  {/* CH-005: while a filter/page/search fetch is in flight the
+                      count shows "—", not the previous filter's total — the
+                      rows below are skeletoned the same way, so nothing on
+                      screen reads as the new filter's answer until it lands. */}
                   <p className="hint" role="status">
-                    {appTotal === null
+                    {appListLoading || appTotal === null
                       ? "—"
                       : appTotal.toLocaleString(
                           language === "bn" ? "bn-BD" : "en-GB",
@@ -3201,12 +3441,31 @@ export function WorkspaceApp({
                   </p>
                 </div>
               </div>
-              {/* WS-D1: while the list is loading, a skeleton with a
+              {/* CH-004: a failed list fetch shows here with a retry —
+                  never a dead screen, and never the misleading "No
+                  applications yet" empty state below while the load failed. */}
+              {tx(
+                appLoadError && (
+                  <div className="panel narrow" role="alert">
+                    <p>
+                      {choose({
+                        bn: "আবেদনের তালিকা লোড করা যায়নি।",
+                        en: "The applications list could not be loaded.",
+                      })}{" "}
+                      {tx(appLoadError)}
+                    </p>
+                    <button type="button" onClick={() => void run(refresh)}>
+                      {choose({ bn: "আবার চেষ্টা করুন", en: "Try again" })}
+                    </button>
+                  </div>
+                ),
+              )}
+              {/* WS-D1 / CH-005: while the list is loading, a skeleton with a
                   loading status — never the stale rows with the stale
-                  count, and never the empty state (live QA defects (a)
-                  and (b)). The empty state renders only after loading
-                  finishes with genuinely no rows. */}
-              {appLoading ? (
+                  count, and never the empty state. The empty state renders
+                  only after loading finishes with genuinely no rows and no
+                  load error. */}
+              {appListLoading ? (
                 <div role="status" className="app-loading">
                   <p className="hint">
                     {choose({
@@ -3242,8 +3501,9 @@ export function WorkspaceApp({
                       </tbody>
                     </table>
                   </div>
+                  {tx(busy && !applications.length && <SkeletonRows rows={5} />)}
                   {tx(
-                    !busy && !applications.length && (
+                    !busy && !applications.length && !appLoadError && (
                       <EmptyState
                         title={choose(
                           filter || appService || appSearch
@@ -3290,13 +3550,13 @@ export function WorkspaceApp({
               <div className="pagination">
                 <button
                   className="secondary"
-                  disabled={busy || appLoading || appPage <= 1}
+                  disabled={busy || appListLoading || appPage <= 1}
                   onClick={() => setAppPage(appPage - 1)}
                 >
                   {t("Previous applications ")}
                 </button>
                 <span>
-                  {tx(appTotal ?? "—")}
+                  {tx(appListLoading ? "—" : (appTotal ?? "—"))}
                   {t(" results · Page ")}
                   {tx(appPage)}
                   {t(" /")}
@@ -3305,7 +3565,7 @@ export function WorkspaceApp({
                 </span>
                 <button
                   className="secondary"
-                  disabled={busy || appLoading || appPage * appPageSize >= (appTotal ?? 0)}
+                  disabled={busy || appListLoading || appPage * appPageSize >= (appTotal ?? 0)}
                   onClick={() => setAppPage(appPage + 1)}
                 >
                   {t("Next applications ")}
@@ -3504,6 +3764,24 @@ export function WorkspaceApp({
                     </section>
                   ),
                 )}
+                {tx(
+                  application.dueAt &&
+                    ["SUBMITTED", "RESUBMITTED", "UNDER_REVIEW", "APPROVED"].includes(
+                      application.state,
+                    ) && (
+                      <p className={application.overdue ? "notice message error" : undefined}>
+                        {application.overdue
+                          ? choose({
+                              bn: `নির্ধারিত সময় পেরিয়েছে — চার্টার সময়সীমা ছিল ${applicationDate(application.dueAt)}।`,
+                              en: `Overdue — the charter due date was ${applicationDate(application.dueAt)}.`,
+                            })
+                          : choose({
+                              bn: `চার্টার সময়সীমা: ${applicationDate(application.dueAt)}`,
+                              en: `Charter due: ${applicationDate(application.dueAt)}`,
+                            })}
+                      </p>
+                    ),
+                )}
                 {(() => {
                   // Phase 6a/W: the latest summons, while the Chairman's decision is still pending.
                   const summons = [...(detail.events || [])]
@@ -3566,22 +3844,19 @@ export function WorkspaceApp({
                     </p>
                   </>
                 )}
-                {(() => {
-                  const detailSchema = (detail.order
-                    ? withoutOrderLanguage
-                    : (value: ReturnType<typeof getServiceSchema>) => value)(
-                    getServiceSchema(
-                      application.serviceNo || application.service_no,
-                      application.schemaVersion || 1,
-                    ),
-                  );
-                  const canEditPayload =
-                    (staff || role === "citizen") &&
-                    ["DRAFT", "CORRECTION_REQUIRED"].includes(application.state);
-                  // FULL-UIUX-01 (B18/P1-7): a non-editable payload renders
-                  // as the shared read-only summary — never a greyed-out
-                  // form pretending to be a record.
-                  return canEditPayload ? (
+                <PinnedSchema
+                  serviceNo={application.serviceNo || application.service_no}
+                  schemaVersion={application.schemaVersion}
+                  order={!!detail.order}
+                >
+                  {(detailSchema) => {
+                    const canEditPayload =
+                      (staff || role === "citizen") &&
+                      ["DRAFT", "CORRECTION_REQUIRED"].includes(application.state);
+                    // FULL-UIUX-01 (B18/P1-7): a non-editable payload renders
+                    // as the shared read-only summary — never a greyed-out
+                    // form pretending to be a record.
+                    const payloadSection = canEditPayload ? (
                     <>
                       <DynamicForm
                         key={application.id}
@@ -3621,67 +3896,64 @@ export function WorkspaceApp({
                       payload={detailPayload}
                     />
                   );
-                })()}
-                {/* WS-D2 (item 9): attached documents with their scan
-                    state and gated download — the decision guidance says
-                    to decide from the information and attachments, so
-                    they are listed here with the shared scan-status
-                    display instead of bare links. Download stays gated
-                    while quarantined (server-side 409; the display only
-                    offers it once CLEAN). */}
-                {(() => {
-                  let docs: {
-                    title: { bn: string; en: string };
-                    handle: AttachmentHandle;
-                  }[] = [];
-                  try {
-                    docs = collectApplicationAttachments(
-                      getServiceSchema(
-                        application.serviceNo || application.service_no,
-                        application.schemaVersion || 1,
-                      ),
-                      detailPayload,
-                    );
-                  } catch {
-                    docs = [];
-                  }
-                  return (
-                    <section
-                      className="detail-attachments"
-                      aria-label={choose({
-                        bn: "সংযুক্ত নথি",
-                        en: "Attached documents",
-                      })}
-                    >
-                      <h3>
-                        {choose({
-                          bn: "সংযুক্ত নথি",
-                          en: "Attached documents",
-                        })}
-                      </h3>
-                      {docs.length ? (
-                        docs.map((doc) => (
-                          <div
-                            key={doc.handle.attachmentId}
-                            className="detail-attachment"
-                          >
-                            <p>
-                              <strong>{choose(doc.title)}</strong>
-                            </p>
-                            <AttachmentStatus attachment={doc.handle} />
-                          </div>
-                        ))
-                      ) : (
-                        <p className="hint">
-                          {choose({
-                            bn: "এই আবেদনে কোনো নথি সংযুক্ত হয়নি।",
-                            en: "No documents are attached to this application.",
+                    // WS-D2 (item 9, upstream): attached documents with their
+                    // scan state and gated download, listed under the payload.
+                    // Merged into the Phase 4 PinnedSchema render prop so the
+                    // attachment titles come from the application's pinned
+                    // schema version (B-003), not the current one.
+                    let docs: {
+                      title: { bn: string; en: string };
+                      handle: AttachmentHandle;
+                    }[] = [];
+                    try {
+                      docs = collectApplicationAttachments(
+                        detailSchema,
+                        detailPayload,
+                      );
+                    } catch {
+                      docs = [];
+                    }
+                    return (
+                      <>
+                        {payloadSection}
+                        <section
+                          className="detail-attachments"
+                          aria-label={choose({
+                            bn: "সংযুক্ত নথি",
+                            en: "Attached documents",
                           })}
-                        </p>
-                      )}
-                    </section>
-                  );
-                })()}
+                        >
+                          <h3>
+                            {choose({
+                              bn: "সংযুক্ত নথি",
+                              en: "Attached documents",
+                            })}
+                          </h3>
+                          {docs.length ? (
+                            docs.map((doc) => (
+                              <div
+                                key={doc.handle.attachmentId}
+                                className="detail-attachment"
+                              >
+                                <p>
+                                  <strong>{choose(doc.title)}</strong>
+                                </p>
+                                <AttachmentStatus attachment={doc.handle} />
+                              </div>
+                            ))
+                          ) : (
+                            <p className="hint">
+                              {choose({
+                                bn: "এই আবেদনে কোনো নথি সংযুক্ত হয়নি।",
+                                en: "No documents are attached to this application.",
+                              })}
+                            </p>
+                          )}
+                        </section>
+                      </>
+                    );
+                  }}
+                </PinnedSchema>
                 {!approver && <div id="application-actions" tabIndex={-1} />}
                 {actionError && (
                   <div
@@ -3694,7 +3966,7 @@ export function WorkspaceApp({
                 <div className="actions">
                   {tx(
                     (staff || role === "citizen") &&
-                      ["DRAFT", "SUBMITTED", "CORRECTION_REQUIRED"].includes(
+                      ["DRAFT", "SUBMITTED", "CORRECTION_REQUIRED", "RESUBMITTED"].includes(
                         application.state,
                       ) && (
                         <button
@@ -3703,6 +3975,30 @@ export function WorkspaceApp({
                           onClick={() => run(() => transition("cancel"))}
                         >
                           {choose({ bn: "আবেদন বাতিল করুন", en: "Cancel application" })}
+                        </button>
+                      ),
+                  )}
+                  {tx(
+                    (staff || role === "citizen") &&
+                      application.state === "REJECTED" && (
+                        <button
+                          disabled={busy}
+                          onClick={() =>
+                            run(async () => {
+                              // W-014: start a new draft reusing this payload;
+                              // the new draft opens so the citizen can review
+                              // it (and choose delivery options when the
+                              // office has a fee policy) before submitting.
+                              const created = await api(
+                                `/applications/${application.id}/reapply`,
+                                "POST",
+                                {},
+                              );
+                              await openApplication(created.id);
+                            })
+                          }
+                        >
+                          {choose({ bn: "আবার আবেদন করুন", en: "Re-apply" })}
                         </button>
                       ),
                   )}
@@ -3804,10 +4100,19 @@ export function WorkspaceApp({
                           }
                           onClick={() =>
                             run(async () => {
+                              // W-004: the renew idempotency key (see the
+                              // renewalRequestKeys ref) — one key per source
+                              // application, reused across retries.
+                              let requestKey = renewalRequestKeys.current.get(application.id);
+                              if (!requestKey) {
+                                requestKey = randomUUID();
+                                renewalRequestKeys.current.set(application.id, requestKey);
+                              }
                               const renewal = await api(
                                 `/applications/${application.id}/renew`,
                                 "POST",
                                 {
+                                  requestKey,
                                   ...(renewalOrder?.order
                                     ? {
                                         order: renewalOrder.order,
@@ -4121,6 +4426,16 @@ export function WorkspaceApp({
         {tx(
           page === "pending" && (
             <>
+              {/* W-015: the queue-level overdue flag — how many office-waiting
+                  applications are past their charter due date. */}
+              {pendingCounts && pendingCounts.overdue > 0 && (
+                <p className="notice message error" role="status">
+                  {choose({
+                    bn: `${localDigits(String(pendingCounts.overdue), language)}টি আবেদন নির্ধারিত সময় পেরিয়েছে।`,
+                    en: `${pendingCounts.overdue} application${pendingCounts.overdue === 1 ? "" : "s"} past the charter due date.`,
+                  })}
+                </p>
+              )}
               {pendingGroupSection(
                 { bn: "পর্যালোচনার অপেক্ষায়", en: "Awaiting review" },
                 pendingCounts ? pendingCounts.awaitingReview : null,
@@ -4131,10 +4446,15 @@ export function WorkspaceApp({
                 pendingCounts ? pendingCounts.awaitingIssuance : null,
                 pendingIssuanceStates,
               )}
+              {pendingGroupSection(
+                { bn: "নাগরিকের সংশোধনের অপেক্ষায়", en: "Awaiting citizen (correction requested)" },
+                pendingCounts ? pendingCounts.awaitingCitizen : null,
+                pendingCitizenStates,
+              )}
               <p className="hint">
                 {choose({
-                  bn: "সংশোধনের জন্য ফেরত পাঠানো আবেদন এই তালিকায় নেই — সেটির পরের পদক্ষেপ নাগরিকের।",
-                  en: "Applications sent back for correction are not listed here — the next step there is the citizen's.",
+                  bn: "সংশোধনের জন্য ফেরত পাঠানো আবেদন নাগরিকের সংশোধনের অপেক্ষায় আছে — পরের পদক্ষেপ নাগরিকের, তবে এখান থেকে দেখা যায়।",
+                  en: "Applications sent back for correction are waiting on the citizen — the next step is theirs, but they stay visible here.",
                 })}
               </p>
             </>
@@ -4539,6 +4859,9 @@ export function WorkspaceApp({
                           ["permissions", "security", { bn: "অনুমতি", en: "Permissions" }],
                           ["audit", "search", { bn: "অডিট", en: "Audit" }],
                           ["settings", "admin", { bn: "সেটিংস", en: "Settings" }],
+                          // W-020: platform health (database, scanner,
+                          // providers, backup, maintenance, alerts).
+                          ["health", "reports", { bn: "প্ল্যাটফর্ম স্বাস্থ্য", en: "Platform health" }],
                         ],
                       },
                     ] as const
@@ -4602,6 +4925,9 @@ export function WorkspaceApp({
                     />
                     <OwnerSettledRevenueCard />
                   </div>
+                  {/* W-010: notification provider health — a log provider
+                      sends nothing, so the card says so plainly. */}
+                  <NotificationHealthCard />
                   <OwnerOperations
                     onOpen={(section, selector) => {
                       // PORTAL-D: open the section that handles the queue,
@@ -4619,6 +4945,15 @@ export function WorkspaceApp({
                       window.setTimeout(bring, 0);
                     }}
                   />
+                  {/* W-012: global citizens / applications / certificates
+                      totals, by state and by office. */}
+                  <OwnerStatistics tenants={tenants} />
+                </section>
+                )}
+                {ownerSection === "health" && (
+                <section className="owner-section" id="owner-health">
+                  <h2>{choose({ bn: "প্ল্যাটফর্ম স্বাস্থ্য", en: "Platform health" })}</h2>
+                  <OwnerPlatformHealth />
                 </section>
                 )}
                 {ownerSection === "offices" && (
@@ -4781,14 +5116,17 @@ export function WorkspaceApp({
                         e.preventDefault();
                         const data = new FormData(e.currentTarget);
                         run(async () => {
+                          const requestKey = walletAdjustKey(officeTenant.id);
                           await api(
                             `/owner/tenants/${officeTenant.id}/adjust`,
                             "POST",
                             {
                               delta: Number(data.get("delta")),
                               reason: data.get("reason"),
+                              requestKey,
                             },
                           );
+                          walletAdjustKeys.delete(officeTenant.id);
                           await refresh();
                           setMessage(
                             choose({
@@ -4890,6 +5228,7 @@ export function WorkspaceApp({
                 <section className="owner-section" id="owner-settings">
                   <h2>{choose({ bn: "সেটিংস", en: "Settings" })}</h2>
                   <OwnerBranding />
+                  <OwnerSupportContact />
                   <OwnerWitnessTypes />
                 </section>
                 )}

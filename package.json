@@ -14,15 +14,19 @@
     "prebuild": "node scripts/decode-assets.mjs",
     "build": "tsc --noEmit && vite build --config apps/web/vite.config.ts && node scripts/compress-assets.mjs && npm run build:seo",
     "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
+    "format": "prettier --write .",
     "db:migrate": "tsx scripts/migrate.ts",
     "db:seed": "node scripts/decode-assets.mjs && tsx scripts/seed.ts",
     "test:forms": "node --import tsx --test packages/shared-schemas/test/*.test.ts",
-    "test:api": "node --import tsx --test --test-concurrency=1 apps/api/test/*.test.ts",
+    "test:api": "tsx scripts/test-api.ts",
+    "test:openapi": "node scripts/update-batch-c-openapi.mjs --check && node --import tsx scripts/check-openapi-coverage.mjs",
+    "openapi:generate": "node scripts/update-batch-c-openapi.mjs",
     "test:web": "tsx scripts/test-web.ts",
     "test:backup": "node --test scripts/backup/*.test.mjs",
     "db:backup": "node scripts/backup/backup.mjs backup",
     "db:recovery-drill": "node scripts/backup/recovery-drill.mjs",
-    "test": "npm run test:backup && npm run test:scanner && npm run test:forms && npm run test:api && npm run test:web",
+    "test": "npm run test:backup && npm run test:scanner && npm run test:forms && npm run test:api && npm run test:support && npm run test:web",
     "start": "node --import tsx apps/api/src/server.ts",
     "db:bootstrap-role": "tsx scripts/bootstrap-db.ts",
     "db:initialize": "npm run db:bootstrap-role && npm run db:migrate && tsx scripts/initialize.ts",
@@ -34,7 +38,11 @@
     "db:initialize-cpanel": "npm run db:bootstrap-cpanel && npm run db:migrate-cpanel && tsx scripts/initialize.ts",
     "build:seo": "node --import tsx apps/web/scripts/prerender-public.mjs",
     "build:api": "tsc -p packages/shared-schemas/tsconfig.build.json && tsc -p apps/api/tsconfig.build.json",
-    "db:backup:offsite": "node scripts/backup/offsite-backup.mjs"
+    "db:backup:offsite": "node scripts/backup/offsite-backup.mjs",
+    "verify:gate": "node --import tsx scripts/verify-deployment-gate.ts",
+    "verify:readiness": "node --import tsx scripts/verify-deployment-readiness.ts",
+    "verify:performance": "node --import tsx scripts/performance-smoke.ts",
+    "test:support": "node --import tsx --test scripts/test-support/*.test.ts"
   },
   "dependencies": {
     "@react-pdf/renderer": "^4.9.0",
@@ -48,6 +56,7 @@
     "zod": "4.6.7"
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
     "@types/express": "5.0.6",
     "@types/node": "24.10.1",
     "@types/nodemailer": "^8.0.2",
@@ -56,11 +65,16 @@
     "@types/qrcode": "1.5.6",
     "@types/react": "19.2.7",
     "@types/react-dom": "19.2.3",
+    "eslint": "^10.15.0",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "globals": "^17.14.0",
     "jsqr": "^1.4.0",
     "pngjs": "^5.0.0",
     "prettier": "^3.6.2",
     "tsx": "4.23.15",
     "typescript": "5.9.3",
+    "typescript-eslint": "^8.74.0",
     "vite": "7.3.7"
   }
 }

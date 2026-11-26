@@ -1,6 +1,11 @@
 import React, { useState } from "react";
 import { choose, useLanguage } from "./i18n.js";
-import { EmptyState, ServiceCard, StatCard } from "./ui/kit.js";
+import {
+  EmptyState,
+  ServiceCard,
+  StatCard,
+  applicationStatusMeta,
+} from "./ui/kit.js";
 import { NavIcon } from "./ui/nav-icons.js";
 import "./workspace-dashboard.css";
 
@@ -31,9 +36,11 @@ export function WorkspaceDashboard({
   pendingBreakdown,
   oldestPendingAt,
   creditBalance,
+  stateCounts,
   onStartService,
   onOpenCitizens,
   onOpenApplications,
+  onOpenState,
 }: {
   services: readonly {
     service_no: number;
@@ -58,9 +65,15 @@ export function WorkspaceDashboard({
   oldestPendingAt?: string | null;
   /** null when this role may not read the office balance. */
   creditBalance: number | null;
+  /** CH-001: per-state counts from GET /applications/counts — the full
+      state-machine partition, so the tiles below add up to the total
+      with no application counted twice. Null until the counts load. */
+  stateCounts?: Record<string, number> | null;
   onStartService: (serviceNo: number) => void;
   onOpenCitizens: () => void;
   onOpenApplications: () => void;
+  /** CH-001: open the applications list filtered to one state. */
+  onOpenState?: (state: string) => void;
 }) {
   useLanguage();
   const [query, setQuery] = useState("");
@@ -148,6 +161,51 @@ export function WorkspaceDashboard({
               )}${choose({ bn: " দিন আগে", en: " days ago" })}`
             : ` · ${choose({ bn: "কোনো অপেক্ষমাণ আবেদন নেই", en: "No pending application" })}`}
         </p>
+      )}
+      {/* CH-001: the overview's per-state breakdown. Workflow order —
+          waiting on the office first, then closed states. Each tile is
+          one state, so its number is exactly the filtered list it opens
+          (no group sums that hide which states they contain), and the
+          ten tiles add up to the Total applications tile above. */}
+      {stateCounts && onOpenState && (
+        <section
+          className="ax-dashboard-states"
+          aria-label={choose({ bn: "অবস্থা অনুযায়ী আবেদন", en: "Applications by state" })}
+        >
+          <h2 className="ax-dashboard-states-heading">
+            {choose({ bn: "অবস্থা অনুযায়ী", en: "By state" })}
+          </h2>
+          <div className="ax-dashboard-states-row">
+            {[
+              "SUBMITTED",
+              "RESUBMITTED",
+              "UNDER_REVIEW",
+              "CORRECTION_REQUIRED",
+              "APPROVED",
+              "ISSUED",
+              "REJECTED",
+              "DRAFT",
+              "CANCELLED",
+              "REVOKED",
+            ].map((state) => (
+              <button
+                key={state}
+                type="button"
+                className="ax-state-tile"
+                onClick={() => onOpenState(state)}
+              >
+                <strong>{count(stateCounts[state] ?? 0)}</strong>
+                <span>{choose(applicationStatusMeta(state) ?? { bn: state, en: state })}</span>
+              </button>
+            ))}
+          </div>
+          <p className="hint">
+            {choose({
+              bn: "সবগুলো মিলে মোট আবেদনের সমান — কোনো আবেদন দুইবার গোনা হয় না।",
+              en: "Together these add up to the total applications above — no application is counted twice.",
+            })}
+          </p>
+        </section>
       )}
       <section
         className="ax-dashboard-services"

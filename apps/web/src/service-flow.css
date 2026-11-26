@@ -187,6 +187,20 @@
 .ax-flow-summary + .ax-flow-muted {
   margin-top: var(--ax-space-4);
 }
+/* W-006: the pre-submit fee disclosure on the review step — a bordered box
+   so the financial outcome reads as its own section, not form data. */
+.ax-flow-fee-preview {
+  border: 1px solid var(--ax-line);
+  border-radius: var(--ax-radius);
+  padding: var(--ax-space-3) var(--ax-space-4);
+  margin: var(--ax-space-4) 0;
+}
+.ax-flow-fee-preview h4 {
+  margin: 0 0 var(--ax-space-2);
+}
+.ax-flow-fee-preview p {
+  margin: var(--ax-space-1) 0;
+}
 .ax-flow-done .ax-flow-actions {
   align-self: stretch;
   justify-content: flex-start;

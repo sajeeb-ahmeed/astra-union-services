@@ -6,7 +6,7 @@ import {
   type FieldDefinition,
   type FormSchema,
   type ValidationIssue,
-} from "@astra/shared-schemas";
+} from "@astra/shared-schemas/web";
 import { api } from "./api.js";
 import { AttachmentStatus } from "./AttachmentStatus.js";
 import {

@@ -27,7 +27,11 @@ import crypto from "node:crypto";
 import { fileURLToPath } from "node:url";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const SKIP_DIRS = new Set(["node_modules", ".git"]);
+// B-001: dist-cpanel/ is a regenerated deploy snapshot (scripts/
+// package-cpanel.mjs wipes and re-copies it from the source assets), so
+// decoding into it only dirties the working tree on fresh checkouts.
+// The build never reads dist-cpanel/.
+const SKIP_DIRS = new Set(["node_modules", ".git", "dist-cpanel"]);
 
 let decoded = 0;
 let skipped = 0;
