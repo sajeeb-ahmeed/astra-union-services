@@ -1,4 +1,5 @@
 import net from "node:net";
+import { definitionsAcceptable, publishedDailyVersion } from "../../apps/api/src/clamav-freshness.js";
 
 export type EngineIdentity = { engineVersion: string; signatureVersion: string; signatureUpdatedAt: string };
 export type ScanVerdict = { verdict: "CLEAN" | "REJECTED" | "ERROR"; reasonCode: "OK" | "UNSAFE_FILE" | "SCAN_LIMIT" | "SCAN_FAILED" | "SCANNER_UNAVAILABLE" };
@@ -50,18 +51,32 @@ export function command(command: "PING" | "VERSIONCOMMANDS" | "INSTREAM", bytes?
   });
 }
 
-export function parseVersion(reply: string, now = Date.now()): EngineIdentity {
+/**
+ * Freshness: the shared owner-approved rule in apps/api/src/clamav-freshness.ts
+ * — up to 48 h old always; older only while it is the newest daily ClamAV
+ * publishes (`publishedDaily`), never past 14 days; unknown published = 48 h.
+ */
+export function parseVersion(reply: string, now = Date.now(), publishedDaily: number | null = null): EngineIdentity {
   const match = /^ClamAV (\d+\.\d+\.\d+(?:[-.][A-Za-z0-9]+)?)\/(\d+)\/([^|]+)\| COMMANDS: (.+)$/.exec(reply);
   if (!match || !match[4].split(/\s+/).includes("INSTREAM") || !match[4].split(/\s+/).includes("PING")) throw Error("SCANNER_VERSION_INVALID");
   const timestamp = Date.parse(match[3].trim());
-  if (!Number.isFinite(timestamp) || timestamp < now - 48 * 3600_000 || timestamp > now + 5 * 60_000 || Number(match[2]) < 1)
+  if (Number(match[2]) < 1 || !definitionsAcceptable(timestamp, Number(match[2]), publishedDaily, now))
     throw Error("SCANNER_DEFINITIONS_STALE");
   return { engineVersion: `ClamAV ${match[1]}`, signatureVersion: match[2], signatureUpdatedAt: new Date(timestamp).toISOString() };
 }
 
+export { publishedDailyVersion };
+
 export async function engineIdentity(options?: ClamdOptions): Promise<EngineIdentity> {
   if (await command("PING", undefined, options) !== "PONG") throw Error("SCANNER_PING_INVALID");
-  return parseVersion(await command("VERSIONCOMMANDS", undefined, options));
+  const reply = await command("VERSIONCOMMANDS", undefined, options);
+  try {
+    return parseVersion(reply);
+  } catch (error) {
+    // Older than 48 h: accept it only while it is still the newest ClamAV publishes.
+    if ((error as Error).message !== "SCANNER_DEFINITIONS_STALE") throw error;
+    return parseVersion(reply, Date.now(), await publishedDailyVersion());
+  }
 }
 
 export function parseVerdict(reply: string): ScanVerdict {

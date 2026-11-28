@@ -35,6 +35,20 @@ test("definitions require identifiable fresh database and streaming support", ()
   const now = Date.now(); assert.equal(parseVersion(version(new Date(now)), now).engineVersion, "ClamAV 1.4.6");
   for (const value of [version(new Date(now - 49 * 3600_000)), version(new Date(now + 6 * 60_000)), version(new Date(), "0"), "ClamAV 1.4.6", version().replace("INSTREAM", "SCAN")]) assert.throws(() => parseVersion(value, now));
 });
+test("definitions older than 48 h pass only while they are the newest ClamAV publishes, and never past 14 days", () => {
+  const now = Date.now(), day = 24 * 3600_000;
+  const threeDays = version(new Date(now - 3 * day), "28194");
+  // ClamAV paused publishing: the loaded daily IS the newest published one.
+  assert.equal(parseVersion(threeDays, now, 28194).signatureVersion, "28194");
+  // A newer daily exists but was not installed: stale.
+  assert.throws(() => parseVersion(threeDays, now, 28195), /SCANNER_DEFINITIONS_STALE/);
+  // Unknown published version: the strict 48 h rule applies.
+  assert.throws(() => parseVersion(threeDays, now, null), /SCANNER_DEFINITIONS_STALE/);
+  // Backstop: even the newest published daily is refused after 14 days.
+  assert.throws(() => parseVersion(version(new Date(now - 15 * day), "28194"), now, 28194), /SCANNER_DEFINITIONS_STALE/);
+  // Within 48 h nothing else is needed.
+  assert.equal(parseVersion(version(new Date(now - day), "28100"), now, 28194).signatureVersion, "28100");
+});
 test("readiness requires both clean and standard antivirus test outcomes", async () => {
   const healthy = await daemon(healthyReply); try { assert.equal((await verifyEngine(healthy)).engineVersion, "ClamAV 1.4.6"); } finally { await healthy.close(); }
   const broken = await daemon((cmd, bytes) => cmd === "zINSTREAM" ? "stream: OK" : healthyReply(cmd, bytes));

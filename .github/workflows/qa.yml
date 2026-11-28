@@ -31,9 +31,22 @@ jobs:
       - name: Update official signatures before starting ClamAV
         # The stock image starts FreshClam and ClamD concurrently when it has a
         # preloaded database. Sequence them so ClamD cannot load stale image data.
+        #
+        # Freshness: ClamD must load exactly the daily database ClamAV currently
+        # publishes (its official current.cvd.clamav.net record), so a failed or
+        # skipped FreshClam update still fails the job. A fixed age limit alone
+        # failed every run whenever ClamAV itself paused publishing (no new daily
+        # after 25 Nov 2026), although the job held the newest signatures that
+        # exist. A 14-day age limit stays as a backstop against a stale record.
         run: |
+          expected_daily="$(dig +short TXT current.cvd.clamav.net | tr -d '"' | cut -d: -f3)"
+          case "$expected_daily" in
+            ''|*[!0-9]*) echo "ERROR: could not read ClamAV's published daily version"; exit 1 ;;
+          esac
+          echo "ClamAV publishes daily version $expected_daily"
           docker run -d --name astra-clamav -p 127.0.0.1:3310:3310 \
             -e TZ=Etc/UTC \
+            -e EXPECTED_DAILY="$expected_daily" \
             -e FRESHCLAM_CONF_TestDatabases=yes \
             -e FRESHCLAM_CONF_ConnectTimeout=30 \
             -e FRESHCLAM_CONF_ReceiveTimeout=120 \
@@ -52,7 +65,15 @@ jobs:
               sed "/^[[:space:]]*NotifyClamd[[:space:]]/d" /etc/clamav/freshclam.conf > /tmp/freshclam-ci.conf
               freshclam --stdout --config-file=/tmp/freshclam-ci.conf
               date -u
-              exec clamd --foreground --fail-if-cvd-older-than=2
+              daily=/var/lib/clamav/daily.cld
+              [ -f "$daily" ] || daily=/var/lib/clamav/daily.cvd
+              loaded="$(sigtool --info "$daily" | sed -n "s/^Version: *//p")"
+              echo "Loaded daily version ${loaded:-none}; ClamAV publishes $EXPECTED_DAILY"
+              if [ -z "$loaded" ] || [ "$loaded" -lt "$EXPECTED_DAILY" ]; then
+                echo "ERROR: FreshClam did not install the published daily database"
+                exit 1
+              fi
+              exec clamd --foreground --fail-if-cvd-older-than=14
             '
       - name: Wait for a real signature database and verify real detections
         run: |
