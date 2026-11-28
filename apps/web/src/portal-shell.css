@@ -1,0 +1,346 @@
+/* PORTAL-LANDING: the owner's reference portal look for every public surface
+   (home: .du-public; citizen portal pages: .public-site). Loaded after
+   du-shell.css, so equal-specificity rules here win. */
+
+:is(.du-public, .public-site) {
+  --pg-green: #006a4e;
+  --pg-deep: #003d2c;
+  --pg-red: #c8102e;
+  --pg-red-soft: #fbe9ec;
+  --pg-gold: #a97b1f;
+  --pg-bg: #f4f7f5;
+  --pg-fg: #14231c;
+  --pg-muted: #52625a;
+  --pg-muted-bg: #edf2ef;
+  --pg-accent: #e6f0eb;
+  --pg-border: #d9e3dd;
+  --pg-radius: 3px;
+  --pg-heading-font: inherit;
+  --du-container: 1280px;
+  background: var(--pg-bg);
+  color: var(--pg-fg);
+}
+
+/* Utility bar */
+:is(.du-public, .public-site) .util-bar {
+  background: var(--pg-deep);
+  color: rgb(255 255 255 / 90%);
+  font-size: 13px;
+  border-top: 4px solid var(--pg-red);
+}
+:is(.du-public, .public-site) .util-bar-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  min-height: 38px;
+}
+:is(.du-public, .public-site) .util-bar-date {
+  padding-right: 16px;
+  border-right: 1px solid rgb(255 255 255 / 25%);
+}
+:is(.du-public, .public-site) .util-bar-platform {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+:is(.du-public, .public-site) .util-bar-links {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-left: auto;
+}
+:is(.du-public, .public-site) .util-bar a {
+  color: rgb(255 255 255 / 90%);
+  text-decoration: none;
+}
+:is(.du-public, .public-site) .util-bar a:hover {
+  color: #fff;
+  text-decoration: underline;
+}
+.util-text-size {
+  display: inline-flex;
+  border: 1px solid rgb(255 255 255 / 30%);
+  border-radius: 2px;
+  overflow: hidden;
+}
+.util-text-size button {
+  min-width: 28px;
+  height: 24px;
+  border: 0;
+  background: transparent;
+  color: rgb(255 255 255 / 90%);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+.util-text-size button + button {
+  border-left: 1px solid rgb(255 255 255 / 30%);
+}
+.util-text-size button[aria-pressed="true"] {
+  background: #fff;
+  color: var(--pg-deep);
+  font-weight: 600;
+}
+:is(.du-public, .public-site) .util-bar .language-switch {
+  background: transparent;
+  padding: 0;
+  gap: 0;
+  display: inline-flex;
+  border: 1px solid rgb(255 255 255 / 30%);
+  border-radius: 2px;
+  overflow: hidden;
+}
+:is(.du-public, .public-site) .util-bar .language-switch button {
+  min-height: 24px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: rgb(255 255 255 / 90%);
+  font: inherit;
+  font-size: 12px;
+  box-shadow: none;
+}
+:is(.du-public, .public-site) .util-bar .language-switch button[aria-pressed="true"] {
+  background: #fff;
+  color: var(--pg-deep);
+  font-weight: 600;
+}
+
+/* Header */
+:is(.du-public, .public-site) .du-header {
+  background: #fff;
+  border-bottom: 1px solid var(--pg-border);
+  box-shadow: none;
+}
+:is(.du-public, .public-site) .du-header-row {
+  min-height: 84px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+:is(.du-public, .public-site) .du-header-actions {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+:is(.du-public, .public-site) .du-header .du-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 40px;
+  padding: 0 16px;
+  border-radius: var(--pg-radius);
+  font-weight: 600;
+  font-size: 15px;
+  text-decoration: none;
+  box-shadow: none;
+}
+:is(.du-public, .public-site) .du-header .du-btn-primary {
+  background: var(--pg-green);
+  border: 1px solid var(--pg-green);
+  color: #fff;
+}
+:is(.du-public, .public-site) .du-header .du-btn-primary:hover {
+  background: var(--pg-deep);
+  border-color: var(--pg-deep);
+}
+:is(.du-public, .public-site) .du-header .du-btn-ghost {
+  background: #fff;
+  border: 1px solid var(--pg-green);
+  color: var(--pg-green);
+}
+:is(.du-public, .public-site) .du-header .du-btn-ghost:hover {
+  background: var(--pg-accent);
+}
+:is(.du-public, .public-site) .du-header .du-btn-text {
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--pg-fg);
+  font-weight: 500;
+}
+:is(.du-public, .public-site) .du-header .du-btn-text:hover {
+  color: var(--pg-green);
+}
+
+/* Main navigation */
+:is(.du-public, .public-site) .du-topnav {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  background: var(--pg-green);
+  border-bottom: 3px solid var(--pg-red);
+}
+:is(.du-public, .public-site) .du-topnav-row {
+  display: flex;
+  gap: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+:is(.du-public, .public-site) .du-topnav .du-navlink {
+  display: inline-flex;
+  align-items: center;
+  min-height: 48px;
+  padding: 0 18px;
+  color: #fff;
+  font-weight: 500;
+  font-size: 15px;
+  text-decoration: none;
+  white-space: nowrap;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+:is(.du-public, .public-site) .du-topnav .du-navlink:hover {
+  background: rgb(0 0 0 / 14%);
+  color: #fff;
+}
+:is(.du-public, .public-site) .du-topnav .du-navlink[aria-current="page"] {
+  background: var(--pg-deep);
+  color: #fff;
+  box-shadow: none;
+}
+:is(.du-public, .public-site) .du-topnav .du-navlink:focus-visible {
+  outline: 2px solid #fff;
+  outline-offset: -4px;
+}
+
+/* Notice ticker */
+:is(.du-public, .public-site) .ntk {
+  background: #fff;
+  border-bottom: 1px solid var(--pg-border);
+}
+:is(.du-public, .public-site) .ntk-row {
+  min-height: 36px;
+}
+:is(.du-public, .public-site) .ntk-label {
+  background: var(--pg-red);
+  color: #fff;
+  border-radius: 0;
+  font-weight: 600;
+}
+:is(.du-public, .public-site) .ntk-list li a {
+  color: var(--pg-fg);
+}
+:is(.du-public, .public-site) .ntk-list li + li::before {
+  content: "◆";
+  color: var(--pg-red);
+  font-size: 10px;
+  margin-right: 12px;
+}
+
+/* Footer */
+:is(.du-public, .public-site) .du-footer {
+  background: var(--pg-deep);
+  color: rgb(255 255 255 / 85%);
+  border-top: 4px solid var(--pg-red);
+  margin-top: 0;
+}
+:is(.du-public, .public-site) .du-footer-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) repeat(3, minmax(0, 1fr));
+  gap: 32px;
+  padding-block: 40px 32px;
+}
+:is(.du-public, .public-site) .du-footer h3 {
+  color: #fff;
+  font-size: 15px;
+  font-weight: 600;
+  margin: 0 0 12px;
+}
+:is(.du-public, .public-site) .du-footer .du-footlink {
+  color: rgb(255 255 255 / 80%);
+  font-size: 14px;
+}
+:is(.du-public, .public-site) .du-footer .du-footlink:hover {
+  color: #fff;
+}
+:is(.du-public, .public-site) .du-footer .brand-lockup-bn,
+:is(.du-public, .public-site) .du-footer .brand-lockup-en {
+  color: #fff;
+}
+.du-footer-about {
+  margin: 14px 0 0;
+  font-size: 14px;
+  line-height: 1.7;
+  color: rgb(255 255 255 / 75%);
+  max-width: 44ch;
+}
+:is(.du-public, .public-site) .du-footer-bottom {
+  border-top: 1px solid rgb(255 255 255 / 15%);
+  background: transparent;
+  font-size: 13px;
+  color: rgb(255 255 255 / 75%);
+}
+:is(.du-public, .public-site) .du-footer-bottom .du-container {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  min-height: 52px;
+  flex-wrap: wrap;
+}
+.du-footer-legal {
+  display: inline-flex;
+  gap: 16px;
+}
+
+@media (max-width: 1023px) {
+  :is(.du-public, .public-site) .du-footer-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  :is(.du-public, .public-site) .util-bar-platform {
+    display: none;
+  }
+}
+@media (max-width: 767px) {
+  :is(.du-public, .public-site) .util-bar-date,
+  :is(.du-public, .public-site) .util-bar a[href="/#hotline"],
+  :is(.du-public, .public-site) .util-bar a[href^="mailto:"] {
+    display: none;
+  }
+  :is(.du-public, .public-site) .util-bar-links {
+    gap: 10px;
+    margin-left: 0;
+    width: 100%;
+    justify-content: space-between;
+  }
+  :is(.du-public, .public-site) .du-header-row {
+    min-height: 64px;
+  }
+  :is(.du-public, .public-site) .du-header .du-btn {
+    padding: 0 10px;
+    font-size: 14px;
+  }
+  :is(.du-public, .public-site) .du-header .du-btn-office {
+    display: none;
+  }
+  :is(.du-public, .public-site) .du-footer-grid {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 24px;
+  }
+}
+:is(.du-public, .public-site) .du-footer .brand-lockup-tag {
+  color: rgb(255 255 255 / 75%);
+}
+/* Utility-bar controls are compact (the site-wide 44px button height would
+   make the bar ~100px tall); 32px on phones keeps a comfortable target. */
+:is(.du-public, .public-site) .util-bar .util-text-size button,
+:is(.du-public, .public-site) .util-bar .language-switch button {
+  min-height: 0;
+  height: 26px;
+  line-height: 1;
+  padding-block: 0;
+}
+@media (max-width: 767px) {
+  :is(.du-public, .public-site) .util-bar .util-text-size button,
+  :is(.du-public, .public-site) .util-bar .language-switch button {
+    height: 32px;
+  }
+  :is(.du-public, .public-site) .util-bar-row {
+    min-height: 44px;
+  }
+}

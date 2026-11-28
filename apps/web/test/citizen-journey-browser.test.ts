@@ -198,6 +198,8 @@ test(
       const visitor = await publicContext.newPage();
       visitor.on("pageerror", (e) => errors.push(e.message));
       await visitor.goto(origin);
+      // PORTAL-LANDING: the verify box sits behind the quick-services tab.
+      await visitor.locator("#home-tab-verify").click();
       await visitor.locator("#home-verify-input").fill(certificate.number);
       await Promise.all([visitor.waitForURL(/\/verify\?searchText=/), visitor.locator("#home-verify-input").press("Enter")]);
       await visitor.getByText("This is not an official certificate", { exact: true }).waitFor();

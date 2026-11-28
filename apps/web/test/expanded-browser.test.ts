@@ -133,13 +133,12 @@ test(
         path: "execution/screenshots/expanded-home-desktop.png",
         fullPage: true,
       });
-      // HOME-REDESIGN-02: the home directory renders services as
-      // .hsd-tile links (HomeServiceDirectory) — the first 18 at rest,
-      // the rest behind its "Show all" button; .svc-card grids live
-      // only on /services (asserted just below).
-      await page.locator(".hsd-tile").first().waitFor();
-      const homeTiles = await page.locator(".hsd-tile").count();
-      assert.equal(homeTiles, 18, `home directory should show the first 18 services at rest, saw ${homeTiles}`);
+      // PORTAL-LANDING: the home lists all 47 services in seven groups
+      // (.ph-service links); .svc-card grids live only on /services
+      // (asserted just below).
+      await page.locator(".ph-group .ph-service").first().waitFor();
+      const homeServices = await page.locator(".ph-group .ph-service").count();
+      assert.equal(homeServices, 47, `home directory should list all 47 services, saw ${homeServices}`);
       await page
         .getByRole("navigation", { name: "Public navigation" })
         .getByRole("link", { name: "Services", exact: true })

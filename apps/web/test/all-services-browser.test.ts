@@ -211,6 +211,8 @@ test(
 
           step = "public: verify number";
           await visitor.goto(origin);
+          // PORTAL-LANDING: the verify box sits behind the quick-services tab.
+          await visitor.locator("#home-tab-verify").click();
           await visitor.locator("#home-verify-input").fill(certificate.number);
           await Promise.all([
             visitor.waitForURL(/\/verify\?searchText=/),
