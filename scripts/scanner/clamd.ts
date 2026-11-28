@@ -1,4 +1,5 @@
 import net from "node:net";
+import { definitionsAcceptable, publishedDailyVersion } from "../../apps/api/src/clamav-freshness.js";
 
 export type EngineIdentity = { engineVersion: string; signatureVersion: string; signatureUpdatedAt: string };
 export type ScanVerdict = { verdict: "CLEAN" | "REJECTED" | "ERROR"; reasonCode: "OK" | "UNSAFE_FILE" | "SCAN_LIMIT" | "SCAN_FAILED" | "SCANNER_UNAVAILABLE" };
@@ -50,49 +51,21 @@ export function command(command: "PING" | "VERSIONCOMMANDS" | "INSTREAM", bytes?
   });
 }
 
-/** Signatures this fresh are always accepted. */
-const FRESH_MS = 48 * 3600_000;
-/** Hard backstop: never accept signatures older than this. */
-const BACKSTOP_MS = 14 * 24 * 3600_000;
-
 /**
- * Freshness (owner decision, 28 Nov 2026): signatures up to 48 h old are
- * accepted as before. Older ones are accepted only while they are still the
- * newest daily database ClamAV publishes (`publishedDaily`, from its official
- * current.cvd.clamav.net record) and at most 14 days old — when ClamAV itself
- * pauses publishing (no new daily after 25 Nov 2026), the newest signatures
- * that exist must not stop every scan. An unknown published version keeps the
- * strict 48 h rule.
+ * Freshness: the shared owner-approved rule in apps/api/src/clamav-freshness.ts
+ * — up to 48 h old always; older only while it is the newest daily ClamAV
+ * publishes (`publishedDaily`), never past 14 days; unknown published = 48 h.
  */
 export function parseVersion(reply: string, now = Date.now(), publishedDaily: number | null = null): EngineIdentity {
   const match = /^ClamAV (\d+\.\d+\.\d+(?:[-.][A-Za-z0-9]+)?)\/(\d+)\/([^|]+)\| COMMANDS: (.+)$/.exec(reply);
   if (!match || !match[4].split(/\s+/).includes("INSTREAM") || !match[4].split(/\s+/).includes("PING")) throw Error("SCANNER_VERSION_INVALID");
   const timestamp = Date.parse(match[3].trim());
-  const loaded = Number(match[2]);
-  if (!Number.isFinite(timestamp) || timestamp > now + 5 * 60_000 || loaded < 1) throw Error("SCANNER_DEFINITIONS_STALE");
-  const age = now - timestamp;
-  const newestPublished = publishedDaily !== null && Number.isInteger(publishedDaily) && loaded >= publishedDaily;
-  if (age > BACKSTOP_MS || (age > FRESH_MS && !newestPublished)) throw Error("SCANNER_DEFINITIONS_STALE");
+  if (Number(match[2]) < 1 || !definitionsAcceptable(timestamp, Number(match[2]), publishedDaily, now))
+    throw Error("SCANNER_DEFINITIONS_STALE");
   return { engineVersion: `ClamAV ${match[1]}`, signatureVersion: match[2], signatureUpdatedAt: new Date(timestamp).toISOString() };
 }
 
-/** ClamAV's currently published daily version (DNS TXT current.cvd.clamav.net, field 3), or null. */
-export async function publishedDailyVersion(timeoutMs = 5_000): Promise<number | null> {
-  try {
-    const { resolveTxt } = await import("node:dns/promises");
-    let timer: NodeJS.Timeout | undefined;
-    const records = await Promise.race([
-      resolveTxt("current.cvd.clamav.net"),
-      new Promise<never>((_, reject) => {
-        timer = setTimeout(() => reject(new Error("timeout")), timeoutMs);
-      }),
-    ]).finally(() => clearTimeout(timer));
-    const daily = Number(records.flat().join("").split(":")[2]);
-    return Number.isInteger(daily) && daily > 0 ? daily : null;
-  } catch {
-    return null;
-  }
-}
+export { publishedDailyVersion };
 
 export async function engineIdentity(options?: ClamdOptions): Promise<EngineIdentity> {
   if (await command("PING", undefined, options) !== "PONG") throw Error("SCANNER_PING_INVALID");

@@ -6,6 +6,7 @@ import { pool, transaction, audit, type DB } from "./db.js";
 import { digest, randomToken } from "./security.js";
 import { ApiError, fail } from "./models.js";
 import { createRateLimiter } from "./http-hardening.js";
+import { definitionsAcceptable, publishedDailyVersion } from "./clamav-freshness.js";
 
 type Request = express.Request & { auth?: Auth };
 const uuid = z.string().uuid();
@@ -60,14 +61,18 @@ function actor(req: Request, permitted: string[]): Auth & { tenantId: string } {
   return a as Auth & { tenantId: string };
 }
 const readRoles = ["citizen", "staff", "admin", "reviewer", "approver"];
-function freshSignature(value: string) {
-  const time = Date.parse(value),
-    now = Date.now();
-  if (
-    !Number.isFinite(time) ||
-    time < now - 48 * 3600_000 ||
-    time > now + 5 * 60_000
-  )
+/**
+ * The shared owner-approved ClamAV freshness rule (clamav-freshness.ts, owner
+ * decision 28 Nov 2026): within 48 h always; older only while the loaded
+ * daily is the newest ClamAV publishes; never past 14 days.
+ */
+async function freshSignature(updatedAt: string, signatureVersion: string) {
+  const time = Date.parse(updatedAt),
+    loaded = Number(signatureVersion);
+  const acceptable =
+    definitionsAcceptable(time, loaded, null) ||
+    definitionsAcceptable(time, loaded, await publishedDailyVersion());
+  if (!acceptable)
     fail(
       422,
       "SCANNER_DEFINITIONS_INVALID",
@@ -432,7 +437,7 @@ attachmentScannerRouter.post(
 /** Callers are trusted server code. HTTP validates the same schema and supplies no scope override. */
 export async function claimAttachmentScan(raw: ScannerIdentity) {
   const input = scannerIdentity.parse(raw);
-  freshSignature(input.signatureUpdatedAt);
+  await freshSignature(input.signatureUpdatedAt, input.signatureVersion);
   const tenants = (
     await pool.query("SELECT id FROM tenants WHERE status='ACTIVE' ORDER BY id")
   ).rows;
@@ -530,7 +535,7 @@ export async function claimAttachmentScan(raw: ScannerIdentity) {
 }
 export async function finishAttachmentScan(raw: ScanCompletion) {
   const input = finishInput.parse(raw);
-  freshSignature(input.signatureUpdatedAt);
+  await freshSignature(input.signatureUpdatedAt, input.signatureVersion);
   if (
     (input.verdict === "CLEAN" && input.reasonCode !== "OK") ||
     (input.verdict !== "CLEAN" && input.reasonCode === "OK") ||
