@@ -57,7 +57,13 @@ export type PlatformSecurityAction =
   | "TENANT_STATUS_UPDATED"
   | "LOGIN_FAILED"
   | "LOGIN_LOCKED_OUT"
-  | "PUBLIC_DATA_PURGED";
+  | "PUBLIC_DATA_PURGED"
+  // CERT-FEE (migration 084)
+  | "TENANT_SELF_REGISTERED"
+  | "TENANT_VERIFIED"
+  | "TENANT_VERIFICATION_REFUSED"
+  | "TENANT_BILLING_MODE_CHANGED"
+  | "CERTIFICATE_FEES_CHANGED";
 
 export type IdentifierKind =
   | "email"

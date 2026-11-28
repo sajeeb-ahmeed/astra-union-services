@@ -911,3 +911,86 @@ tr.ax-row-new td {
     break-inside: avoid;
   }
 }
+
+/* CERT-FEE: the Chairman's certificate language + platform fee panel. */
+.certificate-fee {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid var(--line, #d9e3dd);
+  border-radius: 6px;
+  background: var(--surface, #fff);
+}
+.certificate-fee h3 {
+  margin: 0;
+  font-size: 1rem;
+}
+.certificate-fee-languages {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.certificate-fee-languages legend {
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+.certificate-fee-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border: 1px solid var(--line, #d9e3dd);
+  border-radius: 6px;
+  cursor: pointer;
+}
+.certificate-fee-option:has(input:checked) {
+  border-color: var(--brand, #006a4e);
+  background: color-mix(in srgb, var(--brand, #006a4e) 8%, transparent);
+}
+.certificate-fee-option strong {
+  margin-left: auto;
+}
+.certificate-fee-total {
+  margin: 0;
+}
+.certificate-fee-confirm {
+  display: grid;
+  gap: 8px;
+  padding: 10px;
+  border-left: 3px solid var(--warning, #b45309);
+  background: color-mix(in srgb, var(--warning, #b45309) 8%, transparent);
+}
+.certificate-fee-confirm p {
+  margin: 0;
+}
+/* CERT-FEE (owner): verification queue. */
+.owner-verify-list {
+  list-style: none;
+  padding: 0;
+  display: grid;
+  gap: 10px;
+}
+.owner-verify-item {
+  display: grid;
+  gap: 6px;
+  padding: 10px;
+  border: 1px solid var(--line, #d9e3dd);
+  border-radius: 6px;
+}
+.owner-verify-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.owner-verify-actions input {
+  flex: 1 1 200px;
+}
+.owner-certificate-fees {
+  display: grid;
+  gap: 16px;
+}
+.owner-fee-both {
+  margin: 4px 0 12px;
+}

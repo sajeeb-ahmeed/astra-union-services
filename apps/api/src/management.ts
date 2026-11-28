@@ -1,6 +1,7 @@
 import express from "express";
 import { z } from "zod";
 import { randomUUID } from "node:crypto";
+import { createRateLimiter } from "./http-hardening.js";
 import { pool, transaction, audit, setActingUser, declareNewUser } from "./db.js";
 import {
   hashPassword,
@@ -610,7 +611,7 @@ publicManagementRouter.get(
     const demoFilter =
       process.env.ISSUANCE_MODE === "official" ? " AND demo=false" : "";
     const where =
-      `status='ACTIVE'${demoFilter} AND (name_bn ILIKE $1 OR name_en ILIKE $1 OR slug ILIKE $1) AND ($2='' OR division=$2) AND ($3='' OR district=$3) AND ($4='' OR upazila=$4) AND ($5='' OR office_type=$5) AND ($6='' OR division_code=$6) AND ($7='' OR district_code=$7) AND ($8='' OR upazila_code=$8) AND ($9='' OR union_code=$9)`;
+      `status='ACTIVE' AND verification_status='VERIFIED'${demoFilter} AND (name_bn ILIKE $1 OR name_en ILIKE $1 OR slug ILIKE $1) AND ($2='' OR division=$2) AND ($3='' OR district=$3) AND ($4='' OR upazila=$4) AND ($5='' OR office_type=$5) AND ($6='' OR division_code=$6) AND ($7='' OR district_code=$7) AND ($8='' OR upazila_code=$8) AND ($9='' OR union_code=$9)`;
     const [items, count] = await Promise.all([
       pool.query(
         `SELECT id,slug,name_bn,name_en,division,district,upazila,office_type,demo,division_code,district_code,upazila_code,union_code,ward_code FROM tenants WHERE ${where} ORDER BY name_en,id LIMIT $10 OFFSET $11`,
@@ -635,7 +636,7 @@ publicManagementRouter.get(
       await pool.query(
         // R13-GAPS: same official-mode demo exclusion as the list — a
         // demo office has no public page in official mode.
-        `SELECT id,slug,name_bn,name_en,division,district,upazila,office_type,demo,division_code,district_code,upazila_code,union_code,ward_code FROM tenants WHERE slug=$1 AND status='ACTIVE'${process.env.ISSUANCE_MODE === "official" ? " AND demo=false" : ""}`,
+        `SELECT id,slug,name_bn,name_en,division,district,upazila,office_type,demo,division_code,district_code,upazila_code,union_code,ward_code FROM tenants WHERE slug=$1 AND status='ACTIVE' AND verification_status='VERIFIED'${process.env.ISSUANCE_MODE === "official" ? " AND demo=false" : ""}`,
         [req.params.slug],
       )
     ).rows[0];
@@ -699,17 +700,17 @@ publicManagementRouter.get(
     // R13-GAPS: public_service_office_info() has no demo column; in
     // OFFICIAL mode drop demo-flagged offices here so a test office
     // never appears on a public service page.
-    let offices = allOffices;
-    if (process.env.ISSUANCE_MODE === "official") {
-      const nonDemo = new Set(
-        (
-          await pool.query(
-            "SELECT slug FROM tenants WHERE status='ACTIVE' AND demo=false",
-          )
-        ).rows.map((r: any) => r.slug as string),
-      );
-      offices = allOffices.filter((o: any) => nonDemo.has(o.slug));
-    }
+    // CERT-FEE: an office not yet verified by the owner is never listed.
+    const listed = new Set(
+      (
+        await pool.query(
+          `SELECT slug FROM tenants WHERE status='ACTIVE' AND verification_status='VERIFIED'${
+            process.env.ISSUANCE_MODE === "official" ? " AND demo=false" : ""
+          }`,
+        )
+      ).rows.map((r: any) => r.slug as string),
+    );
+    const offices = allOffices.filter((o: any) => listed.has(o.slug));
     res.json({ service: camelRow(service), offices });
   }),
 );
@@ -870,7 +871,8 @@ publicManagementRouter.post(
       await transaction(d.tenantId, async (db) => {
       const office = (
         await db.query(
-          "SELECT * FROM tenants WHERE id=$1 AND status='ACTIVE' FOR SHARE",
+          // CERT-FEE: citizens sign up only at an owner-verified office.
+          "SELECT * FROM tenants WHERE id=$1 AND status='ACTIVE' AND verification_status='VERIFIED' FOR SHARE",
           [d.tenantId],
         )
       ).rows[0];
@@ -907,7 +909,7 @@ publicManagementRouter.post(
         if (d.geography.unionCode) {
           const listed = (
             await db.query(
-              `SELECT 1 FROM tenants WHERE status='ACTIVE' AND division_code=$1 AND district_code=$2 AND upazila_code=$3
+              `SELECT 1 FROM tenants WHERE status='ACTIVE' AND verification_status='VERIFIED' AND division_code=$1 AND district_code=$2 AND upazila_code=$3
                AND (union_code=$4 OR union_code IS NULL) LIMIT 1`,
               [
                 d.geography.divisionCode,
@@ -1618,6 +1620,153 @@ managementRouter.patch(
     res.json(item);
   }),
 );
+/**
+ * The records every new office needs, shared by the owner's onboarding
+ * (POST /owner/tenants) and CERT-FEE self-service setup
+ * (POST /public/offices/self-register): the tenant row, its first admin
+ * account and membership, the credit wallet, an EXPIRED subscription and
+ * every catalog service configured. A self-registered office starts PENDING
+ * verification on PER_CERTIFICATE billing; an owner-onboarded office is
+ * VERIFIED by construction (the owner created it) and keeps the existing
+ * SUBMIT_CREDIT billing.
+ */
+async function insertOfficeRecords(
+  db: import("./db.js").DB,
+  id: string,
+  d: {
+    slug: string;
+    nameBn: string;
+    nameEn: string;
+    officeType: "UNION" | "MUNICIPALITY" | "CITY_CORPORATION";
+    division?: string;
+    district?: string;
+    upazila?: string;
+    geography?: any;
+    adminEmail: string;
+    adminName: string;
+    adminPassword: string;
+  },
+  opts: { selfRegistered: boolean },
+) {
+  const names = d.geography
+    ? await validateGeography(db, d.geography, d.officeType)
+    : d;
+  if (!names.division || !names.district || !names.upazila)
+    fail(
+      400,
+      "GEOGRAPHY_REQUIRED",
+      "Select office geography or provide all legacy location names.",
+    );
+  if (
+    opts.selfRegistered &&
+    (await db.query("SELECT auth_email_taken($1) AS taken", [d.adminEmail.toLowerCase()])).rows[0].taken
+  )
+    emailTaken();
+  const t = (
+    await db.query(
+      "INSERT INTO tenants(id,slug,name_bn,name_en,division,district,upazila,office_type,division_code,district_code,upazila_code,union_code,ward_code,demo,verification_status,self_registered,billing_mode,verified_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,false,$14,$15,$16,CASE WHEN $15 THEN NULL ELSE now() END) RETURNING *",
+      [
+        id,
+        d.slug,
+        d.nameBn,
+        d.nameEn,
+        names.division,
+        names.district,
+        names.upazila,
+        d.officeType,
+        ...geographyValues(d.geography),
+        opts.selfRegistered ? "PENDING" : "VERIFIED",
+        opts.selfRegistered,
+        opts.selfRegistered ? "PER_CERTIFICATE" : "SUBMIT_CREDIT",
+      ],
+    )
+  ).rows[0];
+  const newUserId = randomUUID();
+  await declareNewUser(db, newUserId);
+  const u = (
+    await db.query(
+      "INSERT INTO platform_users(id,email,display_name,password_hash) VALUES($4,$1,$2,$3) RETURNING id",
+      [d.adminEmail, d.adminName, hashPassword(d.adminPassword), newUserId],
+    )
+  ).rows[0];
+  await db.query(
+    "INSERT INTO staff_memberships(user_id,tenant_id,role) VALUES($1,$2,'admin')",
+    [u.id, id],
+  );
+  await db.query("INSERT INTO tenant_wallets(tenant_id) VALUES($1)", [id]);
+  await db.query(
+    "INSERT INTO tenant_subscriptions(tenant_id,plan_id,valid_until,status,plan_duration_days,plan_grant_credits,plan_allowance_limit) SELECT $1,id,now(),'EXPIRED',duration_days,grant_credits,monthly_allowance_limit FROM subscription_plans WHERE id='standard-monthly'",
+    [id],
+  );
+  await db.query(
+    "INSERT INTO tenant_service_configuration(tenant_id,service_no) SELECT $1,service_no FROM service_catalog",
+    [id],
+  );
+  return { ...t, adminUserId: u.id as string };
+}
+
+/** CERT-FEE: a readable, unique office address derived from the English name. */
+function selfServiceSlug(nameEn: string) {
+  const base =
+    nameEn
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "")
+      .slice(0, 36) || "office";
+  const lead = /^[a-z]/.test(base) ? base : `u-${base}`;
+  return `${lead}-${randomUUID().replace(/-/g, "").slice(0, 6)}`;
+}
+
+const selfRegisterLimiter = createRateLimiter({ limit: 3, windowMs: 60 * 60_000 });
+/**
+ * CERT-FEE: a union office opens itself on the platform. Its admin can sign
+ * in and set the office up at once; the office stays hidden from the public
+ * directory and cannot issue a certificate until the platform owner verifies
+ * it (POST /owner/tenants/:id/verification, certificate-fees.ts).
+ */
+publicManagementRouter.post(
+  "/public/offices/self-register",
+  selfRegisterLimiter,
+  wrap(async (req, res) => {
+    const d = officeInput
+      .omit({ slug: true, division: true, district: true, upazila: true })
+      .extend({
+        geography: geographyInput,
+        adminEmail: email,
+        adminName: z.string().trim().min(2).max(120),
+        adminPassword: password,
+        acceptTerms: z.literal(true),
+      })
+      .strict()
+      .parse(req.body);
+    const id = randomUUID();
+    const created = await transaction(id, async (db) => {
+      const t = await insertOfficeRecords(
+        db,
+        id,
+        { ...d, slug: selfServiceSlug(d.nameEn) },
+        { selfRegistered: true },
+      );
+      await audit(db, id, t.adminUserId, "TENANT_SELF_REGISTERED", id, {
+        officeType: d.officeType,
+      });
+      return t;
+    });
+    await logOwnerPlatformEvent({
+      actorId: created.adminUserId,
+      actorRole: "admin",
+      action: "TENANT_SELF_REGISTERED",
+      metadata: { tenantId: id, slug: created.slug },
+    });
+    res.status(201).json({
+      id,
+      slug: created.slug,
+      verificationStatus: created.verification_status,
+      billingMode: created.billing_mode,
+    });
+  }),
+);
+
 managementRouter.post(
   "/owner/tenants",
   wrap(async (req, res) => {
@@ -1644,48 +1793,7 @@ managementRouter.post(
         .parse(req.body),
       id = randomUUID();
     const item = await transaction(id, async (db) => {
-      const names = d.geography
-        ? await validateGeography(db, d.geography, d.officeType)
-        : d;
-      if (!names.division || !names.district || !names.upazila)
-        fail(
-          400,
-          "GEOGRAPHY_REQUIRED",
-          "Select office geography or provide all legacy location names.",
-        );
-      const t = (
-        await db.query(
-          "INSERT INTO tenants(id,slug,name_bn,name_en,division,district,upazila,office_type,division_code,district_code,upazila_code,union_code,ward_code,demo) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,false) RETURNING *",
-          [
-            id,
-            d.slug,
-            d.nameBn,
-            d.nameEn,
-            names.division,
-            names.district,
-            names.upazila,
-            d.officeType,
-            ...geographyValues(d.geography),
-          ],
-        )
-      ).rows[0];
-      const newUserId = randomUUID();
-      await declareNewUser(db, newUserId);
-      const u = (
-        await db.query(
-          "INSERT INTO platform_users(id,email,display_name,password_hash) VALUES($4,$1,$2,$3) RETURNING id",
-          [d.adminEmail, d.adminName, hashPassword(d.adminPassword), newUserId],
-        )
-      ).rows[0];
-      await db.query(
-        "INSERT INTO staff_memberships(user_id,tenant_id,role) VALUES($1,$2,'admin')",
-        [u.id, id],
-      );
-      await db.query("INSERT INTO tenant_wallets(tenant_id) VALUES($1)", [id]);
-      await db.query(
-        "INSERT INTO tenant_subscriptions(tenant_id,plan_id,valid_until,status,plan_duration_days,plan_grant_credits,plan_allowance_limit) SELECT $1,id,now(),'EXPIRED',duration_days,grant_credits,monthly_allowance_limit FROM subscription_plans WHERE id='standard-monthly'",
-        [id],
-      );
+      const t = await insertOfficeRecords(db, id, d, { selfRegistered: false });
       if (d.activateSubscription)
         await applySubscriptionAction(db, id, a.userId, {
           action: "activate",
@@ -1694,10 +1802,6 @@ managementRouter.post(
           grantCredits: d.activateSubscription.grantCredits,
           reason: "Subscription activated on office approval",
         });
-      await db.query(
-        "INSERT INTO tenant_service_configuration(tenant_id,service_no) SELECT $1,service_no FROM service_catalog",
-        [id],
-      );
       await audit(db, id, a.userId, "TENANT_CREATED", id, { demo: false });
       return officeRow(t);
     });

@@ -1,4 +1,5 @@
 import { audit, type DB } from "./db.js";
+import { settleCertificateFeeOrder } from "./certificate-fees.js";
 
 /**
  * Phase 3A: the settlement effects of a payment order, shared verbatim by the
@@ -17,6 +18,19 @@ export async function applyOrderSettlement(
   auditAction: string,
   auditMetadata: object,
 ) {
+  // CERT-FEE: a certificate_fee order grants no credits and no subscription;
+  // settling it marks the application's certificate fee PAID, and the
+  // Chairman's issuance then consumes it (certificate-fees.ts).
+  if (order.kind === "certificate_fee") {
+    await settleCertificateFeeOrder(db, order);
+    await db.query("UPDATE payment_orders SET status='SETTLED' WHERE id=$1", [order.id]);
+    await db.query(
+      "INSERT INTO invoices(tenant_id,order_id,amount_minor,currency) VALUES($1,$2,$3,$4)",
+      [order.tenant_id, order.id, order.amount_minor, order.currency],
+    );
+    await audit(db, order.tenant_id, actorId, auditAction, order.id, auditMetadata);
+    return;
+  }
   await db.query(
     "INSERT INTO credit_ledger(tenant_id,delta,kind,idempotency_key,actor_id,reason,balance_after) VALUES($1,$2,$3,$4,$5,$6,0)",
     [

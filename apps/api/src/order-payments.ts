@@ -477,7 +477,8 @@ export const orderPaymentsRouter = express.Router();
 orderPaymentsRouter.post(
   "/billing/orders/:orderId/gateway/checkout",
   wrap(async (req, res) => {
-    const a = actor(req, ["admin", "finance"]);
+    // CERT-FEE: the Chairman (approver) pays a certificate fee order here too.
+    const a = actor(req, ["admin", "finance", "approver"]);
     const orderId = uuid.parse(req.params.orderId);
     const data = z
       .object({
@@ -496,6 +497,8 @@ orderPaymentsRouter.post(
     );
     const prepared = await transaction(a.tenantId, async (db) => {
       const order = await orderForUpdate(db, a.tenantId, orderId);
+      if (a.role === "approver" && order.kind !== "certificate_fee")
+        fail(403, "ROLE_DENIED", "This role is not permitted.");
       if (order.status === "SETTLED")
         fail(409, "ORDER_ALREADY_SETTLED", "This order is already settled.");
       if (order.status !== "PENDING")
@@ -621,7 +624,7 @@ orderPaymentsRouter.post(
 orderPaymentsRouter.get(
   "/billing/orders/:orderId/gateway",
   wrap(async (req, res) => {
-    const a = actor(req, ["admin", "finance"]);
+    const a = actor(req, ["admin", "finance", "approver"]);
     const orderId = uuid.parse(req.params.orderId);
     const state = await transaction(a.tenantId, async (db) => {
       const order = (
@@ -631,6 +634,8 @@ orderPaymentsRouter.get(
         )
       ).rows[0];
       if (!order) fail(404, "ORDER_NOT_FOUND", "Payment order not found.");
+      if (a.role === "approver" && order.kind !== "certificate_fee")
+        fail(403, "ROLE_DENIED", "This role is not permitted.");
       const payment = await paymentForOrder(db, a.tenantId, orderId);
       const invoice = (
         await db.query(
@@ -669,13 +674,19 @@ orderPaymentsRouter.get(
 orderPaymentsRouter.post(
   "/billing/orders/:orderId/gateway/check",
   wrap(async (req, res) => {
-    const a = actor(req, ["admin", "finance"]);
+    const a = actor(req, ["admin", "finance", "approver"]);
     const orderId = uuid.parse(req.params.orderId);
     const data = z.object({ requestKey: uuid }).strict().parse(req.body);
     const row = await transaction(a.tenantId, async (db) => {
       const payment = await paymentForOrder(db, a.tenantId, orderId);
       if (!payment)
         fail(404, "NOT_FOUND", "No online payment exists for this order.");
+      if (a.role === "approver") {
+        const kind = (
+          await db.query("SELECT kind FROM payment_orders WHERE tenant_id=$1 AND id=$2", [a.tenantId, orderId])
+        ).rows[0]?.kind;
+        if (kind !== "certificate_fee") fail(403, "ROLE_DENIED", "This role is not permitted.");
+      }
       if (payment.status !== "PAID")
         await reserveCheck(db, payment, `check:${data.requestKey}`);
       return payment;
@@ -700,6 +711,26 @@ orderPaymentsRouter.post(
 );
 
 // --- Public callbacks: a return/IPN is a signal, never proof ------------------------
+
+/**
+ * Where the payer's browser lands after the gateway. CERT-FEE: a certificate
+ * fee returns the Chairman to the application itself (the workspace opens
+ * it and completes the issuance once the payment is verified); every other
+ * order keeps the generic return page.
+ */
+async function orderReturnUrl(row: { tenant_id: string; order_id: string; id: string }) {
+  const applicationId = await transaction(row.tenant_id, async (db) =>
+    (
+      await db.query(
+        "SELECT application_id FROM certificate_fees WHERE tenant_id=$1 AND order_id=$2",
+        [row.tenant_id, row.order_id],
+      )
+    ).rows[0]?.application_id as string | undefined,
+  ).catch(() => undefined);
+  return applicationId
+    ? `${origin()}/payments/return?applicationId=${applicationId}&orderId=${row.order_id}`
+    : `${origin()}/payments/return?orderId=${row.order_id}&attemptId=${row.id}`;
+}
 
 export const publicOrderPaymentsRouter = express.Router();
 const callbackLimiter = createRateLimiter({ limit: 60, windowMs: 60_000 });
@@ -797,10 +828,7 @@ publicOrderPaymentsRouter.get(
       }
     }
     if (claimed.check) await runOrderCheck(claimed.row, randomUUID(), null);
-    res.redirect(
-      303,
-      `${origin()}/payments/return?orderId=${claimed.row.order_id}&attemptId=${claimed.row.id}`,
-    );
+    res.redirect(303, await orderReturnUrl(claimed.row));
   }),
 );
 
@@ -862,10 +890,7 @@ publicOrderPaymentsRouter.post(
       return { row, check: true };
     });
     if (claimed.check) await runOrderCheck(claimed.row, randomUUID(), null);
-    res.redirect(
-      303,
-      `${origin()}/payments/return?orderId=${claimed.row.order_id}&attemptId=${claimed.row.id}`,
-    );
+    res.redirect(303, await orderReturnUrl(claimed.row));
   }),
 );
 
@@ -898,6 +923,14 @@ orderRefundsRouter.post(
           409,
           "ORDER_NOT_PAID",
           "There is no verified online payment to refund for this order.",
+        );
+      // CERT-FEE: a certificate fee pays for an issued (or issuable) certificate;
+      // its refund is an owner decision outside this credit-reversal flow.
+      if (order.kind === "certificate_fee")
+        fail(
+          409,
+          "REFUND_NOT_SUPPORTED",
+          "Certificate fee payments are not refunded through this flow; contact the platform owner.",
         );
       if (
         data.amountMinor !== undefined &&

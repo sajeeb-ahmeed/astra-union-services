@@ -69,6 +69,9 @@ export const certificateRow = (r: any, verificationUrl: string | null = null) =>
         pdfUrl: `/api/v1/certificates/${r.id}/pdf`,
         // CERTNO-01: the English render stored at issuance (null for pre-bilingual rows).
         pdfUrlEn: r.pdf_en ? `/api/v1/certificates/${r.id}/pdf?lang=en` : null,
+        // CERT-FEE: the language version(s) issued; rows before CERT-FEE are
+        // "as stored" (Bangla, plus English when it was rendered).
+        languages: r.languages ?? (r.pdf_en ? "bilingual" : "bn"),
         demo: process.env.ISSUANCE_MODE === "official" ? false : true,
       }
     : null;

@@ -71,7 +71,7 @@ export async function allowanceUsedThisMonth(db: DB, tenantId: string) {
 }
 
 export type FeeSettlement = {
-  method: "CREDIT" | "ALLOWANCE" | "FREE";
+  method: "CREDIT" | "ALLOWANCE" | "FREE" | "PER_CERTIFICATE";
   credits: number;
   priceVersion: number;
 };
@@ -114,6 +114,13 @@ export async function settleApplicationFee(
       credits: application.fee_credits ?? 0,
       priceVersion: application.fee_price_version ?? 0,
     };
+  // CERT-FEE: a PER_CERTIFICATE office pays the platform per certificate at
+  // approval (certificate-fees.ts), never at submit.
+  const mode = (
+    await db.query("SELECT billing_mode FROM tenants WHERE id=$1", [tenantId])
+  ).rows[0]?.billing_mode;
+  if (mode === "PER_CERTIFICATE")
+    return markSettled(db, application.id, { method: "PER_CERTIFICATE", credits: 0, priceVersion: 0 });
   const { price, version } = await currentCreditPrice(db, application.service_no);
   const subscription = (
     await db.query(

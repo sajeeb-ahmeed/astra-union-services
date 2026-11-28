@@ -94,6 +94,8 @@ const OwnerInclusionRequests = lazyWithRetry(() => import("./OfficeInclusion.js"
 const OwnerWitnessTypes = lazyWithRetry(() => import("./WitnessGenerator.js"), (m) => m.OwnerWitnessTypes);
 const PointsWallet = lazyWithRetry(() => import("./PointsWallet.js"), (m) => m.PointsWallet);
 const OwnerPricing = lazyWithRetry(() => import("./OwnerPricing.js"), (m) => m.OwnerPricing);
+const CertificateFeeDecision = lazyWithRetry(() => import("./CertificateFee.js"), (m) => m.CertificateFeeDecision);
+const OwnerCertificateFees = lazyWithRetry(() => import("./OwnerCertificateFees.js"), (m) => m.OwnerCertificateFees);
 const OwnerPlans = lazyWithRetry(() => import("./OwnerPlans.js"), (m) => m.OwnerPlans);
 const OwnerBranding = lazyWithRetry(() => import("./OwnerBranding.js"), (m) => m.OwnerBranding);
 const OwnerSupportContact = lazyWithRetry(() => import("./OwnerSupportContact.js"), (m) => m.OwnerSupportContact);
@@ -424,6 +426,8 @@ const OWNER_SECTIONS = [
   "demand",
   "subscriptions",
   "pricing",
+  // CERT-FEE: per-certificate fees, office verification, billing mode.
+  "certificate-fees",
   "coupons",
   "notices",
   "permissions",
@@ -1518,6 +1522,19 @@ export function WorkspaceApp({
     }
     await runTransition(action);
   }
+  /** The plain completion of an approved application (submit-billing offices). */
+  const completeIssuance = () =>
+    run(async () => {
+      await api(`/applications/${application.id}/issue`, "POST", {});
+      await openApplication(application.id);
+      await refresh();
+      setMessage(
+        choose({
+          bn: "সনদ ইস্যু হয়েছে। আবেদনের ফি জমার সময়ই নিষ্পত্তি হয়েছে; আবার চেষ্টা করলে একই সনদই ফেরত আসবে।",
+          en: "Certificate issued. The application fee was settled at submission; retries return the same certificate.",
+        }),
+      );
+    });
   async function runTransition(action: string, reasonOverride?: string) {
     setActionError("");
     const finalReason = (reasonOverride ?? reason).trim();
@@ -1962,17 +1979,21 @@ export function WorkspaceApp({
           </p>
         </div>
         <div className="actions">
-          <a
-            className="button"
-            href={`/api/v1/certificates/${cert.id}/pdf`}
-            target="_blank"
-            rel="noreferrer"
-          >
-            {t("Download PDF ")}
-          </a>
+          {/* CERT-FEE: an English-only certificate has no Bangla version;
+              each issued language gets exactly one download. */}
+          {cert.languages !== "en" && (
+            <a
+              className="button"
+              href={`/api/v1/certificates/${cert.id}/pdf`}
+              target="_blank"
+              rel="noreferrer"
+            >
+              {t("Download PDF ")}
+            </a>
+          )}
           {cert.pdfUrlEn ? (
             <a
-              className="button secondary"
+              className={cert.languages === "en" ? "button" : "button secondary"}
               href={cert.pdfUrlEn}
               target="_blank"
               rel="noreferrer"
@@ -4326,15 +4347,38 @@ export function WorkspaceApp({
                           </p>
                         )}
                         {detail.canApprove !== false && (
-                        <button
-                          disabled={busy}
-                          onClick={() => run(() => transition("approve"))}
-                        >
-                          {choose({
-                            bn: "অনুমোদন করে সনদ ইস্যু করুন",
-                            en: "Approve and issue certificate",
-                          })}
-                        </button>
+                          // CERT-FEE: on a per-certificate office the approval
+                          // asks for the language(s) and the platform fee; other
+                          // offices keep the plain button.
+                          <React.Suspense fallback={null}>
+                            <CertificateFeeDecision
+                              applicationId={application.id}
+                              state={application.state}
+                              reason={reason}
+                              disabled={busy}
+                              onDone={async () => {
+                                await openApplication(application.id);
+                                await refresh();
+                                setMessage(
+                                  choose({
+                                  bn: "সনদ ইস্যু হয়েছে এবং প্ল্যাটফর্ম ফি পরিশোধ হয়েছে।",
+                                  en: "The certificate is issued and the platform fee is paid.",
+                                }),
+                                );
+                              }}
+                              fallback={
+                                <button
+                                  disabled={busy}
+                                  onClick={() => run(() => transition("approve"))}
+                                >
+                                  {choose({
+                                    bn: "অনুমোদন করে সনদ ইস্যু করুন",
+                                    en: "Approve and issue certificate",
+                                  })}
+                                </button>
+                              }
+                            />
+                          </React.Suspense>
                         )}
                         <button
                           disabled={busy}
@@ -4384,9 +4428,33 @@ export function WorkspaceApp({
                       application.state,
                     ) && (
                       <div className="detail-rail-actions">
-                        {/* PORTAL-C: once issued, re-issuing is a safe
-                            recovery (it returns the same certificate), not
-                            the next step — it must not look like one. */}
+                        {/* CERT-FEE: an approved, not yet issued application on a
+                            per-certificate office completes through the fee panel;
+                            every other case keeps the plain issue button. */}
+                        {application.state !== "ISSUED" ? (
+                          <React.Suspense fallback={null}>
+                            <CertificateFeeDecision
+                              applicationId={application.id}
+                              state={application.state}
+                              disabled={busy}
+                              onDone={async () => {
+                                await openApplication(application.id);
+                                await refresh();
+                                setMessage(
+                                  choose({
+                                  bn: "সনদ ইস্যু হয়েছে এবং প্ল্যাটফর্ম ফি পরিশোধ হয়েছে।",
+                                  en: "The certificate is issued and the platform fee is paid.",
+                                }),
+                                );
+                              }}
+                              fallback={
+                                <button disabled={busy} onClick={completeIssuance}>
+                                  {choose({ bn: "সনদ ইস্যু করুন", en: "Issue certificate" })}
+                                </button>
+                              }
+                            />
+                          </React.Suspense>
+                        ) : (
                         <button
                           className={application.state === "ISSUED" ? "secondary" : undefined}
                           disabled={busy}
@@ -4415,6 +4483,7 @@ export function WorkspaceApp({
                               })
                             : choose({ bn: "সনদ ইস্যু করুন", en: "Issue certificate" })}
                         </button>
+                        )}
                       </div>
                     ),
                 )}
@@ -4849,6 +4918,7 @@ export function WorkspaceApp({
                         items: [
                           ["subscriptions", "billing", { bn: "সাবস্ক্রিপশন", en: "Subscriptions" }],
                           ["pricing", "payments", { bn: "মূল্য নির্ধারণ", en: "Pricing" }],
+                          ["certificate-fees", "billing", { bn: "সনদ ফি ও অফিস যাচাই", en: "Certificate fees & verification" }],
                           ["coupons", "reports", { bn: "কুপন", en: "Coupons" }],
                         ],
                       },
@@ -5198,6 +5268,14 @@ export function WorkspaceApp({
                 <section className="owner-section" id="owner-pricing">
                   <h2>{choose({ bn: "মূল্য নির্ধারণ", en: "Pricing" })}</h2>
                   <OwnerPricing />
+                </section>
+                )}
+                {ownerSection === "certificate-fees" && (
+                <section className="owner-section" id="owner-certificate-fees">
+                  <h2>{choose({ bn: "সনদ ফি ও অফিস যাচাই", en: "Certificate fees & office verification" })}</h2>
+                  <React.Suspense fallback={null}>
+                    <OwnerCertificateFees />
+                  </React.Suspense>
                 </section>
                 )}
                 {ownerSection === "coupons" && (

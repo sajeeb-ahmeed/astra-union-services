@@ -631,7 +631,7 @@ test("certno: one issuance stores both languages under one 14-digit number; lega
   // A pre-bilingual row (pdf_en NULL) answers honestly for ?lang=en.
   const tenantId = sessions["staff"]!.user.tenantId as string;
   await transaction(tenantId, async (db) => {
-    await db.query("UPDATE certificates SET pdf_en=NULL WHERE id=$1", [certificate.id]);
+    await db.query("UPDATE certificates SET pdf_en=NULL, languages=NULL WHERE id=$1", [certificate.id]);
   });
   const legacyEn = await fetch(`${base}/api/v1/certificates/${certificate.id}/pdf?lang=en`, {
     headers: { Cookie: sessions["staff"]!.cookie },
