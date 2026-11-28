@@ -73,7 +73,7 @@ test(
       // Home tracking form: submit navigates client-side to /tracking
       // and the portal reads ?searchText= on mount.
       await page.locator("#home-track-input").fill("2026111812345678");
-      await page.locator(".hp-card").getByRole("button", { name: "Track", exact: true }).click();
+      await page.locator(".ph-quick").getByRole("button", { name: "Check status", exact: true }).click();
       await page.waitForURL("**/tracking?searchText=2026111812345678", { timeout: 15000 });
       // Wait for the page content first: the portal chunk resolves
       // before the form renders, and only then is "no splash" meaningful.
@@ -87,8 +87,10 @@ test(
       await page.locator(".du-brand").click();
       await page.waitForURL(`${origin}/`, { timeout: 15000 });
       await page.locator(".hx-hero").waitFor({ timeout: 15000 });
+      // PORTAL-LANDING: the verify box sits behind the quick-services tab.
+      await page.locator("#home-tab-verify").click();
       await page.locator("#home-verify-input").fill("1111111111111111");
-      await page.locator(".hp-card").getByRole("button", { name: "Verify", exact: true }).click();
+      await page.locator(".ph-quick").getByRole("button", { name: "Verify", exact: true }).click();
       await page.waitForURL("**/verify?searchText=1111111111111111", { timeout: 15000 });
       await page.getByText("Certificate not found").waitFor({ timeout: 15000 });
       await markerAlive();

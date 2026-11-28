@@ -2,7 +2,7 @@ import React, { useEffect, useState, useSyncExternalStore } from "react";
 import { HelpWidget, UtilityBar } from "./PublicHelp.js";
 import { useSupportContact } from "./support-contact.js";
 import { useWitnessAvailable } from "./witness-availability.js";
-import { choose, LanguageSwitcher, useLanguage } from "./i18n.js";
+import { choose, useLanguage } from "./i18n.js";
 import { useBranding } from "./branding.js";
 import { hasPageHead } from "./seo/head.js";
 import { GlobalNoticeBanner } from "./GlobalNotices.js";
@@ -11,6 +11,7 @@ import "./ui/kit.js";
 import { BrandLockup } from "./BrandLockup.js";
 import "./public-shell.css";
 import "./du-shell.css";
+import "./portal-shell.css";
 
 /**
  * Phase UX: the one public shell — header, menu, footer — for every
@@ -27,12 +28,15 @@ import "./du-shell.css";
    witness generator stay on the home help card, the drawer and the footer
    (the witness generator offers nothing until the owner enters its
    options, so it is not promoted to the menu). */
+/* PORTAL-LANDING: the owner's reference portal menu. "Union offices" moved
+   to the home help panel, the footer and the drawer. */
 export const PUBLIC_NAV = [
   { href: "/", bn: "হোম", en: "Home" },
   { href: "/services", bn: "নাগরিক সেবা", en: "Services" },
   { href: "/tracking", bn: "আবেদনের অবস্থা", en: "Track application" },
   { href: "/verify", bn: "সনদ যাচাই", en: "Verify certificate" },
-  { href: "/offices", bn: "ইউনিয়ন অফিস", en: "Union offices" },
+  { href: "/notices", bn: "নোটিশ বোর্ড", en: "Notice board" },
+  { href: "/#steps", bn: "সেবা পাওয়ার ধাপ", en: "How it works" },
   { href: "/help", bn: "সাধারণ জিজ্ঞাসা", en: "Help & FAQ" },
 ] as const;
 
@@ -41,7 +45,7 @@ const DRAWER_EXTRA = [
   // button; the drawer still carries the same door under its "create an
   // account" label as a second entry point.
   { href: "/register", bn: "নতুন অ্যাকাউন্ট খুলুন", en: "Create an account" },
-  { href: "/notices", bn: "নোটিশ", en: "Notices" },
+  { href: "/offices", bn: "ইউনিয়ন অফিস", en: "Union offices" },
   { href: "/witness", bn: "সাক্ষীর প্রত্যয়ন", en: "Witness statement" },
   { href: "/guide", bn: "ব্যবহার নির্দেশিকা", en: "User guide" },
   { href: "/policies", bn: "নীতি", en: "Policies" },
@@ -50,8 +54,10 @@ const DRAWER_EXTRA = [
   { href: "/register-office", bn: "অফিস অ্যাকাউন্ট খুলুন", en: "Open an office account" },
 ] as const;
 
-/** Pages outside the citizen portal's page set: always a real page load. */
-const HARD_LINKS = new Set(["/register-office"]);
+/** Pages outside the citizen portal's page set (and the home page's step
+    anchor, which the portal's page router cannot address): always a real
+    page load. */
+const HARD_LINKS = new Set(["/register-office", "/#steps"]);
 
 const QUICK_NAV = [
   { href: "/", shortBn: "হোম", shortEn: "Home", fullBn: "হোম", fullEn: "Home" },
@@ -137,6 +143,19 @@ function NavLink({
   );
 }
 
+const SHELL_ICONS: Record<string, React.ReactNode> = {
+  building: <path d="M4 20.5h16M6 20.5V9l6-4.5 6 4.5v11.5M9.5 20.5v-5h5v5M9.5 11h1M13.5 11h1" />,
+  user: <path d="M10 11.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7ZM3.5 20a6.5 6.5 0 0 1 13 0M18.5 8.5v5M16 11h5" />,
+  login: <path d="M14 4h4.5A1.5 1.5 0 0 1 20 5.5v13a1.5 1.5 0 0 1-1.5 1.5H14M10 8l4 4-4 4M14 12H4" />,
+};
+function ShellIcon({ name }: { name: keyof typeof SHELL_ICONS }) {
+  return (
+    <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      {SHELL_ICONS[name]}
+    </svg>
+  );
+}
+
 export function SiteHeader({
   current,
   onNavigate,
@@ -181,6 +200,10 @@ export function SiteHeader({
           gone — the header is now two bars (brand row + nav row). The
           welcome line rides inside the brand row as muted text and is
           hidden on phones, where the bottom nav carries the chrome. */}
+      {/* PORTAL-LANDING: the utility bar (date · platform · text size ·
+          language · hotline · help) tops every public surface, home and
+          portal pages alike. */}
+      <UtilityBar />
       <header className="du-header">
         <div className="du-container du-header-row">
           <NavLink
@@ -193,29 +216,25 @@ export function SiteHeader({
                 mark + BN/EN wordmark; it never wraps or swaps variants. */}
             <BrandLockup size={46} />
           </NavLink>
-          <span className="du-header-welcome">
-            {choose({
-              bn: "ডিজিটাল নাগরিক সেবায় স্বাগতম",
-              en: "Welcome to digital citizen services",
-            })}
-          </span>
           <div className="du-header-actions">
-            <LanguageSwitcher />
             {account ?? (
               <>
-                {/* PORTAL-A: the three doors of a public service portal —
-                    a free citizen account, an office account, sign in. */}
-                <NavLink href="/register" onNavigate={onNavigate} className="du-btn du-btn-ghost">
-                  {choose({ bn: "নিবন্ধন", en: "Register" })}
-                </NavLink>
+                {/* PORTAL-LANDING: office account · register · login, the
+                    reference portal's three doors in its order. */}
                 <NavLink
                   href="/register-office"
                   onNavigate={onNavigate}
-                  className="du-btn du-btn-ghost du-btn-office"
+                  className="du-btn du-btn-text du-btn-office"
                 >
+                  <ShellIcon name="building" />
                   {choose({ bn: "অফিস অ্যাকাউন্ট", en: "Office account" })}
                 </NavLink>
+                <NavLink href="/register" onNavigate={onNavigate} className="du-btn du-btn-ghost">
+                  <ShellIcon name="user" />
+                  {choose({ bn: "নিবন্ধন", en: "Register" })}
+                </NavLink>
                 <NavLink href="/login" onNavigate={onNavigate} className="du-btn du-btn-primary">
+                  <ShellIcon name="login" />
                   {choose({ bn: "লগইন", en: "Login" })}
                 </NavLink>
               </>
@@ -332,39 +351,41 @@ export function SiteFooter({
     <footer className="du-footer">
       <div className="du-container du-footer-grid">
         <div className="du-footer-brand">
-          {/* PORTAL-E (owner scope): the brand only — no pilot-office line,
-              no "who we are" paragraphs, no tagline sentence. */}
           <BrandLockup size={40} tagline />
+          <p className="du-footer-about">
+            {choose({
+              bn: "ইউনিয়ন পরিষদের ৪৭টি সনদ ও প্রত্যয়নের অনলাইন আবেদন, চেয়ারম্যানের ইস্যু করা QR যাচাইযোগ্য সনদ এবং আবেদনের অবস্থা জানার একক প্ল্যাটফর্ম।",
+              en: "One platform to apply online for the Union Parishad's 47 certificates, get QR-verifiable certificates issued by the Chairman, and follow your application.",
+            })}
+          </p>
         </div>
-        <nav aria-label={choose({ bn: "সেবা", en: "Services" })}>
-          <h3>{choose({ bn: "সেবা", en: "Services" })}</h3>
+        <nav aria-label={choose({ bn: "নাগরিক সেবা", en: "Citizen services" })}>
+          <h3>{choose({ bn: "নাগরিক সেবা", en: "Citizen services" })}</h3>
           {servicesSlot ?? (
             <ul>
               {link("/services", "সব নাগরিক সেবা", "All citizen services", "services-all")}
-              {link("/services", "নতুন আবেদন করুন", "Start an application", "services-apply")}
-              {link("/offices", "আপনার ইউনিয়ন অফিস", "Your union office")}
+              {link("/register", "নতুন অ্যাকাউন্ট খুলুন", "Create an account")}
+              {link("/tracking", "আবেদনের অবস্থা", "Track application")}
+              {link("/verify", "সনদ যাচাই", "Verify certificate")}
+              {witnessAvailable && link("/witness", "সাক্ষীর প্রত্যয়ন", "Witness statement")}
             </ul>
           )}
         </nav>
-        <nav aria-label={choose({ bn: "দ্রুত লিংক", en: "Quick links" })}>
-          <h3>{choose({ bn: "দ্রুত লিংক", en: "Quick links" })}</h3>
+        <nav aria-label={choose({ bn: "ইউনিয়ন অফিস", en: "Union offices" })}>
+          <h3>{choose({ bn: "ইউনিয়ন অফিস", en: "Union offices" })}</h3>
           <ul>
-            {link("/verify", "সনদ যাচাই", "Verify certificate")}
-            {link("/tracking", "আবেদনের অবস্থা", "Track application")}
-            {witnessAvailable && link("/witness", "সাক্ষীর প্রত্যয়ন", "Witness statement")}
-            {link("/notices", "নোটিশ", "Notices")}
-            {link("/register", "নতুন অ্যাকাউন্ট", "Create an account")}
+            {link("/offices", "অংশগ্রহণকারী অফিস", "Participating offices")}
             {link("/register-office", "অফিস অ্যাকাউন্ট খুলুন", "Open an office account")}
+            {link("/login", "লগইন", "Login", "office-login")}
           </ul>
         </nav>
         <div>
-          <h3>{choose({ bn: "সাহায্য ও তথ্য", en: "Help & information" })}</h3>
+          <h3>{choose({ bn: "সহায়তা ও তথ্য", en: "Help & information" })}</h3>
           <ul>
+            {link("/#steps", "সেবা পাওয়ার ধাপ", "How it works")}
             {link("/help", "সাধারণ জিজ্ঞাসা", "Help & FAQ")}
+            {link("/notices", "নোটিশ বোর্ড", "Notice board")}
             {link("/guide", "ব্যবহার নির্দেশিকা", "User guide")}
-            {link("/policies", "নীতি", "Policies")}
-            {link("/privacy", "গোপনীয়তা নীতি", "Privacy policy")}
-            {link("/terms", "ব্যবহারের শর্তাবলী", "Terms of use")}
           </ul>
           {(contact.phone || contact.email) && (
             <ul className="du-footer-contact">
@@ -390,10 +411,21 @@ export function SiteFooter({
         <div className="du-container">
           {bottomLine ?? (
             <span>
-              © {new Date().getFullYear()} {branding.name}
-              {choose({ bn: ` · ${branding.taglineBn}`, en: ` · ${branding.taglineEn}` })}
+              © {choose({ bn: String(new Date().getFullYear()).replace(/\d/g, (d) => "০১২৩৪৫৬৭৮৯"[Number(d)]), en: String(new Date().getFullYear()) })}{" "}
+              {branding.name} · {choose({ bn: "সর্বস্বত্ব সংরক্ষিত", en: "All rights reserved" })}
             </span>
           )}
+          <span className="du-footer-legal">
+            <NavLink href="/policies" onNavigate={onNavigate} className="du-footlink">
+              {choose({ bn: "নীতি", en: "Policies" })}
+            </NavLink>
+            <NavLink href="/privacy" onNavigate={onNavigate} className="du-footlink">
+              {choose({ bn: "গোপনীয়তা নীতি", en: "Privacy policy" })}
+            </NavLink>
+            <NavLink href="/terms" onNavigate={onNavigate} className="du-footlink">
+              {choose({ bn: "ব্যবহারের শর্তাবলী", en: "Terms of use" })}
+            </NavLink>
+          </span>
         </div>
       </div>
     </footer>
@@ -422,7 +454,6 @@ export function PublicShell({
       <a className="skip" href="#ax-content">
         {choose({ bn: "মূল অংশে যান", en: "Skip to main content" })}
       </a>
-      <UtilityBar />
       <SiteHeader current={current} onNavigate={onNavigate} />
       {/* F-008: the issuance-mode banner — renders only in DEMO mode. */}
       <DemoModeBanner />

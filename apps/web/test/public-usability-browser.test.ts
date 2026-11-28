@@ -47,11 +47,13 @@ test(
       await page.getByRole("button", { name: "বাংলা", exact: true }).click();
       const banglaNav = page.getByRole("navigation", { name: "প্রধান মেনু", exact: true });
       await banglaNav.getByRole("link", { name: "আবেদনের অবস্থা", exact: true }).waitFor();
-      // PORTAL-A: on the Bangla home the aside carries the tracking and
-      // verification cards side by side with the services.
-      await page.locator("#home-verify-heading").getByText("একটি সনদ যাচাই করুন").waitFor();
-      await page.locator("#home-track-heading").getByText("আবেদনের অবস্থা জানুন").waitFor();
+      // PORTAL-LANDING: on the Bangla home the quick-services card offers
+      // tracking (default tab) and verification (second tab).
+      await page.locator("#home-track-heading").getByText("আপনার আবেদন কোন পর্যায়ে আছে জানুন").waitFor();
       await page.getByLabel("আবেদনের রেফারেন্স নম্বর", { exact: true }).waitFor();
+      await page.getByRole("tab", { name: "সনদ যাচাই", exact: true }).click();
+      await page.locator("#home-verify-heading").getByText("সনদটি আসল কিনা যাচাই করুন").waitFor();
+      await page.getByLabel("সনদ নম্বর বা QR লিংক", { exact: true }).waitFor();
       assert.equal(
         await page.evaluate(
           () => document.documentElement.scrollWidth <= innerWidth + 1,

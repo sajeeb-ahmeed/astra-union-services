@@ -150,6 +150,8 @@ test("Decisions in the browser: the Chairman rejects (citizen sees the reason) a
     const visitor = await visitorContext.newPage();
     visitor.on("pageerror", (e) => errors.push(`visitor: ${e.message}`));
     await visitor.goto(origin);
+    // PORTAL-LANDING: the verify box sits behind the quick-services tab.
+    await visitor.locator("#home-tab-verify").click();
     await visitor.locator("#home-verify-input").fill(certificate.number);
     await Promise.all([visitor.waitForURL(/\/verify\?searchText=/), visitor.locator("#home-verify-input").press("Enter")]);
     await visitor.getByText("This certificate has been revoked", { exact: true }).waitFor();

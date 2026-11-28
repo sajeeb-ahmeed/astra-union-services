@@ -21,7 +21,7 @@ async function browserInstance(): Promise<Browser> {
 }
 
 test(
-  "Phase 1 public home on /: service discovery, account sign-in, hero search, verify spotlight, deep links and mobile layout",
+  "Public home on / (PORTAL-LANDING): grouped services, account doors, hero search, quick track/verify, text size, deep links and mobile layout",
   { timeout: 90000 },
   async () => {
     const browser = await browserInstance();
@@ -34,44 +34,50 @@ test(
       // addresses get the not-found view. The home itself lives at /.
       await page.goto(`${origin}/`);
       assert.equal(new URL(page.url()).pathname, "/");
-      // Discovery (home §4): HOME-REDESIGN-02 replaced the 8-card
-      // popular grid with the full service directory — .hsd-tile links
-      // (HomeServiceDirectory), the first 18 at rest and the rest
-      // behind "Show all 47 services"; the 47-card .svc-card grid
-      // lives only on /services.
-      const tiles = page.locator(".hsd-grid .hsd-tile");
-      await tiles.first().waitFor();
-      assert.equal(await tiles.count(), 18);
-      // PORTAL-A: services + four steps in the main column; track, verify,
-      // offices and help in the aside. The FAQ list moved to /help.
-      for (const heading of ["home-services-heading", "home-how-heading", "home-track-heading", "home-verify-heading", "home-offices-heading", "home-help-heading"])
+      // PORTAL-LANDING (owner's reference portal): all 47 services on the
+      // home page in seven groups, each service linked once; the 47-card
+      // .svc-card grid lives on /services.
+      const groups = page.locator(".ph-group");
+      await groups.first().waitFor();
+      assert.equal(await groups.count(), 7);
+      assert.equal(await page.locator(".ph-group .ph-service").count(), 47);
+      // Hero quick services (track tab first), services, four steps and the
+      // FAQ in the main column; notices, hotlines and help in the aside; the
+      // office band below.
+      for (const heading of ["home-quick-heading", "home-track-heading", "home-account-heading", "home-services-heading", "home-how-heading", "home-faq-heading", "home-notices-heading", "home-hotline-heading", "home-help-heading", "home-offices-heading"])
         assert.equal(await page.locator(`#${heading}`).count(), 1, heading);
-      assert.equal(await page.locator("#home-faq-heading").count(), 0, "the FAQ list lives on /help");
-      // PORTAL-A: the header offers the three doors of a service portal.
+      // Group chips narrow the directory; the filter box narrows by name.
+      await page.locator(".ph-chips").getByRole("button", { name: /^Tax & licences/ }).click();
+      assert.equal(await page.locator(".ph-group").count(), 1);
+      assert.equal(await page.locator(".ph-group .ph-service").count(), 4);
+      await page.locator(".ph-chips").getByRole("button", { name: /^All services/ }).click();
+      await page.locator("#home-service-filter").fill("trade");
+      assert.equal(await page.locator(".ph-group .ph-service").count(), 1);
+      await page.locator("#home-service-filter").fill("");
+      assert.equal(await page.locator(".ph-group .ph-service").count(), 47);
+      // The header offers the three doors of a service portal.
       const header = page.locator(".du-header");
       assert.equal(await header.getByRole("link", { name: "Register", exact: true }).getAttribute("href"), "/register");
       assert.equal(await header.getByRole("link", { name: "Office account", exact: true }).getAttribute("href"), "/register-office");
       assert.equal(await header.getByRole("link", { name: "Login", exact: true }).getAttribute("href"), "/login");
-      // …and one flat six-item menu.
+      // …and the reference portal's seven-item menu.
       const menu = page.getByRole("navigation", { name: "Public navigation", exact: true });
       assert.deepEqual(
         await menu.getByRole("link").allTextContents(),
-        ["Home", "Services", "Track application", "Verify certificate", "Union offices", "Help & FAQ"],
+        ["Home", "Services", "Track application", "Verify certificate", "Notice board", "How it works", "Help & FAQ"],
       );
-      // HOME-REDESIGN-02 CONTRACT CHANGE: the §5 account card is gone.
-      // The hero carries the account actions as plain links — a
-      // "Create a free account" CTA (/register) and a "Sign in" link
-      // (/login) inside .hx-hero-ctas — still with no credential fields
-      // on the home itself. The footer subscribe form is still present.
-      const heroCtas = page.locator(".hx-hero-ctas");
-      assert.equal(await heroCtas.getByLabel("Email or mobile number", { exact: true }).count(), 0);
-      assert.equal(await heroCtas.getByLabel("Password", { exact: true }).count(), 0);
-      const signInLink = heroCtas.getByRole("link", { name: "Sign in", exact: true });
-      assert.equal(await signInLink.count(), 1);
-      assert.equal(await signInLink.getAttribute("href"), "/login");
-      const registerLink = heroCtas.getByRole("link", { name: "Create a free account", exact: true });
-      assert.equal(await registerLink.count(), 1);
-      assert.equal(await registerLink.getAttribute("href"), "/register");
+      // The citizen-account card carries the account doors as plain links,
+      // with no credential fields on the home itself.
+      const account = page.locator(".ph-account");
+      assert.equal(await account.getByLabel("Email or mobile number", { exact: true }).count(), 0);
+      assert.equal(await account.getByLabel("Password", { exact: true }).count(), 0);
+      assert.equal(await account.getByRole("link", { name: "Login", exact: true }).getAttribute("href"), "/login");
+      assert.equal(await account.getByRole("link", { name: "Register", exact: true }).getAttribute("href"), "/register");
+      // Text size (অ- / অ / অ+) scales the page and is remembered.
+      await page.getByRole("button", { name: "Larger text", exact: true }).click();
+      assert.equal(await page.evaluate(() => document.documentElement.style.fontSize), "112.5%");
+      await page.getByRole("button", { name: "Normal text", exact: true }).click();
+      assert.equal(await page.evaluate(() => document.documentElement.style.fontSize), "100%");
       // PORTAL-E: no footer "updates" sign-up while outgoing email is not connected.
       assert.equal(await page.locator("#ax-subscribe-email").count(), 0);
       fs.mkdirSync("execution/screenshots", { recursive: true });
@@ -99,8 +105,10 @@ test(
       assert.equal(await page.locator(".public-service-grid .svc-card").count(), 47);
       await page.goto(`${origin}/`);
 
-      // Verify spotlight (home §6): an incomplete entry is rejected in
+      // Verify (quick-services tab): an incomplete entry is rejected in
       // place, and a full QR link routes to the verification page.
+      await page.getByRole("tab", { name: "Verify certificate", exact: true }).click();
+      assert.equal(await page.locator("#home-verify-heading").count(), 1);
       await page.locator("#home-verify-input").fill("x");
       await page.locator(".hx-verify-form").getByRole("button").click();
       await page.locator("#home-verify-error").waitFor();
@@ -150,19 +158,16 @@ test(
       await page.locator("#public-content").getByRole("button", { name: "Track application", exact: true }).click();
       await page.getByRole("alert").waitFor();
 
-      // A directory tile deep-links to the service detail page. The
-      // directory shows the first 18 tiles at rest, so expand it to
-      // reach service 42's tile.
+      // A directory link deep-links to the service detail page.
       await page.goto(`${origin}/`);
-      await page.locator(".hsd-more").click();
-      await page.locator('.hsd-tile[href="/services/trade-license"]').click();
+      await page.locator('.ph-service[href="/services/trade-license"]').click();
       await page.waitForURL(`${origin}/services/trade-license`);
       await page.locator(".service-detail").waitFor();
 
       const mobile = await browser.newPage({ viewport: { width: 390, height: 844 } });
       await mobile.addInitScript(() => { if (!localStorage.getItem("astra.language")) localStorage.setItem("astra.language", "en"); });
       await mobile.goto(origin);
-      await mobile.locator(".hsd-grid .hsd-tile").first().waitFor();
+      await mobile.locator(".ph-group .ph-service").first().waitFor();
       assert.equal(
         await mobile.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1),
         true,

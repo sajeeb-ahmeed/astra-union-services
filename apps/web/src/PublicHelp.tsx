@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { choose, useLanguage } from "./i18n.js";
+import { choose, LanguageSwitcher, useLanguage } from "./i18n.js";
 import { useSupportContact } from "./support-contact.js";
 import "./public-help.css";
 
@@ -8,10 +8,31 @@ import "./public-help.css";
  * (public-service sites date their notices and people check it) and the
  * way to get help. Contact details appear only when configured.
  */
+/** PORTAL-LANDING: text size (অ- / অ / অ+), remembered per browser. */
+const TEXT_SIZES = [
+  { key: "small", label: "অ-", bn: "লেখা ছোট করুন", en: "Smaller text", scale: "93.75%" },
+  { key: "normal", label: "অ", bn: "স্বাভাবিক লেখা", en: "Normal text", scale: "100%" },
+  { key: "large", label: "অ+", bn: "লেখা বড় করুন", en: "Larger text", scale: "112.5%" },
+] as const;
+type TextSize = (typeof TEXT_SIZES)[number]["key"];
+function readTextSize(): TextSize {
+  try {
+    const stored = localStorage.getItem("astra.textSize");
+    return TEXT_SIZES.some((s) => s.key === stored) ? (stored as TextSize) : "normal";
+  } catch {
+    return "normal";
+  }
+}
+function applyTextSize(size: TextSize) {
+  document.documentElement.style.fontSize = TEXT_SIZES.find((s) => s.key === size)!.scale;
+}
+
 export function UtilityBar() {
   const [lang] = useLanguage();
   // F-001: the owner-configured support contact (empty until set).
   const contact = useSupportContact();
+  const [size, setSize] = useState<TextSize>(readTextSize);
+  useEffect(() => applyTextSize(size), [size]);
   const today = new Intl.DateTimeFormat(lang === "bn" ? "bn-BD" : "en-GB", {
     weekday: "long",
     day: "numeric",
@@ -22,11 +43,38 @@ export function UtilityBar() {
     <div className="util-bar">
       <div className="du-container util-bar-row">
         <span className="util-bar-date">{today}</span>
+        <span className="util-bar-platform">
+          {choose({ bn: "ইউনিয়ন পরিষদ ডিজিটাল নাগরিক সেবা প্ল্যাটফর্ম", en: "Union Parishad digital citizen services platform" })}
+        </span>
         <span className="util-bar-links">
-          {contact.phone && (
+          <span className="util-text-size" role="group" aria-label={choose({ bn: "লেখার আকার", en: "Text size" })}>
+            {TEXT_SIZES.map((s) => (
+              <button
+                key={s.key}
+                type="button"
+                aria-pressed={size === s.key}
+                aria-label={choose({ bn: s.bn, en: s.en })}
+                title={choose({ bn: s.bn, en: s.en })}
+                onClick={() => {
+                  setSize(s.key);
+                  try {
+                    localStorage.setItem("astra.textSize", s.key);
+                  } catch {
+                    /* the choice still applies to this page */
+                  }
+                }}
+              >
+                {s.label}
+              </button>
+            ))}
+          </span>
+          <LanguageSwitcher />
+          {contact.phone ? (
             <a href={`tel:${contact.phone.replace(/\s+/g, "")}`}>
               {choose({ bn: "হেল্পলাইন", en: "Helpline" })}: {contact.phone}
             </a>
+          ) : (
+            <a href="/#hotline">{choose({ bn: "জরুরি হটলাইন", en: "Emergency hotlines" })}</a>
           )}
           {contact.email && <a href={`mailto:${contact.email}`}>{contact.email}</a>}
           <a href="/help">{choose({ bn: "সহায়তা কেন্দ্র", en: "Help centre" })}</a>
