@@ -73,6 +73,18 @@ import {
 import { dhakaDayMonthStamp } from "./dhaka.js";
 import { randomTenDigits } from "./references.js";
 import { pointsRouter } from "./points.js";
+import {
+  CERTIFICATE_FEE_GATE_CODES,
+  assertOfficeVerified,
+  certificateFeesRouter,
+  certificateLanguagesInput,
+  certificatePaymentMethodInput,
+  chargeCertificateFee,
+  normalizeLanguages,
+  ownerCertificateFeesRouter,
+  precheckCertificateFee,
+  type CertificateLanguages,
+} from "./certificate-fees.js";
 import { billingRouter, brandingRouter, settleApplicationFee } from "./billing.js";
 import {
   couponsRouter,
@@ -1027,6 +1039,8 @@ app.use("/api/v1", rechargeRouter);
 app.use("/api/v1", merchantRouter);
 app.use("/api/v1", refundsRouter);
 app.use("/api/v1", ownerInclusionRouter);
+app.use("/api/v1", certificateFeesRouter);
+app.use("/api/v1", ownerCertificateFeesRouter);
 app.use("/api/v1", ownerWitnessRouter);
 app.use("/api/v1", operationsRouter);
 app.use("/api/v1", ownerStatisticsRouter);
@@ -2830,6 +2844,9 @@ const ISSUANCE_GATE_CODES = new Set([
   "SIGNATURE_MISSING",
   "AMOUNTS_REQUIRED",
   "LANGUAGE_VALUE_MISSING",
+  // CERT-FEE: an unverified office, or an unpaid per-certificate fee, holds
+  // the issuance; the Chairman's approval is still recorded.
+  ...CERTIFICATE_FEE_GATE_CODES,
 ]);
 async function prepareIssuance(
   a: Auth,
@@ -3001,14 +3018,15 @@ async function finalizeIssuance(
     token: string;
     number: string;
     verificationUrl: string;
-    pdf: Buffer;
-    pdfEn: Buffer;
+    pdf: Buffer | null;
+    pdfEn: Buffer | null;
   },
   opts: {
     states: string[];
     stateMessage: string;
     recordApproval: boolean;
     testFailure?: string | null;
+    issuance: IssuanceChoice;
   },
 ) {
   return transaction(
@@ -3048,7 +3066,7 @@ async function finalizeIssuance(
       if (!config) fail(422, "SERVICE_DISABLED", "Service is disabled.");
       const c = (
         await db.query(
-          "INSERT INTO certificates(id,tenant_id,application_id,number,service_no,token_hash,pdf,pdf_en,issued_by,template_version) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING *",
+          "INSERT INTO certificates(id,tenant_id,application_id,number,service_no,token_hash,pdf,pdf_en,issued_by,template_version,languages) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING *",
           [
             meta.certId,
             a.tenantId,
@@ -3060,9 +3078,23 @@ async function finalizeIssuance(
             meta.pdfEn,
             a.userId,
             DEMO_TEMPLATE_VERSION,
+            opts.issuance.languages,
           ],
         )
       ).rows[0];
+      // CERT-FEE: a PER_CERTIFICATE office pays the platform for this
+      // certificate now — the online fee already paid, or the wallet debit —
+      // inside the issuance transaction, so no certificate exists unpaid and
+      // no fee is taken without its certificate.
+      if (opts.issuance.perCertificate)
+        await chargeCertificateFee(db, {
+          tenantId: a.tenantId!,
+          applicationId: id,
+          certificateId: c.id,
+          languages: opts.issuance.languages,
+          method: opts.issuance.paymentMethod,
+          actorId: a.userId,
+        });
       // Phase 3B: the issuance-time credit debit and point deduction are retired — the
       // application's fee was settled once at submit. The injected failure point keeps its
       // historical name; it still proves the whole issuance transaction rolls back.
@@ -3145,6 +3177,7 @@ async function renderCertificatePair(
   prepared: any,
   number: string,
   verificationUrl: string,
+  languages: CertificateLanguages = "bilingual",
 ) {
   const base = {
     number,
@@ -3157,14 +3190,21 @@ async function renderCertificatePair(
     renewalNumber: prepared.renewal,
     ...prepared.pdfExtras,
   };
-  const pdf = await generatePdf({
-    ...base,
-    payload: { ...prepared.payload, delivery_language: "bn" },
-  });
-  const pdfEn = await generatePdf({
-    ...base,
-    payload: { ...prepared.payload, delivery_language: "en" },
-  });
+  // CERT-FEE: a per-certificate issuance renders only the paid version(s).
+  const pdf =
+    languages === "en"
+      ? null
+      : await generatePdf({
+          ...base,
+          payload: { ...prepared.payload, delivery_language: "bn" },
+        });
+  const pdfEn =
+    languages === "bn"
+      ? null
+      : await generatePdf({
+          ...base,
+          payload: { ...prepared.payload, delivery_language: "en" },
+        });
   return { pdf, pdfEn };
 }
 
@@ -3210,6 +3250,7 @@ async function issueWithFreshNumber(
     stateMessage: string;
     recordApproval: boolean;
     testFailure?: string | null;
+    issuance: IssuanceChoice;
   },
 ) {
   const certId = randomUUID(),
@@ -3221,6 +3262,7 @@ async function issueWithFreshNumber(
       prepared,
       number,
       verificationUrl,
+      opts.issuance.languages,
     );
     const certificate = await finalizeIssuance(
       a,
@@ -3231,7 +3273,55 @@ async function issueWithFreshNumber(
     return { certificate, number };
   });
 }
-async function approveAndIssue(req: Req, a: Auth, id: string) {
+/**
+ * CERT-FEE: what this issuance produces and how it is paid. A SUBMIT_CREDIT
+ * office keeps the established behaviour (both language versions, nothing
+ * charged here — the fee was settled at submit). A PER_CERTIFICATE office
+ * issues the language(s) the Chairman chose (default: the citizen's ordered
+ * language) and pays for them in the issuance transaction.
+ */
+type IssuanceChoice = {
+  perCertificate: boolean;
+  languages: CertificateLanguages;
+  paymentMethod: "wallet" | "online" | null;
+};
+const issuanceChoiceInput = {
+  certificateLanguages: certificateLanguagesInput.optional(),
+  paymentMethod: certificatePaymentMethodInput.optional(),
+};
+async function resolveIssuanceChoice(
+  a: Auth,
+  id: string,
+  prepared: any,
+  input: { certificateLanguages?: CertificateLanguages; paymentMethod?: "wallet" | "online" },
+): Promise<IssuanceChoice> {
+  assertOfficeVerified(prepared.tenant);
+  if (prepared.tenant.billing_mode !== "PER_CERTIFICATE")
+    return { perCertificate: false, languages: "bilingual", paymentMethod: null };
+  const choice: IssuanceChoice = {
+    perCertificate: true,
+    languages:
+      input.certificateLanguages ??
+      normalizeLanguages(prepared.payload?.delivery_language) ??
+      "bn",
+    paymentMethod: input.paymentMethod ?? null,
+  };
+  await transaction(a.tenantId!, (db) =>
+    precheckCertificateFee(db, {
+      tenantId: a.tenantId!,
+      applicationId: id,
+      languages: choice.languages,
+      method: choice.paymentMethod,
+    }),
+  );
+  return choice;
+}
+async function approveAndIssue(
+  req: Req,
+  a: Auth,
+  id: string,
+  input: { certificateLanguages?: CertificateLanguages; paymentMethod?: "wallet" | "online" } = {},
+) {
   try {
     const prepared = await prepareIssuance(
       a,
@@ -3247,11 +3337,13 @@ async function approveAndIssue(req: Req, a: Auth, id: string) {
     }
     assertProfileComplete(prepared);
     assertCertificateGates(prepared);
+    const issuance = await resolveIssuanceChoice(a, id, prepared, input);
     const { certificate, number } = await issueWithFreshNumber(a, id, prepared, {
       states: APPROVE_STATES,
       stateMessage: "Approval requires a submitted application.",
       recordApproval: true,
       testFailure: req.header("X-Test-Failure"),
+      issuance,
     });
     const application = await transaction(a.tenantId!, async (db) =>
       camelRow(await loadApplication(db, id, a)),
@@ -3287,12 +3379,19 @@ app.post(
           "summon",
         ]),
         reason: z.string().trim().min(3).max(500).optional(),
+        // CERT-FEE: only meaningful for "approve" on a per-certificate office.
+        ...issuanceChoiceInput,
       })
       .strict()
       .parse(req.body);
     // Phase W: the Chairman's approval performs issuance atomically (see approveAndIssue).
     if (data.action === "approve") {
-      res.json(await approveAndIssue(req, a, String(req.params.id)));
+      res.json(
+        await approveAndIssue(req, a, String(req.params.id), {
+          certificateLanguages: data.certificateLanguages,
+          paymentMethod: data.paymentMethod,
+        }),
+      );
       return;
     }
     const result = await transaction(tenant(req), async (db) => {
@@ -3480,7 +3579,8 @@ app.post(
   wrap(async (req, res) => {
     const a = roles(req, ["approver"]);
     const id = uuid.parse(req.params.id);
-    z.object({})
+    const choice = z
+      .object(issuanceChoiceInput)
       .strict()
       .parse(req.body ?? {});
     // Phase W: /issue is now only the completion path for an application whose approval was
@@ -3498,6 +3598,7 @@ app.post(
     }
     assertProfileComplete(prepared);
     assertCertificateGates(prepared);
+    const issuance = await resolveIssuanceChoice(a, id, prepared, choice);
     const { certificate: result, number } = await issueWithFreshNumber(
       a,
       id,
@@ -3507,6 +3608,7 @@ app.post(
         stateMessage: "Current payload requires final approval.",
         recordApproval: false,
         testFailure: req.header("X-Test-Failure"),
+        issuance,
       },
     );
     // Phase X: email + status SMS to the citizen now that the completion issuance committed.
@@ -3563,9 +3665,20 @@ app.get(
       fail(
         404,
         "LANGUAGE_VERSION_UNAVAILABLE",
-        "This certificate was issued before bilingual storage; no English version exists.",
+        cert.languages === "bn"
+          ? "This certificate was issued in Bangla only; no English version exists."
+          : "This certificate was issued before bilingual storage; no English version exists.",
       );
-    const english = lang ? lang === "en" : cert.orderedLanguage === "en" && !!cert.pdf_en;
+    // CERT-FEE: an English-only certificate has no Bangla render.
+    if (lang === "bn" && !cert.pdf)
+      fail(
+        404,
+        "LANGUAGE_VERSION_UNAVAILABLE",
+        "This certificate was issued in English only; no Bangla version exists.",
+      );
+    const english = lang
+      ? lang === "en"
+      : !cert.pdf || (cert.orderedLanguage === "en" && !!cert.pdf_en);
     res
       .type("application/pdf")
       .setHeader(

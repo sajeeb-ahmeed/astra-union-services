@@ -43,6 +43,7 @@ import serviceCatalog from "./service-catalog.js";
 import { api, items } from "./api.js";
 import { ServicePriceList, taka } from "./ServicePriceList.js";
 import { DesignatedOfficers, OfficeInclusionForm } from "./OfficeInclusion.js";
+import { OfficeSelfSetupForm } from "./OfficeSelfSetup.js";
 import {
   GeographyFields,
   geographyPayload,
@@ -1878,6 +1879,8 @@ export function PublicPortal({
                         {t("Next offices ")}
                       </button>
                     </div>
+                    {/* CERT-FEE: an office can open itself; owner verification follows. */}
+                    <OfficeSelfSetupForm />
                     <OfficeInclusionForm />
                     {tx(
                       office && (

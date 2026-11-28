@@ -111,6 +111,23 @@
             "type": "string",
             "minLength": 3,
             "maxLength": 500
+          },
+          "certificateLanguages": {
+            "type": "string",
+            "enum": [
+              "bn",
+              "en",
+              "bilingual"
+            ],
+            "description": "CERT-FEE: per-certificate offices only — the version(s) to issue and pay for"
+          },
+          "paymentMethod": {
+            "type": "string",
+            "enum": [
+              "wallet",
+              "online"
+            ],
+            "description": "CERT-FEE: pay from the office points wallet now, or online (approval recorded; issue after payment)"
           }
         }
       },
@@ -2726,7 +2743,25 @@
               "schema": {
                 "type": "object",
                 "additionalProperties": false,
-                "properties": {},
+                "properties": {
+                  "certificateLanguages": {
+                    "type": "string",
+                    "enum": [
+                      "bn",
+                      "en",
+                      "bilingual"
+                    ],
+                    "description": "CERT-FEE: per-certificate offices only — the version(s) to issue and pay for"
+                  },
+                  "paymentMethod": {
+                    "type": "string",
+                    "enum": [
+                      "wallet",
+                      "online"
+                    ],
+                    "description": "CERT-FEE: pay from the office points wallet now, or online (approval recorded; issue after payment)"
+                  }
+                },
                 "required": []
               }
             }
@@ -17959,6 +17994,601 @@
           "404:ATTACHMENT_NOT_FOUND"
         ]
       }
+    },
+    "/api/v1/public/offices/self-register": {
+      "post": {
+        "summary": "Open a union office on the platform (self-service)",
+        "description": "CERT-FEE: an office opens itself with its first administrator. It can sign in and set up at once; it is hidden from the public directory and cannot issue certificates until the platform owner verifies it. Starts on per-certificate billing. Rate limited.",
+        "tags": [
+          "Public"
+        ],
+        "x-visibility": "public",
+        "x-source": "apps/api/src/management.ts",
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "nameBn": {
+                    "type": "string"
+                  },
+                  "nameEn": {
+                    "type": "string"
+                  },
+                  "officeType": {
+                    "type": "string",
+                    "enum": [
+                      "UNION",
+                      "MUNICIPALITY",
+                      "CITY_CORPORATION"
+                    ]
+                  },
+                  "geography": {
+                    "type": "object"
+                  },
+                  "adminEmail": {
+                    "type": "string",
+                    "format": "email"
+                  },
+                  "adminName": {
+                    "type": "string"
+                  },
+                  "adminPassword": {
+                    "type": "string",
+                    "minLength": 6,
+                    "maxLength": 18
+                  },
+                  "acceptTerms": {
+                    "type": "boolean",
+                    "const": true
+                  }
+                },
+                "required": [
+                  "nameBn",
+                  "nameEn",
+                  "officeType",
+                  "geography",
+                  "adminEmail",
+                  "adminName",
+                  "adminPassword",
+                  "acceptTerms"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Success; see apps/api/src/management.ts for the response contract.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Record unavailable in this scope."
+          },
+          "409": {
+            "description": "Duplicate or workflow conflict."
+          },
+          "422": {
+            "description": "Validated request failed."
+          }
+        },
+        "x-error-codes": [
+          "409:EMAIL_TAKEN",
+          "400:GEOGRAPHY_INCOMPLETE"
+        ]
+      }
+    },
+    "/api/v1/applications/{id}/certificate-fee": {
+      "get": {
+        "summary": "Quote the per-certificate platform fee for an application",
+        "description": "CERT-FEE: billing mode, office verification, the price for Bangla / English / both, the default (ordered) language, the office wallet balance, online availability and any fee already started.",
+        "tags": [
+          "Applications"
+        ],
+        "x-visibility": "authenticated",
+        "x-source": "apps/api/src/certificate-fees.ts",
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "x-roles": [
+          "approver",
+          "admin",
+          "finance"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success; see apps/api/src/certificate-fees.ts for the response contract.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Session missing or inactive."
+          },
+          "403": {
+            "description": "Role, CSRF or Origin denied."
+          },
+          "404": {
+            "description": "Record unavailable in this scope."
+          },
+          "409": {
+            "description": "Duplicate or workflow conflict."
+          },
+          "422": {
+            "description": "Validated request failed."
+          }
+        }
+      }
+    },
+    "/api/v1/applications/{id}/certificate-fee/order": {
+      "post": {
+        "summary": "Start or resume the online payment of a certificate fee",
+        "description": "CERT-FEE: for an APPROVED application on a per-certificate office, creates (or resumes) a certificate_fee payment order for the chosen languages; pay it through POST /api/v1/billing/orders/{orderId}/gateway/checkout. Changing the languages before paying cancels the earlier unpaid order.",
+        "tags": [
+          "Applications"
+        ],
+        "x-visibility": "authenticated",
+        "x-source": "apps/api/src/certificate-fees.ts",
+        "security": [
+          {
+            "session": [],
+            "csrf": []
+          }
+        ],
+        "x-roles": [
+          "approver"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "languages": {
+                    "type": "string",
+                    "enum": [
+                      "bn",
+                      "en",
+                      "bilingual"
+                    ],
+                    "description": "Certificate language version(s)"
+                  }
+                },
+                "required": [
+                  "languages"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Success; see apps/api/src/certificate-fees.ts for the response contract.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Session missing or inactive."
+          },
+          "403": {
+            "description": "Role, CSRF or Origin denied."
+          },
+          "404": {
+            "description": "Record unavailable in this scope."
+          },
+          "409": {
+            "description": "Duplicate or workflow conflict."
+          },
+          "422": {
+            "description": "Validated request failed."
+          }
+        },
+        "x-error-codes": [
+          "409:APPROVAL_REQUIRED",
+          "409:OFFICE_NOT_VERIFIED",
+          "409:CERTIFICATE_FEE_PAYMENT_IN_PROGRESS",
+          "422:CERTIFICATE_FEE_NOT_CONFIGURED"
+        ]
+      }
+    },
+    "/api/v1/owner/certificate-fees": {
+      "get": {
+        "summary": "Read the per-certificate platform prices",
+        "description": "CERT-FEE: the fixed Bangla and English certificate prices (poisha); both versions cost the sum.",
+        "tags": [
+          "Owner"
+        ],
+        "x-visibility": "authenticated",
+        "x-source": "apps/api/src/certificate-fees.ts",
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "x-roles": [
+          "owner"
+        ],
+        "responses": {
+          "200": {
+            "description": "Success; see apps/api/src/certificate-fees.ts for the response contract.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Session missing or inactive."
+          },
+          "403": {
+            "description": "Role, CSRF or Origin denied."
+          },
+          "404": {
+            "description": "Record unavailable in this scope."
+          },
+          "409": {
+            "description": "Duplicate or workflow conflict."
+          },
+          "422": {
+            "description": "Validated request failed."
+          }
+        }
+      },
+      "put": {
+        "summary": "Set the per-certificate platform prices",
+        "description": "CERT-FEE: the platform owner sets the Bangla and English certificate prices with a reason; each change is kept in the settings history.",
+        "tags": [
+          "Owner"
+        ],
+        "x-visibility": "authenticated",
+        "x-source": "apps/api/src/certificate-fees.ts",
+        "security": [
+          {
+            "session": [],
+            "csrf": []
+          }
+        ],
+        "x-roles": [
+          "owner"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "feeBnMinor": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 10000000
+                  },
+                  "feeEnMinor": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 10000000
+                  },
+                  "reason": {
+                    "type": "string",
+                    "minLength": 8,
+                    "maxLength": 500
+                  }
+                },
+                "required": [
+                  "feeBnMinor",
+                  "feeEnMinor",
+                  "reason"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success; see apps/api/src/certificate-fees.ts for the response contract.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Session missing or inactive."
+          },
+          "403": {
+            "description": "Role, CSRF or Origin denied."
+          },
+          "404": {
+            "description": "Record unavailable in this scope."
+          },
+          "409": {
+            "description": "Duplicate or workflow conflict."
+          },
+          "422": {
+            "description": "Validated request failed."
+          }
+        }
+      }
+    },
+    "/api/v1/owner/office-verifications": {
+      "get": {
+        "summary": "List offices by verification status",
+        "description": "CERT-FEE: self-registered offices awaiting (or refused) verification, with their first administrator.",
+        "tags": [
+          "Owner"
+        ],
+        "x-visibility": "authenticated",
+        "x-source": "apps/api/src/certificate-fees.ts",
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "x-roles": [
+          "owner"
+        ],
+        "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "PENDING",
+                "VERIFIED",
+                "REJECTED"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success; see apps/api/src/certificate-fees.ts for the response contract.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Session missing or inactive."
+          },
+          "403": {
+            "description": "Role, CSRF or Origin denied."
+          },
+          "404": {
+            "description": "Record unavailable in this scope."
+          },
+          "409": {
+            "description": "Duplicate or workflow conflict."
+          },
+          "422": {
+            "description": "Validated request failed."
+          }
+        }
+      }
+    },
+    "/api/v1/owner/tenants/{id}/verification": {
+      "post": {
+        "summary": "Verify or refuse an office",
+        "description": "CERT-FEE: the platform owner verifies an office (it becomes public and can issue) or refuses it with a note.",
+        "tags": [
+          "Owner"
+        ],
+        "x-visibility": "authenticated",
+        "x-source": "apps/api/src/certificate-fees.ts",
+        "security": [
+          {
+            "session": [],
+            "csrf": []
+          }
+        ],
+        "x-roles": [
+          "owner"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "decision": {
+                    "type": "string",
+                    "enum": [
+                      "VERIFIED",
+                      "REJECTED"
+                    ]
+                  },
+                  "note": {
+                    "type": "string",
+                    "minLength": 3,
+                    "maxLength": 500
+                  }
+                },
+                "required": [
+                  "decision"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success; see apps/api/src/certificate-fees.ts for the response contract.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Session missing or inactive."
+          },
+          "403": {
+            "description": "Role, CSRF or Origin denied."
+          },
+          "404": {
+            "description": "Record unavailable in this scope."
+          },
+          "409": {
+            "description": "Duplicate or workflow conflict."
+          },
+          "422": {
+            "description": "Validated request failed."
+          }
+        }
+      }
+    },
+    "/api/v1/owner/tenants/{id}/billing-mode": {
+      "put": {
+        "summary": "Set an office's billing mode",
+        "description": "CERT-FEE: SUBMIT_CREDIT (credit at submit / subscription) or PER_CERTIFICATE (platform fee at approval, per language version).",
+        "tags": [
+          "Owner"
+        ],
+        "x-visibility": "authenticated",
+        "x-source": "apps/api/src/certificate-fees.ts",
+        "security": [
+          {
+            "session": [],
+            "csrf": []
+          }
+        ],
+        "x-roles": [
+          "owner"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "billingMode": {
+                    "type": "string",
+                    "enum": [
+                      "SUBMIT_CREDIT",
+                      "PER_CERTIFICATE"
+                    ]
+                  },
+                  "reason": {
+                    "type": "string",
+                    "minLength": 8,
+                    "maxLength": 500
+                  }
+                },
+                "required": [
+                  "billingMode",
+                  "reason"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success; see apps/api/src/certificate-fees.ts for the response contract.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Session missing or inactive."
+          },
+          "403": {
+            "description": "Role, CSRF or Origin denied."
+          },
+          "404": {
+            "description": "Record unavailable in this scope."
+          },
+          "409": {
+            "description": "Duplicate or workflow conflict."
+          },
+          "422": {
+            "description": "Validated request failed."
+          }
+        }
+      }
     }
   },
   "tags": [
@@ -18049,8 +18679,8 @@
     "All other authenticated mutations": "session + CSRF required; no additional global limiter (per-route limiters are listed on the operation)"
   },
   "x-coverage": {
-    "documentedOperations": 224,
-    "documentedPaths": 199,
+    "documentedOperations": 232,
+    "documentedPaths": 206,
     "generatedBy": "scripts/update-batch-c-openapi.mjs (Batch C / A-001)",
     "note": "Counts are spec-side only; live coverage is enforced by scripts/check-openapi-coverage.mjs against the running Express route table."
   }
