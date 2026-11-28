@@ -28,6 +28,32 @@ runs everything as that one user:
   enforceable in this mode. Protect the database accordingly: never expose
   the PostgreSQL port publicly, and keep the environment values secret.
 
+### Pre-deploy check for row-level-security migrations (082 and later)
+
+Because the one user both owns the tables and runs the app, FORCE ROW LEVEL
+SECURITY applies to it, and the SECURITY DEFINER functions (session
+resolution in 082, identity lookups in 083, office verification and fees in
+084) run as that same user. Before deploying a bundle with new RLS
+migrations, rehearse it locally on a disposable database shaped like cPanel:
+
+1. As a PostgreSQL superuser on a local server:
+   `CREATE ROLE cpanel_user LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS;`
+   `CREATE DATABASE cpanelsim OWNER cpanel_user;` and, in `cpanelsim`,
+   `ALTER SCHEMA public OWNER TO cpanel_user;`
+2. With `ASTRA_DB_SINGLE_ROLE=1`, `DATABASE_URL` = `DATABASE_ADMIN_URL` =
+   `postgresql://cpanel_user@127.0.0.1:<port>/cpanelsim` and throwaway
+   `OWNER_EMAIL` / `OWNER_PASSWORD`: run `npm run db:initialize-cpanel`, then
+   `npm run verify:readiness -- --db`.
+3. Start the API on that database and run
+   `node --import tsx scripts/single-role-smoke.ts http://127.0.0.1:<port>`
+   (same environment). It signs in, creates an office and users, signs up a
+   citizen, opens and verifies a self-service office, and issues a
+   wallet-paid certificate. It refuses non-local origins: never run it
+   against the live site.
+
+Rehearsed on 28 Nov 2026 for migrations 001–084 (PostgreSQL 17.7): all
+migrations applied, readiness 5/5, smoke 7/7.
+
 ## 1. Prerequisites
 
 - A cPanel account with **Setup Node.js App** and **PostgreSQL Databases**
